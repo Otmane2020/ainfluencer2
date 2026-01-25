@@ -4,6 +4,7 @@ import { Video, Sparkles, Loader2, Upload, Wand2, Volume2, Play, Plus, Trash2 } 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Voice {
   id: string;
@@ -129,22 +130,101 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
       description: "Les vidéos sont en cours de création",
     });
 
-    // Simulate video generation (in real app, this would call video generation APIs)
-    setTimeout(() => {
-      setSegments((prev) =>
-        prev.map((s) =>
-          s.status === "generating"
-            ? { ...s, status: "ready" as const, videoUrl: "demo-video-url" }
-            : s
-        )
+    try {
+      // Generate audio for each segment using ElevenLabs TTS
+      const updatedSegments = await Promise.all(
+        segments.map(async (segment) => {
+          if (!segment.script.trim()) return segment;
+
+          try {
+            // Call text-to-speech edge function
+            const response = await fetch(
+              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                  Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                },
+                body: JSON.stringify({
+                  text: segment.script,
+                  voiceId: selectedVoice.id,
+                }),
+              }
+            );
+
+            if (!response.ok) {
+              const errorData = await response.text();
+              console.error("TTS error:", errorData);
+              throw new Error(`TTS failed: ${response.status}`);
+            }
+
+            const audioBlob = await response.blob();
+            
+            // Upload audio to Supabase storage
+            const fileName = `audio/${Date.now()}-${segment.id}.mp3`;
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from("media")
+              .upload(fileName, audioBlob, {
+                contentType: "audio/mpeg",
+                upsert: true,
+              });
+
+            if (uploadError) {
+              console.error("Upload error:", uploadError);
+              throw uploadError;
+            }
+
+            // Get public URL
+            const { data: urlData } = supabase.storage
+              .from("media")
+              .getPublicUrl(fileName);
+
+            return {
+              ...segment,
+              status: "ready" as const,
+              audioUrl: urlData.publicUrl,
+              videoUrl: urlData.publicUrl, // For now, video URL = audio URL (static avatar + audio)
+            };
+          } catch (error) {
+            console.error("Segment generation error:", error);
+            return {
+              ...segment,
+              status: "error" as const,
+            };
+          }
+        })
       );
+
+      setSegments(updatedSegments);
+      setIsGenerating(false);
+
+      const readyCount = updatedSegments.filter((s) => s.status === "ready").length;
+      const errorCount = updatedSegments.filter((s) => s.status === "error").length;
+
+      if (readyCount > 0) {
+        toast({
+          title: "Vidéos générées !",
+          description: `${readyCount} segment(s) prêt(s)${errorCount > 0 ? `, ${errorCount} erreur(s)` : ""}`,
+        });
+        onVideosGenerated(updatedSegments);
+      } else {
+        toast({
+          title: "Erreur de génération",
+          description: "Impossible de générer les vidéos. Vérifiez la configuration.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Generation error:", error);
       setIsGenerating(false);
       toast({
-        title: "Vidéos générées !",
-        description: `${validSegments.length} segment(s) prêt(s)`,
+        title: "Erreur",
+        description: "Une erreur est survenue lors de la génération",
+        variant: "destructive",
       });
-      onVideosGenerated(segments);
-    }, 3000);
+    }
   };
 
   const totalDuration = segments.reduce((acc, s) => acc + s.duration, 0);
