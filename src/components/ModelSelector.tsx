@@ -1,17 +1,20 @@
 import { motion } from "framer-motion";
-import { Video, Image, Music, Volume2, Sparkles, Check } from "lucide-react";
+import { Video, Image, Music, Volume2, Check, User, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface AIModel {
   id: string;
   name: string;
-  category: "video" | "image" | "music";
+  category: "video" | "image" | "music" | "avatar";
   provider: string;
   price: string;
   priceValue: number;
   priceUnit: string;
+  originalPrice?: number; // Prix original avant réduction
+  discount?: number; // Pourcentage de réduction
   description: string;
   needsVoice: boolean;
+  needsAvatar?: boolean; // Si le modèle nécessite un avatar
   quality: "standard" | "pro" | "ultra";
   features?: string[];
 }
@@ -78,23 +81,12 @@ export const AI_MODELS: AIModel[] = [
     price: "$0.05",
     priceValue: 0.05,
     priceUnit: "/seconde",
+    originalPrice: 0.08,
+    discount: 38,
     description: "Excellent rapport qualité-prix",
     needsVoice: true,
     quality: "standard",
     features: ["1080p", "5-10s", "Fast"],
-  },
-  {
-    id: "kling-lip-sync",
-    name: "Kling Lip-Sync",
-    category: "video",
-    provider: "Kuaishou",
-    price: "$0.10",
-    priceValue: 0.10,
-    priceUnit: "/seconde",
-    description: "Avatar parlant avec sync labiale",
-    needsVoice: true,
-    quality: "pro",
-    features: ["Lip-sync", "5-10s", "Avatar animé"],
   },
   {
     id: "minimax-hailuo",
@@ -104,10 +96,73 @@ export const AI_MODELS: AIModel[] = [
     price: "$0.04",
     priceValue: 0.04,
     priceUnit: "/seconde",
+    originalPrice: 0.06,
+    discount: 33,
     description: "Vidéos courtes rapides et économiques",
     needsVoice: true,
     quality: "standard",
     features: ["720p", "4-6s", "Budget-friendly"],
+  },
+  // Avatar Models (Lip-Sync)
+  {
+    id: "kling-lip-sync",
+    name: "Kling Lip-Sync",
+    category: "avatar",
+    provider: "Kuaishou",
+    price: "$0.10",
+    priceValue: 0.10,
+    priceUnit: "/seconde",
+    description: "Avatar parlant avec sync labiale réaliste",
+    needsVoice: true,
+    needsAvatar: true,
+    quality: "pro",
+    features: ["Lip-sync", "5-10s", "Avatar animé", "Voix IA"],
+  },
+  {
+    id: "kling-lip-sync-pro",
+    name: "Kling Lip-Sync Pro",
+    category: "avatar",
+    provider: "Kuaishou",
+    price: "$0.18",
+    priceValue: 0.18,
+    priceUnit: "/seconde",
+    originalPrice: 0.25,
+    discount: 28,
+    description: "Qualité premium, expressions naturelles",
+    needsVoice: true,
+    needsAvatar: true,
+    quality: "ultra",
+    features: ["HD Lip-sync", "10-30s", "Émotions", "Multi-angle"],
+  },
+  {
+    id: "hedra-avatar",
+    name: "Hedra Avatar",
+    category: "avatar",
+    provider: "Hedra",
+    price: "$0.15",
+    priceValue: 0.15,
+    priceUnit: "/seconde",
+    description: "Avatar IA réaliste, expressions dynamiques",
+    needsVoice: true,
+    needsAvatar: true,
+    quality: "pro",
+    features: ["1080p", "5-60s", "Expressions", "Multi-styles"],
+  },
+  {
+    id: "sync-labs",
+    name: "Sync Labs",
+    category: "avatar",
+    provider: "Sync Labs",
+    price: "$0.08",
+    priceValue: 0.08,
+    priceUnit: "/seconde",
+    originalPrice: 0.12,
+    discount: 33,
+    description: "Lip-sync économique et rapide",
+    needsVoice: true,
+    needsAvatar: true,
+    quality: "standard",
+    features: ["720p", "5-30s", "Fast render", "Budget"],
   },
   // Image Models
   {
@@ -144,6 +199,8 @@ export const AI_MODELS: AIModel[] = [
     price: "$0.01",
     priceValue: 0.01,
     priceUnit: "/image",
+    originalPrice: 0.02,
+    discount: 50,
     description: "Images rapides et économiques",
     needsVoice: false,
     quality: "standard",
@@ -170,6 +227,8 @@ export const AI_MODELS: AIModel[] = [
     price: "$0.02",
     priceValue: 0.02,
     priceUnit: "/image",
+    originalPrice: 0.03,
+    discount: 33,
     description: "Optimisé pour le contenu asiatique",
     needsVoice: false,
     quality: "standard",
@@ -190,6 +249,21 @@ export const AI_MODELS: AIModel[] = [
     features: ["30-120s", "Tous genres", "Royalty-free"],
   },
   {
+    id: "suno-v4.5",
+    name: "Suno V4.5+",
+    category: "music",
+    provider: "Suno",
+    price: "$0.03",
+    priceValue: 0.03,
+    priceUnit: "/morceau",
+    originalPrice: 0.05,
+    discount: 40,
+    description: "Musique rapide et économique",
+    needsVoice: false,
+    quality: "standard",
+    features: ["30-60s", "Genres populaires", "Royalty-free"],
+  },
+  {
     id: "kling-tts",
     name: "Kling TTS",
     category: "music",
@@ -197,10 +271,25 @@ export const AI_MODELS: AIModel[] = [
     price: "$0.01",
     priceValue: 0.01,
     priceUnit: "/requête",
+    originalPrice: 0.02,
+    discount: 50,
     description: "Synthèse vocale économique",
     needsVoice: false,
     quality: "standard",
     features: ["Multi-voix", "Rapide", "Low-cost"],
+  },
+  {
+    id: "elevenlabs-tts",
+    name: "ElevenLabs TTS",
+    category: "music",
+    provider: "ElevenLabs",
+    price: "$0.024",
+    priceValue: 0.024,
+    priceUnit: "/1K chars",
+    description: "Voix ultra-réalistes, émotions naturelles",
+    needsVoice: false,
+    quality: "ultra",
+    features: ["29+ voix", "Émotions", "Multi-langues"],
   },
 ];
 
@@ -212,6 +301,8 @@ const getCategoryIcon = (category: AIModel["category"]) => {
       return Image;
     case "music":
       return Music;
+    case "avatar":
+      return User;
   }
 };
 
@@ -251,13 +342,19 @@ export const ModelSelector = ({
 
   const categoryLabels = {
     video: "🎬 Vidéos",
+    avatar: "👤 Avatars Parlants",
     image: "🖼️ Images",
-    music: "🎵 Audio",
+    music: "🎵 Audio & Voix",
   };
+
+  const categoryOrder = ["video", "avatar", "image", "music"];
+  const sortedCategories = Object.entries(groupedModels).sort(
+    ([a], [b]) => categoryOrder.indexOf(a) - categoryOrder.indexOf(b)
+  );
 
   return (
     <div className="space-y-4">
-      {Object.entries(groupedModels).map(([cat, models]) => (
+      {sortedCategories.map(([cat, models]) => (
         <div key={cat}>
           <h4 className="mb-2 text-sm font-semibold text-muted-foreground">
             {categoryLabels[cat as keyof typeof categoryLabels]}
@@ -280,8 +377,16 @@ export const ModelSelector = ({
                       : "border-border hover:border-primary/50 hover:bg-muted/50"
                   )}
                 >
+                  {/* Discount badge */}
+                  {model.discount && (
+                    <div className="absolute -right-1 -top-1 flex items-center gap-0.5 rounded-full bg-green-500 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm">
+                      <TrendingDown className="h-2.5 w-2.5" />
+                      -{model.discount}%
+                    </div>
+                  )}
+
                   {/* Selected indicator */}
-                  {isSelected && (
+                  {isSelected && !model.discount && (
                     <div className="absolute right-2 top-2">
                       <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary">
                         <Check className="h-3 w-3 text-primary-foreground" />
@@ -329,23 +434,36 @@ export const ModelSelector = ({
                     </div>
                   )}
 
-                  {/* Price & Voice */}
-                  <div className="mt-auto flex items-center justify-between">
+                  {/* Price & Voice & Avatar */}
+                  <div className="mt-auto flex items-center justify-between gap-1">
                     <div className="flex items-center gap-1">
+                      {model.originalPrice && (
+                        <span className="text-xs text-muted-foreground line-through">
+                          ${model.originalPrice.toFixed(2)}
+                        </span>
+                      )}
                       <span className="text-lg font-bold text-primary">{model.price}</span>
                       <span className="text-xs text-muted-foreground">{model.priceUnit}</span>
                     </div>
-                    {showVoiceIndicator && (
-                      <div className={cn(
-                        "flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
-                        model.needsVoice
-                          ? "bg-secondary text-secondary-foreground"
-                          : "bg-muted text-muted-foreground"
-                      )}>
-                        <Volume2 className="h-3 w-3" />
-                        {model.needsVoice ? "Voix IA" : "Sans voix"}
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {model.needsAvatar && (
+                        <div className="flex items-center gap-0.5 rounded-full bg-accent/20 px-1.5 py-0.5 text-[10px] font-medium text-accent">
+                          <User className="h-2.5 w-2.5" />
+                          Avatar
+                        </div>
+                      )}
+                      {showVoiceIndicator && (
+                        <div className={cn(
+                          "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                          model.needsVoice
+                            ? "bg-secondary text-secondary-foreground"
+                            : "bg-muted text-muted-foreground"
+                        )}>
+                          <Volume2 className="h-2.5 w-2.5" />
+                          {model.needsVoice ? "Voix" : "Sans"}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </motion.button>
               );
