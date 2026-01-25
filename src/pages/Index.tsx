@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Header } from "@/components/Header";
 import { StatsOverview } from "@/components/StatsOverview";
 import { AIContentGenerator } from "@/components/AIContentGenerator";
@@ -162,83 +162,81 @@ const Index = () => {
             </TabsTrigger>
           </TabsList>
 
-          <AnimatePresence mode="wait">
-            <TabsContent value="posts" className="mt-6">
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                className="grid grid-cols-1 gap-6 lg:grid-cols-3"
-              >
-                {/* Left Column - Generator & Preview */}
-                <div className="space-y-6 lg:col-span-2">
-                  <AIContentGenerator onContentGenerated={handleContentGenerated} />
+          <TabsContent value="posts" className="mt-6">
+            <motion.div
+              key="posts-content"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="grid grid-cols-1 gap-6 lg:grid-cols-3"
+            >
+              {/* Left Column - Generator & Preview */}
+              <div className="space-y-6 lg:col-span-2">
+                <AIContentGenerator onContentGenerated={handleContentGenerated} />
 
-                  {generatedContent && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                    >
-                      <h3 className="mb-4 font-display text-lg font-semibold">
-                        Aperçu du post
-                      </h3>
-                      <div className="max-w-md">
-                        <PostPreview content={generatedContent} avatar={avatarUrl} />
-                      </div>
-                    </motion.div>
-                  )}
-                </div>
+                {generatedContent && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                  >
+                    <h3 className="mb-4 font-display text-lg font-semibold">
+                      Aperçu du post
+                    </h3>
+                    <div className="max-w-md">
+                      <PostPreview content={generatedContent} avatar={avatarUrl} />
+                    </div>
+                  </motion.div>
+                )}
+              </div>
 
-                {/* Right Column - Connections & Queue */}
-                <div className="space-y-6">
-                  <AvatarManager
-                    currentAvatar={avatarUrl}
-                    onAvatarChange={setAvatarUrl}
-                  />
-                  <SocialConnections
-                    connections={connections}
-                    onConnect={handleConnect}
-                  />
-                  <PostQueue
-                    posts={scheduledPosts}
-                    onPublishNow={handlePublishNow}
-                    onDelete={handleDeletePost}
-                  />
-                </div>
-              </motion.div>
-            </TabsContent>
+              {/* Right Column - Connections & Queue */}
+              <div className="space-y-6">
+                <AvatarManager
+                  currentAvatar={avatarUrl}
+                  onAvatarChange={setAvatarUrl}
+                />
+                <SocialConnections
+                  connections={connections}
+                  onConnect={handleConnect}
+                />
+                <PostQueue
+                  posts={scheduledPosts}
+                  onPublishNow={handlePublishNow}
+                  onDelete={handleDeletePost}
+                />
+              </div>
+            </motion.div>
+          </TabsContent>
 
-            <TabsContent value="videos" className="mt-6">
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="grid grid-cols-1 gap-6 lg:grid-cols-3"
-              >
-                {/* Left Column - Video Generator */}
-                <div className="space-y-6 lg:col-span-2">
-                  <VideoGenerator
-                    avatarUrl={avatarUrl}
-                    onVideosGenerated={handleVideosGenerated}
-                  />
-                </div>
+          <TabsContent value="videos" className="mt-6">
+            <motion.div
+              key="videos-content"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="grid grid-cols-1 gap-6 lg:grid-cols-3"
+            >
+              {/* Left Column - Video Generator */}
+              <div className="space-y-6 lg:col-span-2">
+                <VideoGenerator
+                  avatarUrl={avatarUrl}
+                  onVideosGenerated={handleVideosGenerated}
+                />
+              </div>
 
-                {/* Right Column - Avatar & Preview */}
-                <div className="space-y-6">
-                  <AvatarManager
-                    currentAvatar={avatarUrl}
-                    onAvatarChange={setAvatarUrl}
-                  />
-                  <VideoPreview
-                    segments={videoSegments}
-                    avatarUrl={avatarUrl}
-                    onMerge={handleMergeVideos}
-                    onDeleteSegment={handleDeleteVideoSegment}
-                  />
-                </div>
-              </motion.div>
-            </TabsContent>
-          </AnimatePresence>
+              {/* Right Column - Avatar & Preview */}
+              <div className="space-y-6">
+                <AvatarManager
+                  currentAvatar={avatarUrl}
+                  onAvatarChange={setAvatarUrl}
+                />
+                <VideoPreview
+                  segments={videoSegments}
+                  avatarUrl={avatarUrl}
+                  onMerge={handleMergeVideos}
+                  onDeleteSegment={handleDeleteVideoSegment}
+                />
+              </div>
+            </motion.div>
+          </TabsContent>
         </Tabs>
       </main>
     </div>
