@@ -2,3 +2,9 @@ project_id = "vgffjuvaedmxoxvzovoq"
 
 [functions.generate-content]
 verify_jwt = false
+
+[functions.generate-avatar]
+verify_jwt = false
+
+[functions.text-to-speech]
+verify_jwt = false
