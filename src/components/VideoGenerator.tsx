@@ -49,7 +49,7 @@ interface VideoGeneratorProps {
 
 export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorProps) => {
   const [segments, setSegments] = useState<VideoSegment[]>([
-    { id: "1", script: "", duration: 10, status: "pending" },
+    { id: "1", script: "", duration: 8, status: "pending" },
   ]);
   const [selectedVoice, setSelectedVoice] = useState<Voice>(AVAILABLE_VOICES[0]);
   const [selectedModel, setSelectedModel] = useState<AIModel>(
@@ -63,7 +63,7 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
   const addSegment = () => {
     setSegments((prev) => [
       ...prev,
-      { id: Date.now().toString(), script: "", duration: 10, status: "pending" },
+      { id: Date.now().toString(), script: "", duration: 8, status: "pending" },
     ]);
   };
 
@@ -328,7 +328,7 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
               body: JSON.stringify({
                 prompt: segment.script,
                 avatarUrl,
-                duration: segment.duration <= 4 ? 4 : segment.duration <= 8 ? 8 : 12,
+                duration: segment.duration,
                 size: "720x1280",
                 model: selectedModel.id,
               }),
@@ -573,10 +573,10 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
                       onChange={(e) => updateSegment(segment.id, { duration: Number(e.target.value) })}
                       className="rounded-lg border border-border bg-background px-2 py-1 text-sm"
                     >
-                      <option value={5}>5 secondes</option>
-                      <option value={10}>10 secondes</option>
-                      <option value={15}>15 secondes</option>
-                      <option value={20}>20 secondes</option>
+                      <option value={4}>4 secondes ($0.32)</option>
+                      <option value={8}>8 secondes ($0.64)</option>
+                      <option value={12}>12 secondes ($0.96)</option>
+                      <option value={20}>20 secondes ($1.60)</option>
                     </select>
                   )}
                   {segments.length > 1 && (
