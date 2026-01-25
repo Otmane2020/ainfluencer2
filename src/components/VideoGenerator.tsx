@@ -40,15 +40,32 @@ interface VideoSegment {
   imageUrl?: string;
   taskId?: string;
   progress?: number;
+  submitTime?: number;
+  finishTime?: number;
+}
+
+export interface GenerationTask {
+  id: string;
+  taskId: string;
+  status: "queued" | "in_progress" | "completed" | "failed";
+  progress: number;
+  submitTime?: number;
+  finishTime?: number;
+  duration: number;
+  model: string;
+  amount: number;
+  videoUrl?: string;
 }
 
 interface VideoGeneratorProps {
   avatarUrl?: string;
   onVideosGenerated: (videos: VideoSegment[]) => void;
+  onTasksUpdated?: (tasks: GenerationTask[]) => void;
 }
 
-export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorProps) => {
+export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }: VideoGeneratorProps) => {
   const defaultModel = AI_MODELS.find((m) => m.id === "sora-2") || AI_MODELS[0];
+  const [generationTasks, setGenerationTasks] = useState<GenerationTask[]>([]);
   const [segments, setSegments] = useState<VideoSegment[]>([
     { id: "1", script: "", duration: defaultModel.supportedDurations?.[0] || 8, status: "pending" },
   ]);
@@ -311,6 +328,7 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
     );
 
     // Step 2: Generate videos with selected model
+    const currentTime = Math.floor(Date.now() / 1000);
     const segmentsWithTasks = await Promise.all(
       segmentsWithAudio.map(async (segment) => {
         if (segment.status === "error" || !segment.script.trim()) return segment;
@@ -341,7 +359,26 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
           }
 
           const result = await response.json();
-          return { ...segment, taskId: result.taskId, progress: 0 };
+          
+          // Add to generation tasks
+          const newTask: GenerationTask = {
+            id: segment.id,
+            taskId: result.taskId,
+            status: "queued",
+            progress: 0,
+            submitTime: currentTime,
+            duration: segment.duration,
+            model: selectedModel.name,
+            amount: segment.duration * selectedModel.priceValue,
+          };
+          
+          setGenerationTasks(prev => {
+            const updated = [...prev, newTask];
+            onTasksUpdated?.(updated);
+            return updated;
+          });
+          
+          return { ...segment, taskId: result.taskId, progress: 0, submitTime: currentTime };
         } catch (error) {
           console.error("Video task creation error:", error);
           return { ...segment, status: "error" as const };
@@ -378,6 +415,23 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
 
             const status = await statusResponse.json();
 
+            // Update generation task with new status
+            setGenerationTasks(prev => {
+              const updated = prev.map(task => 
+                task.taskId === segment.taskId 
+                  ? { 
+                      ...task, 
+                      status: status.status as GenerationTask["status"],
+                      progress: status.progress || 0,
+                      finishTime: status.finishTime,
+                      videoUrl: status.videoUrl,
+                    } 
+                  : task
+              );
+              onTasksUpdated?.(updated);
+              return updated;
+            });
+
             if (status.status === "completed" && status.videoUrl) {
               const videoResponse = await fetch(
                 `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-sora?action=download&taskId=${segment.taskId}`,
@@ -406,6 +460,7 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
                   status: "ready" as const,
                   videoUrl: videoUrlData.publicUrl,
                   progress: 100,
+                  finishTime: status.finishTime,
                 };
               }
 
@@ -414,6 +469,7 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
                 status: "ready" as const,
                 videoUrl: status.videoUrl,
                 progress: 100,
+                finishTime: status.finishTime,
               };
             } else if (status.status === "failed") {
               anyError = true;

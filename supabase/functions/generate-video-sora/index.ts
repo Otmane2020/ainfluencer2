@@ -128,11 +128,27 @@ serve(async (req) => {
         ? parseInt(rawProgress.replace('%', '')) 
         : rawProgress;
 
-      // Find video URL in nested structure
-      const videoUrl = innerData.output_video || videoData.output_video || 
-                       videoData.video_url || innerData.url || videoData.url;
+      // Extract timestamps
+      const submitTime = videoData.submit_time || innerData.submit_time;
+      const finishTime = videoData.finish_time || innerData.finish_time;
 
-      console.log("Parsed - Status:", taskStatus, "Progress:", taskProgress, "VideoUrl:", videoUrl);
+      // IMPORTANT: CometAPI returns the video URL in fail_reason when status is SUCCESS
+      let videoUrl = undefined;
+      if (taskStatus === "success" || taskStatus === "succeeded" || taskStatus === "completed" || taskStatus === "done") {
+        // Check fail_reason first (CometAPI quirk)
+        if (videoData.fail_reason && videoData.fail_reason.startsWith("http")) {
+          videoUrl = videoData.fail_reason;
+        } else {
+          videoUrl = innerData.output_video || videoData.output_video || 
+                     videoData.video_url || innerData.url || videoData.url;
+        }
+      }
+
+      // Get model and seconds from response
+      const model = innerData.model || videoData.model || "sora-2";
+      const seconds = innerData.seconds || videoData.seconds || 12;
+
+      console.log("Parsed - Status:", taskStatus, "Progress:", taskProgress, "VideoUrl:", videoUrl, "SubmitTime:", submitTime, "FinishTime:", finishTime);
 
       // Map CometAPI status to our status
       let mappedStatus: "queued" | "in_progress" | "completed" | "failed" = "in_progress";
@@ -144,19 +160,16 @@ serve(async (req) => {
         mappedStatus = "failed";
       }
 
-      const statusResponse: VideoStatusResponse = {
+      const statusResponse = {
         id: taskId,
         status: mappedStatus,
         progress: typeof taskProgress === "number" ? taskProgress : parseInt(taskProgress) || 0,
+        videoUrl,
+        submitTime,
+        finishTime,
+        model,
+        seconds,
       };
-
-      if (mappedStatus === "completed" && videoUrl) {
-        statusResponse.videoUrl = videoUrl;
-      }
-
-      if (videoData.error || videoData.message) {
-        statusResponse.error = videoData.error || videoData.message;
-      }
 
       return new Response(
         JSON.stringify(statusResponse),

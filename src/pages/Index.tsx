@@ -6,10 +6,11 @@ import { AIContentGenerator } from "@/components/AIContentGenerator";
 import { PostPreview } from "@/components/PostPreview";
 import { SocialConnections } from "@/components/SocialConnections";
 import { PostQueue } from "@/components/PostQueue";
-import { VideoGenerator } from "@/components/VideoGenerator";
+import { VideoGenerator, GenerationTask } from "@/components/VideoGenerator";
 import { VideoPreview } from "@/components/VideoPreview";
 import { VideoHistory, VideoHistoryItem } from "@/components/VideoHistory";
 import { AvatarManager } from "@/components/AvatarManager";
+import { GenerationTracker } from "@/components/GenerationTracker";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ImageIcon, Video } from "lucide-react";
@@ -41,6 +42,7 @@ const Index = () => {
   const [scheduledPosts, setScheduledPosts] = useState<ScheduledPost[]>([]);
   const [videoSegments, setVideoSegments] = useState<VideoSegment[]>([]);
   const [videoHistory, setVideoHistory] = useState<VideoHistoryItem[]>([]);
+  const [generationTasks, setGenerationTasks] = useState<GenerationTask[]>([]);
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>();
   const [activeTab, setActiveTab] = useState("posts");
   const [connections, setConnections] = useState([
@@ -251,7 +253,11 @@ const Index = () => {
                 <VideoGenerator
                   avatarUrl={avatarUrl}
                   onVideosGenerated={handleVideosGenerated}
+                  onTasksUpdated={setGenerationTasks}
                 />
+                {generationTasks.length > 0 && (
+                  <GenerationTracker tasks={generationTasks} />
+                )}
               </div>
 
               {/* Right Column - Avatar, Preview & History */}
