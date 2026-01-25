@@ -48,22 +48,22 @@ interface VideoGeneratorProps {
 }
 
 export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorProps) => {
+  const defaultModel = AI_MODELS.find((m) => m.id === "sora-2") || AI_MODELS[0];
   const [segments, setSegments] = useState<VideoSegment[]>([
-    { id: "1", script: "", duration: 8, status: "pending" },
+    { id: "1", script: "", duration: defaultModel.supportedDurations?.[0] || 8, status: "pending" },
   ]);
   const [selectedVoice, setSelectedVoice] = useState<Voice>(AVAILABLE_VOICES[0]);
-  const [selectedModel, setSelectedModel] = useState<AIModel>(
-    AI_MODELS.find((m) => m.id === "sora-2") || AI_MODELS[0]
-  );
+  const [selectedModel, setSelectedModel] = useState<AIModel>(defaultModel);
   const [isGenerating, setIsGenerating] = useState(false);
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const { toast } = useToast();
 
   const addSegment = () => {
+    const defaultDuration = selectedModel.supportedDurations?.[0] || 8;
     setSegments((prev) => [
       ...prev,
-      { id: Date.now().toString(), script: "", duration: 8, status: "pending" },
+      { id: Date.now().toString(), script: "", duration: defaultDuration, status: "pending" },
     ]);
   };
 
@@ -508,6 +508,11 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
             selectedModel={selectedModel}
             onModelChange={(model) => {
               setSelectedModel(model);
+              // Reset durations to first supported duration for new model
+              const newDefaultDuration = model.supportedDurations?.[0] || 8;
+              setSegments((prev) =>
+                prev.map((s) => ({ ...s, duration: newDefaultDuration }))
+              );
               setShowModelSelector(false);
             }}
           />
@@ -567,16 +572,17 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  {selectedModel.category === "video" && (
+                  {(selectedModel.category === "video" || selectedModel.category === "avatar") && selectedModel.supportedDurations && (
                     <select
                       value={segment.duration}
                       onChange={(e) => updateSegment(segment.id, { duration: Number(e.target.value) })}
                       className="rounded-lg border border-border bg-background px-2 py-1 text-sm"
                     >
-                      <option value={4}>4 secondes ($0.32)</option>
-                      <option value={8}>8 secondes ($0.64)</option>
-                      <option value={12}>12 secondes ($0.96)</option>
-                      <option value={20}>20 secondes ($1.60)</option>
+                      {selectedModel.supportedDurations.map((dur) => (
+                        <option key={dur} value={dur}>
+                          {dur}s (${(dur * selectedModel.priceValue).toFixed(2)})
+                        </option>
+                      ))}
                     </select>
                   )}
                   {segments.length > 1 && (

@@ -10,13 +10,14 @@ export interface AIModel {
   price: string;
   priceValue: number;
   priceUnit: string;
-  originalPrice?: number; // Prix original avant réduction
-  discount?: number; // Pourcentage de réduction
+  originalPrice?: number;
+  discount?: number;
   description: string;
   needsVoice: boolean;
-  needsAvatar?: boolean; // Si le modèle nécessite un avatar
+  needsAvatar?: boolean;
   quality: "standard" | "pro" | "ultra";
   features?: string[];
+  supportedDurations?: number[]; // Durées supportées en secondes
 }
 
 export const AI_MODELS: AIModel[] = [
@@ -33,6 +34,7 @@ export const AI_MODELS: AIModel[] = [
     needsVoice: true,
     quality: "standard",
     features: ["720p/1080p", "4-12s", "Voix IA incluse"],
+    supportedDurations: [4, 8, 12],
   },
   {
     id: "sora-2-pro",
@@ -46,6 +48,7 @@ export const AI_MODELS: AIModel[] = [
     needsVoice: true,
     quality: "pro",
     features: ["4K", "4-20s", "Voix IA incluse", "HDR"],
+    supportedDurations: [4, 8, 12, 20],
   },
   {
     id: "veo-3.1",
@@ -59,6 +62,7 @@ export const AI_MODELS: AIModel[] = [
     needsVoice: true,
     quality: "standard",
     features: ["1080p", "5-10s", "Motion fluide"],
+    supportedDurations: [5, 10],
   },
   {
     id: "veo-3.1-pro",
@@ -72,6 +76,7 @@ export const AI_MODELS: AIModel[] = [
     needsVoice: true,
     quality: "ultra",
     features: ["4K", "10-30s", "Cinematic", "HDR"],
+    supportedDurations: [10, 20, 30],
   },
   {
     id: "kling-v2-master",
@@ -87,6 +92,7 @@ export const AI_MODELS: AIModel[] = [
     needsVoice: true,
     quality: "standard",
     features: ["1080p", "5-10s", "Fast"],
+    supportedDurations: [5, 10],
   },
   {
     id: "minimax-hailuo",
@@ -102,6 +108,7 @@ export const AI_MODELS: AIModel[] = [
     needsVoice: true,
     quality: "standard",
     features: ["720p", "4-6s", "Budget-friendly"],
+    supportedDurations: [4, 6],
   },
   // Avatar Models (Lip-Sync)
   {
@@ -117,6 +124,7 @@ export const AI_MODELS: AIModel[] = [
     needsAvatar: true,
     quality: "pro",
     features: ["Lip-sync", "5-10s", "Avatar animé", "Voix IA"],
+    supportedDurations: [5, 10],
   },
   {
     id: "kling-lip-sync-pro",
@@ -133,6 +141,7 @@ export const AI_MODELS: AIModel[] = [
     needsAvatar: true,
     quality: "ultra",
     features: ["HD Lip-sync", "10-30s", "Émotions", "Multi-angle"],
+    supportedDurations: [10, 20, 30],
   },
   {
     id: "hedra-avatar",
@@ -147,6 +156,7 @@ export const AI_MODELS: AIModel[] = [
     needsAvatar: true,
     quality: "pro",
     features: ["1080p", "5-60s", "Expressions", "Multi-styles"],
+    supportedDurations: [5, 10, 15, 30, 60],
   },
   {
     id: "sync-labs",
@@ -163,6 +173,7 @@ export const AI_MODELS: AIModel[] = [
     needsAvatar: true,
     quality: "standard",
     features: ["720p", "5-30s", "Fast render", "Budget"],
+    supportedDurations: [5, 10, 15, 30],
   },
   // Image Models
   {
