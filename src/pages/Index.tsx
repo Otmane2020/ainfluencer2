@@ -8,6 +8,7 @@ import { SocialConnections } from "@/components/SocialConnections";
 import { PostQueue } from "@/components/PostQueue";
 import { VideoGenerator } from "@/components/VideoGenerator";
 import { VideoPreview } from "@/components/VideoPreview";
+import { VideoHistory, VideoHistoryItem } from "@/components/VideoHistory";
 import { AvatarManager } from "@/components/AvatarManager";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -39,6 +40,7 @@ const Index = () => {
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
   const [scheduledPosts, setScheduledPosts] = useState<ScheduledPost[]>([]);
   const [videoSegments, setVideoSegments] = useState<VideoSegment[]>([]);
+  const [videoHistory, setVideoHistory] = useState<VideoHistoryItem[]>([]);
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>();
   const [activeTab, setActiveTab] = useState("posts");
   const [connections, setConnections] = useState([
@@ -112,6 +114,24 @@ const Index = () => {
 
   const handleVideosGenerated = (videos: VideoSegment[]) => {
     setVideoSegments(videos);
+    
+    // Add to history
+    const readyVideos = videos.filter((v) => v.status === "ready");
+    const historyItems: VideoHistoryItem[] = readyVideos.map((v, index) => ({
+      id: `${Date.now()}-${index}`,
+      title: `Vidéo ${videoHistory.length + index + 1}`,
+      script: v.script,
+      duration: v.duration,
+      videoUrl: v.videoUrl,
+      audioUrl: v.audioUrl,
+      createdAt: new Date(),
+      voice: "Sarah",
+      status: "ready" as const,
+    }));
+    
+    if (historyItems.length > 0) {
+      setVideoHistory((prev) => [...historyItems, ...prev]);
+    }
   };
 
   const handleMergeVideos = () => {
@@ -124,6 +144,18 @@ const Index = () => {
 
   const handleDeleteVideoSegment = (id: string) => {
     setVideoSegments((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  const handleDeleteHistoryItem = (id: string) => {
+    setVideoHistory((prev) => prev.filter((v) => v.id !== id));
+    toast({
+      title: "Vidéo supprimée",
+      description: "La vidéo a été retirée de l'historique",
+    });
+  };
+
+  const handlePlayHistoryItem = (video: VideoHistoryItem) => {
+    console.log("Playing video:", video.id);
   };
 
   return (
@@ -222,7 +254,7 @@ const Index = () => {
                 />
               </div>
 
-              {/* Right Column - Avatar & Preview */}
+              {/* Right Column - Avatar, Preview & History */}
               <div className="space-y-6">
                 <AvatarManager
                   currentAvatar={avatarUrl}
@@ -233,6 +265,11 @@ const Index = () => {
                   avatarUrl={avatarUrl}
                   onMerge={handleMergeVideos}
                   onDeleteSegment={handleDeleteVideoSegment}
+                />
+                <VideoHistory
+                  videos={videoHistory}
+                  onDelete={handleDeleteHistoryItem}
+                  onPlay={handlePlayHistoryItem}
                 />
               </div>
             </motion.div>
