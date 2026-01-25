@@ -114,11 +114,23 @@ serve(async (req) => {
       const result = await response.json();
       console.log("Full API response:", JSON.stringify(result));
 
-      // Handle different possible response structures from CometAPI
+      // Handle nested data structure from CometAPI
       const videoData = result.data || result;
-      const taskStatus = videoData.status || videoData.state || "in_progress";
-      const taskProgress = videoData.progress || videoData.percent || 0;
-      const videoUrl = videoData.output_video || videoData.video_url || videoData.url || videoData.output?.video;
+      const innerData = videoData.data || {};
+
+      // Normalize status to lowercase for comparison
+      const rawStatus = videoData.status || innerData.status || videoData.state || "in_progress";
+      const taskStatus = rawStatus.toLowerCase();
+
+      // Parse progress (can be "10%" string or number)
+      const rawProgress = innerData.progress || videoData.progress || videoData.percent || 0;
+      const taskProgress = typeof rawProgress === "string" 
+        ? parseInt(rawProgress.replace('%', '')) 
+        : rawProgress;
+
+      // Find video URL in nested structure
+      const videoUrl = innerData.output_video || videoData.output_video || 
+                       videoData.video_url || innerData.url || videoData.url;
 
       console.log("Parsed - Status:", taskStatus, "Progress:", taskProgress, "VideoUrl:", videoUrl);
 
