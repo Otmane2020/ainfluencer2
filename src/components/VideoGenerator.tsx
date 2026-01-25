@@ -1,10 +1,16 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Video, Sparkles, Loader2, Upload, Wand2, Volume2, Play, Plus, Trash2 } from "lucide-react";
+import { Video, Sparkles, Loader2, Volume2, Play, Plus, Trash2, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { ModelSelector, AI_MODELS, type AIModel } from "@/components/ModelSelector";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface Voice {
   id: string;
@@ -31,6 +37,7 @@ interface VideoSegment {
   status: "pending" | "generating" | "ready" | "error";
   videoUrl?: string;
   audioUrl?: string;
+  imageUrl?: string;
   taskId?: string;
   progress?: number;
 }
@@ -45,8 +52,12 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
     { id: "1", script: "", duration: 10, status: "pending" },
   ]);
   const [selectedVoice, setSelectedVoice] = useState<Voice>(AVAILABLE_VOICES[0]);
+  const [selectedModel, setSelectedModel] = useState<AIModel>(
+    AI_MODELS.find((m) => m.id === "sora-2") || AI_MODELS[0]
+  );
   const [isGenerating, setIsGenerating] = useState(false);
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
+  const [showModelSelector, setShowModelSelector] = useState(false);
   const { toast } = useToast();
 
   const addSegment = () => {
@@ -107,266 +118,42 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
     }
   };
 
-  const generateVideos = async () => {
+  const generateContent = async () => {
     const validSegments = segments.filter((s) => s.script.trim());
     if (validSegments.length === 0) {
       toast({
         title: "Scripts requis",
-        description: "Ajoutez au moins un script pour générer les vidéos",
+        description: "Ajoutez au moins un script pour générer le contenu",
         variant: "destructive",
       });
       return;
     }
 
     setIsGenerating(true);
-
-    // Mark all as generating
     setSegments((prev) =>
       prev.map((s) =>
         s.script.trim() ? { ...s, status: "generating" as const, progress: 0 } : s
       )
     );
 
+    const modelType = selectedModel.category;
+    
     toast({
-      title: "Génération Sora 2 en cours...",
-      description: "Création de vraies vidéos publicitaires (peut prendre quelques minutes)",
+      title: `Génération ${selectedModel.name} en cours...`,
+      description: `${modelType === "video" ? "Création de vidéos" : modelType === "image" ? "Création d'images" : "Création audio"} (peut prendre quelques minutes)`,
     });
 
     try {
-      // Step 1: Generate audio with ElevenLabs TTS for voiceover
-      const segmentsWithAudio = await Promise.all(
-        segments.map(async (segment) => {
-          if (!segment.script.trim()) return segment;
-
-          try {
-            // Generate audio
-            const audioResponse = await fetch(
-              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                  Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-                },
-                body: JSON.stringify({
-                  text: segment.script,
-                  voiceId: selectedVoice.id,
-                }),
-              }
-            );
-
-            if (!audioResponse.ok) {
-              throw new Error(`TTS failed: ${audioResponse.status}`);
-            }
-
-            const audioBlob = await audioResponse.blob();
-            
-            // Upload audio to Supabase storage
-            const audioFileName = `audio/${Date.now()}-${segment.id}.mp3`;
-            const { error: audioUploadError } = await supabase.storage
-              .from("media")
-              .upload(audioFileName, audioBlob, {
-                contentType: "audio/mpeg",
-                upsert: true,
-              });
-
-            if (audioUploadError) throw audioUploadError;
-
-            const { data: audioUrlData } = supabase.storage
-              .from("media")
-              .getPublicUrl(audioFileName);
-
-            return {
-              ...segment,
-              audioUrl: audioUrlData.publicUrl,
-            };
-          } catch (error) {
-            console.error("Audio generation error:", error);
-            return { ...segment, status: "error" as const };
-          }
-        })
-      );
-
-      // Step 2: Generate videos with Sora 2
-      const segmentsWithTasks = await Promise.all(
-        segmentsWithAudio.map(async (segment) => {
-          if (segment.status === "error" || !segment.script.trim()) return segment;
-
-          try {
-            // Create video generation task with Sora 2
-            const response = await fetch(
-              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-sora?action=create`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                  Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-                },
-                body: JSON.stringify({
-                  prompt: segment.script,
-                  avatarUrl,
-                  duration: segment.duration <= 4 ? 4 : segment.duration <= 8 ? 8 : 12,
-                  size: "720x1280", // Portrait for social media
-                }),
-              }
-            );
-
-            if (!response.ok) {
-              const errorData = await response.json();
-              throw new Error(errorData.error || `Video creation failed: ${response.status}`);
-            }
-
-            const result = await response.json();
-            console.log("Video task created:", result.taskId);
-
-            return {
-              ...segment,
-              taskId: result.taskId,
-              progress: 0,
-            };
-          } catch (error) {
-            console.error("Video task creation error:", error);
-            return { ...segment, status: "error" as const };
-          }
-        })
-      );
-
-      setSegments(segmentsWithTasks);
-
-      // Step 3: Poll for video completion
-      const pollInterval = setInterval(async () => {
-        let allComplete = true;
-        let anyError = false;
-
-        const updatedSegments = await Promise.all(
-          segmentsWithTasks.map(async (segment) => {
-            if (!segment.taskId || segment.status === "ready" || segment.status === "error") {
-              return segment;
-            }
-
-            try {
-              const statusResponse = await fetch(
-                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-sora?action=status&taskId=${segment.taskId}`,
-                {
-                  method: "GET",
-                  headers: {
-                    apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                    Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-                  },
-                }
-              );
-
-              if (!statusResponse.ok) {
-                throw new Error(`Status check failed: ${statusResponse.status}`);
-              }
-
-              const status = await statusResponse.json();
-              console.log(`Task ${segment.taskId} status:`, status.status, status.progress);
-
-              if (status.status === "completed" && status.videoUrl) {
-                // Download and store video
-                const videoResponse = await fetch(
-                  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-sora?action=download&taskId=${segment.taskId}`,
-                  {
-                    method: "GET",
-                    headers: {
-                      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-                    },
-                  }
-                );
-
-                if (videoResponse.ok) {
-                  const videoBlob = await videoResponse.blob();
-                  const videoFileName = `videos/${Date.now()}-${segment.id}.mp4`;
-                  
-                  const { error: videoUploadError } = await supabase.storage
-                    .from("media")
-                    .upload(videoFileName, videoBlob, {
-                      contentType: "video/mp4",
-                      upsert: true,
-                    });
-
-                  if (!videoUploadError) {
-                    const { data: videoUrlData } = supabase.storage
-                      .from("media")
-                      .getPublicUrl(videoFileName);
-
-                    return {
-                      ...segment,
-                      status: "ready" as const,
-                      videoUrl: videoUrlData.publicUrl,
-                      progress: 100,
-                    };
-                  }
-                }
-
-                // Fallback: use the direct URL
-                return {
-                  ...segment,
-                  status: "ready" as const,
-                  videoUrl: status.videoUrl,
-                  progress: 100,
-                };
-              } else if (status.status === "failed") {
-                anyError = true;
-                return {
-                  ...segment,
-                  status: "error" as const,
-                };
-              } else {
-                allComplete = false;
-                return {
-                  ...segment,
-                  progress: status.progress || 0,
-                };
-              }
-            } catch (error) {
-              console.error("Status check error:", error);
-              anyError = true;
-              return { ...segment, status: "error" as const };
-            }
-          })
-        );
-
-        setSegments(updatedSegments);
-
-        if (allComplete || anyError) {
-          clearInterval(pollInterval);
-          setIsGenerating(false);
-
-          const readyCount = updatedSegments.filter((s) => s.status === "ready").length;
-          const errorCount = updatedSegments.filter((s) => s.status === "error").length;
-
-          if (readyCount > 0) {
-            toast({
-              title: "🎬 Vidéos Sora 2 générées !",
-              description: `${readyCount} vidéo(s) prête(s)${errorCount > 0 ? `, ${errorCount} erreur(s)` : ""}`,
-            });
-            onVideosGenerated(updatedSegments);
-          } else {
-            toast({
-              title: "Erreur de génération",
-              description: "Impossible de générer les vidéos Sora 2",
-              variant: "destructive",
-            });
-          }
-        }
-      }, 10000); // Poll every 10 seconds
-
-      // Timeout after 10 minutes
-      setTimeout(() => {
-        clearInterval(pollInterval);
-        setIsGenerating(false);
-        toast({
-          title: "Timeout",
-          description: "La génération a pris trop de temps. Vérifiez les vidéos dans l'historique.",
-          variant: "destructive",
-        });
-      }, 600000);
-
+      if (modelType === "image") {
+        // Image generation with Nano Banana or other image models
+        await generateImages();
+      } else if (modelType === "video") {
+        // Video generation with voice
+        await generateVideos();
+      } else {
+        // Music/Audio generation
+        await generateAudio();
+      }
     } catch (error) {
       console.error("Generation error:", error);
       setIsGenerating(false);
@@ -378,7 +165,306 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
     }
   };
 
+  const generateImages = async () => {
+    const updatedSegments = await Promise.all(
+      segments.map(async (segment) => {
+        if (!segment.script.trim()) return segment;
+
+        try {
+          const { data, error } = await supabase.functions.invoke("generate-content", {
+            body: { 
+              prompt: segment.script, 
+              type: "image",
+              model: selectedModel.id 
+            },
+          });
+
+          if (error) throw error;
+
+          return {
+            ...segment,
+            status: "ready" as const,
+            imageUrl: data.imageUrl,
+            progress: 100,
+          };
+        } catch (error) {
+          console.error("Image generation error:", error);
+          return { ...segment, status: "error" as const };
+        }
+      })
+    );
+
+    setSegments(updatedSegments);
+    setIsGenerating(false);
+
+    const readyCount = updatedSegments.filter((s) => s.status === "ready").length;
+    if (readyCount > 0) {
+      toast({
+        title: `🖼️ ${readyCount} image(s) générée(s) !`,
+        description: `Avec ${selectedModel.name}`,
+      });
+      onVideosGenerated(updatedSegments);
+    }
+  };
+
+  const generateAudio = async () => {
+    const updatedSegments = await Promise.all(
+      segments.map(async (segment) => {
+        if (!segment.script.trim()) return segment;
+
+        try {
+          const audioResponse = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
+              body: JSON.stringify({
+                text: segment.script,
+                voiceId: selectedVoice.id,
+              }),
+            }
+          );
+
+          if (!audioResponse.ok) throw new Error("TTS failed");
+
+          const audioBlob = await audioResponse.blob();
+          const audioFileName = `audio/${Date.now()}-${segment.id}.mp3`;
+          
+          await supabase.storage.from("media").upload(audioFileName, audioBlob, {
+            contentType: "audio/mpeg",
+            upsert: true,
+          });
+
+          const { data: audioUrlData } = supabase.storage.from("media").getPublicUrl(audioFileName);
+
+          return {
+            ...segment,
+            status: "ready" as const,
+            audioUrl: audioUrlData.publicUrl,
+            progress: 100,
+          };
+        } catch (error) {
+          console.error("Audio generation error:", error);
+          return { ...segment, status: "error" as const };
+        }
+      })
+    );
+
+    setSegments(updatedSegments);
+    setIsGenerating(false);
+
+    const readyCount = updatedSegments.filter((s) => s.status === "ready").length;
+    if (readyCount > 0) {
+      toast({
+        title: `🎵 ${readyCount} audio(s) généré(s) !`,
+        description: `Avec ${selectedModel.name}`,
+      });
+      onVideosGenerated(updatedSegments);
+    }
+  };
+
+  const generateVideos = async () => {
+    // Step 1: Generate audio with ElevenLabs TTS for voiceover
+    const segmentsWithAudio = await Promise.all(
+      segments.map(async (segment) => {
+        if (!segment.script.trim()) return segment;
+
+        try {
+          const audioResponse = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
+              body: JSON.stringify({
+                text: segment.script,
+                voiceId: selectedVoice.id,
+              }),
+            }
+          );
+
+          if (!audioResponse.ok) throw new Error(`TTS failed: ${audioResponse.status}`);
+
+          const audioBlob = await audioResponse.blob();
+          const audioFileName = `audio/${Date.now()}-${segment.id}.mp3`;
+          
+          await supabase.storage.from("media").upload(audioFileName, audioBlob, {
+            contentType: "audio/mpeg",
+            upsert: true,
+          });
+
+          const { data: audioUrlData } = supabase.storage.from("media").getPublicUrl(audioFileName);
+
+          return { ...segment, audioUrl: audioUrlData.publicUrl };
+        } catch (error) {
+          console.error("Audio generation error:", error);
+          return { ...segment, status: "error" as const };
+        }
+      })
+    );
+
+    // Step 2: Generate videos with selected model
+    const segmentsWithTasks = await Promise.all(
+      segmentsWithAudio.map(async (segment) => {
+        if (segment.status === "error" || !segment.script.trim()) return segment;
+
+        try {
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-sora?action=create`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
+              body: JSON.stringify({
+                prompt: segment.script,
+                avatarUrl,
+                duration: segment.duration <= 4 ? 4 : segment.duration <= 8 ? 8 : 12,
+                size: "720x1280",
+                model: selectedModel.id,
+              }),
+            }
+          );
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Video creation failed: ${response.status}`);
+          }
+
+          const result = await response.json();
+          return { ...segment, taskId: result.taskId, progress: 0 };
+        } catch (error) {
+          console.error("Video task creation error:", error);
+          return { ...segment, status: "error" as const };
+        }
+      })
+    );
+
+    setSegments(segmentsWithTasks);
+
+    // Step 3: Poll for video completion
+    const pollInterval = setInterval(async () => {
+      let allComplete = true;
+      let anyError = false;
+
+      const updatedSegments = await Promise.all(
+        segmentsWithTasks.map(async (segment) => {
+          if (!segment.taskId || segment.status === "ready" || segment.status === "error") {
+            return segment;
+          }
+
+          try {
+            const statusResponse = await fetch(
+              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-sora?action=status&taskId=${segment.taskId}`,
+              {
+                method: "GET",
+                headers: {
+                  apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                  Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                },
+              }
+            );
+
+            if (!statusResponse.ok) throw new Error(`Status check failed`);
+
+            const status = await statusResponse.json();
+
+            if (status.status === "completed" && status.videoUrl) {
+              const videoResponse = await fetch(
+                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-sora?action=download&taskId=${segment.taskId}`,
+                {
+                  method: "GET",
+                  headers: {
+                    apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                    Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                  },
+                }
+              );
+
+              if (videoResponse.ok) {
+                const videoBlob = await videoResponse.blob();
+                const videoFileName = `videos/${Date.now()}-${segment.id}.mp4`;
+                
+                await supabase.storage.from("media").upload(videoFileName, videoBlob, {
+                  contentType: "video/mp4",
+                  upsert: true,
+                });
+
+                const { data: videoUrlData } = supabase.storage.from("media").getPublicUrl(videoFileName);
+
+                return {
+                  ...segment,
+                  status: "ready" as const,
+                  videoUrl: videoUrlData.publicUrl,
+                  progress: 100,
+                };
+              }
+
+              return {
+                ...segment,
+                status: "ready" as const,
+                videoUrl: status.videoUrl,
+                progress: 100,
+              };
+            } else if (status.status === "failed") {
+              anyError = true;
+              return { ...segment, status: "error" as const };
+            } else {
+              allComplete = false;
+              return { ...segment, progress: status.progress || 0 };
+            }
+          } catch (error) {
+            console.error("Status check error:", error);
+            anyError = true;
+            return { ...segment, status: "error" as const };
+          }
+        })
+      );
+
+      setSegments(updatedSegments);
+
+      if (allComplete || anyError) {
+        clearInterval(pollInterval);
+        setIsGenerating(false);
+
+        const readyCount = updatedSegments.filter((s) => s.status === "ready").length;
+        const errorCount = updatedSegments.filter((s) => s.status === "error").length;
+
+        if (readyCount > 0) {
+          toast({
+            title: `🎬 Vidéos ${selectedModel.name} générées !`,
+            description: `${readyCount} vidéo(s) prête(s)${errorCount > 0 ? `, ${errorCount} erreur(s)` : ""}`,
+          });
+          onVideosGenerated(updatedSegments);
+        } else {
+          toast({
+            title: "Erreur de génération",
+            description: "Impossible de générer les vidéos",
+            variant: "destructive",
+          });
+        }
+      }
+    }, 10000);
+
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      setIsGenerating(false);
+    }, 600000);
+  };
+
   const totalDuration = segments.reduce((acc, s) => acc + s.duration, 0);
+  const estimatedCost = selectedModel.category === "video" 
+    ? (totalDuration * selectedModel.priceValue).toFixed(2)
+    : (segments.filter(s => s.script.trim()).length * selectedModel.priceValue).toFixed(2);
 
   return (
     <motion.div
@@ -392,48 +478,75 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
           <Video className="h-5 w-5 text-secondary-foreground" />
         </div>
         <div className="flex-1">
-          <h3 className="font-display text-lg font-semibold">Générateur de Vidéos</h3>
+          <h3 className="font-display text-lg font-semibold">Générateur IA</h3>
           <p className="text-sm text-muted-foreground">
-            Créez des vidéos avec votre avatar IA
+            Créez du contenu avec les meilleurs modèles
           </p>
         </div>
         <div className="text-right">
-          <p className="text-2xl font-bold text-gradient">{totalDuration}s</p>
-          <p className="text-xs text-muted-foreground">Durée totale</p>
+          <p className="text-2xl font-bold text-gradient">~${estimatedCost}</p>
+          <p className="text-xs text-muted-foreground">Coût estimé</p>
         </div>
       </div>
 
-      {/* Voice Selection */}
-      <div className="mb-6">
-        <label className="mb-2 block text-sm font-medium">Voix de l'influenceur</label>
-        <div className="flex flex-wrap gap-2">
-          {AVAILABLE_VOICES.map((voice) => (
-            <button
-              key={voice.id}
-              onClick={() => setSelectedVoice(voice)}
-              className={`group relative flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all ${
-                selectedVoice.id === voice.id
-                  ? "gradient-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              <span>{voice.gender === "female" ? "👩" : "👨"}</span>
-              {voice.name}
+      {/* Model Selector Toggle */}
+      <Collapsible open={showModelSelector} onOpenChange={setShowModelSelector} className="mb-6">
+        <CollapsibleTrigger asChild>
+          <Button variant="outline" className="w-full justify-between">
+            <div className="flex items-center gap-2">
+              <Settings2 className="h-4 w-4" />
+              <span>Modèle: <strong>{selectedModel.name}</strong></span>
+              <span className="text-muted-foreground">({selectedModel.price}{selectedModel.priceUnit})</span>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {showModelSelector ? "Masquer" : "Changer"}
+            </span>
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-4">
+          <ModelSelector
+            selectedModel={selectedModel}
+            onModelChange={(model) => {
+              setSelectedModel(model);
+              setShowModelSelector(false);
+            }}
+          />
+        </CollapsibleContent>
+      </Collapsible>
+
+      {/* Voice Selection - Only show if model needs voice */}
+      {selectedModel.needsVoice && (
+        <div className="mb-6">
+          <label className="mb-2 block text-sm font-medium">Voix de l'influenceur</label>
+          <div className="flex flex-wrap gap-2">
+            {AVAILABLE_VOICES.map((voice) => (
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  previewVoice(voice);
-                }}
-                className="ml-1 rounded-full p-1 opacity-0 transition-opacity hover:bg-foreground/10 group-hover:opacity-100"
+                key={voice.id}
+                onClick={() => setSelectedVoice(voice)}
+                className={`group relative flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                  selectedVoice.id === voice.id
+                    ? "gradient-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
               >
-                <Volume2 className="h-3 w-3" />
+                <span>{voice.gender === "female" ? "👩" : "👨"}</span>
+                {voice.name}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    previewVoice(voice);
+                  }}
+                  className="ml-1 rounded-full p-1 opacity-0 transition-opacity hover:bg-foreground/10 group-hover:opacity-100"
+                >
+                  <Volume2 className="h-3 w-3" />
+                </button>
               </button>
-            </button>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Video Segments */}
+      {/* Content Segments */}
       <div className="mb-4 space-y-4">
         <AnimatePresence mode="popLayout">
           {segments.map((segment, index) => (
@@ -449,20 +562,23 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
                     {index + 1}
                   </span>
-                  <span className="text-sm font-medium">Segment {index + 1}</span>
+                  <span className="text-sm font-medium">
+                    {selectedModel.category === "video" ? "Segment" : selectedModel.category === "image" ? "Image" : "Audio"} {index + 1}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <select
-                    value={segment.duration}
-                    onChange={(e) =>
-                      updateSegment(segment.id, { duration: Number(e.target.value) })
-                    }
-                    className="rounded-lg border border-border bg-background px-2 py-1 text-sm"
-                  >
-                    <option value={10}>10 secondes</option>
-                    <option value={15}>15 secondes</option>
-                    <option value={20}>20 secondes</option>
-                  </select>
+                  {selectedModel.category === "video" && (
+                    <select
+                      value={segment.duration}
+                      onChange={(e) => updateSegment(segment.id, { duration: Number(e.target.value) })}
+                      className="rounded-lg border border-border bg-background px-2 py-1 text-sm"
+                    >
+                      <option value={5}>5 secondes</option>
+                      <option value={10}>10 secondes</option>
+                      <option value={15}>15 secondes</option>
+                      <option value={20}>20 secondes</option>
+                    </select>
+                  )}
                   {segments.length > 1 && (
                     <Button
                       variant="ghost"
@@ -477,7 +593,13 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
               </div>
 
               <Textarea
-                placeholder="Ex: Salut tout le monde ! Aujourd'hui je vous présente ce produit incroyable..."
+                placeholder={
+                  selectedModel.category === "video"
+                    ? "Ex: Salut tout le monde ! Aujourd'hui je vous présente ce produit incroyable..."
+                    : selectedModel.category === "image"
+                    ? "Ex: Une photo lifestyle d'un influenceur sur une plage au coucher du soleil..."
+                    : "Ex: Texte à transformer en voix..."
+                }
                 value={segment.script}
                 onChange={(e) => updateSegment(segment.id, { script: e.target.value })}
                 className="min-h-[80px] resize-none border-2 focus:border-primary/50"
@@ -490,7 +612,7 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
                       <div className="flex items-center justify-between text-sm">
                         <span className="flex items-center gap-1 text-accent">
                           <Loader2 className="h-4 w-4 animate-spin" />
-                          Génération Sora 2...
+                          Génération {selectedModel.name}...
                         </span>
                         <span className="text-muted-foreground">{segment.progress || 0}%</span>
                       </div>
@@ -505,7 +627,7 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
                   {segment.status === "ready" && (
                     <span className="flex items-center gap-1 text-sm text-primary">
                       <Play className="h-4 w-4" />
-                      Vidéo prête
+                      {selectedModel.category === "video" ? "Vidéo prête" : selectedModel.category === "image" ? "Image prête" : "Audio prêt"}
                     </span>
                   )}
                   {segment.status === "error" && (
@@ -521,18 +643,14 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
       </div>
 
       {/* Add Segment Button */}
-      <Button
-        variant="outline"
-        onClick={addSegment}
-        className="mb-4 w-full border-dashed"
-      >
+      <Button variant="outline" onClick={addSegment} className="mb-4 w-full border-dashed">
         <Plus className="h-4 w-4" />
-        Ajouter un segment
+        Ajouter {selectedModel.category === "video" ? "un segment" : selectedModel.category === "image" ? "une image" : "un audio"}
       </Button>
 
       {/* Generate Button */}
       <Button
-        onClick={generateVideos}
+        onClick={generateContent}
         disabled={isGenerating || segments.every((s) => !s.script.trim())}
         variant="gradient"
         size="lg"
@@ -546,7 +664,7 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
         ) : (
           <>
             <Sparkles className="h-5 w-5" />
-            Générer les vidéos
+            Générer avec {selectedModel.name} (~${estimatedCost})
           </>
         )}
       </Button>
