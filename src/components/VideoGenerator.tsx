@@ -31,6 +31,8 @@ interface VideoSegment {
   status: "pending" | "generating" | "ready" | "error";
   videoUrl?: string;
   audioUrl?: string;
+  taskId?: string;
+  progress?: number;
 }
 
 interface VideoGeneratorProps {
@@ -121,24 +123,24 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
     // Mark all as generating
     setSegments((prev) =>
       prev.map((s) =>
-        s.script.trim() ? { ...s, status: "generating" as const } : s
+        s.script.trim() ? { ...s, status: "generating" as const, progress: 0 } : s
       )
     );
 
     toast({
-      title: "Génération en cours...",
-      description: "Les vidéos sont en cours de création",
+      title: "Génération Sora 2 en cours...",
+      description: "Création de vraies vidéos publicitaires (peut prendre quelques minutes)",
     });
 
     try {
-      // Generate audio for each segment using ElevenLabs TTS
-      const updatedSegments = await Promise.all(
+      // Step 1: Generate audio with ElevenLabs TTS for voiceover
+      const segmentsWithAudio = await Promise.all(
         segments.map(async (segment) => {
           if (!segment.script.trim()) return segment;
 
           try {
-            // Call text-to-speech edge function
-            const response = await fetch(
+            // Generate audio
+            const audioResponse = await fetch(
               `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`,
               {
                 method: "POST",
@@ -154,68 +156,217 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
               }
             );
 
-            if (!response.ok) {
-              const errorData = await response.text();
-              console.error("TTS error:", errorData);
-              throw new Error(`TTS failed: ${response.status}`);
+            if (!audioResponse.ok) {
+              throw new Error(`TTS failed: ${audioResponse.status}`);
             }
 
-            const audioBlob = await response.blob();
+            const audioBlob = await audioResponse.blob();
             
             // Upload audio to Supabase storage
-            const fileName = `audio/${Date.now()}-${segment.id}.mp3`;
-            const { data: uploadData, error: uploadError } = await supabase.storage
+            const audioFileName = `audio/${Date.now()}-${segment.id}.mp3`;
+            const { error: audioUploadError } = await supabase.storage
               .from("media")
-              .upload(fileName, audioBlob, {
+              .upload(audioFileName, audioBlob, {
                 contentType: "audio/mpeg",
                 upsert: true,
               });
 
-            if (uploadError) {
-              console.error("Upload error:", uploadError);
-              throw uploadError;
-            }
+            if (audioUploadError) throw audioUploadError;
 
-            // Get public URL
-            const { data: urlData } = supabase.storage
+            const { data: audioUrlData } = supabase.storage
               .from("media")
-              .getPublicUrl(fileName);
+              .getPublicUrl(audioFileName);
 
             return {
               ...segment,
-              status: "ready" as const,
-              audioUrl: urlData.publicUrl,
-              videoUrl: urlData.publicUrl, // For now, video URL = audio URL (static avatar + audio)
+              audioUrl: audioUrlData.publicUrl,
             };
           } catch (error) {
-            console.error("Segment generation error:", error);
-            return {
-              ...segment,
-              status: "error" as const,
-            };
+            console.error("Audio generation error:", error);
+            return { ...segment, status: "error" as const };
           }
         })
       );
 
-      setSegments(updatedSegments);
-      setIsGenerating(false);
+      // Step 2: Generate videos with Sora 2
+      const segmentsWithTasks = await Promise.all(
+        segmentsWithAudio.map(async (segment) => {
+          if (segment.status === "error" || !segment.script.trim()) return segment;
 
-      const readyCount = updatedSegments.filter((s) => s.status === "ready").length;
-      const errorCount = updatedSegments.filter((s) => s.status === "error").length;
+          try {
+            // Create video generation task with Sora 2
+            const response = await fetch(
+              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-sora?action=create`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                  Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                },
+                body: JSON.stringify({
+                  prompt: segment.script,
+                  avatarUrl,
+                  duration: segment.duration <= 4 ? 4 : segment.duration <= 8 ? 8 : 12,
+                  size: "720x1280", // Portrait for social media
+                }),
+              }
+            );
 
-      if (readyCount > 0) {
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || `Video creation failed: ${response.status}`);
+            }
+
+            const result = await response.json();
+            console.log("Video task created:", result.taskId);
+
+            return {
+              ...segment,
+              taskId: result.taskId,
+              progress: 0,
+            };
+          } catch (error) {
+            console.error("Video task creation error:", error);
+            return { ...segment, status: "error" as const };
+          }
+        })
+      );
+
+      setSegments(segmentsWithTasks);
+
+      // Step 3: Poll for video completion
+      const pollInterval = setInterval(async () => {
+        let allComplete = true;
+        let anyError = false;
+
+        const updatedSegments = await Promise.all(
+          segmentsWithTasks.map(async (segment) => {
+            if (!segment.taskId || segment.status === "ready" || segment.status === "error") {
+              return segment;
+            }
+
+            try {
+              const statusResponse = await fetch(
+                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-sora?action=status&taskId=${segment.taskId}`,
+                {
+                  method: "GET",
+                  headers: {
+                    apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                    Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                  },
+                }
+              );
+
+              if (!statusResponse.ok) {
+                throw new Error(`Status check failed: ${statusResponse.status}`);
+              }
+
+              const status = await statusResponse.json();
+              console.log(`Task ${segment.taskId} status:`, status.status, status.progress);
+
+              if (status.status === "completed" && status.videoUrl) {
+                // Download and store video
+                const videoResponse = await fetch(
+                  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-sora?action=download&taskId=${segment.taskId}`,
+                  {
+                    method: "GET",
+                    headers: {
+                      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                    },
+                  }
+                );
+
+                if (videoResponse.ok) {
+                  const videoBlob = await videoResponse.blob();
+                  const videoFileName = `videos/${Date.now()}-${segment.id}.mp4`;
+                  
+                  const { error: videoUploadError } = await supabase.storage
+                    .from("media")
+                    .upload(videoFileName, videoBlob, {
+                      contentType: "video/mp4",
+                      upsert: true,
+                    });
+
+                  if (!videoUploadError) {
+                    const { data: videoUrlData } = supabase.storage
+                      .from("media")
+                      .getPublicUrl(videoFileName);
+
+                    return {
+                      ...segment,
+                      status: "ready" as const,
+                      videoUrl: videoUrlData.publicUrl,
+                      progress: 100,
+                    };
+                  }
+                }
+
+                // Fallback: use the direct URL
+                return {
+                  ...segment,
+                  status: "ready" as const,
+                  videoUrl: status.videoUrl,
+                  progress: 100,
+                };
+              } else if (status.status === "failed") {
+                anyError = true;
+                return {
+                  ...segment,
+                  status: "error" as const,
+                };
+              } else {
+                allComplete = false;
+                return {
+                  ...segment,
+                  progress: status.progress || 0,
+                };
+              }
+            } catch (error) {
+              console.error("Status check error:", error);
+              anyError = true;
+              return { ...segment, status: "error" as const };
+            }
+          })
+        );
+
+        setSegments(updatedSegments);
+
+        if (allComplete || anyError) {
+          clearInterval(pollInterval);
+          setIsGenerating(false);
+
+          const readyCount = updatedSegments.filter((s) => s.status === "ready").length;
+          const errorCount = updatedSegments.filter((s) => s.status === "error").length;
+
+          if (readyCount > 0) {
+            toast({
+              title: "🎬 Vidéos Sora 2 générées !",
+              description: `${readyCount} vidéo(s) prête(s)${errorCount > 0 ? `, ${errorCount} erreur(s)` : ""}`,
+            });
+            onVideosGenerated(updatedSegments);
+          } else {
+            toast({
+              title: "Erreur de génération",
+              description: "Impossible de générer les vidéos Sora 2",
+              variant: "destructive",
+            });
+          }
+        }
+      }, 10000); // Poll every 10 seconds
+
+      // Timeout after 10 minutes
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        setIsGenerating(false);
         toast({
-          title: "Vidéos générées !",
-          description: `${readyCount} segment(s) prêt(s)${errorCount > 0 ? `, ${errorCount} erreur(s)` : ""}`,
-        });
-        onVideosGenerated(updatedSegments);
-      } else {
-        toast({
-          title: "Erreur de génération",
-          description: "Impossible de générer les vidéos. Vérifiez la configuration.",
+          title: "Timeout",
+          description: "La génération a pris trop de temps. Vérifiez les vidéos dans l'historique.",
           variant: "destructive",
         });
-      }
+      }, 600000);
+
     } catch (error) {
       console.error("Generation error:", error);
       setIsGenerating(false);
@@ -333,17 +484,33 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated }: VideoGeneratorP
               />
 
               {segment.status !== "pending" && (
-                <div className="mt-2 flex items-center gap-2">
+                <div className="mt-2 space-y-2">
                   {segment.status === "generating" && (
-                    <span className="flex items-center gap-1 text-sm text-accent">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Génération...
-                    </span>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="flex items-center gap-1 text-accent">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Génération Sora 2...
+                        </span>
+                        <span className="text-muted-foreground">{segment.progress || 0}%</span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                        <div 
+                          className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-500"
+                          style={{ width: `${segment.progress || 0}%` }}
+                        />
+                      </div>
+                    </div>
                   )}
                   {segment.status === "ready" && (
-                    <span className="flex items-center gap-1 text-sm text-green-600">
+                    <span className="flex items-center gap-1 text-sm text-primary">
                       <Play className="h-4 w-4" />
-                      Prêt
+                      Vidéo prête
+                    </span>
+                  )}
+                  {segment.status === "error" && (
+                    <span className="flex items-center gap-1 text-sm text-destructive">
+                      Erreur de génération
                     </span>
                   )}
                 </div>
