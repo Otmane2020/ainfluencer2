@@ -112,20 +112,38 @@ serve(async (req) => {
       }
 
       const result = await response.json();
-      console.log("Task status:", result.status, "Progress:", result.progress);
+      console.log("Full API response:", JSON.stringify(result));
 
-      const statusResponse: VideoStatusResponse = {
-        id: result.id,
-        status: result.status,
-        progress: result.progress || 0,
-      };
+      // Handle different possible response structures from CometAPI
+      const videoData = result.data || result;
+      const taskStatus = videoData.status || videoData.state || "in_progress";
+      const taskProgress = videoData.progress || videoData.percent || 0;
+      const videoUrl = videoData.output_video || videoData.video_url || videoData.url || videoData.output?.video;
 
-      if (result.status === "completed" && result.output_video) {
-        statusResponse.videoUrl = result.output_video;
+      console.log("Parsed - Status:", taskStatus, "Progress:", taskProgress, "VideoUrl:", videoUrl);
+
+      // Map CometAPI status to our status
+      let mappedStatus: "queued" | "in_progress" | "completed" | "failed" = "in_progress";
+      if (taskStatus === "queued" || taskStatus === "pending" || taskStatus === "waiting") {
+        mappedStatus = "queued";
+      } else if (taskStatus === "completed" || taskStatus === "succeeded" || taskStatus === "success" || taskStatus === "done") {
+        mappedStatus = "completed";
+      } else if (taskStatus === "failed" || taskStatus === "error") {
+        mappedStatus = "failed";
       }
 
-      if (result.error) {
-        statusResponse.error = result.error;
+      const statusResponse: VideoStatusResponse = {
+        id: taskId,
+        status: mappedStatus,
+        progress: typeof taskProgress === "number" ? taskProgress : parseInt(taskProgress) || 0,
+      };
+
+      if (mappedStatus === "completed" && videoUrl) {
+        statusResponse.videoUrl = videoUrl;
+      }
+
+      if (videoData.error || videoData.message) {
+        statusResponse.error = videoData.error || videoData.message;
       }
 
       return new Response(
@@ -134,7 +152,6 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
-
     } else if (action === "download") {
       // Download the generated video content
       const taskId = url.searchParams.get("taskId");
