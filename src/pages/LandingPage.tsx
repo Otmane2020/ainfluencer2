@@ -88,34 +88,34 @@ const LandingPage = () => {
     <div className="min-h-screen bg-background">
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 glass">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden shadow-glow">
+        <div className="container mx-auto flex h-14 md:h-16 items-center justify-between px-3 md:px-4">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-xl overflow-hidden shadow-glow">
               <img src="/logo.png" alt="ClipMotion" className="h-full w-full object-contain scale-125" />
             </div>
-            <span className="font-display text-xl font-bold text-gradient">ClipMotion</span>
+            <span className="font-display text-lg md:text-xl font-bold text-gradient">ClipMotion</span>
           </div>
           <div className="hidden md:flex items-center gap-8">
             <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
             <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
             <a href="#testimonials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Testimonials</a>
           </div>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" onClick={() => navigate("/auth")}>
+          <div className="flex items-center gap-2 md:gap-3">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/auth")} className="text-xs md:text-sm px-2 md:px-4">
               Sign In
             </Button>
-            <Button onClick={() => navigate("/auth")} className="gradient-primary">
-              Get Started Free
+            <Button size="sm" onClick={() => navigate("/auth")} className="gradient-primary text-xs md:text-sm px-3 md:px-4">
+              Get Started
             </Button>
           </div>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20 overflow-hidden">
+      <section className="relative pt-24 md:pt-32 pb-12 md:pb-20 overflow-hidden">
         <div className="absolute inset-0 gradient-hero opacity-10" />
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-secondary/20 rounded-full blur-3xl" />
+        <div className="absolute top-1/4 left-1/4 w-48 md:w-96 h-48 md:h-96 bg-primary/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-48 md:w-96 h-48 md:h-96 bg-secondary/20 rounded-full blur-3xl" />
         
         <div className="container relative mx-auto px-4">
           <motion.div
@@ -124,42 +124,42 @@ const LandingPage = () => {
             transition={{ duration: 0.6 }}
             className="max-w-4xl mx-auto text-center"
           >
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-4 py-2 mb-8">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">AI-Powered Content Creation Platform</span>
+            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 md:px-4 py-1.5 md:py-2 mb-6 md:mb-8">
+              <Sparkles className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
+              <span className="text-xs md:text-sm font-medium">AI-Powered Content Creation</span>
             </div>
             
-            <h1 className="font-display text-5xl md:text-7xl font-bold leading-tight mb-6">
+            <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold leading-tight mb-4 md:mb-6">
               Create <span className="text-gradient">AI-Powered</span> Videos That Go{" "}
               <span className="text-gradient">Viral</span>
             </h1>
             
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
+            <p className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 md:mb-10 px-2">
               Generate stunning AI influencer videos, automate your social media presence, and grow your audience 10x faster with ClipMotion.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 mb-8 md:mb-12">
               <Button
                 size="lg"
                 onClick={() => navigate("/auth")}
-                className="h-14 px-8 text-lg gradient-primary shadow-glow hover:opacity-90 transition-opacity"
+                className="w-full sm:w-auto h-12 md:h-14 px-6 md:px-8 text-base md:text-lg gradient-primary shadow-glow hover:opacity-90 transition-opacity"
               >
-                <Play className="mr-2 h-5 w-5" />
+                <Play className="mr-2 h-4 w-4 md:h-5 md:w-5" />
                 Start Creating Free
               </Button>
               <Button
                 size="lg"
                 variant="outline"
-                className="h-14 px-8 text-lg"
+                className="w-full sm:w-auto h-12 md:h-14 px-6 md:px-8 text-base md:text-lg"
                 onClick={() => navigate("/auth")}
               >
                 Watch Demo
-                <ArrowRight className="ml-2 h-5 w-5" />
+                <ArrowRight className="ml-2 h-4 w-4 md:h-5 md:w-5" />
               </Button>
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-3xl mx-auto">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 max-w-3xl mx-auto">
               {stats.map((stat, index) => (
                 <motion.div
                   key={stat.label}
@@ -168,8 +168,8 @@ const LandingPage = () => {
                   transition={{ delay: 0.4 + index * 0.1 }}
                   className="text-center"
                 >
-                  <div className="font-display text-3xl md:text-4xl font-bold text-gradient">{stat.value}</div>
-                  <div className="text-sm text-muted-foreground">{stat.label}</div>
+                  <div className="font-display text-2xl md:text-3xl lg:text-4xl font-bold text-gradient">{stat.value}</div>
+                  <div className="text-xs md:text-sm text-muted-foreground">{stat.label}</div>
                 </motion.div>
               ))}
             </div>
@@ -178,23 +178,23 @@ const LandingPage = () => {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-20 bg-muted/30">
+      <section id="features" className="py-12 md:py-20 bg-muted/30">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center mb-16"
+            className="text-center mb-10 md:mb-16"
           >
-            <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
+            <h2 className="font-display text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
               Everything You Need to <span className="text-gradient">Dominate</span> Social Media
             </h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto px-2">
               Powerful AI tools designed to help creators and brands scale their content effortlessly.
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {features.map((feature, index) => (
               <motion.div
                 key={feature.title}
@@ -204,12 +204,12 @@ const LandingPage = () => {
                 transition={{ delay: index * 0.1 }}
               >
                 <Card className="h-full hover:shadow-glow transition-all hover:border-primary/30 bg-card/50">
-                  <CardContent className="p-6">
-                    <div className="h-12 w-12 rounded-xl gradient-primary flex items-center justify-center mb-4 shadow-primary">
-                      <feature.icon className="h-6 w-6 text-white" />
+                  <CardContent className="p-4 md:p-6">
+                    <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl gradient-primary flex items-center justify-center mb-3 md:mb-4 shadow-primary">
+                      <feature.icon className="h-5 w-5 md:h-6 md:w-6 text-white" />
                     </div>
-                    <h3 className="font-display text-xl font-semibold mb-2">{feature.title}</h3>
-                    <p className="text-muted-foreground">{feature.description}</p>
+                    <h3 className="font-display text-lg md:text-xl font-semibold mb-2">{feature.title}</h3>
+                    <p className="text-sm md:text-base text-muted-foreground">{feature.description}</p>
                   </CardContent>
                 </Card>
               </motion.div>
