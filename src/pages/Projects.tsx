@@ -110,23 +110,23 @@ const Projects = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold">Projects</h1>
-          <p className="text-muted-foreground">
+          <h1 className="font-display text-xl md:text-2xl font-bold">Projects</h1>
+          <p className="text-sm text-muted-foreground">
             Manage your projects and automations
           </p>
         </div>
-        <Button onClick={() => navigate("/projects/new")} className="gap-2">
+        <Button onClick={() => navigate("/projects/new")} className="gap-2 w-full sm:w-auto">
           <Plus className="h-4 w-4" />
           New Project
         </Button>
       </div>
 
       {/* Search */}
-      <div className="relative max-w-md">
+      <div className="relative w-full md:max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Search projects..."
@@ -138,10 +138,10 @@ const Projects = () => {
 
       {/* Projects Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
           {[1, 2, 3].map((i) => (
             <Card key={i} className="animate-pulse">
-              <CardContent className="p-6">
+              <CardContent className="p-4 md:p-6">
                 <div className="h-10 w-10 rounded-xl bg-muted mb-4" />
                 <div className="h-4 w-3/4 bg-muted rounded mb-2" />
                 <div className="h-3 w-1/2 bg-muted rounded" />
@@ -151,11 +151,11 @@ const Projects = () => {
         </div>
       ) : filteredProjects.length === 0 ? (
         <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
-              <FolderKanban className="h-8 w-8 text-muted-foreground" />
+          <CardContent className="flex flex-col items-center justify-center py-8 md:py-12 px-4">
+            <div className="h-14 w-14 md:h-16 md:w-16 rounded-full bg-muted flex items-center justify-center mb-4">
+              <FolderKanban className="h-7 w-7 md:h-8 md:w-8 text-muted-foreground" />
             </div>
-            <h3 className="font-semibold mb-2">
+            <h3 className="font-semibold mb-2 text-center">
               {searchQuery ? "No results" : "No projects"}
             </h3>
             <p className="text-muted-foreground text-sm text-center mb-4 max-w-sm">
@@ -164,7 +164,7 @@ const Projects = () => {
                 : "Create your first project to automate your social media publications"}
             </p>
             {!searchQuery && (
-              <Button onClick={() => navigate("/projects/new")} className="gap-2">
+              <Button onClick={() => navigate("/projects/new")} className="gap-2 w-full sm:w-auto">
                 <Plus className="h-4 w-4" />
                 Create Project
               </Button>
@@ -172,7 +172,7 @@ const Projects = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
           {filteredProjects.map((project, index) => (
             <motion.div
               key={project.id}
@@ -223,12 +223,12 @@ const Projects = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="h-8 w-8 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                         >
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent align="end" className="bg-card border-border z-50">
                         <DropdownMenuItem
                           onClick={() => navigate(`/projects/${project.id}`)}
                         >

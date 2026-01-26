@@ -31,8 +31,8 @@ export const PostPreview = ({ content, username = "ai_influencer", avatar }: Pos
             </div>
           </div>
           <div>
-            <p className="font-semibold text-foreground">{username}</p>
-            <p className="text-xs text-muted-foreground">Sponsorisé</p>
+            <p className="font-semibold text-foreground text-sm md:text-base">{username}</p>
+            <p className="text-xs text-muted-foreground">Sponsored</p>
           </div>
         </div>
         <button className="p-2 hover:bg-muted rounded-full transition-colors">
@@ -72,7 +72,7 @@ export const PostPreview = ({ content, username = "ai_influencer", avatar }: Pos
 
       {/* Likes */}
       <div className="px-4">
-        <p className="font-semibold text-sm">12,458 J'aime</p>
+        <p className="font-semibold text-sm">12,458 Likes</p>
       </div>
 
       {/* Caption */}
@@ -81,7 +81,7 @@ export const PostPreview = ({ content, username = "ai_influencer", avatar }: Pos
           <span className="font-semibold">{username}</span>{" "}
           <span className="text-foreground">{content.text}</span>
         </p>
-        <p className="mt-2 text-xs text-muted-foreground">Il y a 2 heures</p>
+        <p className="mt-2 text-xs text-muted-foreground">2 hours ago</p>
       </div>
     </motion.div>
   );

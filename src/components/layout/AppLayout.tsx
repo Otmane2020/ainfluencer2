@@ -35,15 +35,15 @@ export function AppLayout() {
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
         <AppSidebar />
-        <SidebarInset className="flex-1">
-          <header className="h-14 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40 flex items-center px-4 gap-4">
+        <SidebarInset className="flex-1 flex flex-col">
+          <header className="h-14 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40 flex items-center px-3 md:px-4 gap-2 md:gap-4">
             <SidebarTrigger>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className="h-9 w-9">
                 <Menu className="h-5 w-5" />
               </Button>
             </SidebarTrigger>
           </header>
-          <main className="flex-1 p-6">
+          <main className="flex-1 p-3 md:p-6 overflow-x-hidden">
             <Outlet />
           </main>
         </SidebarInset>

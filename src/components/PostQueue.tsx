@@ -30,14 +30,14 @@ export const PostQueue = ({ posts, onPublishNow, onDelete }: PostQueueProps) => 
       await navigator.clipboard.writeText(post.content.text);
       setCopiedId(post.id);
       toast({
-        title: "Copié !",
-        description: "Le contenu a été copié dans le presse-papiers",
+        title: "Copied!",
+        description: "Content copied to clipboard",
       });
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
       toast({
-        title: "Erreur",
-        description: "Impossible de copier le contenu",
+        title: "Error",
+        description: "Unable to copy content",
         variant: "destructive",
       });
     }
@@ -45,16 +45,16 @@ export const PostQueue = ({ posts, onPublishNow, onDelete }: PostQueueProps) => 
 
   const statusConfig = {
     draft: {
-      label: "Brouillon",
+      label: "Draft",
       className: "bg-muted text-muted-foreground",
     },
     scheduled: {
-      label: "Programmé",
+      label: "Scheduled",
       className: "bg-accent/20 text-accent",
     },
     published: {
-      label: "Publié",
-      className: "bg-green-100 text-green-700",
+      label: "Published",
+      className: "bg-green-500/20 text-green-600",
     },
   };
 
@@ -64,23 +64,23 @@ export const PostQueue = ({ posts, onPublishNow, onDelete }: PostQueueProps) => 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="rounded-2xl bg-card p-6 shadow-card"
+        className="rounded-2xl bg-card p-4 md:p-6 shadow-card"
       >
         <div className="flex items-center gap-3 mb-4">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
             <Calendar className="h-5 w-5 text-foreground" />
           </div>
           <div>
-            <h3 className="font-display text-lg font-semibold">File d'attente</h3>
-            <p className="text-sm text-muted-foreground">Vos posts programmés</p>
+            <h3 className="font-display text-base md:text-lg font-semibold">Queue</h3>
+            <p className="text-xs md:text-sm text-muted-foreground">Your scheduled posts</p>
           </div>
         </div>
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-            <Calendar className="h-8 w-8 text-muted-foreground" />
+        <div className="flex flex-col items-center justify-center py-8 md:py-12 text-center">
+          <div className="mb-4 flex h-14 w-14 md:h-16 md:w-16 items-center justify-center rounded-full bg-muted">
+            <Calendar className="h-7 w-7 md:h-8 md:w-8 text-muted-foreground" />
           </div>
-          <p className="text-muted-foreground">Aucun post dans la file</p>
-          <p className="text-sm text-muted-foreground">Générez du contenu pour commencer</p>
+          <p className="text-muted-foreground text-sm">No posts in queue</p>
+          <p className="text-xs md:text-sm text-muted-foreground">Generate content to get started</p>
         </div>
       </motion.div>
     );
@@ -91,15 +91,15 @@ export const PostQueue = ({ posts, onPublishNow, onDelete }: PostQueueProps) => 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}
-      className="rounded-2xl bg-card p-6 shadow-card"
+      className="rounded-2xl bg-card p-4 md:p-6 shadow-card"
     >
       <div className="flex items-center gap-3 mb-4">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
           <Calendar className="h-5 w-5 text-foreground" />
         </div>
         <div>
-          <h3 className="font-display text-lg font-semibold">File d'attente</h3>
-          <p className="text-sm text-muted-foreground">{posts.length} post(s) en attente</p>
+          <h3 className="font-display text-base md:text-lg font-semibold">Queue</h3>
+          <p className="text-xs md:text-sm text-muted-foreground">{posts.length} post(s) pending</p>
         </div>
       </div>
 
@@ -113,7 +113,7 @@ export const PostQueue = ({ posts, onPublishNow, onDelete }: PostQueueProps) => 
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.05 * index }}
-              className="group rounded-xl border-2 border-border p-4 transition-all hover:border-primary/30"
+              className="group rounded-xl border border-border p-3 md:p-4 transition-all hover:border-primary/30"
             >
               <div className="flex items-start gap-3">
                 {post.content.imageUrl && (
@@ -132,7 +132,7 @@ export const PostQueue = ({ posts, onPublishNow, onDelete }: PostQueueProps) => 
                     {post.scheduledFor && (
                       <span className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />
-                        {new Date(post.scheduledFor).toLocaleDateString("fr-FR", {
+                        {new Date(post.scheduledFor).toLocaleDateString("en-US", {
                           day: "numeric",
                           month: "short",
                           hour: "2-digit",
@@ -144,36 +144,37 @@ export const PostQueue = ({ posts, onPublishNow, onDelete }: PostQueueProps) => 
                 </div>
               </div>
 
-              <div className="mt-3 flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+              {/* Actions - Always visible on mobile */}
+              <div className="mt-3 flex flex-wrap items-center gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => handleCopy(post)}
-                  className="h-8 rounded-full"
+                  className="h-8 rounded-full text-xs"
                 >
                   {copiedId === post.id ? (
-                    <Check className="h-4 w-4 text-green-600" />
+                    <Check className="h-3 w-3 mr-1 text-green-600" />
                   ) : (
-                    <Copy className="h-4 w-4" />
+                    <Copy className="h-3 w-3 mr-1" />
                   )}
-                  Copier
+                  Copy
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => onPublishNow(post)}
-                  className="h-8 rounded-full"
+                  className="h-8 rounded-full text-xs"
                 >
-                  <Send className="h-4 w-4" />
-                  Publier
+                  <Send className="h-3 w-3 mr-1" />
+                  Share
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => onDelete(post.id)}
-                  className="h-8 rounded-full text-destructive hover:text-destructive"
+                  className="h-8 rounded-full text-xs text-destructive hover:text-destructive"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="h-3 w-3" />
                 </Button>
               </div>
             </motion.div>

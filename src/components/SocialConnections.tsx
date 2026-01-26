@@ -131,7 +131,7 @@ export const SocialConnections = ({ connections, onConnect, onDisconnect, compac
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1 rounded-full bg-green-500/20 px-2 py-1 text-green-600 dark:text-green-400">
                     <Check className="h-3 w-3" />
-                    <span className="text-xs font-medium">Connecté</span>
+                    <span className="text-xs font-medium">Connected</span>
                   </div>
                   <Button
                     variant="ghost"
@@ -153,7 +153,7 @@ export const SocialConnections = ({ connections, onConnect, onDisconnect, compac
                   {isConnecting ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
-                    "Connecter"
+                    "Connect"
                   )}
                 </Button>
               )}
@@ -169,15 +169,15 @@ export const SocialConnections = ({ connections, onConnect, onDisconnect, compac
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.1 }}
-      className="rounded-2xl bg-card p-6 shadow-card"
+      className="rounded-2xl bg-card p-4 md:p-6 shadow-card"
     >
       <div className="mb-4 flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
           <Link2 className="h-5 w-5 text-foreground" />
         </div>
         <div>
-          <h3 className="font-display text-lg font-semibold">Comptes connectés</h3>
-          <p className="text-sm text-muted-foreground">Liez vos réseaux sociaux</p>
+          <h3 className="font-display text-base md:text-lg font-semibold">Connected Accounts</h3>
+          <p className="text-xs md:text-sm text-muted-foreground">Link your social networks</p>
         </div>
       </div>
 
@@ -192,33 +192,33 @@ export const SocialConnections = ({ connections, onConnect, onDisconnect, compac
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 * index }}
-              className="flex items-center justify-between rounded-xl border-2 border-border p-4 transition-all hover:border-primary/30"
+              className="flex items-center justify-between rounded-xl border border-border p-3 md:p-4 transition-all hover:border-primary/30"
             >
               <div className="flex items-center gap-3">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${config.gradient}`}>
-                  <Icon className="h-5 w-5 text-white" />
+                <div className={`flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-xl bg-gradient-to-br ${config.gradient}`}>
+                  <Icon className="h-4 w-4 md:h-5 md:w-5 text-white" />
                 </div>
                 <div>
-                  <p className="font-medium">{config.name}</p>
+                  <p className="font-medium text-sm md:text-base">{config.name}</p>
                   {connection.connected && connection.username && (
-                    <p className="text-sm text-muted-foreground">@{connection.username}</p>
+                    <p className="text-xs md:text-sm text-muted-foreground">@{connection.username}</p>
                   )}
                 </div>
               </div>
 
               {connection.connected ? (
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2 rounded-full bg-green-500/20 px-3 py-1.5 text-green-600 dark:text-green-400">
-                    <Check className="h-4 w-4" />
-                    <span className="text-sm font-medium">Connecté</span>
+                  <div className="flex items-center gap-1 md:gap-2 rounded-full bg-green-500/20 px-2 md:px-3 py-1 md:py-1.5 text-green-600 dark:text-green-400">
+                    <Check className="h-3 w-3 md:h-4 md:w-4" />
+                    <span className="text-xs md:text-sm font-medium">Connected</span>
                   </div>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-7 w-7 md:h-8 md:w-8"
                     onClick={() => handleDisconnect(connection.platform)}
                   >
-                    <LogOut className="h-4 w-4" />
+                    <LogOut className="h-3 w-3 md:h-4 md:w-4" />
                   </Button>
                 </div>
               ) : (
@@ -227,15 +227,15 @@ export const SocialConnections = ({ connections, onConnect, onDisconnect, compac
                   size="sm"
                   onClick={() => handleConnect(connection.platform)}
                   disabled={isConnecting}
-                  className="rounded-full"
+                  className="rounded-full text-xs md:text-sm"
                 >
                   {isConnecting ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Connexion...
+                      <Loader2 className="mr-2 h-3 w-3 md:h-4 md:w-4 animate-spin" />
+                      Connecting...
                     </>
                   ) : (
-                    "Connecter"
+                    "Connect"
                   )}
                 </Button>
               )}
@@ -245,11 +245,11 @@ export const SocialConnections = ({ connections, onConnect, onDisconnect, compac
       </div>
 
       <div className="mt-4 flex items-start gap-2 rounded-xl bg-accent/10 p-3">
-        <AlertCircle className="h-5 w-5 shrink-0 text-accent" />
-        <p className="text-sm text-muted-foreground">
+        <AlertCircle className="h-4 w-4 md:h-5 md:w-5 shrink-0 text-accent mt-0.5" />
+        <p className="text-xs md:text-sm text-muted-foreground">
           {isConnected 
-            ? "Vos comptes Meta sont connectés. Vous pouvez maintenant partager directement vos vidéos."
-            : "Connectez-vous avec Meta pour partager automatiquement sur Facebook et Instagram."
+            ? "Your Meta accounts are connected. You can now share your videos directly."
+            : "Connect with Meta to automatically share to Facebook and Instagram."
           }
         </p>
       </div>

@@ -144,22 +144,22 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 md:space-y-8">
       {/* Welcome Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <h1 className="font-display text-3xl font-bold mb-2">
+        <h1 className="font-display text-2xl md:text-3xl font-bold mb-1 md:mb-2">
           Hello, <span className="text-gradient">{profile?.display_name || "Creator"}</span> 👋
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-sm md:text-base text-muted-foreground">
           Here's an overview of your activity
         </p>
       </motion.div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {statCards.map((stat, index) => (
           <motion.div
             key={stat.title}
@@ -168,14 +168,14 @@ const Dashboard = () => {
             transition={{ delay: index * 0.1 }}
           >
             <Card className="hover:shadow-lg transition-shadow">
-              <CardContent className="p-6">
+              <CardContent className="p-4 md:p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">{stat.title}</p>
-                    <p className="text-3xl font-bold mt-1">{stat.value}</p>
+                    <p className="text-xs md:text-sm text-muted-foreground">{stat.title}</p>
+                    <p className="text-2xl md:text-3xl font-bold mt-1">{stat.value}</p>
                   </div>
-                  <div className={`h-12 w-12 rounded-xl ${stat.bgColor} flex items-center justify-center`}>
-                    <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                  <div className={`h-10 w-10 md:h-12 md:w-12 rounded-xl ${stat.bgColor} flex items-center justify-center shrink-0`}>
+                    <stat.icon className={`h-5 w-5 md:h-6 md:w-6 ${stat.color}`} />
                   </div>
                 </div>
               </CardContent>
@@ -190,8 +190,8 @@ const Dashboard = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
       >
-        <h2 className="font-display text-xl font-semibold mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <h2 className="font-display text-lg md:text-xl font-semibold mb-3 md:mb-4">Quick Actions</h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           {quickActions.map((action, index) => (
             <motion.button
               key={action.title}
@@ -199,14 +199,14 @@ const Dashboard = () => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.5 + index * 0.1 }}
-              className="group relative overflow-hidden rounded-2xl p-6 text-left transition-all hover:scale-[1.02] hover:shadow-xl"
+              className="group relative overflow-hidden rounded-xl md:rounded-2xl p-4 md:p-6 text-left transition-all hover:scale-[1.02] hover:shadow-xl"
             >
               <div className={`absolute inset-0 bg-gradient-to-br ${action.gradient} opacity-90`} />
               <div className="relative z-10 text-white">
-                <action.icon className="h-8 w-8 mb-4" />
-                <h3 className="font-display font-semibold text-lg">{action.title}</h3>
-                <p className="text-sm text-white/80 mt-1">{action.description}</p>
-                <ArrowRight className="h-5 w-5 mt-4 transform transition-transform group-hover:translate-x-1" />
+                <action.icon className="h-6 w-6 md:h-8 md:w-8 mb-2 md:mb-4" />
+                <h3 className="font-display font-semibold text-sm md:text-lg">{action.title}</h3>
+                <p className="text-xs md:text-sm text-white/80 mt-0.5 md:mt-1 hidden sm:block">{action.description}</p>
+                <ArrowRight className="h-4 w-4 md:h-5 md:w-5 mt-2 md:mt-4 transform transition-transform group-hover:translate-x-1" />
               </div>
             </motion.button>
           ))}
