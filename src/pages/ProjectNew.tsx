@@ -139,7 +139,7 @@ const ProjectNew = () => {
       case 3: // Contenu - toujours valide (valeurs par défaut)
         return true;
       case 4: // Plateformes
-        if (!formData.instagram_enabled && !formData.facebook_enabled) {
+        if (!formData.instagram_enabled && !formData.facebook_enabled && !formData.linkedin_enabled && !formData.tiktok_enabled) {
           toast({
             title: "Plateforme requise",
             description: "Sélectionnez au moins une plateforme de publication",

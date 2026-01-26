@@ -13,13 +13,11 @@ import {
   User,
   Bell,
   Shield,
-  Palette,
   LogOut,
   Loader2,
-  Instagram,
-  Facebook,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { SocialConnections } from "@/components/SocialConnections";
 
 const Settings = () => {
   const { profile, signOut } = useAuth();
@@ -32,6 +30,14 @@ const Settings = () => {
     push: false,
     weekly: true,
   });
+
+  // Social connections state
+  const [connections, setConnections] = useState([
+    { platform: "instagram" as const, connected: false },
+    { platform: "facebook" as const, connected: false },
+    { platform: "linkedin" as const, connected: false },
+    { platform: "tiktok" as const, connected: false },
+  ]);
 
   const handleUpdateProfile = async () => {
     if (!profile) return;
@@ -58,6 +64,20 @@ const Settings = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleConnect = (platform: "instagram" | "facebook" | "linkedin" | "tiktok") => {
+    if (platform === "linkedin") {
+      toast({
+        title: "LinkedIn",
+        description: "La connexion LinkedIn sera disponible prochainement",
+      });
+    } else if (platform === "tiktok") {
+      toast({
+        title: "TikTok",
+        description: "La connexion TikTok sera disponible prochainement",
+      });
     }
   };
 
@@ -124,38 +144,11 @@ const Settings = () => {
             Comptes connectés
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 flex items-center justify-center">
-                <Instagram className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <p className="font-medium">Instagram</p>
-                <p className="text-sm text-muted-foreground">Non connecté</p>
-              </div>
-            </div>
-            <Button variant="outline" size="sm">
-              Connecter
-            </Button>
-          </div>
-
-          <Separator />
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-blue-600 flex items-center justify-center">
-                <Facebook className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <p className="font-medium">Facebook</p>
-                <p className="text-sm text-muted-foreground">Non connecté</p>
-              </div>
-            </div>
-            <Button variant="outline" size="sm">
-              Connecter
-            </Button>
-          </div>
+        <CardContent>
+          <SocialConnections 
+            connections={connections} 
+            onConnect={handleConnect}
+          />
         </CardContent>
       </Card>
 
