@@ -59,16 +59,17 @@ export const AVAILABLE_VOICES: Voice[] = [
   { id: "bIHbv24MWmeRgasZH58o", name: "Will", gender: "male", language: "es", accent: "Spanish" },
 
   // German voices
+  { id: "XrExE9yKIg1WjnnlVkGX", name: "Marta", gender: "female", language: "de", accent: "German" },
   { id: "iP95p4xoKVk53GoZ742B", name: "Chris", gender: "male", language: "de", accent: "German" },
   { id: "pqHfZKP75CvOlQylNhV4", name: "Bill", gender: "male", language: "de", accent: "German" },
 
-  // Italian voices
-  { id: "EXAVITQu4vr4xnSDxMaL", name: "Isabella", gender: "female", language: "it", accent: "Italian" },
-  { id: "JBFqnCBsd6RMkjVDRZzb", name: "Marco", gender: "male", language: "it", accent: "Italian" },
+  // Italian voices - using distinct multilingual voice IDs
+  { id: "pMsXgVXv3BLzUgSXRplE", name: "Isabella", gender: "female", language: "it", accent: "Italian" },
+  { id: "IKne3meq5aSn9XLyUdCD", name: "Marco", gender: "male", language: "it", accent: "Italian" },
 
-  // Portuguese voices
-  { id: "FGY2WhTYpPnrIDTdsKH5", name: "Ana", gender: "female", language: "pt", accent: "Brazilian" },
-  { id: "TX3LPaxmHKxFdv7VOQHJ", name: "Pedro", gender: "male", language: "pt", accent: "Brazilian" },
+  // Portuguese voices - using distinct multilingual voice IDs
+  { id: "ThT5KcBeYPX3keUQqHPh", name: "Ana", gender: "female", language: "pt", accent: "Brazilian" },
+  { id: "CwhRBWXzGAHq8TQ4Fs17", name: "Pedro", gender: "male", language: "pt", accent: "Brazilian" },
 ];
 
 // Get voices by language
