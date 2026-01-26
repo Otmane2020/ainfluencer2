@@ -18,6 +18,18 @@ export const useVoicePreview = () => {
     setIsPlaying(true);
     setPlayingVoiceId(voice.id);
 
+    // Get preview text in the correct language
+    const previewTexts: Record<string, string> = {
+      en: "Hi, I'm your AI influencer. Ready to create viral content for your brand?",
+      fr: "Bonjour, je suis votre influenceur IA. Prêt à créer du contenu viral pour votre marque ?",
+      es: "Hola, soy tu influencer de IA. ¿Listo para crear contenido viral para tu marca?",
+      de: "Hallo, ich bin Ihr KI-Influencer. Bereit, virale Inhalte für Ihre Marke zu erstellen?",
+      it: "Ciao, sono il tuo influencer IA. Pronto a creare contenuti virali per il tuo marchio?",
+      pt: "Olá, sou seu influenciador de IA. Pronto para criar conteúdo viral para sua marca?",
+    };
+
+    const previewText = previewTexts[voice.language] || previewTexts.en;
+
     try {
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`,
@@ -29,7 +41,7 @@ export const useVoicePreview = () => {
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({
-            text: "Hi, I'm your AI influencer. Ready to create viral content for your brand?",
+            text: previewText,
             voiceId: voice.id,
           }),
         }
