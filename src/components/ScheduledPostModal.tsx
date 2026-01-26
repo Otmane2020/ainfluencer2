@@ -31,7 +31,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
-import { AI_MODELS, AIModel } from "./ModelSelector";
+import { ProductSelector } from "./ProductSelector";
+import { COMMERCIAL_PRODUCTS, CommercialProduct } from "@/lib/commercialProducts";
 
 // TikTok icon component
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -124,7 +125,7 @@ export const ScheduledPostModal = ({
   const [isPublishing, setIsPublishing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
-  const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<CommercialProduct | null>(null);
   const [activeTab, setActiveTab] = useState("details");
   const { toast } = useToast();
 
@@ -141,17 +142,17 @@ export const ScheduledPostModal = ({
   const contentType = contentTypeConfig[post.content_type as keyof typeof contentTypeConfig] || contentTypeConfig.text;
   const ContentIcon = contentType.icon;
 
-  // Filter models based on content type
-  const getRelevantModels = () => {
+  // Filter products based on content type
+  const getRelevantProducts = () => {
     if (post.content_type === "video" || post.content_type === "reel") {
-      return AI_MODELS.filter((m) => m.category === "video" || m.category === "avatar");
+      return COMMERCIAL_PRODUCTS.filter((p) => p.category === "video" || p.category === "avatar");
     } else if (post.content_type === "image") {
-      return AI_MODELS.filter((m) => m.category === "image");
+      return COMMERCIAL_PRODUCTS.filter((p) => p.category === "image");
     }
-    return AI_MODELS.filter((m) => m.category === "image"); // Default to image for text posts
+    return COMMERCIAL_PRODUCTS.filter((p) => p.category === "image"); // Default to image for text posts
   };
 
-  const relevantModels = getRelevantModels();
+  const relevantProducts = getRelevantProducts();
 
   const togglePlatform = (platform: string) => {
     setSelectedPlatforms((prev) =>
@@ -423,20 +424,20 @@ export const ScheduledPostModal = ({
               <div className="rounded-xl border border-border p-4">
                 <h4 className="mb-2 text-sm font-medium flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary" />
-                  Modèles IA pour génération
+                  Produits IA disponibles
                 </h4>
                 <p className="mb-4 text-xs text-muted-foreground">
-                  Sélectionnez un modèle pour régénérer le contenu de ce post
+                  Sélectionnez un produit pour régénérer le contenu de ce post
                 </p>
                 
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {relevantModels.map((model) => {
-                    const isSelected = selectedModel?.id === model.id;
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {relevantProducts.map((product) => {
+                    const isSelected = selectedProduct?.id === product.id;
                     return (
                       <motion.button
-                        key={model.id}
+                        key={product.id}
                         type="button"
-                        onClick={() => setSelectedModel(model)}
+                        onClick={() => setSelectedProduct(product)}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         className={`relative flex flex-col rounded-xl border-2 p-3 text-left transition-all ${
@@ -445,12 +446,17 @@ export const ScheduledPostModal = ({
                             : "border-border hover:border-primary/50"
                         }`}
                       >
-                        {model.discount && (
-                          <div className="absolute -right-1 -top-1 flex items-center gap-0.5 rounded-full bg-green-500 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm">
-                            -{model.discount}%
+                        {product.popular && (
+                          <div className="absolute -right-1 -top-1 flex items-center gap-0.5 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground shadow-sm">
+                            ⭐ POPULAIRE
                           </div>
                         )}
-                        {isSelected && !model.discount && (
+                        {product.badge && !product.popular && (
+                          <div className="absolute -right-1 -top-1 flex items-center gap-0.5 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold text-accent-foreground shadow-sm">
+                            {product.badge}
+                          </div>
+                        )}
+                        {isSelected && !product.popular && !product.badge && (
                           <div className="absolute right-2 top-2">
                             <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary">
                               <Check className="h-3 w-3 text-primary-foreground" />
@@ -458,39 +464,34 @@ export const ScheduledPostModal = ({
                           </div>
                         )}
                         <div className="mb-1 flex items-center gap-2">
-                          <span className="font-semibold text-sm">{model.name}</span>
-                          {model.quality !== "standard" && (
+                          <span className="font-semibold text-sm">{product.name}</span>
+                          {product.tier !== "standard" && (
                             <span className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase bg-primary/20 text-primary">
-                              {model.quality}
+                              {product.tier}
                             </span>
                           )}
                         </div>
                         <p className="mb-2 text-xs text-muted-foreground line-clamp-1">
-                          {model.description}
+                          {product.description}
                         </p>
                         <div className="flex items-center gap-1 mt-auto">
-                          {model.originalPrice && (
-                            <span className="text-xs text-muted-foreground line-through">
-                              ${model.originalPrice.toFixed(2)}
-                            </span>
-                          )}
-                          <span className="text-lg font-bold text-primary">{model.price}</span>
-                          <span className="text-xs text-muted-foreground">{model.priceUnit}</span>
+                          <span className="text-lg font-bold text-primary">{product.salePrice}€</span>
+                          <span className="text-xs text-muted-foreground">{product.salePriceUnit}</span>
                         </div>
                       </motion.button>
                     );
                   })}
                 </div>
 
-                {selectedModel && (
+                {selectedProduct && (
                   <div className="mt-4 p-3 rounded-lg bg-primary/10 border border-primary/20">
                     <p className="text-sm">
-                      <span className="font-medium">Modèle sélectionné :</span>{" "}
-                      {selectedModel.name} - {selectedModel.price}{selectedModel.priceUnit}
+                      <span className="font-medium">Produit sélectionné :</span>{" "}
+                      {selectedProduct.name} - {selectedProduct.salePrice}€{selectedProduct.salePriceUnit}
                     </p>
                     <Button className="mt-3 w-full" size="sm">
                       <Sparkles className="h-4 w-4 mr-2" />
-                      Régénérer avec {selectedModel.name}
+                      Régénérer avec {selectedProduct.name}
                     </Button>
                   </div>
                 )}

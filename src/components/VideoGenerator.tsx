@@ -5,7 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { ModelSelector, AI_MODELS, type AIModel } from "@/components/ModelSelector";
+import { AI_MODELS, type AIModel } from "@/components/ModelSelector";
+import { ProductSelector } from "@/components/ProductSelector";
+import {
+  COMMERCIAL_PRODUCTS,
+  CommercialProduct,
+  getPrimaryInternalModel,
+  getCommercialName,
+} from "@/lib/commercialProducts";
 import {
   Collapsible,
   CollapsibleContent,
@@ -63,26 +70,31 @@ interface VideoGeneratorProps {
   onTasksUpdated?: (tasks: GenerationTask[]) => void;
 }
 
-// Filter to only show video and avatar models on this page
-const VIDEO_AVATAR_MODELS = AI_MODELS.filter(
-  (m) => m.category === "video" || m.category === "avatar"
+// Filter commercial products for video and avatar only
+const VIDEO_AVATAR_PRODUCTS = COMMERCIAL_PRODUCTS.filter(
+  (p) => p.category === "video" || p.category === "avatar"
 );
 
 export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }: VideoGeneratorProps) => {
-  const defaultModel = VIDEO_AVATAR_MODELS.find((m) => m.id === "sora-2") || VIDEO_AVATAR_MODELS[0];
+  const defaultProduct = VIDEO_AVATAR_PRODUCTS.find((p) => p.id === "ai-reel-pro") || VIDEO_AVATAR_PRODUCTS[0];
   const [generationTasks, setGenerationTasks] = useState<GenerationTask[]>([]);
   const [segments, setSegments] = useState<VideoSegment[]>([
-    { id: "1", script: "", duration: defaultModel.supportedDurations?.[0] || 8, status: "pending" },
+    { id: "1", script: "", duration: defaultProduct.supportedDurations?.[0] || 8, status: "pending" },
   ]);
   const [selectedVoice, setSelectedVoice] = useState<Voice>(AVAILABLE_VOICES[0]);
-  const [selectedModel, setSelectedModel] = useState<AIModel>(defaultModel);
+  const [selectedProduct, setSelectedProduct] = useState<CommercialProduct>(defaultProduct);
   const [isGenerating, setIsGenerating] = useState(false);
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
-  const [showModelSelector, setShowModelSelector] = useState(false);
+  const [showProductSelector, setShowProductSelector] = useState(false);
   const { toast } = useToast();
+  
+  // Get the internal model for API calls (hidden from UI)
+  const getInternalModel = (): AIModel | null => {
+    return getPrimaryInternalModel(selectedProduct.id);
+  };
 
   const addSegment = () => {
-    const defaultDuration = selectedModel.supportedDurations?.[0] || 8;
+    const defaultDuration = selectedProduct.supportedDurations?.[0] || 8;
     setSegments((prev) => [
       ...prev,
       { id: Date.now().toString(), script: "", duration: defaultDuration, status: "pending" },
@@ -159,8 +171,8 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
     );
 
     toast({
-      title: `Génération ${selectedModel.name} en cours...`,
-      description: "Création de vidéos (peut prendre quelques minutes)",
+      title: `Génération ${selectedProduct.name} en cours...`,
+      description: "Création de vidéos avec voix IA ultra-réaliste",
     });
 
     try {
@@ -242,7 +254,7 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
                 avatarUrl,
                 duration: segment.duration,
                 size: "720x1280",
-                model: selectedModel.id,
+                model: getInternalModel()?.id || "sora-2",
               }),
             }
           );
@@ -262,8 +274,8 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
             progress: 0,
             submitTime: currentTime,
             duration: segment.duration,
-            model: selectedModel.name,
-            amount: segment.duration * selectedModel.priceValue,
+            model: selectedProduct.name,
+            amount: segment.duration * selectedProduct.salePrice / 10, // Approx cost display
           };
           
           setGenerationTasks(prev => {
@@ -391,8 +403,8 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
 
         if (readyCount > 0) {
           toast({
-            title: `🎬 Vidéos ${selectedModel.name} générées !`,
-            description: `${readyCount} vidéo(s) prête(s)${errorCount > 0 ? `, ${errorCount} erreur(s)` : ""}`,
+            title: `🎬 ${selectedProduct.name} générées !`,
+            description: `${readyCount} vidéo(s) prête(s) avec voix IA${errorCount > 0 ? `, ${errorCount} erreur(s)` : ""}`,
           });
           onVideosGenerated(updatedSegments);
         } else {
@@ -412,9 +424,9 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
   };
 
   const totalDuration = segments.reduce((acc, s) => acc + s.duration, 0);
-  const estimatedCost = selectedModel.category === "video" 
-    ? (totalDuration * selectedModel.priceValue).toFixed(2)
-    : (segments.filter(s => s.script.trim()).length * selectedModel.priceValue).toFixed(2);
+  const estimatedCost = selectedProduct.category === "video" || selectedProduct.category === "avatar"
+    ? (totalDuration * (selectedProduct.salePrice / 10)).toFixed(0)
+    : (segments.filter(s => s.script.trim()).length * selectedProduct.salePrice).toFixed(0);
 
   return (
     <motion.div
@@ -434,46 +446,46 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
           </p>
         </div>
         <div className="text-right">
-          <p className="text-2xl font-bold text-gradient">~${estimatedCost}</p>
-          <p className="text-xs text-muted-foreground">Coût estimé</p>
+          <p className="text-2xl font-bold text-gradient">~{estimatedCost}€</p>
+          <p className="text-xs text-muted-foreground">Prix estimé</p>
         </div>
       </div>
 
-      {/* Model Selector Toggle */}
-      <Collapsible open={showModelSelector} onOpenChange={setShowModelSelector} className="mb-6">
+      {/* Product Selector Toggle */}
+      <Collapsible open={showProductSelector} onOpenChange={setShowProductSelector} className="mb-6">
         <CollapsibleTrigger asChild>
           <Button variant="outline" className="w-full justify-between">
             <div className="flex items-center gap-2">
               <Settings2 className="h-4 w-4" />
-              <span>Modèle: <strong>{selectedModel.name}</strong></span>
-              <span className="text-muted-foreground">({selectedModel.price}{selectedModel.priceUnit})</span>
+              <span>Produit: <strong>{selectedProduct.name}</strong></span>
+              <span className="text-muted-foreground">({selectedProduct.salePrice}€{selectedProduct.salePriceUnit})</span>
             </div>
             <span className="text-xs text-muted-foreground">
-              {showModelSelector ? "Masquer" : "Changer"}
+              {showProductSelector ? "Masquer" : "Changer"}
             </span>
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent className="mt-4">
-          <ModelSelector
-            selectedModel={selectedModel}
+          <ProductSelector
+            selectedProduct={selectedProduct}
             categories={["video", "avatar"]}
-            onModelChange={(model) => {
-              setSelectedModel(model);
-              // Reset durations to first supported duration for new model
-              const newDefaultDuration = model.supportedDurations?.[0] || 8;
+            onProductChange={(product) => {
+              setSelectedProduct(product);
+              // Reset durations to first supported duration for new product
+              const newDefaultDuration = product.supportedDurations?.[0] || 8;
               setSegments((prev) =>
                 prev.map((s) => ({ ...s, duration: newDefaultDuration }))
               );
-              setShowModelSelector(false);
+              setShowProductSelector(false);
             }}
           />
         </CollapsibleContent>
       </Collapsible>
 
-      {/* Voice Selection - Only show if model needs voice */}
-      {selectedModel.needsVoice && (
+      {/* Voice Selection - Only show if product needs voice */}
+      {selectedProduct.needsVoice && (
         <div className="mb-6">
-          <label className="mb-2 block text-sm font-medium">Voix de l'influenceur</label>
+          <label className="mb-2 block text-sm font-medium">Voix IA ultra-réaliste</label>
           <div className="flex flex-wrap gap-2">
             {AVAILABLE_VOICES.map((voice) => (
               <button
@@ -519,19 +531,19 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
                     {index + 1}
                   </span>
                   <span className="text-sm font-medium">
-                    {selectedModel.category === "video" ? "Segment" : selectedModel.category === "image" ? "Image" : "Audio"} {index + 1}
+                    {selectedProduct.category === "video" ? "Segment" : selectedProduct.category === "avatar" ? "Avatar" : "Image"} {index + 1}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  {(selectedModel.category === "video" || selectedModel.category === "avatar") && selectedModel.supportedDurations && (
+                  {(selectedProduct.category === "video" || selectedProduct.category === "avatar") && selectedProduct.supportedDurations && (
                     <select
                       value={segment.duration}
                       onChange={(e) => updateSegment(segment.id, { duration: Number(e.target.value) })}
                       className="rounded-lg border border-border bg-background px-2 py-1 text-sm"
                     >
-                      {selectedModel.supportedDurations.map((dur) => (
+                      {selectedProduct.supportedDurations.map((dur) => (
                         <option key={dur} value={dur}>
-                          {dur}s (${(dur * selectedModel.priceValue).toFixed(2)})
+                          {dur}s (~{Math.round(dur * selectedProduct.salePrice / 10)}€)
                         </option>
                       ))}
                     </select>
@@ -551,11 +563,11 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
 
               <Textarea
                 placeholder={
-                  selectedModel.category === "video"
+                  selectedProduct.category === "video"
                     ? "Ex: Salut tout le monde ! Aujourd'hui je vous présente ce produit incroyable..."
-                    : selectedModel.category === "image"
-                    ? "Ex: Une photo lifestyle d'un influenceur sur une plage au coucher du soleil..."
-                    : "Ex: Texte à transformer en voix..."
+                    : selectedProduct.category === "avatar"
+                    ? "Ex: Bonjour, je suis votre AI influenceur préféré..."
+                    : "Ex: Une photo lifestyle d'un influenceur sur une plage au coucher du soleil..."
                 }
                 value={segment.script}
                 onChange={(e) => updateSegment(segment.id, { script: e.target.value })}
@@ -569,7 +581,7 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
                       <div className="flex items-center justify-between text-sm">
                         <span className="flex items-center gap-1 text-accent">
                           <Loader2 className="h-4 w-4 animate-spin" />
-                          Génération {selectedModel.name}...
+                          Génération {selectedProduct.name}...
                         </span>
                         <span className="text-muted-foreground">{segment.progress || 0}%</span>
                       </div>
@@ -584,7 +596,7 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
                   {segment.status === "ready" && (
                     <span className="flex items-center gap-1 text-sm text-primary">
                       <Play className="h-4 w-4" />
-                      {selectedModel.category === "video" ? "Vidéo prête" : selectedModel.category === "image" ? "Image prête" : "Audio prêt"}
+                      {selectedProduct.category === "video" ? "Vidéo prête" : selectedProduct.category === "avatar" ? "Avatar prêt" : "Contenu prêt"}
                     </span>
                   )}
                   {segment.status === "error" && (
@@ -602,7 +614,7 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
       {/* Add Segment Button */}
       <Button variant="outline" onClick={addSegment} className="mb-4 w-full border-dashed">
         <Plus className="h-4 w-4" />
-        Ajouter {selectedModel.category === "video" ? "un segment" : selectedModel.category === "image" ? "une image" : "un audio"}
+        Ajouter {selectedProduct.category === "video" ? "un segment" : selectedProduct.category === "avatar" ? "un avatar" : "une image"}
       </Button>
 
       {/* Generate Button */}
@@ -621,7 +633,7 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
         ) : (
           <>
             <Sparkles className="h-5 w-5" />
-            Générer avec {selectedModel.name} (~${estimatedCost})
+            Générer avec {selectedProduct.name} (~{estimatedCost}€)
           </>
         )}
       </Button>
