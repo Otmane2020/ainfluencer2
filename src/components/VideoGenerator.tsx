@@ -1,8 +1,14 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Video, Sparkles, Loader2, Play, Plus, Trash2, Settings2 } from "lucide-react";
+import { Video, Sparkles, Loader2, Play, Plus, Trash2, Settings2, Globe, Database, Wand2, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { AI_MODELS, type AIModel } from "@/components/ModelSelector";
@@ -483,18 +489,80 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
                 </div>
               </div>
 
-              <Textarea
-                placeholder={
-                  selectedProduct.category === "video"
-                    ? "Ex: Hey everyone! Today I'm presenting this incredible product..."
-                    : selectedProduct.category === "avatar"
-                    ? "Ex: Hi, I'm your favorite AI influencer..."
-                    : "Ex: A lifestyle photo of an influencer on a beach at sunset..."
-                }
-                value={segment.script}
-                onChange={(e) => updateSegment(segment.id, { script: e.target.value })}
-                className="min-h-[80px] resize-none border-2 focus:border-primary/50"
-              />
+              <div className="space-y-3">
+                <Textarea
+                  placeholder={
+                    selectedProduct.category === "video"
+                      ? "Ex: Hey everyone! Today I'm presenting this incredible product that will change everything..."
+                      : selectedProduct.category === "avatar"
+                      ? "Ex: Hi, I'm your favorite AI influencer and I have something amazing to share with you today..."
+                      : "Ex: A lifestyle photo of an influencer on a beach at sunset with golden hour lighting..."
+                  }
+                  value={segment.script}
+                  onChange={(e) => updateSegment(segment.id, { script: e.target.value })}
+                  className="min-h-[140px] resize-none border-2 focus:border-primary/50 text-sm"
+                />
+                
+                {/* AI Script Generation Options */}
+                <div className="flex flex-wrap gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <Sparkles className="h-3.5 w-3.5 text-primary" />
+                        Generate with AI
+                        <ChevronDown className="h-3 w-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="bg-card border-border z-50">
+                      <DropdownMenuItem 
+                        onClick={() => {
+                          toast({
+                            title: "Coming soon",
+                            description: "AI script generation from project data",
+                          });
+                        }}
+                        className="gap-2 cursor-pointer"
+                      >
+                        <Database className="h-4 w-4 text-primary" />
+                        <div className="flex flex-col">
+                          <span className="font-medium">From Project Data</span>
+                          <span className="text-xs text-muted-foreground">Use your project description & URL</span>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => {
+                          toast({
+                            title: "Coming soon",
+                            description: "AI script generation from URL",
+                          });
+                        }}
+                        className="gap-2 cursor-pointer"
+                      >
+                        <Globe className="h-4 w-4 text-accent" />
+                        <div className="flex flex-col">
+                          <span className="font-medium">From URL</span>
+                          <span className="text-xs text-muted-foreground">Scrape a webpage for content</span>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => {
+                          toast({
+                            title: "Coming soon",
+                            description: "Quick AI script generation",
+                          });
+                        }}
+                        className="gap-2 cursor-pointer"
+                      >
+                        <Wand2 className="h-4 w-4 text-secondary" />
+                        <div className="flex flex-col">
+                          <span className="font-medium">Quick Generate</span>
+                          <span className="text-xs text-muted-foreground">AI writes a viral script for you</span>
+                        </div>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
 
               {segment.status !== "pending" && (
                 <div className="mt-2 space-y-2">
