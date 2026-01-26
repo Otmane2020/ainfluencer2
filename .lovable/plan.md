@@ -1,170 +1,92 @@
 
-# Plan : Création des Packs Commerciaux et Refonte des Modèles IA
+# Plan: Fix ElevenLabs Voice and Language Issues
 
-## Objectif
-Transformer l'interface technique en interface business-ready :
-- **Masquer les noms techniques** (Sora, Veo, Flux, ElevenLabs) au profit de noms commerciaux
-- **Créer des packs commerciaux** avec pricing attractif (Starter, Pro, Agency)
-- **Simplifier le choix utilisateur** avec des niveaux de qualité (Standard, Pro, Ultra, Cinema)
+## Problems Identified
 
----
-
-## Architecture Proposée
-
-### 1. Nouveaux Produits Commerciaux (visible client)
-
-**Images :**
-| Nom Commercial | Qualité | Prix Vente | Coût API |
-|----------------|---------|------------|----------|
-| AI Image Standard | Standard | 2€ | ~$0.01 |
-| AI Image Pro | Pro | 5€ | ~$0.03-0.08 |
-| AI Image Studio | Ultra | 10-15€ | ~$0.10-0.20 |
-
-**Vidéos :**
-| Nom Commercial | Qualité | Prix Vente | Coût API |
-|----------------|---------|------------|----------|
-| AI Reel | Standard | 15€ | ~$0.40 |
-| AI Reel Pro | Pro | 25-39€ | ~$0.64-1.92 |
-| AI Cinema | Ultra | 59-79€ | ~$2.00 |
-
-**Vidéos Parlantes (AI Influencer) :**
-| Nom Commercial | Qualité | Prix Vente | Coût API |
-|----------------|---------|------------|----------|
-| AI Influencer Standard | Pro | 39€ | ~$0.50-1.00 |
-| AI Influencer Pro | Ultra | 69€ | ~$1.50-2.00 |
-
-### 2. Packs Commerciaux
-
-| Pack | Contenu | Prix/mois | Coût réel |
-|------|---------|-----------|-----------|
-| **Starter** | 10 images + 2 vidéos | 49€ | ~2€ |
-| **Pro** | 30 images + 6 vidéos + 2 vidéos parlantes | 149€ | ~6-8€ |
-| **Agency** | Usage illimité (fair-use) + choix qualité | 299-499€ | variable |
+1. **Duplicate Voice IDs for Italian and Portuguese**: The voices for Italian and Portuguese languages incorrectly reuse English voice IDs, causing the wrong voices to be used
+2. **Missing Voice Header Icon in Compact Mode**: The compact VoiceSelector doesn't show the Volume2 icon header like the full mode does
+3. **No Female Voices for German**: Only male voices available for German language
+4. **Language/Voice Sync Issue**: The selected language state may not properly sync with the actual voice language
 
 ---
 
-## Modifications Techniques
+## Implementation Plan
 
-### Fichier 1 : `src/components/ModelSelector.tsx`
+### Step 1: Fix Voice IDs in `src/lib/voices.ts`
 
-**Changements :**
-- Créer une nouvelle interface `CommercialProduct` avec mapping interne vers les modèles techniques
-- Remplacer `AI_MODELS` par `COMMERCIAL_PRODUCTS` pour l'affichage client
-- Ajouter un mapping privé `INTERNAL_MODEL_MAPPING` qui lie chaque produit commercial aux vrais modèles API
-- Masquer : provider, noms techniques (Sora, Veo, Kling, Flux, ElevenLabs)
-- Afficher : nom commercial, description business, prix de vente, features orientées résultat
+Replace the incorrect duplicate IDs with proper unique ElevenLabs voice IDs:
 
-**Nouvelle structure :**
+**Italian voices** (lines 65-68):
+- Replace Isabella ID `EXAVITQu4vr4xnSDxMaL` with a proper Italian female voice
+- Replace Marco ID `JBFqnCBsd6RMkjVDRZzb` with a proper Italian male voice
+
+**Portuguese voices** (lines 69-72):
+- Replace Ana ID `FGY2WhTYpPnrIDTdsKH5` with a proper Brazilian Portuguese female voice
+- Replace Pedro ID `TX3LPaxmHKxFdv7VOQHJ` with a proper Brazilian Portuguese male voice
+
+**German voices** - Add female voices for better gender balance
+
+Updated voices using ElevenLabs multilingual voices:
 ```typescript
-interface CommercialProduct {
-  id: string;
-  name: string; // "AI Image Pro", "AI Reel Cinema"
-  category: "image" | "video" | "avatar";
-  tier: "standard" | "pro" | "ultra" | "cinema";
-  salePrice: number; // Prix de vente en €
-  salePriceUnit: string;
-  description: string; // Description business
-  features: string[]; // Features orientées client
-  internalModels: string[]; // IDs des vrais modèles (NON AFFICHÉ)
-  needsVoice: boolean;
-  needsAvatar?: boolean;
-  supportedDurations?: number[];
-}
+// Italian voices - using multilingual voices that work well with Italian
+{ id: "pMsXgVXv3BLzUgSXRplE", name: "Isabella", gender: "female", language: "it", accent: "Italian" },
+{ id: "IKne3meq5aSn9XLyUdCD", name: "Marco", gender: "male", language: "it", accent: "Italian" },
 
-// Mapping interne (JAMAIS exposé au client)
-const INTERNAL_MODEL_MAPPING: Record<string, AIModel> = {...}
+// Portuguese voices - using multilingual voices for Brazilian Portuguese  
+{ id: "ThT5KcBeYPX3keUQqHPh", name: "Ana", gender: "female", language: "pt", accent: "Brazilian" },
+{ id: "CwhRBWXzGAHq8TQ4Fs17", name: "Pedro", gender: "male", language: "pt", accent: "Brazilian" },
+
+// German voices - add female option
+{ id: "XrExE9yKIg1WjnnlVkGX", name: "Marta", gender: "female", language: "de", accent: "German" },
 ```
 
-### Fichier 2 : `src/components/ProductSelector.tsx` (NOUVEAU)
+### Step 2: Add Voice Header in Compact Mode - `src/components/VoiceSelector.tsx`
 
-**Création d'un nouveau composant** qui remplace ModelSelector pour l'interface client :
-- Affiche uniquement les produits commerciaux avec noms business
-- Design épuré sans mentions techniques
-- Indicateurs de qualité visuels (Standard → Cinema)
-- Prix en euros (pas en dollars API)
+Add a header section to the compact mode showing the current voice selection with the Volume2 icon:
 
-### Fichier 3 : `src/components/PricingPacks.tsx` (NOUVEAU)
-
-**Nouveau composant pour afficher les packs :**
-- 3 cartes : Starter, Pro, Agency
-- Comparatif des features
-- CTA d'abonnement
-- Affichage économies réalisées
-
-### Fichier 4 : `src/components/VideoGenerator.tsx`
-
-**Changements :**
-- Remplacer `ModelSelector` par `ProductSelector`
-- Adapter la logique pour utiliser le mapping interne
-- Masquer les détails techniques dans les toasts et messages
-- Afficher "Vidéo AI Reel Pro générée" au lieu de "Vidéo Sora 2 Pro générée"
-
-### Fichier 5 : `src/components/ScheduledPostModal.tsx`
-
-**Changements :**
-- Remplacer l'affichage des modèles IA par les produits commerciaux
-- Mettre à jour l'onglet "Modèles IA" avec le nouveau `ProductSelector`
-- Masquer pricing API, afficher pricing vente
-
-### Fichier 6 : `src/pages/Videos.tsx`
-
-**Changements :**
-- Intégrer le sélecteur de produits commerciaux
-- Ajouter section "Packs recommandés" en bas de page
-
-### Fichier 7 : `src/pages/Settings.tsx`
-
-**Ajouts :**
-- Nouvelle section "Abonnement & Crédits"
-- Affichage du pack actuel
-- Compteur de crédits restants (images/vidéos)
-- Bouton upgrade
-
----
-
-## Logique Métier
-
-### Sélection Automatique du Modèle (invisible client)
-
-```typescript
-// Quand le client choisit "AI Reel Pro"
-function getInternalModel(productId: string): string {
-  const mapping = {
-    "ai-reel-pro": "sora-2-pro", // Sora 2 Pro en interne
-    "ai-image-standard": "flux-2-flex", // Flux 2 Flex
-    "ai-influencer-pro": "kling-lip-sync-pro", // Kling Lip-Sync Pro
-  };
-  return mapping[productId];
-}
+```tsx
+if (compact) {
+  return (
+    <div className="space-y-3">
+      {/* Header for compact mode */}
+      <div className="flex items-center gap-2">
+        <div className="flex h-6 w-6 items-center justify-center rounded-md gradient-primary">
+          <Volume2 className="h-3 w-3 text-white" />
+        </div>
+        <span className="text-sm font-medium">Voice: {selectedVoice?.name || "Select"}</span>
+      </div>
+      
+      {/* Language selector compact */}
+      <Select ...>
+      ...
 ```
 
-### Voix Automatique (ElevenLabs)
+### Step 3: Fix Language Sync with Voice
 
-Tous les modèles vidéo utilisent automatiquement ElevenLabs pour la voix - c'est déjà implémenté dans `VideoGenerator.tsx` mais les messages seront adaptés :
-- ❌ "Voix ElevenLabs générée"
-- ✅ "Voix off IA ultra-réaliste incluse"
+Update the `selectedLanguage` initialization to properly sync when the voice changes from outside:
 
----
-
-## Résumé des Fichiers
-
-| Fichier | Action |
-|---------|--------|
-| `src/components/ModelSelector.tsx` | Refactoring majeur - mapping interne |
-| `src/components/ProductSelector.tsx` | **NOUVEAU** - Interface client |
-| `src/components/PricingPacks.tsx` | **NOUVEAU** - Packs commerciaux |
-| `src/components/VideoGenerator.tsx` | Adaptation au nouveau système |
-| `src/components/ScheduledPostModal.tsx` | Adaptation au nouveau système |
-| `src/pages/Videos.tsx` | Intégration packs |
-| `src/pages/Settings.tsx` | Section abonnement |
+```tsx
+// Add useEffect to sync language when voice changes externally
+useEffect(() => {
+  if (selectedVoice?.language && selectedVoice.language !== selectedLanguage) {
+    setSelectedLanguage(selectedVoice.language);
+  }
+}, [selectedVoice?.language]);
+```
 
 ---
 
-## Bénéfices Business
+## Files to Modify
 
-1. **Protection marge** : Le client ne voit jamais le coût API réel
-2. **Valeur perçue** : Noms commerciaux premium (AI Cinema > Veo 3.1 Pro)
-3. **Simplicité** : 3 niveaux au lieu de 15+ modèles techniques
-4. **Upsell naturel** : Progression Standard → Pro → Cinema
-5. **Secret industriel** : Routing intelligent non exposé
+| File | Changes |
+|------|---------|
+| `src/lib/voices.ts` | Fix duplicate voice IDs for Italian/Portuguese, add German female voice |
+| `src/components/VoiceSelector.tsx` | Add header with icon in compact mode, fix language sync |
 
+---
+
+## Technical Notes
+
+- ElevenLabs `eleven_multilingual_v2` model supports all these languages with the same voice IDs - the voices are multilingual
+- The key is to use distinct voice IDs so users can hear different voice characteristics per selection
+- Using Sophie (French), Charlotte (French), Charlie (French), Roger (French) as bases for other languages since they sound natural in those languages too
