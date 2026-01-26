@@ -9,11 +9,11 @@ export const Header = () => {
           animate={{ opacity: 1, x: 0 }}
           className="flex items-center gap-3"
         >
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden shadow-glow">
-            <img src="/logo.png" alt="AI Influencer" className="h-full w-full object-contain" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl overflow-hidden shadow-glow">
+            <img src="/logo.png" alt="ClipMotion" className="h-full w-full object-contain scale-125" />
           </div>
           <div>
-            <h1 className="font-display text-xl font-bold text-gradient">AI Influencer</h1>
+            <h1 className="font-display text-xl font-bold text-gradient">ClipMotion</h1>
             <p className="text-xs text-muted-foreground">Automatisez votre influence</p>
           </div>
         </motion.div>

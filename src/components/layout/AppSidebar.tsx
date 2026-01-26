@@ -59,13 +59,13 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-border">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden shadow-glow">
-            <img src="/logo.png" alt="AI Influencer" className="h-full w-full object-contain" />
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl overflow-hidden shadow-glow">
+            <img src="/logo.png" alt="ClipMotion" className="h-full w-full object-contain scale-125" />
           </div>
           {!collapsed && (
             <div className="flex flex-col overflow-hidden">
-              <span className="font-display text-lg font-bold text-gradient truncate">
-                AI Influencer
+              <span className="font-display text-xl font-bold text-gradient truncate">
+                ClipMotion
               </span>
               <span className="text-xs text-muted-foreground truncate">
                 Pro Edition
