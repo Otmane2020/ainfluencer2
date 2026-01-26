@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { VideoGenerator, GenerationTask } from "@/components/VideoGenerator";
 import { VideoPreview } from "@/components/VideoPreview";
-import { AvatarManager } from "@/components/AvatarManager";
 import { GenerationTracker } from "@/components/GenerationTracker";
 import {
   Select,
@@ -32,7 +31,6 @@ interface Project {
 const Videos = () => {
   const [videoSegments, setVideoSegments] = useState<VideoSegment[]>([]);
   const [generationTasks, setGenerationTasks] = useState<GenerationTask[]>([]);
-  const [avatarUrl, setAvatarUrl] = useState<string | undefined>();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const { toast } = useToast();
@@ -104,7 +102,6 @@ const Videos = () => {
         {/* Left Column - Video Generator */}
         <div className="space-y-6 lg:col-span-2">
           <VideoGenerator
-            avatarUrl={avatarUrl}
             onVideosGenerated={handleVideosGenerated}
             onTasksUpdated={setGenerationTasks}
           />
@@ -115,13 +112,8 @@ const Videos = () => {
 
         {/* Right Column */}
         <div className="space-y-6">
-          <AvatarManager
-            currentAvatar={avatarUrl}
-            onAvatarChange={setAvatarUrl}
-          />
           <VideoPreview
             segments={videoSegments}
-            avatarUrl={avatarUrl}
             onMerge={handleMergeVideos}
             onDeleteSegment={handleDeleteVideoSegment}
           />
