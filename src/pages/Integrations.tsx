@@ -30,56 +30,28 @@ const Integrations = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-bold">Integrations</h1>
-        <p className="text-muted-foreground">
-          Connect your social media accounts for direct publishing
-        </p>
-      </div>
+    <div className="max-w-lg mx-auto space-y-4">
+      <h1 className="font-display text-xl font-bold">Integrations</h1>
 
-      {/* Connected Accounts */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-primary" />
-              Connected Accounts
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <SocialConnections 
-              connections={connections} 
-              onConnect={handleConnect}
-            />
-          </CardContent>
-        </Card>
-      </motion.div>
+      {/* Connected Accounts - Compact */}
+      <Card>
+        <CardContent className="p-4">
+          <SocialConnections 
+            connections={connections} 
+            onConnect={handleConnect}
+          />
+        </CardContent>
+      </Card>
 
-      {/* Future Integrations */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-      >
-        <Card className="border-dashed">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-muted-foreground">
-              <Plug className="h-5 w-5" />
-              More Integrations Coming Soon
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              We're working on adding more integrations like YouTube, Pinterest, Twitter/X, and more.
-              Stay tuned for updates!
-            </p>
-          </CardContent>
-        </Card>
-      </motion.div>
+      {/* Coming Soon */}
+      <Card className="border-dashed">
+        <CardContent className="p-4 flex items-center gap-3">
+          <Plug className="h-5 w-5 text-muted-foreground shrink-0" />
+          <p className="text-sm text-muted-foreground">
+            YouTube, Pinterest, X coming soon
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 };

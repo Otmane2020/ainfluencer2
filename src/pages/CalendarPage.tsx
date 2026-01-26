@@ -216,175 +216,105 @@ const CalendarPage = () => {
   const emptyDays = 0;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-bold">AutoPost AI</h1>
-          <p className="text-muted-foreground">
-            Plan and visualize your publications
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
+    <div className="space-y-4">
+      {/* Compact Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="font-display text-xl font-bold">Calendar</h1>
+        <div className="flex items-center gap-2">
           <Select value={selectedProject} onValueChange={setSelectedProject}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="All projects" />
+            <SelectTrigger className="h-9 w-[120px] text-sm">
+              <SelectValue placeholder="All" />
             </SelectTrigger>
             <SelectContent className="bg-card border border-border z-50">
-              <SelectItem value="all">All projects</SelectItem>
+              <SelectItem value="all">All</SelectItem>
               {projects.map((project) => (
                 <SelectItem key={project.id} value={project.id}>
                   <div className="flex items-center gap-2">
                     <div
-                      className="h-3 w-3 rounded-full"
+                      className="h-2 w-2 rounded-full shrink-0"
                       style={{ backgroundColor: project.theme_color }}
                     />
-                    {project.name.slice(0, 30)}{project.name.length > 30 ? "..." : ""}
+                    <span className="truncate max-w-[80px]">{project.name}</span>
                   </div>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Button className="gap-2">
+          <Button size="sm" className="h-9 px-3">
             <Plus className="h-4 w-4" />
-            Schedule
           </Button>
         </div>
       </div>
 
-      {/* Info Banner when project selected */}
-      {selectedProject !== "all" && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl bg-primary/10 border border-primary/20 p-4 flex items-center justify-between"
-        >
-          <div className="flex items-center gap-3">
-            <div
-              className="h-10 w-10 rounded-xl flex items-center justify-center"
-              style={{ backgroundColor: projects.find(p => p.id === selectedProject)?.theme_color || '#6366F1' }}
-            >
-              <CalendarIcon className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <p className="font-medium">
-                {projects.find(p => p.id === selectedProject)?.name || "Project"}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Generate content suggestions for this project
-              </p>
-            </div>
-          </div>
-        </motion.div>
-      )}
+      {/* Removed info banner for minimalism - project context shows via filter */}
 
-      {/* Calendar Navigation */}
-      <Card>
-        <CardHeader className="pb-2">
+      {/* Calendar */}
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-2 px-3 pt-3">
           <div className="flex items-center justify-between">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-            >
-              <ChevronLeft className="h-5 w-5" />
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+              <ChevronLeft className="h-4 w-4" />
             </Button>
-            <CardTitle className="text-xl capitalize">
-              {format(currentMonth, "MMMM yyyy", { locale: enUS })}
+            <CardTitle className="text-base capitalize">
+              {format(currentMonth, "MMM yyyy", { locale: enUS })}
             </CardTitle>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-            >
-              <ChevronRight className="h-5 w-5" />
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
-          {/* Week days header */}
-          <div className="grid grid-cols-7 gap-1 mb-2">
+        <CardContent className="px-2 pb-2">
+          {/* Week days header - minimal */}
+          <div className="grid grid-cols-7 gap-0.5 mb-1">
             {weekDays.map((day) => (
-              <div
-                key={day}
-                className="text-center text-sm font-medium text-muted-foreground py-2"
-              >
-                {day}
+              <div key={day} className="text-center text-xs font-medium text-muted-foreground py-1">
+                {day.charAt(0)}
               </div>
             ))}
           </div>
 
-          {/* Calendar grid */}
-          <div className="grid grid-cols-7 gap-1">
-            {/* Empty cells for days before the first of the month */}
-            {Array.from({ length: emptyDays }).map((_, i) => (
-              <div
-                key={`empty-${i}`}
-                className="min-h-[100px] p-2 rounded-lg bg-muted/30"
-              />
-            ))}
-
-            {/* Actual days */}
+          {/* Calendar grid - compact for mobile */}
+          <div className="grid grid-cols-7 gap-0.5">
             {days.map((day, index) => {
               const dayPosts = getPostsForDay(day);
               const isPast = isBefore(day, startOfDay(new Date())) && !isToday(day);
 
               return (
-                <motion.div
+                <div
                   key={day.toISOString()}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: index * 0.01 }}
-                  className={`min-h-[100px] p-2 rounded-lg border transition-colors ${
+                  className={`min-h-[48px] md:min-h-[80px] p-1 rounded transition-colors ${
                     isToday(day)
-                      ? "border-primary bg-primary/5"
+                      ? "bg-primary/10 border border-primary/30"
                       : isPast
-                      ? "border-transparent bg-muted/30 opacity-60"
-                      : "border-transparent bg-muted/50 hover:border-border hover:bg-muted"
+                      ? "bg-muted/20 opacity-50"
+                      : "bg-muted/30"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span
-                      className={`text-sm font-medium ${
-                        isToday(day) ? "text-primary" : ""
-                      }`}
-                    >
-                      {format(day, "d")}
-                    </span>
-                    {dayPosts.length > 3 && (
-                      <span className="text-xs text-muted-foreground">
-                        +{dayPosts.length - 3}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="space-y-1">
+                  <span className={`text-xs font-medium ${isToday(day) ? "text-primary" : ""}`}>
+                    {format(day, "d")}
+                  </span>
+                  {/* Show dots for posts on mobile, full on desktop */}
+                  <div className="flex flex-wrap gap-0.5 mt-0.5">
                     {dayPosts.slice(0, 3).map((post) => (
                       <div
                         key={post.id}
                         onClick={() => handlePostClick(post)}
-                        className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs truncate cursor-pointer hover:opacity-80 transition-opacity"
-                        style={{
-                          backgroundColor: `${getProjectColor(post.project_id)}20`,
-                          borderLeft: `2px solid ${getProjectColor(post.project_id)}`,
-                        }}
-                      >
-                        {getStatusIcon(post.status || "draft")}
-                        {getContentIcon(post.content_type)}
-                        <span className="truncate flex-1">
-                          {post.text_content?.slice(0, 20) || "Post"}
-                        </span>
-                      </div>
+                        className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full cursor-pointer"
+                        style={{ backgroundColor: getProjectColor(post.project_id) }}
+                      />
                     ))}
+                    {dayPosts.length > 3 && (
+                      <span className="text-[8px] text-muted-foreground">+{dayPosts.length - 3}</span>
+                    )}
                   </div>
-                </motion.div>
+                </div>
               );
             })}
           </div>
         </CardContent>
       </Card>
 
-      {/* Content Suggestions */}
+      {/* Content Suggestions - only when project selected */}
       {selectedProject !== "all" && (
         <ContentSuggestions
           projectId={selectedProject}
@@ -392,23 +322,16 @@ const CalendarPage = () => {
         />
       )}
 
-      {/* Legend */}
-      <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <Clock className="h-4 w-4 text-muted-foreground" />
-          Draft
+      {/* Compact Legend */}
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1">
+          <Clock className="h-3 w-3" /> Draft
         </div>
-        <div className="flex items-center gap-2">
-          <Clock className="h-4 w-4 text-accent" />
-          Scheduled
+        <div className="flex items-center gap-1">
+          <Clock className="h-3 w-3 text-accent" /> Scheduled
         </div>
-        <div className="flex items-center gap-2">
-          <CheckCircle2 className="h-4 w-4" />
-          Published
-        </div>
-        <div className="flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 text-destructive" />
-          Failed
+        <div className="flex items-center gap-1">
+          <CheckCircle2 className="h-3 w-3 text-primary" /> Published
         </div>
       </div>
 
