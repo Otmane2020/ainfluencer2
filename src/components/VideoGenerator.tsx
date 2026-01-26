@@ -25,6 +25,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { GenerationProgressModal } from "@/components/GenerationProgressModal";
+import { useGenerationTasks, type GenerationTask as PersistentTask } from "@/hooks/useGenerationTasks";
 
 interface Project {
   id: string;
@@ -57,6 +59,7 @@ export interface GenerationTask {
   model: string;
   amount: number;
   videoUrl?: string;
+  script?: string;
 }
 
 interface VideoGeneratorProps {
@@ -83,6 +86,8 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
   const [showProductSelector, setShowProductSelector] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectSelectorOpen, setProjectSelectorOpen] = useState<string | null>(null);
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const { addTask, updateTask } = useGenerationTasks();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -171,6 +176,7 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
     }
 
     setIsGenerating(true);
+    setShowProgressModal(true);
     setSegments((prev) =>
       prev.map((s) =>
         s.script.trim() ? { ...s, status: "generating" as const, progress: 0 } : s
@@ -282,8 +288,12 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
             submitTime: currentTime,
             duration: segment.duration,
             model: selectedProduct.name,
-            amount: segment.duration * selectedProduct.salePrice / 10, // Approx cost display
+            amount: segment.duration * selectedProduct.salePrice / 10,
+            script: segment.script,
           };
+          
+          // Add to persistent storage
+          addTask(newTask);
           
           setGenerationTasks(prev => {
             const updated = [...prev, newTask];
@@ -329,16 +339,20 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
             const status = await statusResponse.json();
 
             // Update generation task with new status
+            const taskUpdate = {
+              status: status.status as GenerationTask["status"],
+              progress: status.progress || 0,
+              finishTime: status.finishTime,
+              videoUrl: status.videoUrl,
+            };
+            
+            // Update persistent storage
+            updateTask(segment.taskId, taskUpdate);
+            
             setGenerationTasks(prev => {
               const updated = prev.map(task => 
                 task.taskId === segment.taskId 
-                  ? { 
-                      ...task, 
-                      status: status.status as GenerationTask["status"],
-                      progress: status.progress || 0,
-                      finishTime: status.finishTime,
-                      videoUrl: status.videoUrl,
-                    } 
+                  ? { ...task, ...taskUpdate } 
                   : task
               );
               onTasksUpdated?.(updated);
@@ -682,6 +696,14 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
           </>
         )}
       </Button>
+
+      {/* Generation Progress Modal */}
+      <GenerationProgressModal
+        isOpen={showProgressModal}
+        onClose={() => setShowProgressModal(false)}
+        tasks={generationTasks}
+        productName={selectedProduct.name}
+      />
     </motion.div>
   );
 };

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { VideoHistory, VideoHistoryItem } from "@/components/VideoHistory";
 import { useStoredVideos } from "@/hooks/useStoredVideos";
+import { useGenerationTasks } from "@/hooks/useGenerationTasks";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -10,9 +11,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RefreshCw, Video } from "lucide-react";
+import { RefreshCw, Video, Loader2, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Progress } from "@/components/ui/progress";
 
 interface Project {
   id: string;
@@ -25,12 +27,60 @@ const VideoHistoryPage = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const { fetchStoredVideos, isLoading: isLoadingVideos } = useStoredVideos();
+  const { tasks: pendingTasks, getPendingTasks, updateTask } = useGenerationTasks();
   const { toast } = useToast();
+
+  const activeTasks = getPendingTasks();
 
   useEffect(() => {
     fetchProjects();
     loadVideos();
   }, []);
+
+  // Poll for pending tasks status
+  useEffect(() => {
+    if (activeTasks.length === 0) return;
+
+    const pollInterval = setInterval(async () => {
+      for (const task of activeTasks) {
+        try {
+          const statusResponse = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-sora?action=status&taskId=${task.taskId}`,
+            {
+              method: "GET",
+              headers: {
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
+            }
+          );
+
+          if (statusResponse.ok) {
+            const status = await statusResponse.json();
+            updateTask(task.taskId, {
+              status: status.status,
+              progress: status.progress || 0,
+              finishTime: status.finishTime,
+              videoUrl: status.videoUrl,
+            });
+
+            // If completed, refresh the video list
+            if (status.status === "completed") {
+              loadVideos();
+              toast({
+                title: "Video ready! 🎬",
+                description: "Your video has been generated successfully",
+              });
+            }
+          }
+        } catch (error) {
+          console.error("Status check error:", error);
+        }
+      }
+    }, 10000);
+
+    return () => clearInterval(pollInterval);
+  }, [activeTasks, updateTask]);
 
   const fetchProjects = async () => {
     const { data } = await supabase
@@ -116,11 +166,74 @@ const VideoHistoryPage = () => {
         </div>
       </div>
 
+      {/* Active Generation Tasks */}
+      {activeTasks.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl bg-card p-6 shadow-card border border-primary/20"
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-primary">
+              <Loader2 className="h-5 w-5 animate-spin text-primary-foreground" />
+            </div>
+            <div>
+              <h3 className="font-display text-lg font-semibold">
+                Generating {activeTasks.length} video{activeTasks.length > 1 ? "s" : ""}...
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Your videos are being created by AI
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {activeTasks.map((task, index) => (
+              <motion.div
+                key={task.taskId}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="flex items-center gap-4 rounded-xl bg-muted/50 p-4"
+              >
+                <div className="h-12 w-12 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
+                  <Video className="h-6 w-6 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-sm font-medium truncate">
+                      {task.script ? task.script.substring(0, 50) + "..." : `Video ${index + 1}`}
+                    </p>
+                    <span className="text-sm font-medium text-primary">
+                      {task.progress}%
+                    </span>
+                  </div>
+                  <Progress value={task.progress} className="h-2" />
+                  <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {task.duration}s
+                    </span>
+                    <span>{task.model}</span>
+                    <span className={
+                      task.status === "queued" ? "text-muted-foreground" : 
+                      task.status === "in_progress" ? "text-primary" : ""
+                    }>
+                      {task.status === "queued" ? "In queue..." : "Generating..."}
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        {videoHistory.length === 0 ? (
+        {videoHistory.length === 0 && activeTasks.length === 0 ? (
           <div className="rounded-2xl bg-card p-12 shadow-card text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
               <Video className="h-8 w-8 text-muted-foreground" />
@@ -133,14 +246,14 @@ const VideoHistoryPage = () => {
               Create Video
             </Button>
           </div>
-        ) : (
+        ) : videoHistory.length > 0 ? (
           <VideoHistory
             videos={videoHistory}
             onDelete={handleDeleteHistoryItem}
             onPlay={handlePlayHistoryItem}
             onThumbnailGenerated={handleThumbnailGenerated}
           />
-        )}
+        ) : null}
       </motion.div>
     </div>
   );
