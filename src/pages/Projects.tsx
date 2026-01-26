@@ -17,6 +17,7 @@ import {
   Trash2,
   Edit,
   ExternalLink,
+  Sparkles,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -254,20 +255,31 @@ const Projects = () => {
                     </DropdownMenu>
                   </div>
                 </CardHeader>
-                <CardContent
-                  className="cursor-pointer"
-                  onClick={() => navigate(`/projects/${project.id}`)}
-                >
+                <CardContent>
                   {project.description && (
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
                       {project.description}
                     </p>
                   )}
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      <span>{project.posts_per_week}/week</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4" />
+                        <span>{project.posts_per_week}/week</span>
+                      </div>
                     </div>
+                    <Button
+                      size="sm"
+                      className="gradient-primary gap-1.5"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/videos?project=${project.id}`);
+                      }}
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Generate with AI</span>
+                      <span className="sm:hidden">AI</span>
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

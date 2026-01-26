@@ -6,7 +6,6 @@ import {
   COMMERCIAL_PRODUCTS,
   getTierColor,
   getCategoryLabel,
-  formatPrice,
 } from "@/lib/commercialProducts";
 
 const getCategoryIcon = (category: CommercialProduct["category"]) => {
@@ -96,7 +95,7 @@ export const ProductSelector = ({
                   {showPopularBadge && product.popular && (
                     <div className="absolute -right-1 -top-1 flex items-center gap-1 rounded-full bg-gradient-to-r from-primary to-secondary px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
                       <Star className="h-2.5 w-2.5 fill-current" />
-                      POPULAIRE
+                      POPULAR
                     </div>
                   )}
 
@@ -170,12 +169,12 @@ export const ProductSelector = ({
                     {product.needsAvatar && (
                       <div className="flex items-center gap-1 rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-medium text-accent">
                         <User className="h-2.5 w-2.5" />
-                        Avatar requis
+                        Avatar required
                       </div>
                     )}
                     {product.needsVoice && (
                       <div className="flex items-center gap-1 rounded-full bg-secondary/20 px-2 py-0.5 text-[10px] font-medium text-secondary-foreground">
-                        🎤 Voix IA incluse
+                        🎤 AI Voice included
                       </div>
                     )}
                   </div>
