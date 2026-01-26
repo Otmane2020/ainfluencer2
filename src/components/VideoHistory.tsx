@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Video, Play, Pause, Download, Trash2, Clock, Calendar, Loader2 } from "lucide-react";
+import { Video, Play, Pause, Download, Trash2, Clock, Calendar, Loader2, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useRef, useEffect } from "react";
 import { format } from "date-fns";
@@ -7,6 +7,7 @@ import { fr } from "date-fns/locale";
 import { ShareButton } from "@/components/ShareButton";
 import { useVideoThumbnail } from "@/hooks/useVideoThumbnail";
 import { useToast } from "@/hooks/use-toast";
+import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 
 interface VideoHistoryItem {
   id: string;
@@ -32,6 +33,7 @@ export const VideoHistory = ({ videos, onDelete, onPlay, onThumbnailGenerated }:
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [generatingThumbnails, setGeneratingThumbnails] = useState<Set<string>>(new Set());
+  const [selectedVideo, setSelectedVideo] = useState<VideoHistoryItem | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { generateThumbnail } = useVideoThumbnail();
   const { toast } = useToast();
@@ -188,14 +190,10 @@ export const VideoHistory = ({ videos, onDelete, onPlay, onThumbnailGenerated }:
                   </div>
                 )}
                 <button
-                  onClick={() => togglePlay(video)}
+                  onClick={() => setSelectedVideo(video)}
                   className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100"
                 >
-                  {playingId === video.id ? (
-                    <Pause className="h-8 w-8 text-white" />
-                  ) : (
-                    <Play className="h-8 w-8 text-white" />
-                  )}
+                  <Play className="h-8 w-8 text-white" />
                 </button>
                 {video.status === "processing" && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/60">
@@ -227,6 +225,15 @@ export const VideoHistory = ({ videos, onDelete, onPlay, onThumbnailGenerated }:
 
               {/* Actions */}
               <div className="flex flex-col gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setSelectedVideo(video)}
+                  title="Voir en plein écran"
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </Button>
                 <ShareButton
                   videoUrl={video.videoUrl}
                   thumbnailUrl={video.thumbnailUrl}
@@ -269,6 +276,16 @@ export const VideoHistory = ({ videos, onDelete, onPlay, onThumbnailGenerated }:
           </motion.div>
         ))}
       </div>
+
+      {/* Video Player Modal */}
+      <VideoPlayerModal
+        isOpen={!!selectedVideo}
+        onClose={() => setSelectedVideo(null)}
+        videoUrl={selectedVideo?.videoUrl}
+        thumbnailUrl={selectedVideo?.thumbnailUrl}
+        title={selectedVideo?.title || ""}
+        description={selectedVideo?.script}
+      />
     </motion.div>
   );
 };
