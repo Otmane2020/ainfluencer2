@@ -1,7 +1,7 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { X, Download, Volume2, VolumeX } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState, useRef, forwardRef } from "react";
 import { ShareButton } from "@/components/ShareButton";
 
 interface VideoPlayerModalProps {
