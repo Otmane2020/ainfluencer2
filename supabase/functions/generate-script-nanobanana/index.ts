@@ -36,30 +36,53 @@ serve(async (req) => {
     const minWords = Math.max(10, targetWords - 10);
     const maxWords = targetWords + 15;
 
+    // Generate timing segments based on duration
+    const generateTimingTemplate = (dur: number): string => {
+      if (dur <= 5) {
+        return `[0-${dur}s] Hook + Message complet`;
+      } else if (dur <= 10) {
+        return `[0-2s] Hook accrocheur
+[2-${Math.floor(dur * 0.6)}s] Problème ou bénéfice
+[${Math.floor(dur * 0.6)}-${dur}s] Solution + CTA`;
+      } else if (dur <= 20) {
+        return `[0-3s] Hook accrocheur (question ou stat choc)
+[3-7s] Problème identifié (douleur du client)
+[7-13s] Solution présentée (ton produit/service)
+[13-17s] Bénéfice concret (chiffres, résultats)
+[17-${dur}s] Call-to-action (invitation à agir)`;
+      } else {
+        return `[0-3s] Hook viral (question choc ou stat)
+[3-8s] Contexte et problème
+[8-15s] Solution détaillée
+[15-22s] Preuves et bénéfices
+[22-${dur}s] Call-to-action émotionnel`;
+      }
+    };
+
     // Duration-based instructions - STRICT word count enforcement
     const getDurationInstructions = (dur: number): string => {
+      const timingTemplate = generateTimingTemplate(dur);
+      
       if (dur <= 5) {
-        return `⚠️ CONTRAINTE STRICTE : ${dur} secondes = EXACTEMENT ${minWords}-${maxWords} mots
-- 1 phrase UNIQUE (ultra-concis)
-- Hook immédiat, zéro contexte
-- Compte tes mots !`;
+        return `⚠️ DURÉE : ${dur} secondes = ${minWords}-${maxWords} mots
+STRUCTURE OBLIGATOIRE :
+${timingTemplate}`;
       } else if (dur <= 10) {
-        return `⚠️ CONTRAINTE STRICTE : ${dur} secondes = EXACTEMENT ${minWords}-${maxWords} mots
-- 2-3 phrases
-- Hook puissant + bénéfice clair
-- Rythme rapide`;
+        return `⚠️ DURÉE : ${dur} secondes = ${minWords}-${maxWords} mots
+STRUCTURE OBLIGATOIRE (avec timestamps) :
+${timingTemplate}`;
       } else if (dur <= 20) {
-        return `⚠️ CONTRAINTE STRICTE : ${dur} secondes = MINIMUM ${minWords} mots, MAXIMUM ${maxWords} mots
-- 4-6 phrases OBLIGATOIRES
-- Structure : Hook accrocheur → Problème identifié → Solution présentée → Bénéfice concret → Call-to-action
-- Développe CHAQUE point avec des détails
-- Le script DOIT remplir les ${dur} secondes !`;
+        return `⚠️ DURÉE : ${dur} secondes = ${minWords}-${maxWords} mots
+STRUCTURE OBLIGATOIRE (avec timestamps précis) :
+${timingTemplate}
+
+Chaque segment DOIT contenir 1-2 phrases. Le script final doit couvrir TOUS les segments.`;
       } else {
-        return `⚠️ CONTRAINTE STRICTE : ${dur} secondes = MINIMUM ${minWords} mots, MAXIMUM ${maxWords} mots
-- 6-10 phrases OBLIGATOIRES
-- Narration complète avec storytelling
-- Contexte détaillé, problème, solution, preuve sociale, appel à l'action
-- DÉVELOPPE chaque argument`;
+        return `⚠️ DURÉE : ${dur} secondes = ${minWords}-${maxWords} mots
+STRUCTURE OBLIGATOIRE (avec timestamps) :
+${timingTemplate}
+
+Chaque segment DOIT être développé. Storytelling complet.`;
       }
     };
 
