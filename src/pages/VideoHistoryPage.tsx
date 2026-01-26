@@ -136,103 +136,78 @@ const VideoHistoryPage = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-bold">Video History</h1>
-          <p className="text-muted-foreground">
-            All your generated videos in one place
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
+    <div className="space-y-4">
+      {/* Minimal Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="font-display text-xl font-bold">Videos</h1>
+        <div className="flex items-center gap-2">
           <Select value={selectedProject} onValueChange={setSelectedProject}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="All projects" />
+            <SelectTrigger className="h-9 w-[140px] text-sm">
+              <SelectValue placeholder="All" />
             </SelectTrigger>
             <SelectContent className="bg-card border border-border z-50">
-              <SelectItem value="all">All projects</SelectItem>
+              <SelectItem value="all">All</SelectItem>
               {projects.map((project) => (
                 <SelectItem key={project.id} value={project.id}>
                   <div className="flex items-center gap-2">
                     <div
-                      className="h-3 w-3 rounded-full"
+                      className="h-2 w-2 rounded-full"
                       style={{ backgroundColor: project.theme_color }}
                     />
-                    {project.name.slice(0, 30)}{project.name.length > 30 ? "..." : ""}
+                    <span className="truncate max-w-[100px]">{project.name}</span>
                   </div>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Button
-            variant="outline"
-            size="sm"
+            variant="ghost"
+            size="icon"
             onClick={handleRefreshVideos}
             disabled={isLoadingVideos}
-            className="gap-2"
+            className="h-9 w-9"
           >
             <RefreshCw className={`h-4 w-4 ${isLoadingVideos ? "animate-spin" : ""}`} />
-            Refresh
           </Button>
         </div>
       </div>
 
-      {/* Active Generation Tasks */}
+      {/* Active Generation Tasks - Compact */}
       {activeTasks.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl bg-card p-6 shadow-card border border-primary/20"
+          className="rounded-xl bg-card p-4 border border-primary/20"
         >
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-primary">
-              <Loader2 className="h-5 w-5 animate-spin text-primary-foreground" />
-            </div>
-            <div>
-              <h3 className="font-display text-lg font-semibold">
-                Generating {activeTasks.length} video{activeTasks.length > 1 ? "s" : ""}...
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Your videos are being created by AI
-              </p>
-            </div>
+          <div className="flex items-center gap-2 mb-3">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <span className="text-sm font-medium">
+              Generating {activeTasks.length} video{activeTasks.length > 1 ? "s" : ""}
+            </span>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {activeTasks.map((task, index) => (
               <motion.div
                 key={task.taskId}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
                 transition={{ delay: index * 0.1 }}
-                className="flex items-center gap-4 rounded-xl bg-muted/50 p-4"
+                className="flex items-center gap-3 rounded-lg bg-muted/50 p-3"
               >
-                <div className="h-12 w-12 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
-                  <Video className="h-6 w-6 text-primary" />
+                <div className="h-10 w-10 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
+                  <Video className="h-5 w-5 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-sm font-medium truncate">
-                      {task.script ? task.script.substring(0, 50) + "..." : `Video ${index + 1}`}
+                    <p className="text-xs font-medium truncate">
+                      {task.script ? task.script.substring(0, 30) + "..." : `Video ${index + 1}`}
                     </p>
-                    <span className="text-sm font-medium text-primary">
+                    <span className="text-xs font-medium text-primary ml-2">
                       {task.progress}%
                     </span>
                   </div>
-                  <Progress value={task.progress} className="h-2" />
-                  <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {task.duration}s
-                    </span>
-                    <span>{task.model}</span>
-                    <span className={
-                      task.status === "queued" ? "text-muted-foreground" : 
-                      task.status === "in_progress" ? "text-primary" : ""
-                    }>
-                      {task.status === "queued" ? "In queue..." : "Generating..."}
-                    </span>
-                  </div>
+                  <Progress value={task.progress} className="h-1.5" />
                 </div>
               </motion.div>
             ))}
@@ -240,33 +215,26 @@ const VideoHistoryPage = () => {
         </motion.div>
       )}
 
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        {videoHistory.length === 0 && activeTasks.length === 0 ? (
-          <div className="rounded-2xl bg-card p-12 shadow-card text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-              <Video className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <h3 className="font-display text-lg font-semibold mb-2">No videos yet</h3>
-            <p className="text-muted-foreground mb-4">
-              Generate your first video to see it here
-            </p>
-            <Button onClick={() => navigate("/videos")}>
-              Create Video
-            </Button>
+      {/* Video List */}
+      {videoHistory.length === 0 && activeTasks.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+            <Video className="h-6 w-6 text-muted-foreground" />
           </div>
-        ) : videoHistory.length > 0 ? (
-          <VideoHistory
-            videos={videoHistory}
-            onDelete={handleDeleteHistoryItem}
-            onPlay={handlePlayHistoryItem}
-            onThumbnailGenerated={handleThumbnailGenerated}
-            onContinueVideo={handleContinueVideo}
-          />
-        ) : null}
-      </motion.div>
+          <p className="text-sm text-muted-foreground mb-3">No videos yet</p>
+          <Button size="sm" onClick={() => navigate("/videos")}>
+            Create Video
+          </Button>
+        </div>
+      ) : videoHistory.length > 0 ? (
+        <VideoHistory
+          videos={videoHistory}
+          onDelete={handleDeleteHistoryItem}
+          onPlay={handlePlayHistoryItem}
+          onThumbnailGenerated={handleThumbnailGenerated}
+          onContinueVideo={handleContinueVideo}
+        />
+      ) : null}
     </div>
   );
 };

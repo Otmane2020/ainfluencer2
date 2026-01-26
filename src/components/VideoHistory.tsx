@@ -149,157 +149,76 @@ export const VideoHistory = ({ videos, onDelete, onPlay, onThumbnailGenerated, o
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="rounded-2xl bg-card p-6 shadow-card"
-    >
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary">
-            <Clock className="h-5 w-5 text-secondary-foreground" />
-          </div>
-          <div>
-            <h3 className="font-display text-lg font-semibold">Video History</h3>
-            <p className="text-sm text-muted-foreground">
-              {videos.length} video{videos.length > 1 ? "s" : ""} generated
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-        {videos.map((video, index) => (
-          <motion.div
-            key={video.id}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: index * 0.05 }}
-            className="group relative rounded-xl border border-border bg-background/50 p-4 transition-all hover:border-primary/30 hover:bg-muted/30"
-          >
-            <div className="flex gap-4">
-              {/* Thumbnail */}
-              <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-muted">
-                {generatingThumbnails.has(video.id) ? (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
-                ) : video.thumbnailUrl ? (
-                  <img
-                    src={video.thumbnailUrl}
-                    alt={video.title}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <Video className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                )}
-                <button
-                  onClick={() => setSelectedVideo(video)}
-                  className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100"
-                >
-                  <Play className="h-8 w-8 text-white" />
-                </button>
-                {video.status === "processing" && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                  </div>
-                )}
-              </div>
-
-              {/* Info */}
-              <div className="min-w-0 flex-1">
-                <h4 className="mb-1 truncate font-medium">{video.title}</h4>
-                <p className="mb-2 line-clamp-2 text-sm text-muted-foreground">
-                  {video.script}
-                </p>
-                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {video.duration}s
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    {format(video.createdAt, "MMM d, yyyy", { locale: enUS })}
-                  </span>
-                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary">
-                    {video.voice}
-                  </span>
+    <div className="space-y-3">
+      {videos.map((video, index) => (
+        <motion.div
+          key={video.id}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: index * 0.03 }}
+          className="group relative rounded-xl bg-card border border-border p-3 active:bg-muted/50"
+        >
+          <div className="flex gap-3">
+            {/* Thumbnail */}
+            <button
+              onClick={() => setSelectedVideo(video)}
+              className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-muted"
+            >
+              {generatingThumbnails.has(video.id) ? (
+                <div className="flex h-full w-full items-center justify-center">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex flex-col gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setSelectedVideo(video)}
-                  title="View fullscreen"
-                >
-                  <Maximize2 className="h-4 w-4" />
-                </Button>
-                {onContinueVideo && video.videoUrl && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-primary hover:text-primary"
-                        onClick={() => onContinueVideo(video.videoUrl!)}
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Continue this video</p>
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-                <ShareButton
-                  videoUrl={video.videoUrl}
-                  thumbnailUrl={video.thumbnailUrl}
-                  title={video.title}
-                  description={video.script.substring(0, 100)}
+              ) : video.thumbnailUrl ? (
+                <img
+                  src={video.thumbnailUrl}
+                  alt={video.title}
+                  className="h-full w-full object-cover"
                 />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => handleDownload(video)}
-                  disabled={downloadingId === video.id}
-                >
-                  {downloadingId === video.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4" />
-                  )}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive hover:text-destructive"
-                  onClick={() => onDelete(video.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+              ) : (
+                <div className="flex h-full w-full items-center justify-center">
+                  <Video className="h-6 w-6 text-muted-foreground" />
+                </div>
+              )}
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                <Play className="h-6 w-6 text-white" />
+              </div>
+            </button>
+
+            {/* Info */}
+            <div className="min-w-0 flex-1">
+              <h4 className="text-sm font-medium truncate">{video.title}</h4>
+              <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                {video.script}
+              </p>
+              <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
+                <span>{format(video.createdAt, "MMM d", { locale: enUS })}</span>
+                <span>•</span>
+                <span>{video.duration}s</span>
               </div>
             </div>
 
-            {/* Progress bar for playing */}
-            {playingId === video.id && (
-              <motion.div
-                initial={{ scaleX: 0 }}
-                animate={{ scaleX: 1 }}
-                transition={{ duration: video.duration, ease: "linear" }}
-                className="absolute bottom-0 left-0 h-1 w-full origin-left rounded-b-xl bg-primary"
+            {/* Actions - Always visible on mobile */}
+            <div className="flex items-center gap-1">
+              {onContinueVideo && video.videoUrl && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-primary"
+                  onClick={() => onContinueVideo(video.videoUrl!)}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              )}
+              <ShareButton
+                videoUrl={video.videoUrl}
+                thumbnailUrl={video.thumbnailUrl}
+                title={video.title}
+                description={video.script.substring(0, 100)}
               />
-            )}
-          </motion.div>
-        ))}
-      </div>
-
+            </div>
+          </div>
+        </motion.div>
+      ))}
       {/* Video Player Modal */}
       <VideoPlayerModal
         isOpen={!!selectedVideo}
@@ -309,7 +228,7 @@ export const VideoHistory = ({ videos, onDelete, onPlay, onThumbnailGenerated, o
         title={selectedVideo?.title || ""}
         description={selectedVideo?.script}
       />
-    </motion.div>
+    </div>
   );
 };
 
