@@ -1,0 +1,302 @@
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  FolderKanban,
+  Calendar,
+  Video,
+  ImageIcon,
+  Plus,
+  TrendingUp,
+  Clock,
+  CheckCircle2,
+  ArrowRight,
+} from "lucide-react";
+
+interface Project {
+  id: string;
+  name: string;
+  description: string | null;
+  logo_url: string | null;
+  theme_color: string;
+  posts_per_week: number;
+}
+
+interface Stats {
+  totalProjects: number;
+  scheduledPosts: number;
+  publishedPosts: number;
+  pendingPosts: number;
+}
+
+const Dashboard = () => {
+  const { profile } = useAuth();
+  const navigate = useNavigate();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [stats, setStats] = useState<Stats>({
+    totalProjects: 0,
+    scheduledPosts: 0,
+    publishedPosts: 0,
+    pendingPosts: 0,
+  });
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      // Fetch projects
+      const { data: projectsData } = await supabase
+        .from("projects")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(4);
+
+      if (projectsData) {
+        setProjects(projectsData);
+        setStats((prev) => ({ ...prev, totalProjects: projectsData.length }));
+      }
+
+      // Fetch posts stats
+      const { data: postsData } = await supabase
+        .from("scheduled_posts")
+        .select("status");
+
+      if (postsData) {
+        setStats((prev) => ({
+          ...prev,
+          scheduledPosts: postsData.filter((p) => p.status === "scheduled").length,
+          publishedPosts: postsData.filter((p) => p.status === "published").length,
+          pendingPosts: postsData.filter((p) => p.status === "pending_approval").length,
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const statCards = [
+    {
+      title: "Projets",
+      value: stats.totalProjects,
+      icon: FolderKanban,
+      color: "text-primary",
+      bgColor: "bg-primary/10",
+    },
+    {
+      title: "Posts programmés",
+      value: stats.scheduledPosts,
+      icon: Clock,
+      color: "text-accent",
+      bgColor: "bg-accent/10",
+    },
+    {
+      title: "Publiés",
+      value: stats.publishedPosts,
+      icon: CheckCircle2,
+      color: "text-green-500",
+      bgColor: "bg-green-500/10",
+    },
+    {
+      title: "En attente",
+      value: stats.pendingPosts,
+      icon: TrendingUp,
+      color: "text-secondary",
+      bgColor: "bg-secondary/10",
+    },
+  ];
+
+  const quickActions = [
+    {
+      title: "Nouveau projet",
+      description: "Créer un projet avec automatisation",
+      icon: FolderKanban,
+      action: () => navigate("/projects/new"),
+      gradient: "from-primary to-secondary",
+    },
+    {
+      title: "Planifier un post",
+      description: "Programmer du contenu",
+      icon: Calendar,
+      action: () => navigate("/calendar"),
+      gradient: "from-secondary to-accent",
+    },
+    {
+      title: "Générer une vidéo",
+      description: "Créer une vidéo IA",
+      icon: Video,
+      action: () => navigate("/videos"),
+      gradient: "from-accent to-primary",
+    },
+    {
+      title: "Créer un post",
+      description: "Générer du contenu texte/image",
+      icon: ImageIcon,
+      action: () => navigate("/posts"),
+      gradient: "from-primary to-accent",
+    },
+  ];
+
+  return (
+    <div className="space-y-8">
+      {/* Welcome Header */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <h1 className="font-display text-3xl font-bold mb-2">
+          Bonjour, <span className="text-gradient">{profile?.display_name || "Créateur"}</span> 👋
+        </h1>
+        <p className="text-muted-foreground">
+          Voici un aperçu de votre activité
+        </p>
+      </motion.div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {statCards.map((stat, index) => (
+          <motion.div
+            key={stat.title}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.1 }}
+          >
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">{stat.title}</p>
+                    <p className="text-3xl font-bold mt-1">{stat.value}</p>
+                  </div>
+                  <div className={`h-12 w-12 rounded-xl ${stat.bgColor} flex items-center justify-center`}>
+                    <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Quick Actions */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+      >
+        <h2 className="font-display text-xl font-semibold mb-4">Actions rapides</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {quickActions.map((action, index) => (
+            <motion.button
+              key={action.title}
+              onClick={action.action}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.5 + index * 0.1 }}
+              className="group relative overflow-hidden rounded-2xl p-6 text-left transition-all hover:scale-[1.02] hover:shadow-xl"
+            >
+              <div className={`absolute inset-0 bg-gradient-to-br ${action.gradient} opacity-90`} />
+              <div className="relative z-10 text-white">
+                <action.icon className="h-8 w-8 mb-4" />
+                <h3 className="font-display font-semibold text-lg">{action.title}</h3>
+                <p className="text-sm text-white/80 mt-1">{action.description}</p>
+                <ArrowRight className="h-5 w-5 mt-4 transform transition-transform group-hover:translate-x-1" />
+              </div>
+            </motion.button>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Recent Projects */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6 }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-display text-xl font-semibold">Projets récents</h2>
+          <Button variant="ghost" onClick={() => navigate("/projects")} className="gap-2">
+            Voir tout
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {projects.length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                <FolderKanban className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="font-semibold mb-2">Aucun projet</h3>
+              <p className="text-muted-foreground text-sm text-center mb-4">
+                Créez votre premier projet pour automatiser vos publications
+              </p>
+              <Button onClick={() => navigate("/projects/new")} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Créer un projet
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {projects.map((project, index) => (
+              <motion.div
+                key={project.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7 + index * 0.1 }}
+              >
+                <Card
+                  className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]"
+                  onClick={() => navigate(`/projects/${project.id}`)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="h-10 w-10 rounded-xl flex items-center justify-center text-white font-bold"
+                        style={{ backgroundColor: project.theme_color }}
+                      >
+                        {project.logo_url ? (
+                          <img
+                            src={project.logo_url}
+                            alt={project.name}
+                            className="h-full w-full rounded-xl object-cover"
+                          />
+                        ) : (
+                          project.name[0].toUpperCase()
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <CardTitle className="text-base truncate">{project.name}</CardTitle>
+                        <p className="text-xs text-muted-foreground">
+                          {project.posts_per_week} posts/semaine
+                        </p>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  {project.description && (
+                    <CardContent className="pt-0">
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {project.description}
+                      </p>
+                    </CardContent>
+                  )}
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+};
+
+export default Dashboard;
