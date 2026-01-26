@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,6 +26,10 @@ import {
   Palette,
   Upload,
   Sparkles,
+  Globe,
+  Video,
+  Image,
+  Calendar,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
@@ -57,7 +61,7 @@ const ProjectNew = () => {
   const { user } = useAuth();
   const { toast } = useToast();
 
-const [formData, setFormData] = useState<{
+  const [formData, setFormData] = useState<{
     name: string;
     description: string;
     url: string;
@@ -76,9 +80,18 @@ const [formData, setFormData] = useState<{
     instagram_enabled: true,
     facebook_enabled: true,
   });
+
+  // Monthly generation settings
+  const [monthlyGeneration, setMonthlyGeneration] = useState({
+    videoReels: 4,
+    imagesPosts: 8,
+    enabled: false,
+  });
+
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isScraping, setIsScraping] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,6 +103,65 @@ const [formData, setFormData] = useState<{
         setLogoPreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleScrapeUrl = async () => {
+    if (!formData.url) {
+      toast({
+        title: "URL requise",
+        description: "Entrez une URL de site à analyser",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsScraping(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("scrape-project-url", {
+        body: { url: formData.url },
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        // Auto-fill form with scraped data
+        setFormData((prev) => ({
+          ...prev,
+          name: prev.name || data.title || "",
+          description: prev.description || data.description || "",
+        }));
+
+        // Apply scraped branding colors if available
+        if (data.colors?.primary) {
+          setFormData((prev) => ({
+            ...prev,
+            theme_color: data.colors.primary,
+          }));
+        }
+
+        // Set logo if found
+        if (data.logo) {
+          setLogoPreview(data.logo);
+        }
+
+        toast({
+          title: "Site analysé !",
+          description: "Les informations ont été importées depuis votre site",
+        });
+      } else {
+        throw new Error(data.error || "Échec du scraping");
+      }
+    } catch (error) {
+      console.error("Scrape error:", error);
+      toast({
+        title: "Erreur d'analyse",
+        description: "Impossible d'analyser le site. Vérifiez l'URL.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsScraping(false);
     }
   };
 
@@ -147,7 +219,7 @@ const [formData, setFormData] = useState<{
           name: formData.name,
           description: formData.description || null,
           url: formData.url || null,
-          logo_url: logoUrl,
+          logo_url: logoUrl || logoPreview, // Use scraped logo URL if no file uploaded
           theme_color: formData.theme_color,
           posts_per_week: formData.posts_per_week,
           automation_mode: formData.automation_mode,
@@ -161,7 +233,9 @@ const [formData, setFormData] = useState<{
 
       toast({
         title: "Projet créé !",
-        description: "Votre projet a été créé avec succès",
+        description: monthlyGeneration.enabled 
+          ? `Génération de ${monthlyGeneration.videoReels} vidéos et ${monthlyGeneration.imagesPosts} images programmée`
+          : "Votre projet a été créé avec succès",
       });
 
       navigate("/projects");
@@ -176,6 +250,8 @@ const [formData, setFormData] = useState<{
       setIsLoading(false);
     }
   };
+
+  const totalMonthlyPosts = monthlyGeneration.videoReels + monthlyGeneration.imagesPosts;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -202,6 +278,45 @@ const [formData, setFormData] = useState<{
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="url" className="flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                URL du site (optionnel)
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  id="url"
+                  type="url"
+                  placeholder="https://exemple.com"
+                  value={formData.url}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, url: e.target.value }))
+                  }
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleScrapeUrl}
+                  disabled={isScraping || !formData.url}
+                  className="gap-2"
+                >
+                  {isScraping ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Globe className="h-4 w-4" />
+                  )}
+                  Analyser
+                </Button>
+              </div>
+              {errors.url && (
+                <p className="text-sm text-destructive">{errors.url}</p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Entrez l'URL de votre site pour importer automatiquement les informations
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="name">Nom du projet *</Label>
               <Input
@@ -231,25 +346,6 @@ const [formData, setFormData] = useState<{
               <p className="text-xs text-muted-foreground">
                 Cette description sera utilisée comme contexte pour la génération de contenu IA
               </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="url" className="flex items-center gap-2">
-                <LinkIcon className="h-4 w-4" />
-                URL du site
-              </Label>
-              <Input
-                id="url"
-                type="url"
-                placeholder="https://exemple.com"
-                value={formData.url}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, url: e.target.value }))
-                }
-              />
-              {errors.url && (
-                <p className="text-sm text-destructive">{errors.url}</p>
-              )}
             </div>
           </CardContent>
         </Card>
@@ -328,6 +424,100 @@ const [formData, setFormData] = useState<{
               </div>
             </div>
           </CardContent>
+        </Card>
+
+        {/* Monthly Content Generation */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-accent" />
+                  Génération mensuelle
+                </CardTitle>
+                <CardDescription>
+                  Générer automatiquement les posts du mois
+                </CardDescription>
+              </div>
+              <Switch
+                checked={monthlyGeneration.enabled}
+                onCheckedChange={(checked) =>
+                  setMonthlyGeneration((prev) => ({ ...prev, enabled: checked }))
+                }
+              />
+            </div>
+          </CardHeader>
+          {monthlyGeneration.enabled && (
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                {/* Video/Reels count */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                      <Video className="h-4 w-4 text-primary" />
+                    </div>
+                    <Label>Vidéos / Reels</Label>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Slider
+                      value={[monthlyGeneration.videoReels]}
+                      onValueChange={([value]) =>
+                        setMonthlyGeneration((prev) => ({ ...prev, videoReels: value }))
+                      }
+                      min={0}
+                      max={20}
+                      step={1}
+                      className="flex-1"
+                    />
+                    <span className="w-8 text-center font-bold text-lg">
+                      {monthlyGeneration.videoReels}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Image posts count */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-lg bg-secondary/20 flex items-center justify-center">
+                      <Image className="h-4 w-4 text-secondary" />
+                    </div>
+                    <Label>Posts images</Label>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Slider
+                      value={[monthlyGeneration.imagesPosts]}
+                      onValueChange={([value]) =>
+                        setMonthlyGeneration((prev) => ({ ...prev, imagesPosts: value }))
+                      }
+                      min={0}
+                      max={30}
+                      step={1}
+                      className="flex-1"
+                    />
+                    <span className="w-8 text-center font-bold text-lg">
+                      {monthlyGeneration.imagesPosts}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div className="rounded-xl bg-muted/50 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Total mensuel</p>
+                    <p className="text-sm text-muted-foreground">
+                      ~{Math.ceil(totalMonthlyPosts / 4)} posts par semaine
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-primary">{totalMonthlyPosts}</p>
+                    <p className="text-xs text-muted-foreground">posts/mois</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          )}
         </Card>
 
         {/* Platforms */}
