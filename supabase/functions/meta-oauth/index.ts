@@ -36,13 +36,14 @@ serve(async (req) => {
   const url = new URL(req.url);
   const action = url.searchParams.get("action");
 
-  console.log(`[meta-oauth] Action: ${action}`);
+  console.log(`[meta-oauth] Action: ${action}, Method: ${req.method}`);
 
   try {
     switch (action) {
       case "authorize": {
         // Generate OAuth authorization URL
         if (!META_APP_ID) {
+          console.error("[meta-oauth] META_APP_ID not configured");
           return new Response(
             JSON.stringify({ 
               error: "Meta App ID not configured",
@@ -51,6 +52,10 @@ serve(async (req) => {
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
+
+        console.log(`[meta-oauth] Using redirect URI: ${REDIRECT_URI}`);
+        console.log(`[meta-oauth] App ID configured: ${META_APP_ID ? "Yes" : "No"}`);
+        console.log(`[meta-oauth] App Secret configured: ${META_APP_SECRET ? "Yes" : "No"}`);
 
         const scopes = [
           "public_profile",
@@ -61,9 +66,10 @@ serve(async (req) => {
           "instagram_content_publish",
         ].join(",");
 
-        const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${META_APP_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${Date.now()}`;
+        const state = crypto.randomUUID();
+        const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${META_APP_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}`;
 
-        console.log(`[meta-oauth] Generated auth URL`);
+        console.log(`[meta-oauth] Generated auth URL with state: ${state}`);
 
         return new Response(
           JSON.stringify({ authUrl }),
@@ -75,35 +81,64 @@ serve(async (req) => {
         // Handle OAuth callback
         const code = url.searchParams.get("code");
         const error = url.searchParams.get("error");
+        const errorReason = url.searchParams.get("error_reason");
+        const errorDescription = url.searchParams.get("error_description");
+        const state = url.searchParams.get("state");
+
+        console.log(`[meta-oauth] Callback received - Code: ${code ? "present" : "missing"}, Error: ${error || "none"}, State: ${state}`);
 
         if (error) {
-          console.error(`[meta-oauth] Auth error: ${error}`);
+          console.error(`[meta-oauth] Auth error: ${error}, Reason: ${errorReason}, Description: ${errorDescription}`);
+          const errorMsg = errorDescription || errorReason || error;
           return new Response(
-            `<html><body><script>window.opener.postMessage({type:'meta-oauth-error',error:'${error}'},'*');window.close();</script></body></html>`,
+            `<html><body><script>window.opener.postMessage({type:'meta-oauth-error',error:'${errorMsg}'},'*');window.close();</script></body></html>`,
             { headers: { "Content-Type": "text/html" } }
           );
         }
 
-        if (!code || !META_APP_ID || !META_APP_SECRET) {
+        if (!code) {
+          console.error("[meta-oauth] No authorization code received");
           return new Response(
-            `<html><body><script>window.opener.postMessage({type:'meta-oauth-error',error:'missing_params'},'*');window.close();</script></body></html>`,
+            `<html><body><script>window.opener.postMessage({type:'meta-oauth-error',error:'no_auth_code'},'*');window.close();</script></body></html>`,
+            { headers: { "Content-Type": "text/html" } }
+          );
+        }
+
+        if (!META_APP_ID || !META_APP_SECRET) {
+          console.error("[meta-oauth] Missing app credentials");
+          return new Response(
+            `<html><body><script>window.opener.postMessage({type:'meta-oauth-error',error:'missing_app_credentials'},'*');window.close();</script></body></html>`,
             { headers: { "Content-Type": "text/html" } }
           );
         }
 
         // Exchange code for access token
+        console.log("[meta-oauth] Exchanging code for access token...");
         const tokenUrl = `https://graph.facebook.com/v18.0/oauth/access_token?client_id=${META_APP_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&client_secret=${META_APP_SECRET}&code=${code}`;
 
         const tokenResponse = await fetch(tokenUrl);
-        const tokenData: TokenResponse = await tokenResponse.json();
+        const tokenData = await tokenResponse.json();
 
-        if (!tokenData.access_token) {
-          console.error("[meta-oauth] Failed to get access token");
+        console.log(`[meta-oauth] Token response status: ${tokenResponse.status}`);
+
+        if (!tokenResponse.ok || tokenData.error) {
+          console.error("[meta-oauth] Token exchange failed:", tokenData);
+          const errorMsg = tokenData.error?.message || tokenData.error || "token_exchange_failed";
           return new Response(
-            `<html><body><script>window.opener.postMessage({type:'meta-oauth-error',error:'token_exchange_failed'},'*');window.close();</script></body></html>`,
+            `<html><body><script>window.opener.postMessage({type:'meta-oauth-error',error:'${errorMsg}'},'*');window.close();</script></body></html>`,
             { headers: { "Content-Type": "text/html" } }
           );
         }
+
+        if (!tokenData.access_token) {
+          console.error("[meta-oauth] No access token in response");
+          return new Response(
+            `<html><body><script>window.opener.postMessage({type:'meta-oauth-error',error:'no_access_token'},'*');window.close();</script></body></html>`,
+            { headers: { "Content-Type": "text/html" } }
+          );
+        }
+
+        console.log("[meta-oauth] Access token obtained successfully");
 
         // Get user profile
         const profileResponse = await fetch(

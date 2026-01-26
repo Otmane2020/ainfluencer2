@@ -1,17 +1,28 @@
 import { motion } from "framer-motion";
-import { Instagram, Facebook, Check, AlertCircle, Link2, Loader2, LogOut } from "lucide-react";
+import { Instagram, Facebook, Linkedin, Check, AlertCircle, Link2, Loader2, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMetaOAuth } from "@/hooks/useMetaOAuth";
 
+// TikTok icon component
+const TikTokIcon = ({ className }: { className?: string }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    className={className}
+  >
+    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+  </svg>
+);
+
 interface SocialConnection {
-  platform: "instagram" | "facebook";
+  platform: "instagram" | "facebook" | "linkedin" | "tiktok";
   connected: boolean;
   username?: string;
 }
 
 interface SocialConnectionsProps {
   connections: SocialConnection[];
-  onConnect: (platform: "instagram" | "facebook") => void;
+  onConnect: (platform: "instagram" | "facebook" | "linkedin" | "tiktok") => void;
 }
 
 export const SocialConnections = ({ connections, onConnect }: SocialConnectionsProps) => {
@@ -29,6 +40,18 @@ export const SocialConnections = ({ connections, onConnect }: SocialConnectionsP
       name: "Facebook",
       gradient: "from-[#1877F2] to-[#0D65D9]",
       color: "text-[#1877F2]",
+    },
+    linkedin: {
+      icon: Linkedin,
+      name: "LinkedIn",
+      gradient: "from-[#0A66C2] to-[#004182]",
+      color: "text-[#0A66C2]",
+    },
+    tiktok: {
+      icon: TikTokIcon,
+      name: "TikTok",
+      gradient: "from-[#000000] via-[#25F4EE] to-[#FE2C55]",
+      color: "text-foreground",
     },
   };
 
@@ -53,7 +76,14 @@ export const SocialConnections = ({ connections, onConnect }: SocialConnectionsP
     return conn;
   });
 
-  const handleConnect = (platform: "instagram" | "facebook") => {
+  const handleConnect = (platform: "instagram" | "facebook" | "linkedin" | "tiktok") => {
+    if (platform === "linkedin" || platform === "tiktok") {
+      // LinkedIn and TikTok need separate OAuth flows
+      // For now, just notify the user
+      onConnect(platform);
+      return;
+    }
+    
     if (isConnected) {
       // Already connected via Meta OAuth
       onConnect(platform);

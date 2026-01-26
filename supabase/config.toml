@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.scrape-project-url]
 verify_jwt = false
+
+[functions.suggest-content]
+verify_jwt = false

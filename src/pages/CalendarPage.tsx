@@ -26,30 +26,44 @@ import {
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, isToday, isBefore, startOfDay } from "date-fns";
 import { fr } from "date-fns/locale";
+import { ScheduledPostModal } from "@/components/ScheduledPostModal";
+import { ContentSuggestions } from "@/components/ContentSuggestions";
+import { useToast } from "@/hooks/use-toast";
 
 interface Project {
   id: string;
   name: string;
   theme_color: string;
+  description?: string;
+  url?: string;
 }
 
 interface ScheduledPost {
   id: string;
   project_id: string;
+  user_id: string;
   content_type: string;
   text_content: string | null;
+  media_url: string | null;
+  thumbnail_url: string | null;
   scheduled_for: string;
-  status: string;
-  platforms: string[];
+  status: string | null;
+  platforms: string[] | null;
+  ai_prompt: string | null;
+  published_at: string | null;
+  error_message: string | null;
 }
 
 const CalendarPage = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedPost, setSelectedPost] = useState<ScheduledPost | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchProjects();
@@ -62,12 +76,72 @@ const CalendarPage = () => {
   const fetchProjects = async () => {
     const { data } = await supabase
       .from("projects")
-      .select("id, name, theme_color")
+      .select("id, name, theme_color, description, url")
       .order("name");
 
     if (data) {
       setProjects(data);
     }
+  };
+
+  const handlePostClick = (post: ScheduledPost) => {
+    setSelectedPost(post);
+    setIsModalOpen(true);
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    const { error } = await supabase
+      .from("scheduled_posts")
+      .delete()
+      .eq("id", postId);
+
+    if (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer le post",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Post supprimé",
+      description: "Le post a été supprimé avec succès",
+    });
+    fetchPosts();
+  };
+
+  const handlePublishNow = async (post: ScheduledPost) => {
+    const { error } = await supabase
+      .from("scheduled_posts")
+      .update({ status: "scheduled", scheduled_for: new Date().toISOString() })
+      .eq("id", post.id);
+
+    if (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de programmer la publication",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Publication programmée",
+      description: "Le post sera publié sous peu",
+    });
+    fetchPosts();
+  };
+
+  const getSelectedProjectContext = () => {
+    if (selectedProject === "all") return undefined;
+    const project = projects.find((p) => p.id === selectedProject);
+    if (!project) return undefined;
+    return {
+      name: project.name,
+      description: project.description,
+      url: project.url,
+    };
   };
 
   const fetchPosts = async () => {
@@ -259,13 +333,14 @@ const CalendarPage = () => {
                     {dayPosts.slice(0, 3).map((post) => (
                       <div
                         key={post.id}
+                        onClick={() => handlePostClick(post)}
                         className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs truncate cursor-pointer hover:opacity-80 transition-opacity"
                         style={{
                           backgroundColor: `${getProjectColor(post.project_id)}20`,
                           borderLeft: `2px solid ${getProjectColor(post.project_id)}`,
                         }}
                       >
-                        {getStatusIcon(post.status)}
+                        {getStatusIcon(post.status || "draft")}
                         {getContentIcon(post.content_type)}
                         <span className="truncate flex-1">
                           {post.text_content?.slice(0, 20) || "Post"}
@@ -280,6 +355,14 @@ const CalendarPage = () => {
         </CardContent>
       </Card>
 
+      {/* Content Suggestions */}
+      {selectedProject !== "all" && (
+        <ContentSuggestions
+          projectId={selectedProject}
+          projectContext={getSelectedProjectContext()}
+        />
+      )}
+
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
         <div className="flex items-center gap-2">
@@ -291,7 +374,7 @@ const CalendarPage = () => {
           Programmé
         </div>
         <div className="flex items-center gap-2">
-          <CheckCircle2 className="h-4 w-4 text-green-500" />
+          <CheckCircle2 className="h-4 w-4" />
           Publié
         </div>
         <div className="flex items-center gap-2">
@@ -299,6 +382,18 @@ const CalendarPage = () => {
           Échec
         </div>
       </div>
+
+      {/* Post Detail Modal */}
+      <ScheduledPostModal
+        post={selectedPost}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedPost(null);
+        }}
+        onDelete={handleDeletePost}
+        onPublishNow={handlePublishNow}
+      />
     </div>
   );
 };
