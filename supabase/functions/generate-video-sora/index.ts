@@ -5,11 +5,21 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Available sizes for different quality levels
+const QUALITY_SIZES = {
+  "720p": { portrait: "720x1280", landscape: "1280x720" },
+  "1080p": { portrait: "1080x1920", landscape: "1920x1080" },
+  "4k": { portrait: "2160x3840", landscape: "3840x2160" },
+};
+
 interface VideoRequest {
   prompt: string;
   avatarUrl?: string;
   duration?: number; // 4, 8, or 12 seconds
-  size?: string; // "720x1280" (portrait) or "1280x720" (landscape)
+  size?: string; // Legacy: "720x1280" or "1280x720"
+  quality?: "720p" | "1080p" | "4k"; // New quality selector
+  orientation?: "portrait" | "landscape";
+  startingFrameUrl?: string; // URL of image/frame to continue from
 }
 
 interface VideoStatusResponse {
@@ -37,7 +47,15 @@ serve(async (req) => {
 
     if (action === "create") {
       // Create a new video generation task
-      const { prompt, avatarUrl, duration: requestedDuration = 4, size = "720x1280" }: VideoRequest = await req.json();
+      const { 
+        prompt, 
+        avatarUrl, 
+        duration: requestedDuration = 4, 
+        size: legacySize,
+        quality = "1080p",
+        orientation = "portrait",
+        startingFrameUrl
+      }: VideoRequest = await req.json();
 
       if (!prompt) {
         throw new Error("Prompt is required");
@@ -51,14 +69,28 @@ serve(async (req) => {
             Math.abs(curr - requestedDuration) < Math.abs(prev - requestedDuration) ? curr : prev
           );
 
+      // Determine size based on quality and orientation (or use legacy size)
+      const qualityConfig = QUALITY_SIZES[quality] || QUALITY_SIZES["1080p"];
+      const size = legacySize || qualityConfig[orientation];
+
       // Build the video prompt with avatar context if provided
       let fullPrompt = prompt;
       if (avatarUrl) {
-        fullPrompt = `Vidéo publicitaire cinématographique ultra réaliste: ${prompt}. Style: professionnel, haute qualité, éclairage cinématographique, couleurs vibrantes.`;
+        fullPrompt = `Cinematic ultra-realistic promotional video: ${prompt}. Style: professional, high quality, cinematic lighting, vibrant colors.`;
+      }
+      
+      // Add quality instructions based on resolution
+      if (quality === "4k") {
+        fullPrompt = `${fullPrompt} Ultra high resolution 4K, maximum detail, professional cinema grade quality.`;
+      } else if (quality === "1080p") {
+        fullPrompt = `${fullPrompt} Full HD 1080p, sharp details, professional quality.`;
       }
 
       console.log("Creating video with prompt:", fullPrompt.substring(0, 100) + "...");
-      console.log("Requested duration:", requestedDuration, "Validated duration:", duration, "Size:", size);
+      console.log("Requested duration:", requestedDuration, "Validated duration:", duration, "Quality:", quality, "Size:", size);
+      if (startingFrameUrl) {
+        console.log("Starting frame URL provided for video continuation");
+      }
 
       // Create FormData for the request
       const formData = new FormData();
@@ -66,6 +98,12 @@ serve(async (req) => {
       formData.append("model", "sora-2");
       formData.append("seconds", duration.toString());
       formData.append("size", size);
+
+      // Add starting frame for video continuation (image-to-video)
+      if (startingFrameUrl) {
+        formData.append("image_url", startingFrameUrl);
+        console.log("Added starting frame for video-to-video continuation");
+      }
 
       // Call CometAPI Sora 2 endpoint
       const response = await fetch("https://api.cometapi.com/v1/videos", {
@@ -83,7 +121,7 @@ serve(async (req) => {
       }
 
       const result = await response.json();
-      console.log("Video task created:", result.id);
+      console.log("Video task created:", result.id, "Quality:", quality);
 
       return new Response(
         JSON.stringify({
@@ -91,6 +129,8 @@ serve(async (req) => {
           taskId: result.id,
           status: result.status,
           progress: result.progress || 0,
+          quality,
+          size,
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },

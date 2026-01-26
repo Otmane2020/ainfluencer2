@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { VideoHistory, VideoHistoryItem } from "@/components/VideoHistory";
 import { useStoredVideos } from "@/hooks/useStoredVideos";
@@ -23,6 +24,7 @@ interface Project {
 }
 
 const VideoHistoryPage = () => {
+  const navigate = useNavigate();
   const [videoHistory, setVideoHistory] = useState<VideoHistoryItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("all");
@@ -122,6 +124,15 @@ const VideoHistoryPage = () => {
     setVideoHistory((prev) =>
       prev.map((v) => (v.id === id ? { ...v, thumbnailUrl } : v))
     );
+  };
+
+  const handleContinueVideo = (videoUrl: string) => {
+    // Navigate to video generator with the video URL as starting frame
+    navigate(`/videos?continueFrom=${encodeURIComponent(videoUrl)}`);
+    toast({
+      title: "Continue video",
+      description: "Redirecting to video generator...",
+    });
   };
 
   return (
@@ -242,7 +253,7 @@ const VideoHistoryPage = () => {
             <p className="text-muted-foreground mb-4">
               Generate your first video to see it here
             </p>
-            <Button onClick={() => window.location.href = "/videos"}>
+            <Button onClick={() => navigate("/videos")}>
               Create Video
             </Button>
           </div>
@@ -252,6 +263,7 @@ const VideoHistoryPage = () => {
             onDelete={handleDeleteHistoryItem}
             onPlay={handlePlayHistoryItem}
             onThumbnailGenerated={handleThumbnailGenerated}
+            onContinueVideo={handleContinueVideo}
           />
         ) : null}
       </motion.div>

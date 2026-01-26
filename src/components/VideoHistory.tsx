@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Video, Play, Pause, Download, Trash2, Clock, Calendar, Loader2, Maximize2 } from "lucide-react";
+import { Video, Play, Pause, Download, Trash2, Clock, Calendar, Loader2, Maximize2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useRef, useEffect } from "react";
 import { format } from "date-fns";
@@ -8,6 +8,11 @@ import { ShareButton } from "@/components/ShareButton";
 import { useVideoThumbnail } from "@/hooks/useVideoThumbnail";
 import { useToast } from "@/hooks/use-toast";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface VideoHistoryItem {
   id: string;
@@ -27,9 +32,10 @@ interface VideoHistoryProps {
   onDelete: (id: string) => void;
   onPlay: (video: VideoHistoryItem) => void;
   onThumbnailGenerated?: (id: string, thumbnailUrl: string) => void;
+  onContinueVideo?: (videoUrl: string) => void;
 }
 
-export const VideoHistory = ({ videos, onDelete, onPlay, onThumbnailGenerated }: VideoHistoryProps) => {
+export const VideoHistory = ({ videos, onDelete, onPlay, onThumbnailGenerated, onContinueVideo }: VideoHistoryProps) => {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [generatingThumbnails, setGeneratingThumbnails] = useState<Set<string>>(new Set());
@@ -234,6 +240,23 @@ export const VideoHistory = ({ videos, onDelete, onPlay, onThumbnailGenerated }:
                 >
                   <Maximize2 className="h-4 w-4" />
                 </Button>
+                {onContinueVideo && video.videoUrl && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-primary hover:text-primary"
+                        onClick={() => onContinueVideo(video.videoUrl!)}
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Continue this video</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 <ShareButton
                   videoUrl={video.videoUrl}
                   thumbnailUrl={video.thumbnailUrl}
