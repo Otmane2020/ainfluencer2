@@ -15,7 +15,9 @@ import CalendarPage from "./pages/CalendarPage";
 import Videos from "./pages/Videos";
 import Posts from "./pages/Posts";
 import Settings from "./pages/Settings";
+import Integrations from "./pages/Integrations";
 import VideoHistoryPage from "./pages/VideoHistoryPage";
+import ImageHistoryPage from "./pages/ImageHistoryPage";
 import PostHistoryPage from "./pages/PostHistoryPage";
 import NotFound from "./pages/NotFound";
 
@@ -39,7 +41,9 @@ const App = () => (
             <Route path="/videos" element={<Videos />} />
             <Route path="/posts" element={<Posts />} />
             <Route path="/history/videos" element={<VideoHistoryPage />} />
+            <Route path="/history/images" element={<ImageHistoryPage />} />
             <Route path="/history/posts" element={<PostHistoryPage />} />
+            <Route path="/integrations" element={<Integrations />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
           <Route path="*" element={<NotFound />} />
