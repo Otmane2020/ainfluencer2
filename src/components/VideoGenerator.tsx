@@ -80,14 +80,45 @@ const VIDEO_AVATAR_PRODUCTS = COMMERCIAL_PRODUCTS.filter(
   (p) => p.category === "video" || p.category === "avatar"
 );
 
+const PREFS_KEY = "video_generator_prefs";
+
+interface StoredPrefs {
+  voiceId?: string;
+  productId?: string;
+  avatarUrl?: string;
+}
+
+const loadPrefs = (): StoredPrefs => {
+  try {
+    const stored = localStorage.getItem(PREFS_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+};
+
+const savePrefs = (prefs: Partial<StoredPrefs>) => {
+  try {
+    const current = loadPrefs();
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...current, ...prefs }));
+  } catch {
+    // Ignore storage errors
+  }
+};
+
 export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated }: VideoGeneratorProps) => {
-  const defaultProduct = VIDEO_AVATAR_PRODUCTS.find((p) => p.id === "ai-reel-pro") || VIDEO_AVATAR_PRODUCTS[0];
+  const storedPrefs = loadPrefs();
+  const defaultProduct = VIDEO_AVATAR_PRODUCTS.find((p) => p.id === storedPrefs.productId) 
+    || VIDEO_AVATAR_PRODUCTS.find((p) => p.id === "ai-reel-pro") 
+    || VIDEO_AVATAR_PRODUCTS[0];
+  const defaultVoice = AVAILABLE_VOICES.find((v) => v.id === storedPrefs.voiceId) || getDefaultVoice();
+  
   const [generationTasks, setGenerationTasks] = useState<GenerationTask[]>([]);
   const [segments, setSegments] = useState<VideoSegment[]>([
     { id: "1", script: "", duration: defaultProduct.supportedDurations?.[0] || 8, status: "pending" },
   ]);
-  const [selectedVoice, setSelectedVoice] = useState<Voice>(getDefaultVoice());
-  const [selectedProduct, setSelectedProduct] = useState<CommercialProduct>(defaultProduct);
+  const [selectedVoice, setSelectedVoiceState] = useState<Voice>(defaultVoice);
+  const [selectedProduct, setSelectedProductState] = useState<CommercialProduct>(defaultProduct);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingScript, setIsGeneratingScript] = useState<string | null>(null);
   const [showProductSelector, setShowProductSelector] = useState(false);
@@ -98,12 +129,28 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated }: VideoGener
   const { toast } = useToast();
 
   // Avatar state
-  const [avatarUrl, setAvatarUrl] = useState<string | undefined>();
+  const [avatarUrl, setAvatarUrlState] = useState<string | undefined>(storedPrefs.avatarUrl);
   const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [avatarPrompt, setAvatarPrompt] = useState("");
   const [showAvatarPrompt, setShowAvatarPrompt] = useState(false);
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Wrapper functions to persist preferences
+  const setSelectedVoice = (voice: Voice) => {
+    setSelectedVoiceState(voice);
+    savePrefs({ voiceId: voice.id });
+  };
+
+  const setSelectedProduct = (product: CommercialProduct) => {
+    setSelectedProductState(product);
+    savePrefs({ productId: product.id });
+  };
+
+  const setAvatarUrl = (url: string | undefined) => {
+    setAvatarUrlState(url);
+    savePrefs({ avatarUrl: url });
+  };
 
   // Avatar functions
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
