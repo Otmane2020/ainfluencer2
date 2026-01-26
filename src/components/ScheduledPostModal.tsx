@@ -1,9 +1,8 @@
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
-  X,
   Instagram,
   Facebook,
   Linkedin,
@@ -17,6 +16,8 @@ import {
   Send,
   Loader2,
   Music2,
+  Check,
+  Sparkles,
 } from "lucide-react";
 import {
   Dialog,
@@ -27,6 +28,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { supabase } from "@/integrations/supabase/client";
+import { AI_MODELS, AIModel } from "./ModelSelector";
 
 // TikTok icon component
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -62,6 +67,7 @@ interface ScheduledPostModalProps {
   onEdit?: (post: ScheduledPost) => void;
   onDelete?: (postId: string) => void;
   onPublishNow?: (post: ScheduledPost) => void;
+  onUpdate?: () => void;
 }
 
 const platformConfig = {
@@ -69,21 +75,25 @@ const platformConfig = {
     icon: Instagram,
     name: "Instagram",
     gradient: "from-[#833AB4] via-[#E1306C] to-[#F77737]",
+    color: "#E1306C",
   },
   facebook: {
     icon: Facebook,
     name: "Facebook",
     gradient: "from-[#1877F2] to-[#0D65D9]",
+    color: "#1877F2",
   },
   linkedin: {
     icon: Linkedin,
     name: "LinkedIn",
     gradient: "from-[#0A66C2] to-[#004182]",
+    color: "#0A66C2",
   },
   tiktok: {
     icon: TikTokIcon,
     name: "TikTok",
     gradient: "from-[#000000] via-[#25F4EE] to-[#FE2C55]",
+    color: "#000000",
   },
 };
 
@@ -108,16 +118,85 @@ export const ScheduledPostModal = ({
   onEdit,
   onDelete,
   onPublishNow,
+  onUpdate,
 }: ScheduledPostModalProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+  const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
+  const [activeTab, setActiveTab] = useState("details");
   const { toast } = useToast();
+
+  // Initialize platforms from post
+  useEffect(() => {
+    if (post?.platforms) {
+      setSelectedPlatforms(post.platforms);
+    }
+  }, [post]);
 
   if (!post) return null;
 
   const status = statusConfig[post.status as keyof typeof statusConfig] || statusConfig.draft;
   const contentType = contentTypeConfig[post.content_type as keyof typeof contentTypeConfig] || contentTypeConfig.text;
   const ContentIcon = contentType.icon;
+
+  // Filter models based on content type
+  const getRelevantModels = () => {
+    if (post.content_type === "video" || post.content_type === "reel") {
+      return AI_MODELS.filter((m) => m.category === "video" || m.category === "avatar");
+    } else if (post.content_type === "image") {
+      return AI_MODELS.filter((m) => m.category === "image");
+    }
+    return AI_MODELS.filter((m) => m.category === "image"); // Default to image for text posts
+  };
+
+  const relevantModels = getRelevantModels();
+
+  const togglePlatform = (platform: string) => {
+    setSelectedPlatforms((prev) =>
+      prev.includes(platform)
+        ? prev.filter((p) => p !== platform)
+        : [...prev, platform]
+    );
+  };
+
+  const handleSavePlatforms = async () => {
+    if (selectedPlatforms.length === 0) {
+      toast({
+        title: "Sélection requise",
+        description: "Sélectionnez au moins une plateforme",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from("scheduled_posts")
+        .update({ platforms: selectedPlatforms })
+        .eq("id", post.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Plateformes mises à jour ✓",
+        description: `Publication sur ${selectedPlatforms.length} plateforme(s)`,
+      });
+      
+      onUpdate?.();
+    } catch (error) {
+      console.error("Update platforms error:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour les plateformes",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!onDelete) return;
@@ -163,7 +242,7 @@ export const ScheduledPostModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/60">
@@ -176,177 +255,291 @@ export const ScheduledPostModal = ({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Media Preview */}
-          {(post.media_url || post.thumbnail_url) && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="relative aspect-video overflow-hidden rounded-xl bg-muted"
-            >
-              {post.content_type === "video" ? (
-                <video
-                  src={post.media_url || undefined}
-                  poster={post.thumbnail_url || undefined}
-                  controls
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <img
-                  src={post.media_url || post.thumbnail_url || undefined}
-                  alt="Post media"
-                  className="h-full w-full object-cover"
-                />
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="details">Détails</TabsTrigger>
+            <TabsTrigger value="platforms">Réseaux sociaux</TabsTrigger>
+            <TabsTrigger value="models">Modèles IA</TabsTrigger>
+          </TabsList>
+
+          <ScrollArea className="flex-1 mt-4">
+            <TabsContent value="details" className="space-y-4 m-0">
+              {/* Media Preview */}
+              {(post.media_url || post.thumbnail_url) && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="relative aspect-video overflow-hidden rounded-xl bg-muted"
+                >
+                  {post.content_type === "video" ? (
+                    <video
+                      src={post.media_url || undefined}
+                      poster={post.thumbnail_url || undefined}
+                      controls
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <img
+                      src={post.media_url || post.thumbnail_url || undefined}
+                      alt="Post media"
+                      className="h-full w-full object-cover"
+                    />
+                  )}
+                </motion.div>
               )}
-            </motion.div>
-          )}
 
-          {/* AI Prompt / Subject */}
-          {post.ai_prompt && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="rounded-xl bg-muted/50 p-4"
-            >
-              <h4 className="mb-2 text-sm font-medium text-muted-foreground">
-                Sujet / Prompt IA
-              </h4>
-              <p className="text-sm">{post.ai_prompt}</p>
-            </motion.div>
-          )}
+              {/* AI Prompt / Subject */}
+              {post.ai_prompt && (
+                <div className="rounded-xl bg-muted/50 p-4">
+                  <h4 className="mb-2 text-sm font-medium text-muted-foreground">
+                    Sujet / Prompt IA
+                  </h4>
+                  <p className="text-sm">{post.ai_prompt}</p>
+                </div>
+              )}
 
-          {/* Text Content */}
-          {post.text_content && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 }}
-              className="rounded-xl border border-border p-4"
-            >
-              <h4 className="mb-2 text-sm font-medium text-muted-foreground">
-                Contenu
-              </h4>
-              <p className="whitespace-pre-wrap text-sm">{post.text_content}</p>
-            </motion.div>
-          )}
+              {/* Text Content */}
+              {post.text_content && (
+                <div className="rounded-xl border border-border p-4">
+                  <h4 className="mb-2 text-sm font-medium text-muted-foreground">
+                    Contenu
+                  </h4>
+                  <p className="whitespace-pre-wrap text-sm">{post.text_content}</p>
+                </div>
+              )}
 
-          {/* Platforms */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <h4 className="mb-3 text-sm font-medium text-muted-foreground">
-              Plateformes
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              {(post.platforms || []).map((platform) => {
-                const config = platformConfig[platform as keyof typeof platformConfig];
-                if (!config) return null;
-                const Icon = config.icon;
-                return (
-                  <div
-                    key={platform}
-                    className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5"
+              {/* Current Platforms (read-only display) */}
+              <div>
+                <h4 className="mb-3 text-sm font-medium text-muted-foreground">
+                  Plateformes actuelles
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {(post.platforms || []).map((platform) => {
+                    const config = platformConfig[platform as keyof typeof platformConfig];
+                    if (!config) return null;
+                    const Icon = config.icon;
+                    return (
+                      <div
+                        key={platform}
+                        className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5"
+                      >
+                        <div
+                          className={`flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br ${config.gradient}`}
+                        >
+                          <Icon className="h-3.5 w-3.5 text-white" />
+                        </div>
+                        <span className="text-sm font-medium">{config.name}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Schedule Info */}
+              <div className="flex flex-wrap gap-4">
+                <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-4 py-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">
+                    {format(new Date(post.scheduled_for), "EEEE d MMMM yyyy", {
+                      locale: fr,
+                    })}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-4 py-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">
+                    {format(new Date(post.scheduled_for), "HH:mm")}
+                  </span>
+                </div>
+              </div>
+
+              {/* Error Message */}
+              {post.error_message && (
+                <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-4">
+                  <h4 className="mb-2 text-sm font-medium text-destructive">
+                    Erreur
+                  </h4>
+                  <p className="text-sm text-destructive/80">{post.error_message}</p>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="platforms" className="space-y-4 m-0">
+              <div className="rounded-xl border border-border p-4">
+                <h4 className="mb-4 text-sm font-medium">
+                  Sélectionnez les plateformes de publication
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
+                  {Object.entries(platformConfig).map(([key, config]) => {
+                    const Icon = config.icon;
+                    const isSelected = selectedPlatforms.includes(key);
+                    return (
+                      <motion.button
+                        key={key}
+                        type="button"
+                        onClick={() => togglePlatform(key)}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className={`relative flex items-center gap-3 rounded-xl border-2 p-4 transition-all ${
+                          isSelected
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        {isSelected && (
+                          <div className="absolute right-2 top-2">
+                            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary">
+                              <Check className="h-3 w-3 text-primary-foreground" />
+                            </div>
+                          </div>
+                        )}
+                        <div
+                          className={`flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br ${config.gradient}`}
+                        >
+                          <Icon className="h-5 w-5 text-white" />
+                        </div>
+                        <span className="font-medium">{config.name}</span>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+                <div className="mt-4 flex justify-end">
+                  <Button 
+                    onClick={handleSavePlatforms} 
+                    disabled={isSaving || selectedPlatforms.length === 0}
                   >
-                    <div
-                      className={`flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br ${config.gradient}`}
-                    >
-                      <Icon className="h-3.5 w-3.5 text-white" />
-                    </div>
-                    <span className="text-sm font-medium">{config.name}</span>
+                    {isSaving ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Check className="h-4 w-4 mr-2" />
+                    )}
+                    Enregistrer
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="models" className="space-y-4 m-0">
+              <div className="rounded-xl border border-border p-4">
+                <h4 className="mb-2 text-sm font-medium flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  Modèles IA pour génération
+                </h4>
+                <p className="mb-4 text-xs text-muted-foreground">
+                  Sélectionnez un modèle pour régénérer le contenu de ce post
+                </p>
+                
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {relevantModels.map((model) => {
+                    const isSelected = selectedModel?.id === model.id;
+                    return (
+                      <motion.button
+                        key={model.id}
+                        type="button"
+                        onClick={() => setSelectedModel(model)}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className={`relative flex flex-col rounded-xl border-2 p-3 text-left transition-all ${
+                          isSelected
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        {model.discount && (
+                          <div className="absolute -right-1 -top-1 flex items-center gap-0.5 rounded-full bg-green-500 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm">
+                            -{model.discount}%
+                          </div>
+                        )}
+                        {isSelected && !model.discount && (
+                          <div className="absolute right-2 top-2">
+                            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary">
+                              <Check className="h-3 w-3 text-primary-foreground" />
+                            </div>
+                          </div>
+                        )}
+                        <div className="mb-1 flex items-center gap-2">
+                          <span className="font-semibold text-sm">{model.name}</span>
+                          {model.quality !== "standard" && (
+                            <span className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase bg-primary/20 text-primary">
+                              {model.quality}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mb-2 text-xs text-muted-foreground line-clamp-1">
+                          {model.description}
+                        </p>
+                        <div className="flex items-center gap-1 mt-auto">
+                          {model.originalPrice && (
+                            <span className="text-xs text-muted-foreground line-through">
+                              ${model.originalPrice.toFixed(2)}
+                            </span>
+                          )}
+                          <span className="text-lg font-bold text-primary">{model.price}</span>
+                          <span className="text-xs text-muted-foreground">{model.priceUnit}</span>
+                        </div>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+
+                {selectedModel && (
+                  <div className="mt-4 p-3 rounded-lg bg-primary/10 border border-primary/20">
+                    <p className="text-sm">
+                      <span className="font-medium">Modèle sélectionné :</span>{" "}
+                      {selectedModel.name} - {selectedModel.price}{selectedModel.priceUnit}
+                    </p>
+                    <Button className="mt-3 w-full" size="sm">
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Régénérer avec {selectedModel.name}
+                    </Button>
                   </div>
-                );
-              })}
-            </div>
-          </motion.div>
+                )}
+              </div>
+            </TabsContent>
+          </ScrollArea>
+        </Tabs>
 
-          {/* Schedule Info */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25 }}
-            className="flex flex-wrap gap-4"
-          >
-            <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-4 py-2">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm">
-                {format(new Date(post.scheduled_for), "EEEE d MMMM yyyy", {
-                  locale: fr,
-                })}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-4 py-2">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm">
-                {format(new Date(post.scheduled_for), "HH:mm")}
-              </span>
-            </div>
-          </motion.div>
-
-          {/* Error Message */}
-          {post.error_message && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="rounded-xl bg-destructive/10 border border-destructive/20 p-4"
+        {/* Actions */}
+        <div className="flex flex-wrap gap-3 pt-4 border-t border-border mt-4">
+          {onEdit && (
+            <Button
+              variant="outline"
+              onClick={() => onEdit(post)}
+              className="gap-2"
             >
-              <h4 className="mb-2 text-sm font-medium text-destructive">
-                Erreur
-              </h4>
-              <p className="text-sm text-destructive/80">{post.error_message}</p>
-            </motion.div>
+              <Edit className="h-4 w-4" />
+              Éditer
+            </Button>
           )}
-
-          {/* Actions */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35 }}
-            className="flex flex-wrap gap-3 pt-4 border-t border-border"
-          >
-            {onEdit && (
-              <Button
-                variant="outline"
-                onClick={() => onEdit(post)}
-                className="gap-2"
-              >
-                <Edit className="h-4 w-4" />
-                Éditer
-              </Button>
-            )}
-            {onDelete && (
-              <Button
-                variant="outline"
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className="gap-2 text-destructive hover:bg-destructive hover:text-destructive-foreground"
-              >
-                {isDeleting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4" />
-                )}
-                Supprimer
-              </Button>
-            )}
-            {onPublishNow && post.status !== "published" && (
-              <Button
-                onClick={handlePublishNow}
-                disabled={isPublishing}
-                className="ml-auto gap-2"
-              >
-                {isPublishing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-                Publier maintenant
-              </Button>
-            )}
-          </motion.div>
+          {onDelete && (
+            <Button
+              variant="outline"
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="gap-2 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+            >
+              {isDeleting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+              Supprimer
+            </Button>
+          )}
+          {onPublishNow && post.status !== "published" && (
+            <Button
+              onClick={handlePublishNow}
+              disabled={isPublishing}
+              className="ml-auto gap-2"
+            >
+              {isPublishing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+              Publier maintenant
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
