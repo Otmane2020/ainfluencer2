@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      meta_connections: {
+        Row: {
+          access_token: string
+          created_at: string
+          expires_at: string
+          fb_picture_url: string | null
+          fb_user_id: string
+          fb_user_name: string
+          id: string
+          instagram_id: string | null
+          instagram_username: string | null
+          page_access_token: string | null
+          page_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          expires_at: string
+          fb_picture_url?: string | null
+          fb_user_id: string
+          fb_user_name: string
+          id?: string
+          instagram_id?: string | null
+          instagram_username?: string | null
+          page_access_token?: string | null
+          page_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          expires_at?: string
+          fb_picture_url?: string | null
+          fb_user_id?: string
+          fb_user_name?: string
+          id?: string
+          instagram_id?: string | null
+          instagram_username?: string | null
+          page_access_token?: string | null
+          page_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

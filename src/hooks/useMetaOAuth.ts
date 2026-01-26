@@ -1,91 +1,123 @@
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface MetaUser {
-  id: string;
+  id?: string;
   name: string;
   picture?: string;
 }
 
 interface InstagramAccount {
-  id: string;
+  id?: string;
   username: string;
 }
 
 interface MetaConnection {
-  accessToken: string;
-  expiresAt: number;
   user: MetaUser;
-  instagram?: InstagramAccount;
+  instagram?: InstagramAccount | null;
+  hasPageAccess?: boolean;
+  expiresAt: string;
 }
 
-const STORAGE_KEY = "meta_oauth_connection";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 export const useMetaOAuth = () => {
   const [connection, setConnection] = useState<MetaConnection | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  // Load connection from localStorage
+  // Check connection status on mount
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
+    const checkStatus = async () => {
       try {
-        const parsed = JSON.parse(stored) as MetaConnection;
-        // Check if token is still valid
-        if (parsed.expiresAt > Date.now()) {
-          setConnection(parsed);
-        } else {
-          localStorage.removeItem(STORAGE_KEY);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          setIsLoading(false);
+          return;
         }
-      } catch {
-        localStorage.removeItem(STORAGE_KEY);
+
+        const response = await fetch(
+          `${SUPABASE_URL}/functions/v1/meta-oauth?action=status`,
+          {
+            headers: {
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          }
+        );
+
+        const data = await response.json();
+        
+        if (data.connected) {
+          setConnection({
+            user: data.user,
+            instagram: data.instagram,
+            expiresAt: data.expiresAt,
+          });
+        }
+      } catch (error) {
+        console.error("[useMetaOAuth] Status check error:", error);
+      } finally {
+        setIsLoading(false);
       }
-    }
+    };
+
+    checkStatus();
   }, []);
 
-  // Listen for OAuth callback messages
+  // Listen for OAuth callback messages with origin verification
   useEffect(() => {
+    let receivedMessage = false;
+
     const handleMessage = (event: MessageEvent) => {
+      // Security: verify origin
+      if (!event.origin.includes("supabase.co") && !event.origin.includes(window.location.hostname)) {
+        return;
+      }
+
       console.log("[useMetaOAuth] Received message:", event.data?.type);
-      
+
       if (event.data?.type === "meta-oauth-success") {
-        const { accessToken, expiresIn, user, instagram } = event.data;
-        console.log("[useMetaOAuth] OAuth success for user:", user?.name);
+        receivedMessage = true;
+        const { user, instagram, hasPageAccess, expiresAt } = event.data;
         
-        const newConnection: MetaConnection = {
-          accessToken,
-          expiresAt: Date.now() + expiresIn * 1000,
+        console.log("[useMetaOAuth] OAuth success for user:", user?.name);
+
+        setConnection({
           user,
           instagram,
-        };
-        setConnection(newConnection);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newConnection));
+          hasPageAccess,
+          expiresAt,
+        });
+        
         setIsConnecting(false);
+        
         toast({
-          title: "Connecté !",
-          description: `Compte ${user.name} lié avec succès`,
+          title: "Connected! 🎉",
+          description: `Account ${user.name} linked successfully${instagram ? ` (Instagram: @${instagram.username})` : ""}`,
         });
       } else if (event.data?.type === "meta-oauth-error") {
+        receivedMessage = true;
         console.error("[useMetaOAuth] OAuth error:", event.data.error);
         setIsConnecting(false);
-        
-        let errorMessage = "Impossible de se connecter à Meta";
+
+        let errorMessage = "Unable to connect to Meta";
         const error = event.data.error;
-        
-        // User-friendly error messages
+
         if (error?.includes("access_denied") || error?.includes("user_denied")) {
-          errorMessage = "Vous avez refusé les permissions requises";
+          errorMessage = "You declined the required permissions";
         } else if (error?.includes("invalid_client")) {
-          errorMessage = "Configuration de l'app Meta incorrecte";
+          errorMessage = "Meta app configuration error";
         } else if (error?.includes("redirect_uri")) {
-          errorMessage = "URI de redirection non autorisée dans Meta Developer";
+          errorMessage = "Redirect URI not authorized in Meta Developer";
         } else if (error) {
           errorMessage = error;
         }
-        
+
         toast({
-          title: "Erreur de connexion",
+          title: "Connection error",
           description: errorMessage,
           variant: "destructive",
         });
@@ -101,18 +133,23 @@ export const useMetaOAuth = () => {
     console.log("[useMetaOAuth] Starting OAuth flow...");
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const headers: Record<string, string> = {
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      };
+      
+      if (session) {
+        headers.Authorization = `Bearer ${session.access_token}`;
+      }
+
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meta-oauth?action=authorize`,
-        {
-          headers: {
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-        }
+        `${SUPABASE_URL}/functions/v1/meta-oauth?action=authorize`,
+        { headers }
       );
 
       const data = await response.json();
-      console.log("[useMetaOAuth] Authorize response:", data);
+      console.log("[useMetaOAuth] Authorize response received");
 
       if (!response.ok || data.error) {
         throw new Error(data.message || data.error || "Failed to get auth URL");
@@ -125,12 +162,11 @@ export const useMetaOAuth = () => {
         "width=600,height=700,left=100,top=100"
       );
 
-      // Check if popup was blocked
       if (!popup) {
         setIsConnecting(false);
         toast({
-          title: "Popup bloqué",
-          description: "Autorisez les popups pour vous connecter à Meta",
+          title: "Popup blocked",
+          description: "Please allow popups to connect to Meta",
           variant: "destructive",
         });
         return;
@@ -140,30 +176,49 @@ export const useMetaOAuth = () => {
       const checkPopup = setInterval(() => {
         if (popup.closed) {
           clearInterval(checkPopup);
-          // If still connecting after popup closed, it was cancelled
+          // Wait a bit for any final messages
           setTimeout(() => {
             setIsConnecting(false);
-          }, 500);
+          }, 1000);
         }
       }, 500);
     } catch (error) {
       setIsConnecting(false);
       console.error("[useMetaOAuth] Error:", error);
       toast({
-        title: "Erreur",
-        description: error instanceof Error ? error.message : "Impossible de démarrer l'authentification",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Unable to start authentication",
         variant: "destructive",
       });
     }
   }, [toast]);
 
-  const disconnect = useCallback(() => {
-    setConnection(null);
-    localStorage.removeItem(STORAGE_KEY);
-    toast({
-      title: "Déconnecté",
-      description: "Votre compte Meta a été déconnecté",
-    });
+  const disconnect = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        await fetch(
+          `${SUPABASE_URL}/functions/v1/meta-oauth?action=disconnect`,
+          {
+            method: "POST",
+            headers: {
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          }
+        );
+      }
+
+      setConnection(null);
+      toast({
+        title: "Disconnected",
+        description: "Your Meta account has been disconnected",
+      });
+    } catch (error) {
+      console.error("[useMetaOAuth] Disconnect error:", error);
+      setConnection(null);
+    }
   }, [toast]);
 
   const shareToMeta = useCallback(
@@ -175,26 +230,36 @@ export const useMetaOAuth = () => {
     ) => {
       if (!connection) {
         toast({
-          title: "Non connecté",
-          description: "Connectez-vous à Meta pour partager",
+          title: "Not connected",
+          description: "Connect to Meta to share",
           variant: "destructive",
         });
         return { success: false };
       }
 
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          toast({
+            title: "Not authenticated",
+            description: "Please log in to share content",
+            variant: "destructive",
+          });
+          return { success: false };
+        }
+
         const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meta-oauth?action=share`,
+          `${SUPABASE_URL}/functions/v1/meta-oauth?action=share`,
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              Authorization: `Bearer ${session.access_token}`,
             },
             body: JSON.stringify({
               platform,
-              accessToken: connection.accessToken,
               content,
               videoUrl,
               imageUrl,
@@ -206,8 +271,8 @@ export const useMetaOAuth = () => {
 
         if (data.success) {
           toast({
-            title: "Publié !",
-            description: `Contenu partagé sur ${platform === "facebook" ? "Facebook" : "Instagram"}`,
+            title: "Published! 🎉",
+            description: `Content shared on ${platform === "facebook" ? "Facebook" : "Instagram"}`,
           });
           return { success: true, postId: data.postId };
         } else {
@@ -216,8 +281,8 @@ export const useMetaOAuth = () => {
       } catch (error) {
         console.error("Share error:", error);
         toast({
-          title: "Erreur de partage",
-          description: error instanceof Error ? error.message : "Impossible de publier le contenu",
+          title: "Share error",
+          description: error instanceof Error ? error.message : "Unable to publish content",
           variant: "destructive",
         });
         return { success: false };
@@ -229,9 +294,14 @@ export const useMetaOAuth = () => {
   return {
     connection,
     isConnecting,
+    isLoading,
     isConnected: !!connection,
     connect,
     disconnect,
     shareToMeta,
+    // Convenience getters
+    userName: connection?.user?.name,
+    userPicture: connection?.user?.picture,
+    instagramUsername: connection?.instagram?.username,
   };
 };

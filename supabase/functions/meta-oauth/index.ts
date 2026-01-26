@@ -1,14 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Meta App credentials - must be configured in secrets
+// Meta App credentials
 const META_APP_ID = Deno.env.get("META_APP_ID");
 const META_APP_SECRET = Deno.env.get("META_APP_SECRET");
-const REDIRECT_URI = Deno.env.get("META_REDIRECT_URI") || "https://vgffjuvaedmxoxvzovoq.supabase.co/functions/v1/meta-oauth?action=callback";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const REDIRECT_URI = Deno.env.get("META_REDIRECT_URI") || 
+  "https://vgffjuvaedmxoxvzovoq.supabase.co/functions/v1/meta-oauth?action=callback";
 
 interface TokenResponse {
   access_token: string;
@@ -22,13 +26,17 @@ interface UserProfile {
   picture?: { data: { url: string } };
 }
 
-interface InstagramAccount {
+interface PageData {
   id: string;
-  username: string;
+  name: string;
+  access_token: string;
+  instagram_business_account?: {
+    id: string;
+    username: string;
+  };
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -41,35 +49,38 @@ serve(async (req) => {
   try {
     switch (action) {
       case "authorize": {
-        // Generate OAuth authorization URL
         if (!META_APP_ID) {
-          console.error("[meta-oauth] META_APP_ID not configured");
           return new Response(
-            JSON.stringify({ 
-              error: "Meta App ID not configured",
-              message: "Please configure META_APP_ID in secrets" 
-            }),
+            JSON.stringify({ error: "Meta App ID not configured" }),
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
-        console.log(`[meta-oauth] Using redirect URI: ${REDIRECT_URI}`);
-        console.log(`[meta-oauth] App ID configured: ${META_APP_ID ? "Yes" : "No"}`);
-        console.log(`[meta-oauth] App Secret configured: ${META_APP_SECRET ? "Yes" : "No"}`);
+        // Get user from auth header
+        const authHeader = req.headers.get("Authorization");
+        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        
+        let userId: string | null = null;
+        if (authHeader) {
+          const token = authHeader.replace("Bearer ", "");
+          const { data: { user } } = await supabase.auth.getUser(token);
+          userId = user?.id || null;
+        }
 
         const scopes = [
           "public_profile",
           "pages_show_list",
-          "pages_read_engagement",
+          "pages_read_engagement", 
           "pages_manage_posts",
           "instagram_basic",
           "instagram_content_publish",
         ].join(",");
 
-        const state = crypto.randomUUID();
-        const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${META_APP_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}`;
+        // Encode userId in state for callback
+        const state = userId ? `${crypto.randomUUID()}_${userId}` : crypto.randomUUID();
+        const authUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${META_APP_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}`;
 
-        console.log(`[meta-oauth] Generated auth URL with state: ${state}`);
+        console.log(`[meta-oauth] Generated auth URL for user: ${userId || "anonymous"}`);
 
         return new Response(
           JSON.stringify({ authUrl }),
@@ -78,168 +89,288 @@ serve(async (req) => {
       }
 
       case "callback": {
-        // Handle OAuth callback
         const code = url.searchParams.get("code");
         const error = url.searchParams.get("error");
-        const errorReason = url.searchParams.get("error_reason");
         const errorDescription = url.searchParams.get("error_description");
         const state = url.searchParams.get("state");
 
-        console.log(`[meta-oauth] Callback received - Code: ${code ? "present" : "missing"}, Error: ${error || "none"}, State: ${state}`);
+        console.log(`[meta-oauth] Callback - Code: ${code ? "present" : "missing"}, State: ${state}`);
 
         if (error) {
-          console.error(`[meta-oauth] Auth error: ${error}, Reason: ${errorReason}, Description: ${errorDescription}`);
-          const errorMsg = errorDescription || errorReason || error;
+          const errorMsg = errorDescription || error;
           return new Response(
-            `<html><body><script>window.opener.postMessage({type:'meta-oauth-error',error:'${errorMsg}'},'*');window.close();</script></body></html>`,
+            `<!DOCTYPE html><html><body><script>
+              window.opener.postMessage({type:'meta-oauth-error',error:'${errorMsg.replace(/'/g, "\\'")}'},'*');
+              window.close();
+            </script></body></html>`,
             { headers: { "Content-Type": "text/html" } }
           );
         }
 
-        if (!code) {
-          console.error("[meta-oauth] No authorization code received");
+        if (!code || !META_APP_ID || !META_APP_SECRET) {
           return new Response(
-            `<html><body><script>window.opener.postMessage({type:'meta-oauth-error',error:'no_auth_code'},'*');window.close();</script></body></html>`,
+            `<!DOCTYPE html><html><body><script>
+              window.opener.postMessage({type:'meta-oauth-error',error:'missing_credentials'},'*');
+              window.close();
+            </script></body></html>`,
             { headers: { "Content-Type": "text/html" } }
           );
         }
 
-        if (!META_APP_ID || !META_APP_SECRET) {
-          console.error("[meta-oauth] Missing app credentials");
-          return new Response(
-            `<html><body><script>window.opener.postMessage({type:'meta-oauth-error',error:'missing_app_credentials'},'*');window.close();</script></body></html>`,
-            { headers: { "Content-Type": "text/html" } }
-          );
-        }
+        // Extract userId from state if present
+        const userId = state?.includes("_") ? state.split("_")[1] : null;
 
-        // Exchange code for access token
-        console.log("[meta-oauth] Exchanging code for access token...");
-        const tokenUrl = `https://graph.facebook.com/v18.0/oauth/access_token?client_id=${META_APP_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&client_secret=${META_APP_SECRET}&code=${code}`;
-
+        // Exchange code for token
+        const tokenUrl = `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${META_APP_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&client_secret=${META_APP_SECRET}&code=${code}`;
         const tokenResponse = await fetch(tokenUrl);
-        const tokenData = await tokenResponse.json();
+        const tokenData: TokenResponse = await tokenResponse.json();
 
-        console.log(`[meta-oauth] Token response status: ${tokenResponse.status}`);
-
-        if (!tokenResponse.ok || tokenData.error) {
+        if (!tokenResponse.ok || !tokenData.access_token) {
           console.error("[meta-oauth] Token exchange failed:", tokenData);
-          const errorMsg = tokenData.error?.message || tokenData.error || "token_exchange_failed";
           return new Response(
-            `<html><body><script>window.opener.postMessage({type:'meta-oauth-error',error:'${errorMsg}'},'*');window.close();</script></body></html>`,
+            `<!DOCTYPE html><html><body><script>
+              window.opener.postMessage({type:'meta-oauth-error',error:'token_exchange_failed'},'*');
+              window.close();
+            </script></body></html>`,
             { headers: { "Content-Type": "text/html" } }
           );
         }
-
-        if (!tokenData.access_token) {
-          console.error("[meta-oauth] No access token in response");
-          return new Response(
-            `<html><body><script>window.opener.postMessage({type:'meta-oauth-error',error:'no_access_token'},'*');window.close();</script></body></html>`,
-            { headers: { "Content-Type": "text/html" } }
-          );
-        }
-
-        console.log("[meta-oauth] Access token obtained successfully");
 
         // Get user profile
         const profileResponse = await fetch(
-          `https://graph.facebook.com/v18.0/me?fields=id,name,picture&access_token=${tokenData.access_token}`
+          `https://graph.facebook.com/v19.0/me?fields=id,name,picture&access_token=${tokenData.access_token}`
         );
         const profile: UserProfile = await profileResponse.json();
 
-        // Get Instagram accounts
-        const accountsResponse = await fetch(
-          `https://graph.facebook.com/v18.0/me/accounts?fields=instagram_business_account{id,username}&access_token=${tokenData.access_token}`
+        // Get pages with Instagram accounts
+        const pagesResponse = await fetch(
+          `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account{id,username}&access_token=${tokenData.access_token}`
         );
-        const accountsData = await accountsResponse.json();
+        const pagesData = await pagesResponse.json();
 
-        let instagramAccount: InstagramAccount | null = null;
-        if (accountsData.data) {
-          for (const page of accountsData.data) {
-            if (page.instagram_business_account) {
-              instagramAccount = {
-                id: page.instagram_business_account.id,
-                username: page.instagram_business_account.username,
-              };
-              break;
-            }
+        let pageData: PageData | null = null;
+        let instagramId: string | null = null;
+        let instagramUsername: string | null = null;
+
+        if (pagesData.data?.length > 0) {
+          pageData = pagesData.data[0];
+          if (pageData?.instagram_business_account) {
+            instagramId = pageData.instagram_business_account.id;
+            instagramUsername = pageData.instagram_business_account.username;
           }
         }
 
-        console.log(`[meta-oauth] Auth successful for user: ${profile.name}`);
+        // Calculate expiration (Meta tokens usually 60 days)
+        const expiresIn = tokenData.expires_in || 60 * 60 * 24 * 60; // Default 60 days
+        const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
-        // Send data back to opener window
+        // Store in database if user is authenticated
+        if (userId) {
+          const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+          
+          const { error: upsertError } = await supabase
+            .from("meta_connections")
+            .upsert({
+              user_id: userId,
+              access_token: tokenData.access_token,
+              expires_at: expiresAt,
+              fb_user_id: profile.id,
+              fb_user_name: profile.name,
+              fb_picture_url: profile.picture?.data?.url || null,
+              instagram_id: instagramId,
+              instagram_username: instagramUsername,
+              page_id: pageData?.id || null,
+              page_access_token: pageData?.access_token || null,
+              updated_at: new Date().toISOString(),
+            }, {
+              onConflict: "user_id",
+            });
+
+          if (upsertError) {
+            console.error("[meta-oauth] DB upsert error:", upsertError);
+          } else {
+            console.log(`[meta-oauth] Saved connection for user: ${userId}`);
+          }
+        }
+
+        // Send success back to opener (without exposing token)
         const result = {
           type: "meta-oauth-success",
-          accessToken: tokenData.access_token,
-          expiresIn: tokenData.expires_in,
           user: {
             id: profile.id,
             name: profile.name,
             picture: profile.picture?.data?.url,
           },
-          instagram: instagramAccount,
+          instagram: instagramId ? {
+            id: instagramId,
+            username: instagramUsername,
+          } : null,
+          hasPageAccess: !!pageData,
+          expiresAt,
         };
 
+        console.log(`[meta-oauth] Success for ${profile.name}, Instagram: ${instagramUsername || "none"}`);
+
         return new Response(
-          `<html><body><script>window.opener.postMessage(${JSON.stringify(result)},'*');window.close();</script></body></html>`,
+          `<!DOCTYPE html><html><body><script>
+            window.opener.postMessage(${JSON.stringify(result)},'*');
+            window.close();
+          </script></body></html>`,
           { headers: { "Content-Type": "text/html" } }
         );
       }
 
-      case "share": {
-        // Share content to Facebook/Instagram
-        const body = await req.json();
-        const { platform, accessToken, content, videoUrl, imageUrl } = body;
-
-        if (!accessToken) {
+      case "status": {
+        // Check connection status for authenticated user
+        const authHeader = req.headers.get("Authorization");
+        if (!authHeader) {
           return new Response(
-            JSON.stringify({ error: "Access token required" }),
+            JSON.stringify({ connected: false }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const token = authHeader.replace("Bearer ", "");
+        const { data: { user } } = await supabase.auth.getUser(token);
+
+        if (!user) {
+          return new Response(
+            JSON.stringify({ connected: false }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const { data: connection } = await supabase
+          .from("meta_connections")
+          .select("fb_user_name, fb_picture_url, instagram_username, expires_at")
+          .eq("user_id", user.id)
+          .single();
+
+        if (!connection || new Date(connection.expires_at) < new Date()) {
+          return new Response(
+            JSON.stringify({ connected: false }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({
+            connected: true,
+            user: {
+              name: connection.fb_user_name,
+              picture: connection.fb_picture_url,
+            },
+            instagram: connection.instagram_username ? {
+              username: connection.instagram_username,
+            } : null,
+            expiresAt: connection.expires_at,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      case "disconnect": {
+        const authHeader = req.headers.get("Authorization");
+        if (!authHeader) {
+          return new Response(
+            JSON.stringify({ error: "Unauthorized" }),
             { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
-        if (platform === "facebook") {
-          // Post to Facebook page
-          const pagesResponse = await fetch(
-            `https://graph.facebook.com/v18.0/me/accounts?access_token=${accessToken}`
-          );
-          const pagesData = await pagesResponse.json();
+        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const token = authHeader.replace("Bearer ", "");
+        const { data: { user } } = await supabase.auth.getUser(token);
 
-          if (!pagesData.data || pagesData.data.length === 0) {
+        if (!user) {
+          return new Response(
+            JSON.stringify({ error: "Unauthorized" }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        await supabase
+          .from("meta_connections")
+          .delete()
+          .eq("user_id", user.id);
+
+        return new Response(
+          JSON.stringify({ success: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      case "share": {
+        // Share content using stored token
+        const authHeader = req.headers.get("Authorization");
+        if (!authHeader) {
+          return new Response(
+            JSON.stringify({ error: "Unauthorized" }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const token = authHeader.replace("Bearer ", "");
+        const { data: { user } } = await supabase.auth.getUser(token);
+
+        if (!user) {
+          return new Response(
+            JSON.stringify({ error: "Unauthorized" }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Get stored connection
+        const { data: connection } = await supabase
+          .from("meta_connections")
+          .select("*")
+          .eq("user_id", user.id)
+          .single();
+
+        if (!connection || new Date(connection.expires_at) < new Date()) {
+          return new Response(
+            JSON.stringify({ error: "Meta connection expired, please reconnect" }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const body = await req.json();
+        const { platform, content, videoUrl, imageUrl } = body;
+
+        if (platform === "facebook") {
+          if (!connection.page_id || !connection.page_access_token) {
             return new Response(
-              JSON.stringify({ error: "No Facebook pages found" }),
+              JSON.stringify({ error: "No Facebook page connected" }),
               { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
           }
 
-          const page = pagesData.data[0];
-          const pageAccessToken = page.access_token;
-
-          // Post video or image
           let postResult;
           if (videoUrl) {
             postResult = await fetch(
-              `https://graph.facebook.com/v18.0/${page.id}/videos`,
+              `https://graph.facebook.com/v19.0/${connection.page_id}/videos`,
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   file_url: videoUrl,
                   description: content,
-                  access_token: pageAccessToken,
+                  access_token: connection.page_access_token,
                 }),
               }
             );
           } else {
             postResult = await fetch(
-              `https://graph.facebook.com/v18.0/${page.id}/feed`,
+              `https://graph.facebook.com/v19.0/${connection.page_id}/feed`,
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   message: content,
                   link: imageUrl,
-                  access_token: pageAccessToken,
+                  access_token: connection.page_access_token,
                 }),
               }
             );
@@ -248,6 +379,13 @@ serve(async (req) => {
           const result = await postResult.json();
           console.log(`[meta-oauth] Facebook post result:`, result);
 
+          if (result.error) {
+            return new Response(
+              JSON.stringify({ error: result.error.message }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+
           return new Response(
             JSON.stringify({ success: true, postId: result.id }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -255,30 +393,15 @@ serve(async (req) => {
         }
 
         if (platform === "instagram") {
-          // Get Instagram business account
-          const accountsResponse = await fetch(
-            `https://graph.facebook.com/v18.0/me/accounts?fields=instagram_business_account&access_token=${accessToken}`
-          );
-          const accountsData = await accountsResponse.json();
-
-          let igAccountId: string | null = null;
-          for (const page of accountsData.data || []) {
-            if (page.instagram_business_account) {
-              igAccountId = page.instagram_business_account.id;
-              break;
-            }
-          }
-
-          if (!igAccountId) {
+          if (!connection.instagram_id) {
             return new Response(
-              JSON.stringify({ error: "No Instagram business account found" }),
+              JSON.stringify({ error: "No Instagram business account connected" }),
               { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
           }
 
-          // Create media container
           const mediaParams: Record<string, string> = {
-            access_token: accessToken,
+            access_token: connection.access_token,
             caption: content,
           };
 
@@ -289,8 +412,9 @@ serve(async (req) => {
             mediaParams.image_url = imageUrl;
           }
 
+          // Create media container
           const createMediaResponse = await fetch(
-            `https://graph.facebook.com/v18.0/${igAccountId}/media`,
+            `https://graph.facebook.com/v19.0/${connection.instagram_id}/media`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -300,28 +424,40 @@ serve(async (req) => {
 
           const mediaResult = await createMediaResponse.json();
 
-          if (!mediaResult.id) {
+          if (mediaResult.error || !mediaResult.id) {
             return new Response(
-              JSON.stringify({ error: "Failed to create media container", details: mediaResult }),
+              JSON.stringify({ error: mediaResult.error?.message || "Failed to create media" }),
               { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
           }
 
+          // Wait for video processing if needed
+          if (videoUrl) {
+            await new Promise(resolve => setTimeout(resolve, 5000));
+          }
+
           // Publish media
           const publishResponse = await fetch(
-            `https://graph.facebook.com/v18.0/${igAccountId}/media_publish`,
+            `https://graph.facebook.com/v19.0/${connection.instagram_id}/media_publish`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 creation_id: mediaResult.id,
-                access_token: accessToken,
+                access_token: connection.access_token,
               }),
             }
           );
 
           const publishResult = await publishResponse.json();
           console.log(`[meta-oauth] Instagram publish result:`, publishResult);
+
+          if (publishResult.error) {
+            return new Response(
+              JSON.stringify({ error: publishResult.error.message }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
 
           return new Response(
             JSON.stringify({ success: true, postId: publishResult.id }),
