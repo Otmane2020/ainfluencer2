@@ -275,6 +275,10 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
     setIsGeneratingScript(segmentId);
     setProjectSelectorOpen(null);
     
+    // Get the segment's duration for script length adaptation
+    const segment = segments.find(s => s.id === segmentId);
+    const duration = segment?.duration || 10;
+    
     try {
       // Use NanoBanana Pro for premium quality French scripts
       const { data, error } = await supabase.functions.invoke("generate-script-nanobanana", {
@@ -283,6 +287,7 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
           projectDescription: project.description || project.name,
           productName: selectedProduct.name,
           scriptType: selectedProduct.category === "avatar" ? "testimonial" : "reel",
+          duration, // Pass duration for script length adaptation
         },
       });
 

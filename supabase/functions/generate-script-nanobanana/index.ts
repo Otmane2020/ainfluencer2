@@ -19,6 +19,7 @@ serve(async (req) => {
       scrapedContent,
       productName,
       scriptType = "reel", // reel, story, ad, testimonial
+      duration = 10, // Video duration in seconds
     } = await req.json();
 
     const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
@@ -26,27 +27,52 @@ serve(async (req) => {
       throw new Error("COMETAPI_API_KEY is not configured");
     }
 
-    console.log("Generating script with NanoBanana Pro for:", projectName, "type:", scriptType);
+    console.log("Generating script for:", projectName, "type:", scriptType, "duration:", duration);
+
+    // Calculate optimal word count based on duration
+    // Average speaking rate: ~2.5 words per second
+    const wordsPerSecond = 2.5;
+    const targetWords = Math.round(duration * wordsPerSecond);
+    const minWords = Math.max(10, targetWords - 10);
+    const maxWords = targetWords + 15;
+
+    // Duration-based instructions
+    const getDurationInstructions = (dur: number): string => {
+      if (dur <= 5) {
+        return `DURÉE : ${dur} secondes (~${targetWords} mots)
+- 1 phrase MAXIMUM (ultra-concis)
+- Hook immédiat, pas de contexte
+- Impact maximal en minimum de mots`;
+      } else if (dur <= 10) {
+        return `DURÉE : ${dur} secondes (~${targetWords} mots)
+- 2-3 phrases maximum
+- Hook puissant + bénéfice clair
+- Rythme rapide et percutant`;
+      } else if (dur <= 20) {
+        return `DURÉE : ${dur} secondes (~${targetWords} mots)
+- 3-5 phrases
+- Hook → Problème → Solution → Bénéfice
+- Temps pour développer l'argument`;
+      } else {
+        return `DURÉE : ${dur} secondes (~${targetWords} mots)
+- 5-8 phrases
+- Narration complète : contexte, problème, solution, preuve, appel à l'action
+- Ton storytelling, exemples concrets`;
+      }
+    };
 
     // Script type specific instructions
     const scriptTypePrompts: Record<string, string> = {
-      reel: `Format : Reel/TikTok (vertical, 15-30s)
-- Hook puissant en 2 secondes
-- Problème → Solution → Bénéfice
-- 2-4 phrases maximum`,
-      story: `Format : Story Instagram (15s max)
-- Ultra-court et percutant
-- 1-2 phrases maximum
-- Call-to-action clair`,
-      ad: `Format : Publicité courte
-- Accroche émotionnelle
-- Avantage différenciateur
-- Urgence ou exclusivité
-- 3-5 phrases`,
-      testimonial: `Format : Témoignage client fictif
-- Ton authentique et humain
-- Problème vécu → Solution trouvée → Résultat obtenu
-- 3-4 phrases naturelles`,
+      reel: `Format : Reel/TikTok (vertical)
+${getDurationInstructions(duration)}`,
+      story: `Format : Story Instagram
+${getDurationInstructions(Math.min(duration, 15))}`,
+      ad: `Format : Publicité
+${getDurationInstructions(duration)}
+- Accroche émotionnelle + urgence`,
+      testimonial: `Format : Témoignage authentique
+${getDurationInstructions(duration)}
+- Ton humain et crédible`,
     };
 
     const systemPrompt = `Tu es un copywriter professionnel francophone spécialisé en scripts vidéo viraux.
