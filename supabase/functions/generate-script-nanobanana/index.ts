@@ -36,28 +36,30 @@ serve(async (req) => {
     const minWords = Math.max(10, targetWords - 10);
     const maxWords = targetWords + 15;
 
-    // Duration-based instructions
+    // Duration-based instructions - STRICT word count enforcement
     const getDurationInstructions = (dur: number): string => {
       if (dur <= 5) {
-        return `DURÉE : ${dur} secondes (~${targetWords} mots)
-- 1 phrase MAXIMUM (ultra-concis)
-- Hook immédiat, pas de contexte
-- Impact maximal en minimum de mots`;
+        return `⚠️ CONTRAINTE STRICTE : ${dur} secondes = EXACTEMENT ${minWords}-${maxWords} mots
+- 1 phrase UNIQUE (ultra-concis)
+- Hook immédiat, zéro contexte
+- Compte tes mots !`;
       } else if (dur <= 10) {
-        return `DURÉE : ${dur} secondes (~${targetWords} mots)
-- 2-3 phrases maximum
+        return `⚠️ CONTRAINTE STRICTE : ${dur} secondes = EXACTEMENT ${minWords}-${maxWords} mots
+- 2-3 phrases
 - Hook puissant + bénéfice clair
-- Rythme rapide et percutant`;
+- Rythme rapide`;
       } else if (dur <= 20) {
-        return `DURÉE : ${dur} secondes (~${targetWords} mots)
-- 3-5 phrases
-- Hook → Problème → Solution → Bénéfice
-- Temps pour développer l'argument`;
+        return `⚠️ CONTRAINTE STRICTE : ${dur} secondes = MINIMUM ${minWords} mots, MAXIMUM ${maxWords} mots
+- 4-6 phrases OBLIGATOIRES
+- Structure : Hook accrocheur → Problème identifié → Solution présentée → Bénéfice concret → Call-to-action
+- Développe CHAQUE point avec des détails
+- Le script DOIT remplir les ${dur} secondes !`;
       } else {
-        return `DURÉE : ${dur} secondes (~${targetWords} mots)
-- 5-8 phrases
-- Narration complète : contexte, problème, solution, preuve, appel à l'action
-- Ton storytelling, exemples concrets`;
+        return `⚠️ CONTRAINTE STRICTE : ${dur} secondes = MINIMUM ${minWords} mots, MAXIMUM ${maxWords} mots
+- 6-10 phrases OBLIGATOIRES
+- Narration complète avec storytelling
+- Contexte détaillé, problème, solution, preuve sociale, appel à l'action
+- DÉVELOPPE chaque argument`;
       }
     };
 
@@ -77,7 +79,11 @@ ${getDurationInstructions(duration)}
 
     const systemPrompt = `Tu es un copywriter professionnel francophone spécialisé en scripts vidéo viraux.
 
-RÈGLES ABSOLUES :
+⚠️ RÈGLE #1 LA PLUS IMPORTANTE - LONGUEUR DU SCRIPT :
+Le script DOIT contenir entre ${minWords} et ${maxWords} mots pour une durée de ${duration} secondes.
+Un script trop court = vidéo ratée. COMPTE TES MOTS avant de répondre !
+
+RÈGLES DE STYLE :
 • Langue : français parfait de France (pas belge, pas québécois)
 • ZÉRO faute d'orthographe ou de grammaire
 • ZÉRO mot anglais (pas de "tips", "boost", "game-changer", etc.)
@@ -93,7 +99,7 @@ TON ATTENDU :
 - Concret avec des exemples chiffrés si possible
 - Émotionnel mais crédible
 
-EXEMPLES DE BON STYLE :
+EXEMPLES DE BON STYLE (à adapter selon la durée) :
 ✅ "Tu perds 3h par semaine à répondre aux mêmes questions ? Cette automatisation fait le travail pendant que tu dors."
 ✅ "Un client mécontent coûte 5 fois plus cher qu'un client fidélisé. Voilà pourquoi j'ai créé ça."
 ✅ "J'ai testé 12 outils avant de trouver celui-ci. Résultat : 40% de temps gagné."
@@ -101,7 +107,9 @@ EXEMPLES DE BON STYLE :
 EXEMPLES DE MAUVAIS STYLE :
 ❌ "Découvrez notre solution innovante qui révolutionne votre quotidien..."
 ❌ "N'attendez plus pour booster votre business !"
-❌ "Cette méthode unique va transformer votre vie..."`;
+❌ "Cette méthode unique va transformer votre vie..."
+
+RAPPEL FINAL : Chaque script DOIT faire ${minWords}-${maxWords} mots pour ${duration} secondes de vidéo !`;
 
     const userPrompt = `Génère 5 scripts différents pour ce projet :
 
