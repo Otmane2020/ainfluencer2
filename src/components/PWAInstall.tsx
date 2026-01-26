@@ -77,7 +77,7 @@ export function PWAInstallBanner() {
       setNotificationPermission(permission);
       
       if (permission === "granted") {
-        new Notification("AI Influencer", {
+        new Notification("ClipMotion", {
           body: "Notifications activées ! Vous recevrez des alertes pour vos posts.",
           icon: "/logo.png",
         });
@@ -103,8 +103,8 @@ export function PWAInstallBanner() {
                   <div className="h-10 w-10 rounded-xl gradient-primary p-2 shadow-primary">
                     <img src="/logo.png" alt="AI Influencer" className="h-full w-full object-contain" />
                   </div>
-                  <div>
-                    <CardTitle className="text-base">AI Influencer</CardTitle>
+                <div>
+                    <CardTitle className="text-base">ClipMotion</CardTitle>
                     <CardDescription className="text-xs">Installez l'app</CardDescription>
                   </div>
                 </div>
