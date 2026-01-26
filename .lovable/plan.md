@@ -1,200 +1,170 @@
 
-# Plan: Planification de contenu, Pop-up detail, LinkedIn/TikTok et correction Facebook
+# Plan : Création des Packs Commerciaux et Refonte des Modèles IA
 
-## Analyse de l'existant
-
-### Calendrier actuel
-- Le fichier `CalendarPage.tsx` affiche les posts programmes par jour
-- Les posts sont stockes dans `scheduled_posts` avec: `content_type`, `text_content`, `platforms`, `status`, `ai_prompt`, `media_url`
-- Clic sur un post = pas d'action actuelle (juste un `cursor-pointer`)
-
-### Plateformes actuelles
-- Seuls Instagram et Facebook sont supportes dans `platforms[]`
-- La table `projects` a `instagram_enabled` et `facebook_enabled`
-- Le hook `useMetaOAuth` gere la connexion Meta
-
-### Connexion Facebook
-- Les secrets `META_APP_ID` et `META_APP_SECRET` sont configures
-- L'edge function `meta-oauth` est fonctionnelle
-- Probleme potentiel: Le `META_REDIRECT_URI` doit etre whitelist dans Meta Developer
-
-### Scraping projet
-- Firecrawl est connecte et fonctionne via `scrape-project-url`
-- Le contenu scrappe (markdown, branding) peut servir de contexte IA
+## Objectif
+Transformer l'interface technique en interface business-ready :
+- **Masquer les noms techniques** (Sora, Veo, Flux, ElevenLabs) au profit de noms commerciaux
+- **Créer des packs commerciaux** avec pricing attractif (Starter, Pro, Agency)
+- **Simplifier le choix utilisateur** avec des niveaux de qualité (Standard, Pro, Ultra, Cinema)
 
 ---
 
-## Solution proposee
+## Architecture Proposée
 
-### 1. Pop-up detail du post programme
+### 1. Nouveaux Produits Commerciaux (visible client)
 
-Creer un composant `ScheduledPostModal` qui affiche:
-- Sujet/titre du post
-- Contenu texte complet
-- Media (video/image) en preview
-- Plateformes ciblees avec icones
-- Date/heure de publication
-- Statut actuel
-- Actions: Editer, Supprimer, Publier maintenant
+**Images :**
+| Nom Commercial | Qualité | Prix Vente | Coût API |
+|----------------|---------|------------|----------|
+| AI Image Standard | Standard | 2€ | ~$0.01 |
+| AI Image Pro | Pro | 5€ | ~$0.03-0.08 |
+| AI Image Studio | Ultra | 10-15€ | ~$0.10-0.20 |
 
-```text
-+----------------------------------------+
-|  X                                     |
-|  [Video Preview / Image]               |
-|----------------------------------------|
-|  Sujet: Post viral fitness            |
-|                                        |
-|  Contenu:                              |
-|  "Transforme ta vie en 30 jours..."   |
-|                                        |
-|  Plateformes:                          |
-|  [IG] [FB] [LinkedIn] [TikTok]        |
-|                                        |
-|  Programmer pour: 28 Jan 2026 18:00    |
-|  Statut: Brouillon                     |
-|                                        |
-|  [Editer] [Supprimer] [Publier]       |
-+----------------------------------------+
-```
+**Vidéos :**
+| Nom Commercial | Qualité | Prix Vente | Coût API |
+|----------------|---------|------------|----------|
+| AI Reel | Standard | 15€ | ~$0.40 |
+| AI Reel Pro | Pro | 25-39€ | ~$0.64-1.92 |
+| AI Cinema | Ultra | 59-79€ | ~$2.00 |
 
-### 2. Ajouter LinkedIn et TikTok
+**Vidéos Parlantes (AI Influencer) :**
+| Nom Commercial | Qualité | Prix Vente | Coût API |
+|----------------|---------|------------|----------|
+| AI Influencer Standard | Pro | 39€ | ~$0.50-1.00 |
+| AI Influencer Pro | Ultra | 69€ | ~$1.50-2.00 |
 
-#### Base de donnees
-Ajouter les colonnes a `projects`:
-- `linkedin_enabled boolean DEFAULT false`
-- `tiktok_enabled boolean DEFAULT false`
+### 2. Packs Commerciaux
 
-Mettre a jour `platforms[]` pour supporter: `instagram`, `facebook`, `linkedin`, `tiktok`
-
-#### Interface
-- Ajouter les icones LinkedIn et TikTok partout ou Instagram/Facebook sont affiches
-- Mettre a jour `ShareButton.tsx` pour inclure ces plateformes
-- Mettre a jour le wizard de creation de projet
-
-#### Partage
-- LinkedIn: Utiliser l'API de partage web (https://www.linkedin.com/sharing/share-offsite/)
-- TikTok: Telechargement + instruction (pas d'API web directe)
-
-### 3. Suggestion de contenu basee sur le contexte
-
-Creer un systeme de suggestions IA:
-
-#### Nouveau composant `ContentSuggestions`
-- Affiche 3-5 idees de posts/scripts basees sur:
-  - Le contenu scrappe du site projet (markdown)
-  - L'historique des posts precedents
-  - Les tendances du secteur
-
-#### Edge function `suggest-content`
-- Prend en entree: `projectId`, `contentType` (video/post)
-- Recupere le contexte du projet (description, markdown scrappe)
-- Genere des suggestions via Gemini
-
-```typescript
-// Exemple de prompt
-const systemPrompt = `Tu es un expert en creation de contenu viral.
-Basé sur ce contexte de projet:
-- Site: ${projectUrl}
-- Description: ${projectDescription}
-- Contenu du site: ${scrapedMarkdown.slice(0, 2000)}
-
-Genere 5 idées de ${contentType === 'video' ? 'scripts video' : 'posts'} 
-viraux et engageants.`;
-```
-
-### 4. Correction connexion Facebook
-
-#### Diagnostics et corrections
-1. Verifier le `META_REDIRECT_URI` dans Meta Developer Portal
-2. Ajouter des logs detailles dans `meta-oauth`
-3. Gerer les erreurs de token expire
-4. Afficher des messages d'erreur explicites
-
-#### Ameliorations du hook `useMetaOAuth`
-- Ajouter la gestion des erreurs specifiques Meta
-- Implementer le refresh token
-- Verifier la validite du token avant chaque action
+| Pack | Contenu | Prix/mois | Coût réel |
+|------|---------|-----------|-----------|
+| **Starter** | 10 images + 2 vidéos | 49€ | ~2€ |
+| **Pro** | 30 images + 6 vidéos + 2 vidéos parlantes | 149€ | ~6-8€ |
+| **Agency** | Usage illimité (fair-use) + choix qualité | 299-499€ | variable |
 
 ---
 
-## Details techniques
+## Modifications Techniques
 
-### Fichiers a creer
+### Fichier 1 : `src/components/ModelSelector.tsx`
 
-| Fichier | Description |
-|---------|-------------|
-| `src/components/ScheduledPostModal.tsx` | Pop-up detail du post |
-| `src/components/ContentSuggestions.tsx` | Suggestions IA basees sur contexte |
-| `supabase/functions/suggest-content/index.ts` | Edge function pour generer suggestions |
+**Changements :**
+- Créer une nouvelle interface `CommercialProduct` avec mapping interne vers les modèles techniques
+- Remplacer `AI_MODELS` par `COMMERCIAL_PRODUCTS` pour l'affichage client
+- Ajouter un mapping privé `INTERNAL_MODEL_MAPPING` qui lie chaque produit commercial aux vrais modèles API
+- Masquer : provider, noms techniques (Sora, Veo, Kling, Flux, ElevenLabs)
+- Afficher : nom commercial, description business, prix de vente, features orientées résultat
 
-### Fichiers a modifier
-
-| Fichier | Modifications |
-|---------|---------------|
-| `src/pages/CalendarPage.tsx` | Ajouter onClick pour ouvrir le modal |
-| `src/components/ShareButton.tsx` | Ajouter LinkedIn et TikTok |
-| `src/components/SocialConnections.tsx` | Ajouter LinkedIn et TikTok |
-| `src/pages/ProjectNew.tsx` | Checkboxes LinkedIn/TikTok dans wizard |
-| `src/pages/Projects.tsx` | Afficher icones LinkedIn/TikTok |
-| `src/hooks/useMetaOAuth.ts` | Ameliorer gestion erreurs |
-| `supabase/functions/meta-oauth/index.ts` | Ajouter logs debug |
-
-### Migration base de donnees
-
-```sql
--- Ajouter colonnes LinkedIn et TikTok
-ALTER TABLE projects 
-ADD COLUMN linkedin_enabled boolean DEFAULT false,
-ADD COLUMN tiktok_enabled boolean DEFAULT false;
-```
-
-### Structure du modal
-
+**Nouvelle structure :**
 ```typescript
-interface ScheduledPostModalProps {
-  post: ScheduledPost;
-  project: Project;
-  isOpen: boolean;
-  onClose: () => void;
-  onEdit: (post: ScheduledPost) => void;
-  onDelete: (postId: string) => void;
-  onPublishNow: (post: ScheduledPost) => void;
-}
-```
-
-### Structure des suggestions
-
-```typescript
-interface ContentSuggestion {
+interface CommercialProduct {
   id: string;
-  title: string;
-  content: string;
-  contentType: "video" | "image" | "text";
-  estimatedEngagement: "high" | "medium" | "low";
-  hashtags: string[];
+  name: string; // "AI Image Pro", "AI Reel Cinema"
+  category: "image" | "video" | "avatar";
+  tier: "standard" | "pro" | "ultra" | "cinema";
+  salePrice: number; // Prix de vente en €
+  salePriceUnit: string;
+  description: string; // Description business
+  features: string[]; // Features orientées client
+  internalModels: string[]; // IDs des vrais modèles (NON AFFICHÉ)
+  needsVoice: boolean;
+  needsAvatar?: boolean;
+  supportedDurations?: number[];
+}
+
+// Mapping interne (JAMAIS exposé au client)
+const INTERNAL_MODEL_MAPPING: Record<string, AIModel> = {...}
+```
+
+### Fichier 2 : `src/components/ProductSelector.tsx` (NOUVEAU)
+
+**Création d'un nouveau composant** qui remplace ModelSelector pour l'interface client :
+- Affiche uniquement les produits commerciaux avec noms business
+- Design épuré sans mentions techniques
+- Indicateurs de qualité visuels (Standard → Cinema)
+- Prix en euros (pas en dollars API)
+
+### Fichier 3 : `src/components/PricingPacks.tsx` (NOUVEAU)
+
+**Nouveau composant pour afficher les packs :**
+- 3 cartes : Starter, Pro, Agency
+- Comparatif des features
+- CTA d'abonnement
+- Affichage économies réalisées
+
+### Fichier 4 : `src/components/VideoGenerator.tsx`
+
+**Changements :**
+- Remplacer `ModelSelector` par `ProductSelector`
+- Adapter la logique pour utiliser le mapping interne
+- Masquer les détails techniques dans les toasts et messages
+- Afficher "Vidéo AI Reel Pro générée" au lieu de "Vidéo Sora 2 Pro générée"
+
+### Fichier 5 : `src/components/ScheduledPostModal.tsx`
+
+**Changements :**
+- Remplacer l'affichage des modèles IA par les produits commerciaux
+- Mettre à jour l'onglet "Modèles IA" avec le nouveau `ProductSelector`
+- Masquer pricing API, afficher pricing vente
+
+### Fichier 6 : `src/pages/Videos.tsx`
+
+**Changements :**
+- Intégrer le sélecteur de produits commerciaux
+- Ajouter section "Packs recommandés" en bas de page
+
+### Fichier 7 : `src/pages/Settings.tsx`
+
+**Ajouts :**
+- Nouvelle section "Abonnement & Crédits"
+- Affichage du pack actuel
+- Compteur de crédits restants (images/vidéos)
+- Bouton upgrade
+
+---
+
+## Logique Métier
+
+### Sélection Automatique du Modèle (invisible client)
+
+```typescript
+// Quand le client choisit "AI Reel Pro"
+function getInternalModel(productId: string): string {
+  const mapping = {
+    "ai-reel-pro": "sora-2-pro", // Sora 2 Pro en interne
+    "ai-image-standard": "flux-2-flex", // Flux 2 Flex
+    "ai-influencer-pro": "kling-lip-sync-pro", // Kling Lip-Sync Pro
+  };
+  return mapping[productId];
 }
 ```
 
----
+### Voix Automatique (ElevenLabs)
 
-## Ordre d'implementation
-
-1. **Migration DB** - Ajouter colonnes LinkedIn/TikTok
-2. **ScheduledPostModal** - Pop-up detail avec toutes les infos
-3. **Calendrier** - Connecter le modal au clic sur les posts
-4. **ShareButton** - Ajouter LinkedIn et TikTok
-5. **SocialConnections** - Mettre a jour l'interface
-6. **Wizard projet** - Ajouter les nouvelles plateformes
-7. **Edge function suggest-content** - Generer des suggestions
-8. **ContentSuggestions** - Afficher les suggestions dans l'UI
-9. **Meta OAuth** - Corriger et ameliorer la connexion Facebook
+Tous les modèles vidéo utilisent automatiquement ElevenLabs pour la voix - c'est déjà implémenté dans `VideoGenerator.tsx` mais les messages seront adaptés :
+- ❌ "Voix ElevenLabs générée"
+- ✅ "Voix off IA ultra-réaliste incluse"
 
 ---
 
-## Estimation
+## Résumé des Fichiers
 
-- **Complexite**: Moyenne-elevee
-- **Composants a creer**: 3 nouveaux
-- **Fichiers a modifier**: 7
-- **Migration DB**: 1
-- **Impact utilisateur**: Eleve (nouvelles fonctionnalites cles)
+| Fichier | Action |
+|---------|--------|
+| `src/components/ModelSelector.tsx` | Refactoring majeur - mapping interne |
+| `src/components/ProductSelector.tsx` | **NOUVEAU** - Interface client |
+| `src/components/PricingPacks.tsx` | **NOUVEAU** - Packs commerciaux |
+| `src/components/VideoGenerator.tsx` | Adaptation au nouveau système |
+| `src/components/ScheduledPostModal.tsx` | Adaptation au nouveau système |
+| `src/pages/Videos.tsx` | Intégration packs |
+| `src/pages/Settings.tsx` | Section abonnement |
+
+---
+
+## Bénéfices Business
+
+1. **Protection marge** : Le client ne voit jamais le coût API réel
+2. **Valeur perçue** : Noms commerciaux premium (AI Cinema > Veo 3.1 Pro)
+3. **Simplicité** : 3 niveaux au lieu de 15+ modèles techniques
+4. **Upsell naturel** : Progression Standard → Pro → Cinema
+5. **Secret industriel** : Routing intelligent non exposé
+
