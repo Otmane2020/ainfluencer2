@@ -33,7 +33,7 @@ import {
 const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderKanban },
-  { title: "Calendar", url: "/calendar", icon: Calendar },
+  { title: "AutoPost AI", url: "/calendar", icon: Calendar },
 ];
 
 const contentNavItems = [

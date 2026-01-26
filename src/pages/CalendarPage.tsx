@@ -57,6 +57,7 @@ const CalendarPage = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [viewStartDate] = useState(new Date()); // Always start from today
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
@@ -164,8 +165,13 @@ const CalendarPage = () => {
     setIsLoading(false);
   };
 
+  // Start calendar from today if we're in the current month, otherwise from the 1st
+  const calendarStart = isSameDay(startOfMonth(currentMonth), startOfMonth(new Date())) 
+    ? startOfDay(new Date()) 
+    : startOfMonth(currentMonth);
+  
   const days = eachDayOfInterval({
-    start: startOfMonth(currentMonth),
+    start: calendarStart,
     end: endOfMonth(currentMonth),
   });
 
@@ -206,8 +212,8 @@ const CalendarPage = () => {
 
   const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-  const firstDayOfMonth = startOfMonth(currentMonth);
-  const startDay = firstDayOfMonth.getDay();
+  const firstVisibleDay = calendarStart;
+  const startDay = firstVisibleDay.getDay();
   const emptyDays = startDay === 0 ? 6 : startDay - 1;
 
   return (
@@ -215,7 +221,7 @@ const CalendarPage = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold">Calendar</h1>
+          <h1 className="font-display text-2xl font-bold">AutoPost AI</h1>
           <p className="text-muted-foreground">
             Plan and visualize your publications
           </p>
