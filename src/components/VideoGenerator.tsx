@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Video, Sparkles, Loader2, Play, Plus, Trash2, Settings2, ChevronDown, ImagePlus, X, User, Upload, Wand2 } from "lucide-react";
+import { Video, Sparkles, Loader2, Play, Plus, Trash2, Settings2, ChevronDown, ImagePlus, X, User, Upload, Wand2, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -620,7 +620,7 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated }: VideoGener
           <Dialog>
             <DialogTrigger asChild>
               <button className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-xs hover:bg-muted transition-colors">
-                <Sparkles className="h-4 w-4 text-primary" />
+                <Volume2 className="h-4 w-4 text-primary" />
                 <span>{selectedVoice.name}</span>
               </button>
             </DialogTrigger>
