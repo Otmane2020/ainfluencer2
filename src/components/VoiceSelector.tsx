@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Volume2, Play, Pause, User, Globe, ChevronDown } from "lucide-react";
+import { Volume2, Play, Pause, User, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { 
   AVAILABLE_LANGUAGES, 
@@ -35,6 +35,13 @@ export const VoiceSelector = ({
   );
   const { previewVoice, stopPreview, isPlaying, playingVoiceId } = useVoicePreview();
 
+  // Sync language when voice changes externally
+  useEffect(() => {
+    if (selectedVoice?.language && selectedVoice.language !== selectedLanguage) {
+      setSelectedLanguage(selectedVoice.language);
+    }
+  }, [selectedVoice?.language, selectedLanguage]);
+
   const voicesForLanguage = getVoicesByLanguage(selectedLanguage);
   const femaleVoices = voicesForLanguage.filter(v => v.gender === "female");
   const maleVoices = voicesForLanguage.filter(v => v.gender === "male");
@@ -58,6 +65,14 @@ export const VoiceSelector = ({
   if (compact) {
     return (
       <div className="space-y-3">
+        {/* Header for compact mode */}
+        <div className="flex items-center gap-2">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md gradient-primary">
+            <Volume2 className="h-3.5 w-3.5 text-white" />
+          </div>
+          <span className="text-sm font-medium">Voice: {selectedVoice?.name || "Select"}</span>
+        </div>
+
         {/* Language selector compact */}
         <Select value={selectedLanguage} onValueChange={(val) => handleLanguageChange(val as VoiceLanguage)}>
           <SelectTrigger className="w-full bg-card">
