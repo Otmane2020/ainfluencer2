@@ -635,31 +635,6 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated }: VideoGener
           </Dialog>
         )}
 
-        {/* Video Type Button */}
-        <Dialog>
-          <DialogTrigger asChild>
-            <button className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-xs hover:bg-muted transition-colors">
-              <Video className="h-4 w-4 text-primary" />
-              <span>{selectedProduct.name}</span>
-            </button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Video Type</DialogTitle>
-            </DialogHeader>
-            <div className="py-4">
-              <ProductSelector
-                selectedProduct={selectedProduct}
-                categories={["video", "avatar"]}
-                onProductChange={(product) => {
-                  setSelectedProduct(product);
-                  const newDefaultDuration = product.supportedDurations?.[0] || 8;
-                  setSegments((prev) => prev.map((s) => ({ ...s, duration: newDefaultDuration })));
-                }}
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
 
       {/* Segments - Direct display */}
@@ -764,6 +739,35 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated }: VideoGener
         <Button variant="ghost" onClick={addSegment} size="sm" className="w-full border border-dashed text-xs">
           <Plus className="h-3 w-3 mr-1" />Add segment
         </Button>
+      </div>
+
+      {/* Video Type Button - Bottom */}
+      <div className="mb-3">
+        <Dialog>
+          <DialogTrigger asChild>
+            <button className="w-full flex items-center justify-center gap-2 rounded-lg border border-border bg-muted/50 px-4 py-2.5 text-sm hover:bg-muted transition-colors">
+              <Video className="h-4 w-4 text-primary" />
+              <span>{selectedProduct.name}</span>
+              <ChevronDown className="h-3 w-3 ml-auto text-muted-foreground" />
+            </button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Video Type</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <ProductSelector
+                selectedProduct={selectedProduct}
+                categories={["video", "avatar"]}
+                onProductChange={(product) => {
+                  setSelectedProduct(product);
+                  const newDefaultDuration = product.supportedDurations?.[0] || 8;
+                  setSegments((prev) => prev.map((s) => ({ ...s, duration: newDefaultDuration })));
+                }}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Generate Button */}
