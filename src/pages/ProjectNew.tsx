@@ -33,10 +33,12 @@ import { z } from "zod";
 const projectSchema = z.object({
   name: z.string().min(2, "Nom minimum 2 caractères").max(100),
   description: z.string().max(500).optional(),
-  url: z.string().url("URL invalide").optional().or(z.literal("")),
+  url: z.string().url("URL invalide").optional().or(z.literal("")).transform(val => val || undefined),
   theme_color: z.string(),
   posts_per_week: z.number().min(1).max(14),
   automation_mode: z.enum(["manual", "semi_auto", "full_auto"]),
+  instagram_enabled: z.boolean(),
+  facebook_enabled: z.boolean(),
 });
 
 const colorPresets = [
@@ -162,7 +164,7 @@ const [formData, setFormData] = useState<{
         description: "Votre projet a été créé avec succès",
       });
 
-      navigate(`/projects/${data.id}`);
+      navigate("/projects");
     } catch (error) {
       console.error("Error creating project:", error);
       toast({
