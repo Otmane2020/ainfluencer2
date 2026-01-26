@@ -7,9 +7,10 @@ import {
   ImageIcon,
   Settings,
   LogOut,
-  History,
   Clock,
   FileText,
+  Plug,
+  Image,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
@@ -42,10 +43,12 @@ const contentNavItems = [
 
 const historyNavItems = [
   { title: "Video History", url: "/history/videos", icon: Clock },
+  { title: "Image History", url: "/history/images", icon: Image },
   { title: "Post History", url: "/history/posts", icon: FileText },
 ];
 
-const settingsNavItems = [
+const accountNavItems = [
+  { title: "Integrations", url: "/integrations", icon: Plug },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
@@ -169,7 +172,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Account</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {settingsNavItems.map((item) => (
+              {accountNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild

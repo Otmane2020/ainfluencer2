@@ -12,7 +12,6 @@ import { Separator } from "@/components/ui/separator";
 import {
   User,
   Bell,
-  Shield,
   LogOut,
   Loader2,
   Crown,
@@ -22,7 +21,6 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { SocialConnections } from "@/components/SocialConnections";
 import { PricingPacks } from "@/components/PricingPacks";
 import { PRICING_PACKS, PricingPack } from "@/lib/commercialProducts";
 
@@ -37,13 +35,6 @@ const Settings = () => {
     push: false,
     weekly: true,
   });
-
-  const [connections, setConnections] = useState([
-    { platform: "instagram" as const, connected: false },
-    { platform: "facebook" as const, connected: false },
-    { platform: "linkedin" as const, connected: false },
-    { platform: "tiktok" as const, connected: false },
-  ]);
 
   const [currentPack] = useState<PricingPack | null>(PRICING_PACKS.find(p => p.id === "starter") || null);
   const [credits] = useState({
@@ -77,20 +68,6 @@ const Settings = () => {
       });
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleConnect = (platform: "instagram" | "facebook" | "linkedin" | "tiktok") => {
-    if (platform === "linkedin") {
-      toast({
-        title: "LinkedIn",
-        description: "LinkedIn connection coming soon",
-      });
-    } else if (platform === "tiktok") {
-      toast({
-        title: "TikTok",
-        description: "TikTok connection coming soon",
-      });
     }
   };
 
@@ -222,21 +199,6 @@ const Settings = () => {
         </CardContent>
       </Card>
 
-      {/* Connected Accounts */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-secondary" />
-            Connected Accounts
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <SocialConnections 
-            connections={connections} 
-            onConnect={handleConnect}
-          />
-        </CardContent>
-      </Card>
 
       {/* Notifications */}
       <Card>
