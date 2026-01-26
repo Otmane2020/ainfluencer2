@@ -332,6 +332,7 @@ interface ModelSelectorProps {
   selectedModel: AIModel;
   onModelChange: (model: AIModel) => void;
   category?: AIModel["category"];
+  categories?: AIModel["category"][];
   showVoiceIndicator?: boolean;
 }
 
@@ -339,9 +340,13 @@ export const ModelSelector = ({
   selectedModel,
   onModelChange,
   category,
+  categories,
   showVoiceIndicator = true,
 }: ModelSelectorProps) => {
-  const filteredModels = category
+  // Filter by single category, multiple categories, or show all
+  const filteredModels = categories
+    ? AI_MODELS.filter((m) => categories.includes(m.category))
+    : category
     ? AI_MODELS.filter((m) => m.category === category)
     : AI_MODELS;
 
