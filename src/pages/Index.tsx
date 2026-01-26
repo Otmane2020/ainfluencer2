@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Header } from "@/components/Header";
 import { StatsOverview } from "@/components/StatsOverview";
@@ -12,8 +12,10 @@ import { VideoHistory, VideoHistoryItem } from "@/components/VideoHistory";
 import { AvatarManager } from "@/components/AvatarManager";
 import { GenerationTracker } from "@/components/GenerationTracker";
 import { useToast } from "@/hooks/use-toast";
+import { useStoredVideos } from "@/hooks/useStoredVideos";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ImageIcon, Video } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ImageIcon, Video, RefreshCw } from "lucide-react";
 
 interface GeneratedContent {
   text: string;
@@ -50,6 +52,28 @@ const Index = () => {
     { platform: "facebook" as const, connected: false },
   ]);
   const { toast } = useToast();
+  const { fetchStoredVideos, isLoading: isLoadingVideos } = useStoredVideos();
+
+  // Load stored videos on mount
+  useEffect(() => {
+    const loadVideos = async () => {
+      const storedVideos = await fetchStoredVideos();
+      if (storedVideos.length > 0) {
+        setVideoHistory(storedVideos);
+      }
+    };
+    loadVideos();
+  }, []);
+
+  const handleRefreshVideos = async () => {
+    const storedVideos = await fetchStoredVideos();
+    setVideoHistory((prev) => {
+      // Merge with existing, avoiding duplicates
+      const existingIds = new Set(prev.map((v) => v.videoUrl));
+      const newVideos = storedVideos.filter((v) => !existingIds.has(v.videoUrl));
+      return [...prev, ...newVideos];
+    });
+  };
 
   const handleContentGenerated = (content: GeneratedContent) => {
     setGeneratedContent(content);
@@ -278,12 +302,27 @@ const Index = () => {
                   onMerge={handleMergeVideos}
                   onDeleteSegment={handleDeleteVideoSegment}
                 />
-                <VideoHistory
-                  videos={videoHistory}
-                  onDelete={handleDeleteHistoryItem}
-                  onPlay={handlePlayHistoryItem}
-                  onThumbnailGenerated={handleThumbnailGenerated}
-                />
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-display text-lg font-semibold">Historique</h3>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRefreshVideos}
+                      disabled={isLoadingVideos}
+                      className="gap-2"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${isLoadingVideos ? "animate-spin" : ""}`} />
+                      Actualiser
+                    </Button>
+                  </div>
+                  <VideoHistory
+                    videos={videoHistory}
+                    onDelete={handleDeleteHistoryItem}
+                    onPlay={handlePlayHistoryItem}
+                    onThumbnailGenerated={handleThumbnailGenerated}
+                  />
+                </div>
               </div>
             </motion.div>
           </TabsContent>
