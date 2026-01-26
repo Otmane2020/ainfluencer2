@@ -227,7 +227,7 @@ const CalendarPage = () => {
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Tous les projets" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-card border border-border z-50">
               <SelectItem value="all">Tous les projets</SelectItem>
               {projects.map((project) => (
                 <SelectItem key={project.id} value={project.id}>
@@ -236,7 +236,7 @@ const CalendarPage = () => {
                       className="h-3 w-3 rounded-full"
                       style={{ backgroundColor: project.theme_color }}
                     />
-                    {project.name}
+                    {project.name.slice(0, 30)}{project.name.length > 30 ? "..." : ""}
                   </div>
                 </SelectItem>
               ))}
@@ -248,6 +248,32 @@ const CalendarPage = () => {
           </Button>
         </div>
       </div>
+
+      {/* Info Banner when project selected */}
+      {selectedProject !== "all" && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-xl bg-primary/10 border border-primary/20 p-4 flex items-center justify-between"
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="h-10 w-10 rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: projects.find(p => p.id === selectedProject)?.theme_color || '#6366F1' }}
+            >
+              <CalendarIcon className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <p className="font-medium">
+                {projects.find(p => p.id === selectedProject)?.name || "Projet"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Générez des suggestions de contenu pour ce projet
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Calendar Navigation */}
       <Card>

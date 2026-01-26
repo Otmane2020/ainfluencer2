@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { AIContentGenerator } from "@/components/AIContentGenerator";
 import { PostPreview } from "@/components/PostPreview";
@@ -6,6 +6,14 @@ import { SocialConnections } from "@/components/SocialConnections";
 import { PostQueue } from "@/components/PostQueue";
 import { AvatarManager } from "@/components/AvatarManager";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface GeneratedContent {
   text: string;
@@ -20,15 +28,37 @@ interface ScheduledPost {
   status: "draft" | "scheduled" | "published";
 }
 
+interface Project {
+  id: string;
+  name: string;
+  theme_color: string;
+}
+
 const Posts = () => {
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
   const [scheduledPosts, setScheduledPosts] = useState<ScheduledPost[]>([]);
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<string>("all");
   const [connections, setConnections] = useState([
     { platform: "instagram" as const, connected: false },
     { platform: "facebook" as const, connected: false },
+    { platform: "linkedin" as const, connected: false },
+    { platform: "tiktok" as const, connected: false },
   ]);
   const { toast } = useToast();
+
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    const { data } = await supabase
+      .from("projects")
+      .select("id, name, theme_color")
+      .order("name");
+    if (data) setProjects(data);
+  };
 
   const handleContentGenerated = (content: GeneratedContent) => {
     setGeneratedContent(content);
@@ -42,10 +72,10 @@ const Posts = () => {
     setScheduledPosts((prev) => [newPost, ...prev]);
   };
 
-  const handleConnect = (platform: "instagram" | "facebook") => {
+  const handleConnect = (platform: "instagram" | "facebook" | "linkedin" | "tiktok") => {
     toast({
       title: "Connexion en cours...",
-      description: `Redirection vers ${platform === "instagram" ? "Instagram" : "Facebook"} pour l'authentification`,
+      description: `Redirection vers ${platform} pour l'authentification`,
     });
 
     setTimeout(() => {
@@ -58,7 +88,7 @@ const Posts = () => {
       );
       toast({
         title: "Connecté !",
-        description: `Votre compte ${platform === "instagram" ? "Instagram" : "Facebook"} est maintenant lié`,
+        description: `Votre compte ${platform} est maintenant lié`,
       });
     }, 1500);
   };
@@ -95,11 +125,34 @@ const Posts = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-bold">Générateur de posts</h1>
-        <p className="text-muted-foreground">
-          Créez du contenu texte et image pour vos réseaux
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-bold">Générateur de posts</h1>
+          <p className="text-muted-foreground">
+            Créez du contenu texte et image pour vos réseaux
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Select value={selectedProject} onValueChange={setSelectedProject}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Tous les projets" />
+            </SelectTrigger>
+            <SelectContent className="bg-card border border-border z-50">
+              <SelectItem value="all">Tous les projets</SelectItem>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="h-3 w-3 rounded-full"
+                      style={{ backgroundColor: project.theme_color }}
+                    />
+                    {project.name.slice(0, 30)}{project.name.length > 30 ? "..." : ""}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <motion.div

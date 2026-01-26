@@ -7,8 +7,16 @@ import { AvatarManager } from "@/components/AvatarManager";
 import { GenerationTracker } from "@/components/GenerationTracker";
 import { useStoredVideos } from "@/hooks/useStoredVideos";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { RefreshCw, Filter } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface VideoSegment {
   id: string;
@@ -19,23 +27,41 @@ interface VideoSegment {
   audioUrl?: string;
 }
 
+interface Project {
+  id: string;
+  name: string;
+  theme_color: string;
+}
+
 const Videos = () => {
   const [videoSegments, setVideoSegments] = useState<VideoSegment[]>([]);
   const [videoHistory, setVideoHistory] = useState<VideoHistoryItem[]>([]);
   const [generationTasks, setGenerationTasks] = useState<GenerationTask[]>([]);
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<string>("all");
   const { fetchStoredVideos, isLoading: isLoadingVideos } = useStoredVideos();
   const { toast } = useToast();
 
   useEffect(() => {
-    const loadVideos = async () => {
-      const storedVideos = await fetchStoredVideos();
-      if (storedVideos.length > 0) {
-        setVideoHistory(storedVideos);
-      }
-    };
+    fetchProjects();
     loadVideos();
   }, []);
+
+  const fetchProjects = async () => {
+    const { data } = await supabase
+      .from("projects")
+      .select("id, name, theme_color")
+      .order("name");
+    if (data) setProjects(data);
+  };
+
+  const loadVideos = async () => {
+    const storedVideos = await fetchStoredVideos();
+    if (storedVideos.length > 0) {
+      setVideoHistory(storedVideos);
+    }
+  };
 
   const handleRefreshVideos = async () => {
     const storedVideos = await fetchStoredVideos();
@@ -98,11 +124,34 @@ const Videos = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-bold">Générateur de vidéos</h1>
-        <p className="text-muted-foreground">
-          Créez des vidéos IA pour vos réseaux sociaux
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-bold">Générateur de vidéos</h1>
+          <p className="text-muted-foreground">
+            Créez des vidéos IA pour vos réseaux sociaux
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Select value={selectedProject} onValueChange={setSelectedProject}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Tous les projets" />
+            </SelectTrigger>
+            <SelectContent className="bg-card border border-border z-50">
+              <SelectItem value="all">Tous les projets</SelectItem>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="h-3 w-3 rounded-full"
+                      style={{ backgroundColor: project.theme_color }}
+                    />
+                    {project.name.slice(0, 30)}{project.name.length > 30 ? "..." : ""}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <motion.div
