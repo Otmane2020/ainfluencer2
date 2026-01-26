@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Video, Sparkles, Loader2, Play, Plus, Trash2, Settings2 } from "lucide-react";
+import { Video, Sparkles, Loader2, Play, Plus, Trash2, Settings2, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -19,7 +19,19 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
+interface Project {
+  id: string;
+  name: string;
+  description: string | null;
+  theme_color: string | null;
+}
 interface VideoSegment {
   id: string;
   script: string;
@@ -69,16 +81,30 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingScript, setIsGeneratingScript] = useState<string | null>(null);
   const [showProductSelector, setShowProductSelector] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectSelectorOpen, setProjectSelectorOpen] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const generateAIScript = async (segmentId: string) => {
+  useEffect(() => {
+    const fetchProjects = async () => {
+      const { data } = await supabase
+        .from("projects")
+        .select("id, name, description, theme_color")
+        .order("name");
+      if (data) setProjects(data);
+    };
+    fetchProjects();
+  }, []);
+
+  const generateAIScript = async (segmentId: string, project: Project) => {
     setIsGeneratingScript(segmentId);
+    setProjectSelectorOpen(null);
     
     try {
       const { data, error } = await supabase.functions.invoke("suggest-content", {
         body: {
-          projectName: "Video Script",
-          projectDescription: `Create a viral ${selectedProduct.category} script for social media. The content should be engaging, dynamic, and optimized for ${selectedProduct.name}.`,
+          projectName: project.name,
+          projectDescription: `${project.description || project.name}. Create a viral ${selectedProduct.category} script for social media. The content should be engaging, dynamic, and optimized for ${selectedProduct.name}.`,
         },
       });
 
@@ -86,13 +112,12 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
 
       const suggestions = data?.suggestions;
       if (suggestions && suggestions.length > 0) {
-        // Pick a random suggestion for variety
         const randomSuggestion = suggestions[Math.floor(Math.random() * suggestions.length)];
         updateSegment(segmentId, { script: randomSuggestion.content });
         
         toast({
           title: "Script generated! ✨",
-          description: randomSuggestion.title,
+          description: `Based on ${project.name}`,
         });
       } else {
         throw new Error("No suggestions received");
@@ -538,25 +563,59 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
                 
                 {/* AI Script Generation Button */}
                 <div className="flex flex-wrap gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="gap-2"
-                    disabled={isGeneratingScript === segment.id}
-                    onClick={() => generateAIScript(segment.id)}
+                  <Popover 
+                    open={projectSelectorOpen === segment.id} 
+                    onOpenChange={(open) => setProjectSelectorOpen(open ? segment.id : null)}
                   >
-                    {isGeneratingScript === segment.id ? (
-                      <>
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-3.5 w-3.5 text-primary" />
-                        Generate with AI
-                      </>
-                    )}
-                  </Button>
+                    <PopoverTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="gap-2"
+                        disabled={isGeneratingScript === segment.id || projects.length === 0}
+                      >
+                        {isGeneratingScript === segment.id ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-3.5 w-3.5 text-primary" />
+                            Generate with AI
+                            <ChevronDown className="h-3 w-3 opacity-50" />
+                          </>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-2" align="start">
+                      <p className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                        Select project context
+                      </p>
+                      <ScrollArea className="max-h-48">
+                        <div className="space-y-1">
+                          {projects.map((project) => (
+                            <button
+                              key={project.id}
+                              onClick={() => generateAIScript(segment.id, project)}
+                              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors text-left"
+                            >
+                              <div
+                                className="h-3 w-3 shrink-0 rounded-full"
+                                style={{ backgroundColor: project.theme_color || "#3B82F6" }}
+                              />
+                              <span className="truncate">{project.name}</span>
+                            </button>
+                          ))}
+                          {projects.length === 0 && (
+                            <p className="px-2 py-3 text-center text-sm text-muted-foreground">
+                              No projects found. Create a project first.
+                            </p>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
 
