@@ -15,6 +15,13 @@ import {
   getPrimaryInternalModel,
 } from "@/lib/commercialProducts";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -454,370 +461,207 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-2xl bg-card p-6 shadow-card"
+      className="rounded-2xl bg-card p-4 shadow-card"
     >
-      {/* Header */}
-      <div className="mb-6 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary">
-          <Video className="h-5 w-5 text-secondary-foreground" />
+      {/* Header compact */}
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary">
+            <Video className="h-4 w-4 text-secondary-foreground" />
+          </div>
+          <span className="font-medium text-sm">AI Generator</span>
         </div>
-        <div className="flex-1">
-          <h3 className="font-display text-lg font-semibold">AI Generator</h3>
-          <p className="text-sm text-muted-foreground">
-            Create content with the best AI models
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-2xl font-bold text-gradient">~{estimatedCost}€</p>
-          <p className="text-xs text-muted-foreground">Estimated price</p>
-        </div>
+        <p className="text-lg font-bold text-gradient">~{estimatedCost}€</p>
       </div>
 
-      {/* Organized Sections with Collapsibles - All collapsed by default */}
-      <div className="space-y-3">
-        
-        {/* Section 1: Avatar (FIRST - only if product is avatar type) */}
-        {selectedProduct.category === "avatar" && (
-          <Collapsible className="rounded-xl border border-border overflow-hidden">
-            <CollapsibleTrigger asChild>
-              <button className="flex w-full items-center justify-between bg-muted/50 px-4 py-2.5 hover:bg-muted/70 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/20">
-                    <User className="h-3.5 w-3.5 text-accent" />
-                  </div>
-                  <div className="text-left">
-                    <h4 className="text-sm font-medium">Avatar</h4>
-                    <p className="text-[11px] text-muted-foreground">
-                      {avatarUrl ? "Ready" : "Not selected"}
-                    </p>
-                  </div>
-                </div>
-                <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform data-[state=open]:rotate-180" />
-              </button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="p-4 bg-card">
+      {/* Quick Settings Bar - Popup buttons */}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        {/* Avatar Button */}
+        <Dialog>
+          <DialogTrigger asChild>
+            <button className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-xs hover:bg-muted transition-colors">
               {avatarUrl ? (
-                <div className="flex items-center gap-4">
-                  <img 
-                    src={avatarUrl} 
-                    alt="Selected Avatar" 
-                    className="h-16 w-16 rounded-xl object-cover border-2 border-primary/30"
-                  />
-                  <div>
-                    <p className="text-sm font-medium">Avatar ready</p>
-                    <p className="text-xs text-muted-foreground">Will be animated with lip-sync</p>
-                  </div>
+                <img src={avatarUrl} alt="Avatar" className="h-5 w-5 rounded-full object-cover" />
+              ) : (
+                <User className="h-4 w-4 text-muted-foreground" />
+              )}
+              <span>Avatar</span>
+            </button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Avatar</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              {avatarUrl ? (
+                <div className="flex flex-col items-center gap-4">
+                  <img src={avatarUrl} alt="Avatar" className="h-32 w-32 rounded-xl object-cover border-2 border-primary/30" />
+                  <p className="text-sm text-muted-foreground">Will be animated with lip-sync</p>
                 </div>
               ) : (
-                <div className="rounded-lg border-2 border-dashed border-border p-4 text-center">
-                  <p className="text-sm text-muted-foreground">
-                    No avatar selected. Generate or upload one from Avatar section.
-                  </p>
+                <div className="rounded-lg border-2 border-dashed border-border p-8 text-center">
+                  <User className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">Generate or upload an avatar above</p>
                 </div>
               )}
-            </CollapsibleContent>
-          </Collapsible>
-        )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
-        {/* Section 2: Voice Selection */}
+        {/* Voice Button */}
         {selectedProduct.needsVoice && (
-          <Collapsible className="rounded-xl border border-border overflow-hidden">
-            <CollapsibleTrigger asChild>
-              <button className="flex w-full items-center justify-between bg-muted/50 px-4 py-2.5 hover:bg-muted/70 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg gradient-primary">
-                    <Sparkles className="h-3.5 w-3.5 text-white" />
-                  </div>
-                  <div className="text-left">
-                    <h4 className="text-sm font-medium">AI Voice</h4>
-                    <p className="text-[11px] text-muted-foreground">{selectedVoice.name} • {selectedVoice.accent}</p>
-                  </div>
-                </div>
-                <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform data-[state=open]:rotate-180" />
+          <Dialog>
+            <DialogTrigger asChild>
+              <button className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-xs hover:bg-muted transition-colors">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <span>{selectedVoice.name}</span>
               </button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="p-4 bg-card">
-              <VoiceSelector
-                selectedVoice={selectedVoice}
-                onVoiceChange={setSelectedVoice}
-              />
-            </CollapsibleContent>
-          </Collapsible>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>AI Voice</DialogTitle>
+              </DialogHeader>
+              <div className="py-4">
+                <VoiceSelector selectedVoice={selectedVoice} onVoiceChange={setSelectedVoice} />
+              </div>
+            </DialogContent>
+          </Dialog>
         )}
 
-        {/* Section 3: Video Type / Product */}
-        <Collapsible className="rounded-xl border border-border overflow-hidden">
-          <CollapsibleTrigger asChild>
-            <button className="flex w-full items-center justify-between bg-muted/50 px-4 py-2.5 hover:bg-muted/70 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/20">
-                  <Video className="h-3.5 w-3.5 text-primary" />
-                </div>
-                <div className="text-left">
-                  <h4 className="text-sm font-medium">Video Type</h4>
-                  <p className="text-[11px] text-muted-foreground">{selectedProduct.name} • {selectedProduct.salePrice}€{selectedProduct.salePriceUnit}</p>
-                </div>
-              </div>
-              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform data-[state=open]:rotate-180" />
+        {/* Video Type Button */}
+        <Dialog>
+          <DialogTrigger asChild>
+            <button className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-xs hover:bg-muted transition-colors">
+              <Video className="h-4 w-4 text-primary" />
+              <span>{selectedProduct.name}</span>
             </button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="p-4 bg-card">
-            <ProductSelector
-              selectedProduct={selectedProduct}
-              categories={["video", "avatar"]}
-              onProductChange={(product) => {
-                setSelectedProduct(product);
-                const newDefaultDuration = product.supportedDurations?.[0] || 8;
-                setSegments((prev) =>
-                  prev.map((s) => ({ ...s, duration: newDefaultDuration }))
-                );
-              }}
-            />
-          </CollapsibleContent>
-        </Collapsible>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Video Type</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <ProductSelector
+                selectedProduct={selectedProduct}
+                categories={["video", "avatar"]}
+                onProductChange={(product) => {
+                  setSelectedProduct(product);
+                  const newDefaultDuration = product.supportedDurations?.[0] || 8;
+                  setSegments((prev) => prev.map((s) => ({ ...s, duration: newDefaultDuration })));
+                }}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
 
-        {/* Section 4: Script / Prompt - Open by default */}
-        <Collapsible defaultOpen className="rounded-xl border border-border overflow-hidden">
-          <CollapsibleTrigger asChild>
-            <button className="flex w-full items-center justify-between bg-muted/50 px-4 py-2.5 hover:bg-muted/70 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary">
-                  <Settings2 className="h-3.5 w-3.5 text-secondary-foreground" />
-                </div>
-                <div className="text-left">
-                  <h4 className="text-sm font-medium">Script & Segments</h4>
-                  <p className="text-[11px] text-muted-foreground">{segments.length} segment(s) • {totalDuration}s</p>
-                </div>
-              </div>
-              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform data-[state=open]:rotate-180" />
-            </button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="p-4 bg-card space-y-3">
-            <AnimatePresence mode="popLayout">
-              {segments.map((segment, index) => (
-                <motion.div
-                  key={segment.id}
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="rounded-xl border border-border p-3 transition-colors hover:border-primary/30"
-                >
-                  <div className="mb-2 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                        {index + 1}
-                      </span>
-                      <span className="text-xs font-medium">
-                        {selectedProduct.category === "video" ? "Segment" : selectedProduct.category === "avatar" ? "Avatar" : "Image"} {index + 1}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {(selectedProduct.category === "video" || selectedProduct.category === "avatar") && selectedProduct.supportedDurations && (
-                        <select
-                          value={segment.duration}
-                          onChange={(e) => updateSegment(segment.id, { duration: Number(e.target.value) })}
-                          className="rounded-md border border-border bg-background px-2 py-1 text-xs"
-                        >
-                          {selectedProduct.supportedDurations.map((dur) => (
-                            <option key={dur} value={dur}>
-                              {dur}s (~{Math.round(dur * selectedProduct.salePrice / 10)}€)
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                      {segments.length > 1 && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeSegment(segment.id)}
-                          className="h-7 w-7 text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    {/* Script Textarea - Full width */}
-                    <Textarea
-                      placeholder={
-                        selectedProduct.category === "video"
-                          ? "Describe your video scene..."
-                          : selectedProduct.category === "avatar"
-                          ? "What should the avatar say?"
-                          : "Describe the image..."
-                      }
-                      value={segment.script}
-                      onChange={(e) => updateSegment(segment.id, { script: e.target.value })}
-                      className="min-h-[100px] resize-none border focus:border-primary/50 text-sm"
-                    />
-
-                    {/* Reference Image Upload - Below textarea */}
-                    <div className="flex items-center gap-2">
-                      {segment.referenceImageUrl ? (
-                        <div className="relative">
-                          <img 
-                            src={segment.referenceImageUrl} 
-                            alt="Reference" 
-                            className="h-12 w-12 rounded-lg object-cover border border-border"
-                          />
-                          <button
-                            onClick={() => updateSegment(segment.id, { referenceImageUrl: undefined })}
-                            className="absolute -right-1 -top-1 rounded-full bg-destructive p-0.5 text-destructive-foreground hover:bg-destructive/80"
-                          >
-                            <X className="h-2.5 w-2.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <label className="flex h-9 cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-3 hover:border-primary/50 hover:bg-muted/50 transition-colors">
-                          <ImagePlus className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground">Add reference image</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                const fileName = `references/${Date.now()}-${segment.id}.${file.name.split('.').pop()}`;
-                                const { error } = await supabase.storage.from("media").upload(fileName, file, {
-                                  contentType: file.type,
-                                  upsert: true,
-                                });
-                                if (!error) {
-                                  const { data } = supabase.storage.from("media").getPublicUrl(fileName);
-                                  updateSegment(segment.id, { referenceImageUrl: data.publicUrl });
-                                }
-                              }
-                            }}
-                          />
-                        </label>
-                      )}
-                    </div>
-                    
-                    {/* AI Script Generation Button */}
-                    <div className="flex flex-wrap gap-2">
-                      <Popover 
-                        open={projectSelectorOpen === segment.id} 
-                        onOpenChange={(open) => setProjectSelectorOpen(open ? segment.id : null)}
-                      >
-                        <PopoverTrigger asChild>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="gap-1.5 h-7 text-xs"
-                            disabled={isGeneratingScript === segment.id || projects.length === 0}
-                          >
-                            {isGeneratingScript === segment.id ? (
-                              <>
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                                Generating...
-                              </>
-                            ) : (
-                              <>
-                                <Sparkles className="h-3 w-3 text-primary" />
-                                AI Script
-                                <ChevronDown className="h-2.5 w-2.5 opacity-50" />
-                              </>
-                            )}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-56 p-2 bg-popover border-border z-50" align="start">
-                          <p className="px-2 py-1 text-[10px] font-medium text-muted-foreground">
-                            Select project
-                          </p>
-                          <ScrollArea className="max-h-40">
-                            <div className="space-y-0.5">
-                              {projects.map((project) => (
-                                <button
-                                  key={project.id}
-                                  onClick={() => generateAIScript(segment.id, project)}
-                                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-accent transition-colors text-left"
-                                >
-                                  <div
-                                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                                    style={{ backgroundColor: project.theme_color || "#3B82F6" }}
-                                  />
-                                  <span className="truncate">{project.name}</span>
-                                </button>
-                              ))}
-                              {projects.length === 0 && (
-                                <p className="px-2 py-2 text-center text-xs text-muted-foreground">
-                                  No projects found.
-                                </p>
-                              )}
-                            </div>
-                          </ScrollArea>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </div>
-
-                  {segment.status !== "pending" && (
-                    <div className="mt-2 space-y-1">
-                      {segment.status === "generating" && (
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="flex items-center gap-1 text-accent">
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                              Generating...
-                            </span>
-                            <span className="text-muted-foreground">{segment.progress || 0}%</span>
-                          </div>
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                            <div 
-                              className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-500"
-                              style={{ width: `${segment.progress || 0}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                      {segment.status === "ready" && (
-                        <span className="flex items-center gap-1 text-xs text-primary">
-                          <Play className="h-3 w-3" />
-                          Ready
-                        </span>
-                      )}
-                      {segment.status === "error" && (
-                        <span className="flex items-center gap-1 text-xs text-destructive">
-                          Error
-                        </span>
-                      )}
-                    </div>
+      {/* Segments - Direct display */}
+      <div className="space-y-2 mb-3">
+        <AnimatePresence mode="popLayout">
+          {segments.map((segment, index) => (
+            <motion.div
+              key={segment.id}
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="rounded-xl border border-border p-3"
+            >
+              <div className="mb-2 flex items-center justify-between">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                  {index + 1}
+                </span>
+                <div className="flex items-center gap-2">
+                  {selectedProduct.supportedDurations && (
+                    <select
+                      value={segment.duration}
+                      onChange={(e) => updateSegment(segment.id, { duration: Number(e.target.value) })}
+                      className="rounded border border-border bg-background px-2 py-1 text-xs"
+                    >
+                      {selectedProduct.supportedDurations.map((dur) => (
+                        <option key={dur} value={dur}>{dur}s</option>
+                      ))}
+                    </select>
                   )}
-                </motion.div>
-              ))}
-            </AnimatePresence>
+                  {segments.length > 1 && (
+                    <Button variant="ghost" size="icon" onClick={() => removeSegment(segment.id)} className="h-6 w-6 text-destructive">
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              </div>
 
-            {/* Add Segment Button */}
-            <Button variant="outline" onClick={addSegment} className="w-full border-dashed">
-              <Plus className="h-4 w-4" />
-              Add {selectedProduct.category === "video" ? "segment" : selectedProduct.category === "avatar" ? "avatar" : "image"}
-            </Button>
-          </CollapsibleContent>
-        </Collapsible>
+              <Textarea
+                placeholder="Describe your video..."
+                value={segment.script}
+                onChange={(e) => updateSegment(segment.id, { script: e.target.value })}
+                className="min-h-[80px] resize-none text-sm mb-2"
+              />
+
+              <div className="flex items-center gap-2">
+                {segment.referenceImageUrl ? (
+                  <div className="relative">
+                    <img src={segment.referenceImageUrl} alt="Ref" className="h-8 w-8 rounded object-cover border" />
+                    <button onClick={() => updateSegment(segment.id, { referenceImageUrl: undefined })} className="absolute -right-1 -top-1 rounded-full bg-destructive p-0.5">
+                      <X className="h-2 w-2 text-white" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex h-8 cursor-pointer items-center gap-1 rounded border border-dashed px-2 text-[10px] text-muted-foreground hover:bg-muted/50">
+                    <ImagePlus className="h-3 w-3" />
+                    Image
+                    <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const fileName = `references/${Date.now()}-${segment.id}.${file.name.split('.').pop()}`;
+                        const { error } = await supabase.storage.from("media").upload(fileName, file, { contentType: file.type, upsert: true });
+                        if (!error) {
+                          const { data } = supabase.storage.from("media").getPublicUrl(fileName);
+                          updateSegment(segment.id, { referenceImageUrl: data.publicUrl });
+                        }
+                      }
+                    }} />
+                  </label>
+                )}
+                
+                <Popover open={projectSelectorOpen === segment.id} onOpenChange={(open) => setProjectSelectorOpen(open ? segment.id : null)}>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 px-2 text-xs gap-1" disabled={isGeneratingScript === segment.id}>
+                      {isGeneratingScript === segment.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3 text-primary" />}
+                      AI
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-2 bg-popover z-50" align="start">
+                    <ScrollArea className="max-h-32">
+                      {projects.map((project) => (
+                        <button key={project.id} onClick={() => generateAIScript(segment.id, project)} className="flex w-full items-center gap-2 rounded px-2 py-1 text-xs hover:bg-accent">
+                          <div className="h-2 w-2 rounded-full" style={{ backgroundColor: project.theme_color || "#3B82F6" }} />
+                          <span className="truncate">{project.name}</span>
+                        </button>
+                      ))}
+                    </ScrollArea>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {segment.status !== "pending" && (
+                <div className="mt-2 text-xs">
+                  {segment.status === "generating" && <span className="text-accent flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />{segment.progress}%</span>}
+                  {segment.status === "ready" && <span className="text-primary flex items-center gap-1"><Play className="h-3 w-3" />Ready</span>}
+                  {segment.status === "error" && <span className="text-destructive">Error</span>}
+                </div>
+              )}
+            </motion.div>
+          ))}
+        </AnimatePresence>
+
+        <Button variant="ghost" onClick={addSegment} size="sm" className="w-full border border-dashed text-xs">
+          <Plus className="h-3 w-3 mr-1" />Add segment
+        </Button>
       </div>
 
       {/* Generate Button */}
-      <Button
-        onClick={generateContent}
-        disabled={isGenerating || segments.every((s) => !s.script.trim())}
-        variant="gradient"
-        size="lg"
-        className="w-full mt-6"
-      >
-        {isGenerating ? (
-          <>
-            <Loader2 className="h-5 w-5 animate-spin" />
-            Generating...
-          </>
-        ) : (
-          <>
-            <Sparkles className="h-5 w-5" />
-            Generate with {selectedProduct.name} (~{estimatedCost}€)
-          </>
-        )}
+      <Button onClick={generateContent} disabled={isGenerating || segments.every((s) => !s.script.trim())} variant="gradient" className="w-full">
+        {isGenerating ? <><Loader2 className="h-4 w-4 animate-spin" />Generating...</> : <><Sparkles className="h-4 w-4" />Generate (~{estimatedCost}€)</>}
       </Button>
 
       {/* Generation Progress Modal */}
