@@ -388,11 +388,37 @@ const ProjectNew = () => {
         console.log("Project created:", data);
         
         toast({
-          title: "Projet créé avec succès ! 🎉",
-          description: `${formData.name} est prêt à générer du contenu`,
+          title: "Projet créé ! 🎉",
+          description: "Génération du planning mensuel en cours...",
         });
 
-        navigate("/projects");
+        // Generate monthly schedule automatically after creation
+        try {
+          const { data: scheduleData, error: scheduleError } = await supabase.functions.invoke(
+            "generate-monthly-schedule",
+            {
+              body: {
+                projectId: data.id,
+                videosPerMonth: videosPerMonth,
+                imagesPerMonth: imagesPerMonth,
+              },
+            }
+          );
+
+          if (scheduleError) {
+            console.error("Schedule generation error:", scheduleError);
+          } else {
+            console.log("Monthly schedule generated:", scheduleData);
+            toast({
+              title: "Planning généré ! 📅",
+              description: scheduleData?.message || "Vos posts sont programmés",
+            });
+          }
+        } catch (scheduleErr) {
+          console.error("Failed to generate schedule:", scheduleErr);
+        }
+
+        navigate(`/projects/${data.id}`);
       }
     } catch (error) {
       console.error("Save project error:", error);
