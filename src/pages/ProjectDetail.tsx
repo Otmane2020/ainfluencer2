@@ -6,6 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   ArrowLeft,
   ExternalLink,
   Instagram,
@@ -16,9 +24,25 @@ import {
   FileText,
   Settings,
   Loader2,
+  Palette,
+  Share2,
+  Zap,
+  ChevronDown,
+  Pencil,
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // TikTok icon
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -54,9 +78,30 @@ interface ScheduledPost {
 const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [project, setProject] = useState<Project | null>(null);
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editTab, setEditTab] = useState("info");
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Edit form state
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editUrl, setEditUrl] = useState("");
+  const [editThemeColor, setEditThemeColor] = useState("#6366F1");
+  const [editInstagram, setEditInstagram] = useState(true);
+  const [editFacebook, setEditFacebook] = useState(true);
+  const [editLinkedin, setEditLinkedin] = useState(false);
+  const [editTiktok, setEditTiktok] = useState(false);
+  const [editPostsPerWeek, setEditPostsPerWeek] = useState(3);
+  const [editAutomationMode, setEditAutomationMode] = useState("semi_auto");
+
+  const themeColors = [
+    "#F97316", "#EC4899", "#8B5CF6", "#3B82F6", 
+    "#10B981", "#F59E0B", "#EF4444", "#6366F1",
+  ];
 
   useEffect(() => {
     if (id) {
@@ -64,6 +109,21 @@ const ProjectDetail = () => {
       fetchPosts();
     }
   }, [id]);
+
+  useEffect(() => {
+    if (project) {
+      setEditName(project.name);
+      setEditDescription(project.description || "");
+      setEditUrl(project.url || "");
+      setEditThemeColor(project.theme_color || "#6366F1");
+      setEditInstagram(project.instagram_enabled);
+      setEditFacebook(project.facebook_enabled);
+      setEditLinkedin(project.linkedin_enabled);
+      setEditTiktok(project.tiktok_enabled);
+      setEditPostsPerWeek(project.posts_per_week);
+      setEditAutomationMode(project.automation_mode);
+    }
+  }, [project]);
 
   const fetchProject = async () => {
     const { data, error } = await supabase
@@ -91,6 +151,53 @@ const ProjectDetail = () => {
       .limit(5);
 
     if (data) setPosts(data);
+  };
+
+  const handleSaveChanges = async () => {
+    if (!project) return;
+    setIsSaving(true);
+
+    try {
+      const { error } = await supabase
+        .from("projects")
+        .update({
+          name: editName,
+          description: editDescription || null,
+          url: editUrl || null,
+          theme_color: editThemeColor,
+          instagram_enabled: editInstagram,
+          facebook_enabled: editFacebook,
+          linkedin_enabled: editLinkedin,
+          tiktok_enabled: editTiktok,
+          posts_per_week: editPostsPerWeek,
+          automation_mode: editAutomationMode,
+        })
+        .eq("id", project.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Modifications enregistrées ✓",
+        description: "Le projet a été mis à jour",
+      });
+
+      setEditModalOpen(false);
+      fetchProject();
+    } catch (error) {
+      console.error("Update error:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de sauvegarder les modifications",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const openEditModal = (tab: string) => {
+    setEditTab(tab);
+    setEditModalOpen(true);
   };
 
   if (isLoading) {
@@ -135,10 +242,40 @@ const ProjectDetail = () => {
             </div>
           </div>
         </div>
-        <Button variant="outline" onClick={() => navigate(`/projects/new?edit=${id}`)}>
-          <Settings className="h-4 w-4 mr-2" />
-          Modifier
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline">
+              <Pencil className="h-4 w-4 mr-2" />
+              Modifier
+              <ChevronDown className="h-4 w-4 ml-2" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48 bg-popover z-50">
+            <DropdownMenuLabel>Modification rapide</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => openEditModal("info")}>
+              <FileText className="h-4 w-4 mr-2" />
+              Informations
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openEditModal("branding")}>
+              <Palette className="h-4 w-4 mr-2" />
+              Identité visuelle
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openEditModal("platforms")}>
+              <Share2 className="h-4 w-4 mr-2" />
+              Plateformes
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openEditModal("automation")}>
+              <Zap className="h-4 w-4 mr-2" />
+              Automatisation
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => navigate(`/projects/new?edit=${id}`)}>
+              <Settings className="h-4 w-4 mr-2" />
+              Wizard complet
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Description & URL */}
@@ -253,6 +390,148 @@ const ProjectDetail = () => {
           Créer un post
         </Button>
       </div>
+
+      {/* Quick Edit Modal */}
+      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Modifier le projet</DialogTitle>
+          </DialogHeader>
+          
+          <Tabs value={editTab} onValueChange={setEditTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="info">Info</TabsTrigger>
+              <TabsTrigger value="branding">Style</TabsTrigger>
+              <TabsTrigger value="platforms">Réseaux</TabsTrigger>
+              <TabsTrigger value="automation">Auto</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="info" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Nom du projet</Label>
+                <Input
+                  id="edit-name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-description">Description</Label>
+                <Input
+                  id="edit-description"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-url">URL du site</Label>
+                <Input
+                  id="edit-url"
+                  type="url"
+                  value={editUrl}
+                  onChange={(e) => setEditUrl(e.target.value)}
+                />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="branding" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label>Couleur du thème</Label>
+                <div className="flex flex-wrap gap-2">
+                  {themeColors.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setEditThemeColor(color)}
+                      className={`h-10 w-10 rounded-full border-2 transition-all ${
+                        editThemeColor === color ? "border-foreground scale-110" : "border-transparent"
+                      }`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="platforms" className="space-y-4 mt-4">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Instagram className="h-5 w-5" />
+                    <span>Instagram</span>
+                  </div>
+                  <Switch checked={editInstagram} onCheckedChange={setEditInstagram} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Facebook className="h-5 w-5" />
+                    <span>Facebook</span>
+                  </div>
+                  <Switch checked={editFacebook} onCheckedChange={setEditFacebook} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Linkedin className="h-5 w-5" />
+                    <span>LinkedIn</span>
+                  </div>
+                  <Switch checked={editLinkedin} onCheckedChange={setEditLinkedin} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <TikTokIcon className="h-5 w-5" />
+                    <span>TikTok</span>
+                  </div>
+                  <Switch checked={editTiktok} onCheckedChange={setEditTiktok} />
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="automation" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-posts">Posts par semaine</Label>
+                <Input
+                  id="edit-posts"
+                  type="number"
+                  min={1}
+                  max={14}
+                  value={editPostsPerWeek}
+                  onChange={(e) => setEditPostsPerWeek(parseInt(e.target.value) || 3)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Mode d'automatisation</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: "manual", label: "Manuel" },
+                    { value: "semi_auto", label: "Semi-auto" },
+                    { value: "full_auto", label: "Full auto" },
+                  ].map((mode) => (
+                    <Button
+                      key={mode.value}
+                      type="button"
+                      variant={editAutomationMode === mode.value ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setEditAutomationMode(mode.value)}
+                    >
+                      {mode.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={() => setEditModalOpen(false)}>
+              Annuler
+            </Button>
+            <Button onClick={handleSaveChanges} disabled={isSaving}>
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Enregistrer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
