@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useCallback, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Globe, FileText, Palette, Calendar, Share2, 
@@ -70,6 +70,10 @@ const themeColors = [
 
 const ProjectNew = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editProjectId = searchParams.get("edit");
+  const isEditMode = Boolean(editProjectId);
+  
   const { toast } = useToast();
   const { user, isLoading: authLoading } = useAuth();
   
@@ -93,11 +97,61 @@ const ProjectNew = () => {
   
   // UI state
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingProject, setIsFetchingProject] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [videosPerMonth, setVideosPerMonth] = useState(4);
   const [imagesPerMonth, setImagesPerMonth] = useState(12);
+
+  // Fetch existing project data in edit mode
+  useEffect(() => {
+    const fetchProject = async () => {
+      if (!editProjectId || !user) return;
+      
+      setIsFetchingProject(true);
+      try {
+        const { data, error } = await supabase
+          .from("projects")
+          .select("*")
+          .eq("id", editProjectId)
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          setFormData({
+            name: data.name || "",
+            description: data.description || "",
+            url: data.url || "",
+            theme_color: data.theme_color || "#F97316",
+            instagram_enabled: data.instagram_enabled ?? true,
+            facebook_enabled: data.facebook_enabled ?? true,
+            linkedin_enabled: data.linkedin_enabled ?? false,
+            tiktok_enabled: data.tiktok_enabled ?? false,
+            posts_per_week: data.posts_per_week || 3,
+            automation_mode: (data.automation_mode as "manual" | "semi_auto" | "full_auto") || "semi_auto",
+          });
+          
+          if (data.logo_url) {
+            setLogoPreview(data.logo_url);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching project:", error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger le projet",
+          variant: "destructive",
+        });
+        navigate("/projects");
+      } finally {
+        setIsFetchingProject(false);
+      }
+    };
+
+    fetchProject();
+  }, [editProjectId, user, toast, navigate]);
 
   // Navigation du wizard
   const nextStep = useCallback(() => {
@@ -283,44 +337,68 @@ const ProjectNew = () => {
         logoUrl = logoPreview;
       }
 
-      // Création du projet
-      const { data, error } = await supabase
-        .from("projects")
-        .insert({
-          name: formData.name,
-          description: formData.description || null,
-          url: formData.url || null,
-          logo_url: logoUrl,
-          theme_color: formData.theme_color,
-          instagram_enabled: formData.instagram_enabled,
-          facebook_enabled: formData.facebook_enabled,
-          linkedin_enabled: formData.linkedin_enabled,
-          tiktok_enabled: formData.tiktok_enabled,
-          posts_per_week: formData.posts_per_week,
-          automation_mode: formData.automation_mode,
-          user_id: user.id,
-        })
-        .select()
-        .single();
+      const projectData = {
+        name: formData.name,
+        description: formData.description || null,
+        url: formData.url || null,
+        logo_url: logoUrl,
+        theme_color: formData.theme_color,
+        instagram_enabled: formData.instagram_enabled,
+        facebook_enabled: formData.facebook_enabled,
+        linkedin_enabled: formData.linkedin_enabled,
+        tiktok_enabled: formData.tiktok_enabled,
+        posts_per_week: formData.posts_per_week,
+        automation_mode: formData.automation_mode,
+      };
 
-      if (error) {
-        console.error("Supabase insert error:", error);
-        throw error;
+      if (isEditMode && editProjectId) {
+        // Mode édition - Update
+        const { error } = await supabase
+          .from("projects")
+          .update(projectData)
+          .eq("id", editProjectId);
+
+        if (error) {
+          console.error("Supabase update error:", error);
+          throw error;
+        }
+
+        toast({
+          title: "Projet modifié ! ✓",
+          description: `${formData.name} a été mis à jour`,
+        });
+
+        navigate(`/projects/${editProjectId}`);
+      } else {
+        // Mode création - Insert
+        const { data, error } = await supabase
+          .from("projects")
+          .insert({
+            ...projectData,
+            user_id: user.id,
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error("Supabase insert error:", error);
+          throw error;
+        }
+
+        console.log("Project created:", data);
+        
+        toast({
+          title: "Projet créé avec succès ! 🎉",
+          description: `${formData.name} est prêt à générer du contenu`,
+        });
+
+        navigate("/projects");
       }
-
-      console.log("Project created:", data);
-      
-      toast({
-        title: "Projet créé avec succès ! 🎉",
-        description: `${formData.name} est prêt à générer du contenu`,
-      });
-
-      navigate("/projects");
     } catch (error) {
-      console.error("Create project error:", error);
+      console.error("Save project error:", error);
       toast({
-        title: "Erreur de création",
-        description: "Impossible de créer le projet. Veuillez réessayer.",
+        title: isEditMode ? "Erreur de modification" : "Erreur de création",
+        description: "Impossible de sauvegarder le projet. Veuillez réessayer.",
         variant: "destructive",
       });
     } finally {
@@ -329,7 +407,7 @@ const ProjectNew = () => {
   };
 
   // Loading auth
-  if (authLoading) {
+  if (authLoading || isFetchingProject) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -359,10 +437,13 @@ const ProjectNew = () => {
           animate={{ opacity: 1, y: 0 }}
         >
           <h1 className="text-3xl md:text-4xl font-bold gradient-text">
-            Nouveau projet
+            {isEditMode ? "Modifier le projet" : "Nouveau projet"}
           </h1>
           <p className="text-muted-foreground">
-            Configurez votre projet en quelques étapes
+            {isEditMode 
+              ? "Modifiez les paramètres de votre projet"
+              : "Configurez votre projet en quelques étapes"
+            }
           </p>
         </motion.div>
 
