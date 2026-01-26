@@ -67,8 +67,47 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
   const [selectedVoice, setSelectedVoice] = useState<Voice>(getDefaultVoice());
   const [selectedProduct, setSelectedProduct] = useState<CommercialProduct>(defaultProduct);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingScript, setIsGeneratingScript] = useState<string | null>(null);
   const [showProductSelector, setShowProductSelector] = useState(false);
   const { toast } = useToast();
+
+  const generateAIScript = async (segmentId: string) => {
+    setIsGeneratingScript(segmentId);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("suggest-content", {
+        body: {
+          projectName: "Video Script",
+          projectDescription: `Create a viral ${selectedProduct.category} script for social media. The content should be engaging, dynamic, and optimized for ${selectedProduct.name}.`,
+        },
+      });
+
+      if (error) throw error;
+
+      const suggestions = data?.suggestions;
+      if (suggestions && suggestions.length > 0) {
+        // Pick a random suggestion for variety
+        const randomSuggestion = suggestions[Math.floor(Math.random() * suggestions.length)];
+        updateSegment(segmentId, { script: randomSuggestion.content });
+        
+        toast({
+          title: "Script generated! ✨",
+          description: randomSuggestion.title,
+        });
+      } else {
+        throw new Error("No suggestions received");
+      }
+    } catch (error) {
+      console.error("AI script generation error:", error);
+      toast({
+        title: "Generation error",
+        description: "Unable to generate script. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingScript(null);
+    }
+  };
   
   // Get the internal model for API calls (hidden from UI)
   const getInternalModel = (): AIModel | null => {
@@ -503,15 +542,20 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
                     variant="outline" 
                     size="sm" 
                     className="gap-2"
-                    onClick={() => {
-                      toast({
-                        title: "Coming soon",
-                        description: "AI script generation with full project context",
-                      });
-                    }}
+                    disabled={isGeneratingScript === segment.id}
+                    onClick={() => generateAIScript(segment.id)}
                   >
-                    <Sparkles className="h-3.5 w-3.5 text-primary" />
-                    Generate with AI
+                    {isGeneratingScript === segment.id ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-3.5 w-3.5 text-primary" />
+                        Generate with AI
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
