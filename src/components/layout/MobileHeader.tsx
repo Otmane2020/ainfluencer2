@@ -93,7 +93,7 @@ export function MobileHeader() {
     <header className="md:hidden h-14 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50 flex items-center justify-between px-4">
       {/* Logo */}
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden shadow-glow">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden ring-1 ring-border/50 shadow-lg shadow-primary/20">
           <img src="/logo.png" alt="ClipMotion" className="h-full w-full object-contain scale-125" />
         </div>
         <span className="font-display text-lg font-bold text-gradient">ClipMotion</span>
