@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
-import { Instagram, Facebook, Check, AlertCircle, Link2 } from "lucide-react";
+import { Instagram, Facebook, Check, AlertCircle, Link2, Loader2, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useMetaOAuth } from "@/hooks/useMetaOAuth";
 
 interface SocialConnection {
   platform: "instagram" | "facebook";
@@ -14,6 +15,8 @@ interface SocialConnectionsProps {
 }
 
 export const SocialConnections = ({ connections, onConnect }: SocialConnectionsProps) => {
+  const { connection: metaConnection, isConnecting, connect, disconnect, isConnected } = useMetaOAuth();
+
   const platformConfig = {
     instagram: {
       icon: Instagram,
@@ -27,6 +30,37 @@ export const SocialConnections = ({ connections, onConnect }: SocialConnectionsP
       gradient: "from-[#1877F2] to-[#0D65D9]",
       color: "text-[#1877F2]",
     },
+  };
+
+  // Merge local connections with Meta OAuth state
+  const mergedConnections = connections.map((conn) => {
+    if (isConnected && metaConnection) {
+      if (conn.platform === "facebook") {
+        return {
+          ...conn,
+          connected: true,
+          username: metaConnection.user.name,
+        };
+      }
+      if (conn.platform === "instagram" && metaConnection.instagram) {
+        return {
+          ...conn,
+          connected: true,
+          username: metaConnection.instagram.username,
+        };
+      }
+    }
+    return conn;
+  });
+
+  const handleConnect = (platform: "instagram" | "facebook") => {
+    if (isConnected) {
+      // Already connected via Meta OAuth
+      onConnect(platform);
+    } else {
+      // Start Meta OAuth flow
+      connect();
+    }
   };
 
   return (
@@ -47,7 +81,7 @@ export const SocialConnections = ({ connections, onConnect }: SocialConnectionsP
       </div>
 
       <div className="space-y-3">
-        {connections.map((connection, index) => {
+        {mergedConnections.map((connection, index) => {
           const config = platformConfig[connection.platform];
           const Icon = config.icon;
 
@@ -72,18 +106,38 @@ export const SocialConnections = ({ connections, onConnect }: SocialConnectionsP
               </div>
 
               {connection.connected ? (
-                <div className="flex items-center gap-2 rounded-full bg-green-100 px-3 py-1.5 text-green-700">
-                  <Check className="h-4 w-4" />
-                  <span className="text-sm font-medium">Connecté</span>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 rounded-full bg-green-500/20 px-3 py-1.5 text-green-600 dark:text-green-400">
+                    <Check className="h-4 w-4" />
+                    <span className="text-sm font-medium">Connecté</span>
+                  </div>
+                  {isConnected && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={disconnect}
+                    >
+                      <LogOut className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => onConnect(connection.platform)}
+                  onClick={() => handleConnect(connection.platform)}
+                  disabled={isConnecting}
                   className="rounded-full"
                 >
-                  Connecter
+                  {isConnecting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Connexion...
+                    </>
+                  ) : (
+                    "Connecter"
+                  )}
                 </Button>
               )}
             </motion.div>
@@ -94,8 +148,10 @@ export const SocialConnections = ({ connections, onConnect }: SocialConnectionsP
       <div className="mt-4 flex items-start gap-2 rounded-xl bg-accent/10 p-3">
         <AlertCircle className="h-5 w-5 shrink-0 text-accent" />
         <p className="text-sm text-muted-foreground">
-          La publication automatique nécessite une approbation des APIs Meta. 
-          Pour l'instant, les posts seront copiés dans votre presse-papiers.
+          {isConnected 
+            ? "Vos comptes Meta sont connectés. Vous pouvez maintenant partager directement vos vidéos."
+            : "Connectez-vous avec Meta pour partager automatiquement sur Facebook et Instagram."
+          }
         </p>
       </div>
     </motion.div>
