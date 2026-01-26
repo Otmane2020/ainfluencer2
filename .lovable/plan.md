@@ -1,166 +1,200 @@
 
-# Plan: Wizard de creation de projet High SaaS + Correction du bouton
+# Plan: Planification de contenu, Pop-up detail, LinkedIn/TikTok et correction Facebook
 
-## Analyse du probleme actuel
+## Analyse de l'existant
 
-### Bug du bouton "Creer le projet"
-Apres analyse du code `ProjectNew.tsx`, le formulaire semble fonctionnel mais le probleme pourrait venir de:
-1. **Validation Zod trop stricte** - Le schema peut bloquer la soumission silencieusement
-2. **Absence de feedback utilisateur** - Les erreurs ne sont pas toujours visibles
-3. **Condition `!user`** - Si l'utilisateur n'est pas charge, le submit echoue silencieusement
+### Calendrier actuel
+- Le fichier `CalendarPage.tsx` affiche les posts programmes par jour
+- Les posts sont stockes dans `scheduled_posts` avec: `content_type`, `text_content`, `platforms`, `status`, `ai_prompt`, `media_url`
+- Clic sur un post = pas d'action actuelle (juste un `cursor-pointer`)
 
-### Interface actuelle
-L'interface actuelle affiche toutes les sections d'un coup (5 cartes), ce qui peut etre intimidant et pas tres "High SaaS".
+### Plateformes actuelles
+- Seuls Instagram et Facebook sont supportes dans `platforms[]`
+- La table `projects` a `instagram_enabled` et `facebook_enabled`
+- Le hook `useMetaOAuth` gere la connexion Meta
+
+### Connexion Facebook
+- Les secrets `META_APP_ID` et `META_APP_SECRET` sont configures
+- L'edge function `meta-oauth` est fonctionnelle
+- Probleme potentiel: Le `META_REDIRECT_URI` doit etre whitelist dans Meta Developer
+
+### Scraping projet
+- Firecrawl est connecte et fonctionne via `scrape-project-url`
+- Le contenu scrappe (markdown, branding) peut servir de contexte IA
 
 ---
 
 ## Solution proposee
 
-### 1. Interface Wizard multi-etapes
+### 1. Pop-up detail du post programme
 
-Transformer le formulaire en assistant de creation avec des etapes claires:
+Creer un composant `ScheduledPostModal` qui affiche:
+- Sujet/titre du post
+- Contenu texte complet
+- Media (video/image) en preview
+- Plateformes ciblees avec icones
+- Date/heure de publication
+- Statut actuel
+- Actions: Editer, Supprimer, Publier maintenant
 
 ```text
-+------------------------------------------+
-|  [1]----[2]----[3]----[4]----[5]         |
-|  Site   Info   Brand  Content  Publish   |
-+------------------------------------------+
-|                                          |
-|     Contenu de l'etape actuelle          |
-|     avec animations fluides              |
-|                                          |
-+------------------------------------------+
-|  [Precedent]              [Suivant ->]   |
-+------------------------------------------+
++----------------------------------------+
+|  X                                     |
+|  [Video Preview / Image]               |
+|----------------------------------------|
+|  Sujet: Post viral fitness            |
+|                                        |
+|  Contenu:                              |
+|  "Transforme ta vie en 30 jours..."   |
+|                                        |
+|  Plateformes:                          |
+|  [IG] [FB] [LinkedIn] [TikTok]        |
+|                                        |
+|  Programmer pour: 28 Jan 2026 18:00    |
+|  Statut: Brouillon                     |
+|                                        |
+|  [Editer] [Supprimer] [Publier]       |
++----------------------------------------+
 ```
 
-**Etapes du wizard:**
-- **Etape 1 - Site web** : URL + bouton analyse Firecrawl (optionnel, peut etre saute)
-- **Etape 2 - Informations** : Nom + Description du projet
-- **Etape 3 - Branding** : Logo + Couleur theme
-- **Etape 4 - Contenu** : Generation mensuelle (videos, images) + frequence
-- **Etape 5 - Plateformes** : Instagram/Facebook + mode automatisation + recapitulatif
+### 2. Ajouter LinkedIn et TikTok
 
-### 2. Corrections techniques
+#### Base de donnees
+Ajouter les colonnes a `projects`:
+- `linkedin_enabled boolean DEFAULT false`
+- `tiktok_enabled boolean DEFAULT false`
 
-- Ajouter des logs de debug pour identifier les erreurs
-- Verifier que `user` est bien charge avant d'afficher le formulaire
-- Afficher un loading state pendant la creation
-- Ameliorer les messages d'erreur avec des toasts plus explicites
+Mettre a jour `platforms[]` pour supporter: `instagram`, `facebook`, `linkedin`, `tiktok`
 
-### 3. Ameliorations visuelles High SaaS
+#### Interface
+- Ajouter les icones LinkedIn et TikTok partout ou Instagram/Facebook sont affiches
+- Mettre a jour `ShareButton.tsx` pour inclure ces plateformes
+- Mettre a jour le wizard de creation de projet
 
-- Progress bar animee entre les etapes
-- Animations Framer Motion pour les transitions
-- Resume/preview du projet cree a la derniere etape
-- Boutons avec feedback visuel (loading states)
-- Design glassmorphism coherent avec le reste de l'app
+#### Partage
+- LinkedIn: Utiliser l'API de partage web (https://www.linkedin.com/sharing/share-offsite/)
+- TikTok: Telechargement + instruction (pas d'API web directe)
+
+### 3. Suggestion de contenu basee sur le contexte
+
+Creer un systeme de suggestions IA:
+
+#### Nouveau composant `ContentSuggestions`
+- Affiche 3-5 idees de posts/scripts basees sur:
+  - Le contenu scrappe du site projet (markdown)
+  - L'historique des posts precedents
+  - Les tendances du secteur
+
+#### Edge function `suggest-content`
+- Prend en entree: `projectId`, `contentType` (video/post)
+- Recupere le contexte du projet (description, markdown scrappe)
+- Genere des suggestions via Gemini
+
+```typescript
+// Exemple de prompt
+const systemPrompt = `Tu es un expert en creation de contenu viral.
+Basé sur ce contexte de projet:
+- Site: ${projectUrl}
+- Description: ${projectDescription}
+- Contenu du site: ${scrapedMarkdown.slice(0, 2000)}
+
+Genere 5 idées de ${contentType === 'video' ? 'scripts video' : 'posts'} 
+viraux et engageants.`;
+```
+
+### 4. Correction connexion Facebook
+
+#### Diagnostics et corrections
+1. Verifier le `META_REDIRECT_URI` dans Meta Developer Portal
+2. Ajouter des logs detailles dans `meta-oauth`
+3. Gerer les erreurs de token expire
+4. Afficher des messages d'erreur explicites
+
+#### Ameliorations du hook `useMetaOAuth`
+- Ajouter la gestion des erreurs specifiques Meta
+- Implementer le refresh token
+- Verifier la validite du token avant chaque action
 
 ---
 
 ## Details techniques
 
-### Fichiers a creer/modifier
+### Fichiers a creer
 
-| Fichier | Action | Description |
-|---------|--------|-------------|
-| `src/pages/ProjectNew.tsx` | Modifier | Refonte complete en wizard multi-etapes |
-| `src/components/wizard/WizardProgress.tsx` | Creer | Barre de progression avec etapes |
-| `src/components/wizard/WizardStep.tsx` | Creer | Container anime pour chaque etape |
+| Fichier | Description |
+|---------|-------------|
+| `src/components/ScheduledPostModal.tsx` | Pop-up detail du post |
+| `src/components/ContentSuggestions.tsx` | Suggestions IA basees sur contexte |
+| `supabase/functions/suggest-content/index.ts` | Edge function pour generer suggestions |
 
-### Structure du nouveau composant
+### Fichiers a modifier
 
-```typescript
-// Etats du wizard
-const [currentStep, setCurrentStep] = useState(0);
-const steps = [
-  { id: 'site', title: 'Site web', icon: Globe },
-  { id: 'info', title: 'Informations', icon: FileText },
-  { id: 'branding', title: 'Identite', icon: Palette },
-  { id: 'content', title: 'Contenu', icon: Calendar },
-  { id: 'publish', title: 'Plateformes', icon: Share2 },
-];
+| Fichier | Modifications |
+|---------|---------------|
+| `src/pages/CalendarPage.tsx` | Ajouter onClick pour ouvrir le modal |
+| `src/components/ShareButton.tsx` | Ajouter LinkedIn et TikTok |
+| `src/components/SocialConnections.tsx` | Ajouter LinkedIn et TikTok |
+| `src/pages/ProjectNew.tsx` | Checkboxes LinkedIn/TikTok dans wizard |
+| `src/pages/Projects.tsx` | Afficher icones LinkedIn/TikTok |
+| `src/hooks/useMetaOAuth.ts` | Ameliorer gestion erreurs |
+| `supabase/functions/meta-oauth/index.ts` | Ajouter logs debug |
 
-// Navigation
-const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, steps.length - 1));
-const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 0));
-const isLastStep = currentStep === steps.length - 1;
+### Migration base de donnees
+
+```sql
+-- Ajouter colonnes LinkedIn et TikTok
+ALTER TABLE projects 
+ADD COLUMN linkedin_enabled boolean DEFAULT false,
+ADD COLUMN tiktok_enabled boolean DEFAULT false;
 ```
 
-### Validation par etape
-
-Chaque etape aura sa propre validation:
-- **Etape 1** : URL optionnelle (pas de validation bloquante)
-- **Etape 2** : Nom requis (min 2 caracteres)
-- **Etape 3** : Couleur theme (pre-selectionnee par defaut)
-- **Etape 4** : Sliders avec valeurs par defaut
-- **Etape 5** : Au moins une plateforme + confirmation
-
-### Correction du bug de soumission
+### Structure du modal
 
 ```typescript
-const handleSubmit = async () => {
-  // 1. Verification utilisateur avec message explicite
-  if (!user) {
-    toast({
-      title: "Non connecte",
-      description: "Veuillez vous reconnecter",
-      variant: "destructive",
-    });
-    navigate("/auth");
-    return;
-  }
-
-  // 2. Validation avec feedback
-  try {
-    projectSchema.parse(formData);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      toast({
-        title: "Donnees invalides",
-        description: error.errors[0]?.message || "Verifiez le formulaire",
-        variant: "destructive",
-      });
-      return;
-    }
-  }
-
-  // 3. Creation avec loading state
-  setIsLoading(true);
-  try {
-    const { data, error } = await supabase
-      .from("projects")
-      .insert({...})
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Supabase error:", error);
-      throw error;
-    }
-
-    toast({
-      title: "Projet cree !",
-      description: "Redirection vers vos projets...",
-    });
-    navigate("/projects");
-  } catch (error) {
-    console.error("Creation error:", error);
-    toast({
-      title: "Erreur de creation",
-      description: "Impossible de creer le projet. Reessayez.",
-      variant: "destructive",
-    });
-  } finally {
-    setIsLoading(false);
-  }
-};
+interface ScheduledPostModalProps {
+  post: ScheduledPost;
+  project: Project;
+  isOpen: boolean;
+  onClose: () => void;
+  onEdit: (post: ScheduledPost) => void;
+  onDelete: (postId: string) => void;
+  onPublishNow: (post: ScheduledPost) => void;
+}
 ```
+
+### Structure des suggestions
+
+```typescript
+interface ContentSuggestion {
+  id: string;
+  title: string;
+  content: string;
+  contentType: "video" | "image" | "text";
+  estimatedEngagement: "high" | "medium" | "low";
+  hashtags: string[];
+}
+```
+
+---
+
+## Ordre d'implementation
+
+1. **Migration DB** - Ajouter colonnes LinkedIn/TikTok
+2. **ScheduledPostModal** - Pop-up detail avec toutes les infos
+3. **Calendrier** - Connecter le modal au clic sur les posts
+4. **ShareButton** - Ajouter LinkedIn et TikTok
+5. **SocialConnections** - Mettre a jour l'interface
+6. **Wizard projet** - Ajouter les nouvelles plateformes
+7. **Edge function suggest-content** - Generer des suggestions
+8. **ContentSuggestions** - Afficher les suggestions dans l'UI
+9. **Meta OAuth** - Corriger et ameliorer la connexion Facebook
 
 ---
 
 ## Estimation
 
-- **Complexite** : Moyenne
-- **Composants a creer** : 2 nouveaux + 1 refonte
-- **Impact visuel** : Eleve (experience utilisateur amelioree)
+- **Complexite**: Moyenne-elevee
+- **Composants a creer**: 3 nouveaux
+- **Fichiers a modifier**: 7
+- **Migration DB**: 1
+- **Impact utilisateur**: Eleve (nouvelles fonctionnalites cles)
