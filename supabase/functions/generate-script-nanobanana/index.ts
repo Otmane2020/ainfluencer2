@@ -36,7 +36,39 @@ serve(async (req) => {
     const minWords = Math.max(10, targetWords - 10);
     const maxWords = targetWords + 15;
 
-    // Generate timing segments based on duration
+    // AGGRESSIVE ADS TEMPLATE - Ultra short sentences with timestamps
+    const generateAggressiveAdTemplate = (dur: number): string => {
+      if (dur <= 10) {
+        return `[0–1s] Phrase choc (max 4 mots)
+[1–3s] Accusation directe
+[3–5s] Solution (nom produit)
+[5–7s] Résultat chiffré
+[7–${dur}s] CTA brutal`;
+      } else if (dur <= 20) {
+        return `[0–1s] Phrase choc (max 4 mots)
+[1–3s] Accusation directe
+[3–5s] Cause claire
+[5–7s] Conséquence business
+[7–9s] Rupture / ordre
+[9–12s] Solution (nom du produit)
+[12–14s] Actions automatisées (liste courte)
+[14–16s] Résultat chiffré
+[16–18s] Émotion / soulagement
+[18–${dur}s] CTA brutal`;
+      } else {
+        return `[0–2s] Phrase choc violente
+[2–5s] Accusation directe
+[5–8s] Développement problème
+[8–12s] Conséquence business
+[12–15s] Rupture / solution
+[15–20s] Fonctionnalités clés
+[20–25s] Résultats chiffrés
+[25–28s] Émotion / témoignage
+[28–${dur}s] CTA brutal`;
+      }
+    };
+
+    // Generate timing segments based on duration (for non-ads)
     const generateTimingTemplate = (dur: number): string => {
       if (dur <= 5) {
         return `[0-${dur}s] Hook + Message complet`;
@@ -59,7 +91,7 @@ serve(async (req) => {
       }
     };
 
-    // Duration-based instructions - STRICT word count enforcement
+    // Duration-based instructions
     const getDurationInstructions = (dur: number): string => {
       const timingTemplate = generateTimingTemplate(dur);
       
@@ -92,20 +124,58 @@ Chaque segment DOIT être développé. Storytelling complet.`;
 ${getDurationInstructions(duration)}`,
       story: `Format : Story Instagram
 ${getDurationInstructions(Math.min(duration, 15))}`,
-      ad: `Format : Publicité
-${getDurationInstructions(duration)}
-- Accroche émotionnelle + urgence`,
+      ad: `Format : Publicité PAYANTE (Meta / TikTok Ads)
+
+${generateAggressiveAdTemplate(duration)}
+
+RÈGLES ABSOLUES ADS :
+- Chaque segment = 1 phrase MAX
+- Chaque phrase = 2 à 6 mots MAX (JAMAIS plus de 7 mots)
+- Phrases TRÈS courtes, percutantes
+- Ton direct, presque brutal
+- Aucune phrase explicative longue
+- Impact > politesse
+- ZÉRO mot de liaison inutile
+
+EXEMPLE DE SCRIPT ADS PARFAIT :
+[0–1s] Tu perds de l'argent.
+[1–3s] Tous les jours.
+[3–5s] À cause de Google.
+[5–7s] Avis sans réponse.
+[7–9s] Les clients partent.
+[9–12s] Starlinko agit pour toi.
+[12–14s] Avis. Posts. Questions.
+[14–16s] 30 % de temps gagné.
+[16–18s] Moins de pression.
+[18–20s] Starlinko. Réagis.`,
       testimonial: `Format : Témoignage authentique
 ${getDurationInstructions(duration)}
 - Ton humain et crédible`,
     };
+
+    // Ads-specific system prompt rules
+    const adsRules = scriptType === "ad" ? `
+
+🔥 FORMAT OBLIGATOIRE POUR LES ADS :
+Chaque ligne DOIT commencer par un timestamp [0–1s], [1–3s], etc.
+Chaque phrase = 2 à 6 mots MAX. JAMAIS plus de 7 mots par phrase !
+Ton brutal, direct, sans fioritures.
+
+EXEMPLE EXACT À SUIVRE :
+[0–1s] Tu perds de l'argent.
+[1–3s] Tous les jours.
+[3–5s] À cause de Google.
+[5–7s] Avis sans réponse.
+[7–9s] Les clients partent.
+
+` : "";
 
     const systemPrompt = `Tu es un copywriter professionnel francophone spécialisé en scripts vidéo viraux.
 
 ⚠️ RÈGLE #1 LA PLUS IMPORTANTE - LONGUEUR DU SCRIPT :
 Le script DOIT contenir entre ${minWords} et ${maxWords} mots pour une durée de ${duration} secondes.
 Un script trop court = vidéo ratée. COMPTE TES MOTS avant de répondre !
-
+${adsRules}
 RÈGLES DE STYLE :
 • Langue : français parfait de France (pas belge, pas québécois)
 • ZÉRO faute d'orthographe ou de grammaire
@@ -132,7 +202,7 @@ EXEMPLES DE MAUVAIS STYLE :
 ❌ "N'attendez plus pour booster votre business !"
 ❌ "Cette méthode unique va transformer votre vie..."
 
-RAPPEL FINAL : Chaque script DOIT faire ${minWords}-${maxWords} mots pour ${duration} secondes de vidéo !`;
+RAPPEL FINAL : Chaque script DOIT faire ${minWords}-${maxWords} mots pour ${duration} secondes de vidéo !${scriptType === "ad" ? "\n⚠️ FORMAT ADS : Timestamps obligatoires + phrases de 2-6 mots MAX !" : ""}`;
 
     const userPrompt = `Génère 5 scripts différents pour ce projet :
 
@@ -206,8 +276,9 @@ Réponds UNIQUEMENT avec un JSON valide :
         scripts = scripts.filter((s: { content?: string }) => {
           const text = s.content?.trim() || "";
           
-          // Length check
-          if (text.length < 30 || text.length > 500) return false;
+          // Length check (more permissive for ads with timestamps)
+          const textWithoutTimestamps = text.replace(/\[\d+[–-]\d+s\]/g, "").trim();
+          if (textWithoutTimestamps.length < 30 || textWithoutTimestamps.length > 800) return false;
           
           // English words check (strict)
           const englishWords = /\b(discover|our|solution|innovative|boost|game-changer|tips|hack|amazing|incredible|unique|transform|revolutionary)\b/gi;
@@ -226,13 +297,33 @@ Réponds UNIQUEMENT avec un JSON valide :
           const lowerText = text.toLowerCase();
           if (genericPhrases.some(phrase => lowerText.includes(phrase))) return false;
           
+          // For ADS: Check sentence length (max 7 words per sentence)
+          if (scriptType === "ad") {
+            // Extract sentences (split by timestamp lines or punctuation)
+            const lines = text.split(/\n/).filter(Boolean);
+            for (const line of lines) {
+              // Remove timestamp prefix
+              const cleanLine = line.replace(/^\[\d+[–-]\d+s\]\s*/, "").trim();
+              if (cleanLine) {
+                const words = cleanLine.split(/\s+/).filter(Boolean);
+                // Allow up to 8 words (a bit of tolerance)
+                if (words.length > 8) {
+                  console.log("ADS script rejected - line too long:", cleanLine, "words:", words.length);
+                  return false;
+                }
+              }
+            }
+          }
+          
           return true;
         });
 
         // Ensure we have at least some scripts
         if (scripts.length === 0) {
           console.warn("All scripts filtered, using fallbacks");
-          scripts = generateFallbackScripts(projectName, projectDescription);
+          scripts = scriptType === "ad" 
+            ? generateAdsFallbackScripts(projectName, productName)
+            : generateFallbackScripts(projectName, projectDescription);
         }
       } else {
         throw new Error("No JSON found in response");
@@ -294,6 +385,88 @@ function generateFallbackScripts(projectName?: string, description?: string): Ar
       title: "L'action immédiate",
       content: `Une semaine. C'est tout ce qu'il te faut pour voir la différence avec ${name}. Prêt à essayer ?`,
       angle: "urgence",
+    },
+  ];
+}
+
+// ADS-specific fallback scripts with timestamps
+function generateAdsFallbackScripts(projectName?: string, productName?: string): Array<{ id: string; title: string; content: string; angle: string }> {
+  const name = productName || projectName || "notre solution";
+  return [
+    {
+      id: "1",
+      title: "Choc direct",
+      content: `[0–1s] Tu perds de l'argent.
+[1–3s] Chaque jour.
+[3–5s] Sans le savoir.
+[5–7s] Clients ignorés.
+[7–9s] Avis sans réponse.
+[9–12s] ${name} agit pour toi.
+[12–14s] Réponses. Posts. Automatique.
+[14–16s] 30% de temps gagné.
+[16–18s] Zéro stress.
+[18–20s] ${name}. Maintenant.`,
+      angle: "probleme",
+    },
+    {
+      id: "2",
+      title: "Accusation brutale",
+      content: `[0–1s] Tu négliges tes clients.
+[1–3s] Pas exprès.
+[3–5s] Mais ils partent.
+[5–7s] Vers tes concurrents.
+[7–9s] Stop.
+[9–12s] ${name} répond à ta place.
+[12–14s] 24h/24. 7j/7.
+[14–16s] Clients fidélisés.
+[16–18s] CA en hausse.
+[18–20s] Teste ${name}.`,
+      angle: "urgence",
+    },
+    {
+      id: "3",
+      title: "Résultat chiffré",
+      content: `[0–1s] 3h par semaine.
+[1–3s] Perdues.
+[3–5s] À répondre aux avis.
+[5–7s] Pour rien.
+[7–9s] ${name} automatise tout.
+[9–12s] Avis. Posts. Questions.
+[12–14s] En 2 clics.
+[14–16s] 40% productivité.
+[16–18s] Résultats garantis.
+[18–20s] Essaie ${name}.`,
+      angle: "preuve",
+    },
+    {
+      id: "4",
+      title: "Émotion pure",
+      content: `[0–1s] Tu es épuisé.
+[1–3s] Trop de tâches.
+[3–5s] Pas assez de temps.
+[5–7s] Stress constant.
+[7–9s] Respire.
+[9–12s] ${name} gère pour toi.
+[12–14s] Automatique. Simple.
+[14–16s] Retrouve ton calme.
+[16–18s] Focus sur l'essentiel.
+[18–20s] ${name}. Libère-toi.`,
+      angle: "emotion",
+    },
+    {
+      id: "5",
+      title: "Ordre direct",
+      content: `[0–1s] Arrête.
+[1–3s] Tu fais ça mal.
+[3–5s] Google te pénalise.
+[5–7s] Avis ignorés.
+[7–9s] Visibilité en chute.
+[9–12s] ${name} corrige tout.
+[12–14s] IA intelligente.
+[14–16s] Résultats immédiats.
+[16–18s] Top Google Maps.
+[18–20s] Active ${name}.`,
+      angle: "benefice",
     },
   ];
 }
