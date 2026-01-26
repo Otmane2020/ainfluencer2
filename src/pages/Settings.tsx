@@ -38,7 +38,6 @@ const Settings = () => {
     weekly: true,
   });
 
-  // Social connections state
   const [connections, setConnections] = useState([
     { platform: "instagram" as const, connected: false },
     { platform: "facebook" as const, connected: false },
@@ -46,7 +45,6 @@ const Settings = () => {
     { platform: "tiktok" as const, connected: false },
   ]);
 
-  // Subscription state (simulated - will be database-driven later)
   const [currentPack] = useState<PricingPack | null>(PRICING_PACKS.find(p => p.id === "starter") || null);
   const [credits] = useState({
     images: 8,
@@ -67,14 +65,14 @@ const Settings = () => {
       if (error) throw error;
 
       toast({
-        title: "Profil mis à jour",
-        description: "Vos informations ont été sauvegardées",
+        title: "Profile updated",
+        description: "Your information has been saved",
       });
     } catch (error) {
       console.error("Error updating profile:", error);
       toast({
-        title: "Erreur",
-        description: "Impossible de mettre à jour le profil",
+        title: "Error",
+        description: "Unable to update profile",
         variant: "destructive",
       });
     } finally {
@@ -86,12 +84,12 @@ const Settings = () => {
     if (platform === "linkedin") {
       toast({
         title: "LinkedIn",
-        description: "La connexion LinkedIn sera disponible prochainement",
+        description: "LinkedIn connection coming soon",
       });
     } else if (platform === "tiktok") {
       toast({
         title: "TikTok",
-        description: "La connexion TikTok sera disponible prochainement",
+        description: "TikTok connection coming soon",
       });
     }
   };
@@ -104,9 +102,9 @@ const Settings = () => {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-bold">Paramètres</h1>
+        <h1 className="font-display text-2xl font-bold">Settings</h1>
         <p className="text-muted-foreground">
-          Gérez votre compte et vos préférences
+          Manage your account and preferences
         </p>
       </div>
 
@@ -115,7 +113,7 @@ const Settings = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Crown className="h-5 w-5 text-primary" />
-            Abonnement & Crédits
+            Subscription & Credits
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -126,14 +124,14 @@ const Settings = () => {
                 <Zap className="h-6 w-6 text-white" />
               </div>
               <div>
-                <p className="font-semibold">{currentPack?.name || "Aucun pack"}</p>
+                <p className="font-semibold">{currentPack?.name || "No plan"}</p>
                 <p className="text-sm text-muted-foreground">
-                  {currentPack?.price}€{currentPack?.priceUnit}
+                  ${currentPack?.price}{currentPack?.priceUnit}
                 </p>
               </div>
             </div>
             <Button variant="outline" size="sm">
-              Changer de pack
+              Change Plan
             </Button>
           </div>
 
@@ -155,7 +153,7 @@ const Settings = () => {
               <p className="text-2xl font-bold text-secondary">
                 {credits.videos}/{currentPack?.included.videos || 0}
               </p>
-              <p className="text-xs text-muted-foreground">Vidéos</p>
+              <p className="text-xs text-muted-foreground">Videos</p>
             </div>
             <div className="rounded-xl bg-card p-4 border border-border text-center">
               <div className="flex items-center justify-center gap-1 mb-1">
@@ -173,11 +171,11 @@ const Settings = () => {
           {/* Upgrade CTA */}
           <div className="text-center py-2">
             <p className="text-sm text-muted-foreground mb-3">
-              Besoin de plus de crédits ? Passez au pack supérieur !
+              Need more credits? Upgrade to a higher plan!
             </p>
             <Button className="bg-gradient-to-r from-primary to-secondary hover:opacity-90">
               <Crown className="h-4 w-4 mr-2" />
-              Voir les packs Pro & Agency
+              View Pro & Agency Plans
             </Button>
           </div>
         </CardContent>
@@ -188,7 +186,7 @@ const Settings = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <User className="h-5 w-5 text-primary" />
-            Profil
+            Profile
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -201,12 +199,12 @@ const Settings = () => {
               </div>
             </div>
             <div className="flex-1">
-              <Label htmlFor="displayName">Nom d'affichage</Label>
+              <Label htmlFor="displayName">Display Name</Label>
               <Input
                 id="displayName"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Votre nom"
+                placeholder="Your name"
               />
             </div>
           </div>
@@ -218,7 +216,7 @@ const Settings = () => {
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              "Sauvegarder"
+              "Save"
             )}
           </Button>
         </CardContent>
@@ -229,7 +227,7 @@ const Settings = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-secondary" />
-            Comptes connectés
+            Connected Accounts
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -251,9 +249,9 @@ const Settings = () => {
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium">Notifications email</p>
+              <p className="font-medium">Email Notifications</p>
               <p className="text-sm text-muted-foreground">
-                Recevoir des emails sur vos publications
+                Receive emails about your publications
               </p>
             </div>
             <Switch
@@ -268,9 +266,9 @@ const Settings = () => {
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium">Rapport hebdomadaire</p>
+              <p className="font-medium">Weekly Report</p>
               <p className="text-sm text-muted-foreground">
-                Résumé de vos performances chaque semaine
+                Summary of your performance every week
               </p>
             </div>
             <Switch
@@ -286,7 +284,7 @@ const Settings = () => {
       {/* Danger Zone */}
       <Card className="border-destructive/50">
         <CardHeader>
-          <CardTitle className="text-destructive">Zone de danger</CardTitle>
+          <CardTitle className="text-destructive">Danger Zone</CardTitle>
         </CardHeader>
         <CardContent>
           <Button
@@ -295,7 +293,7 @@ const Settings = () => {
             className="w-full gap-2"
           >
             <LogOut className="h-4 w-4" />
-            Se déconnecter
+            Sign Out
           </Button>
         </CardContent>
       </Card>

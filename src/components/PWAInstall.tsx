@@ -15,7 +15,6 @@ export function usePWAInstall() {
   const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
-    // Check if already installed
     if (window.matchMedia("(display-mode: standalone)").matches) {
       setIsInstalled(true);
       return;
@@ -78,7 +77,7 @@ export function PWAInstallBanner() {
       
       if (permission === "granted") {
         new Notification("ClipMotion", {
-          body: "Notifications activées ! Vous recevrez des alertes pour vos posts.",
+          body: "Notifications enabled! You'll receive alerts for your posts.",
           icon: "/logo.png",
         });
       }
@@ -101,11 +100,11 @@ export function PWAInstallBanner() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl gradient-primary p-2 shadow-primary">
-                    <img src="/logo.png" alt="AI Influencer" className="h-full w-full object-contain" />
+                    <img src="/logo.png" alt="ClipMotion" className="h-full w-full object-contain" />
                   </div>
-                <div>
+                  <div>
                     <CardTitle className="text-base">ClipMotion</CardTitle>
-                    <CardDescription className="text-xs">Installez l'app</CardDescription>
+                    <CardDescription className="text-xs">Install the app</CardDescription>
                   </div>
                 </div>
                 <Button
@@ -125,7 +124,7 @@ export function PWAInstallBanner() {
                   className="w-full gradient-primary hover:opacity-90"
                 >
                   <Download className="mr-2 h-4 w-4" />
-                  Installer l'application
+                  Install App
                 </Button>
               )}
               
@@ -136,20 +135,20 @@ export function PWAInstallBanner() {
                   className="w-full"
                 >
                   <Bell className="mr-2 h-4 w-4" />
-                  Activer les notifications
+                  Enable Notifications
                 </Button>
               )}
               
               {notificationPermission === "granted" && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Check className="h-4 w-4 text-primary" />
-                  Notifications activées
+                  Notifications enabled
                 </div>
               )}
 
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Smartphone className="h-3 w-3" />
-                <span>Accès rapide depuis votre écran d'accueil</span>
+                <span>Quick access from your home screen</span>
               </div>
             </CardContent>
           </Card>
@@ -166,7 +165,7 @@ export function PWAInstallButton() {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Check className="h-4 w-4 text-primary" />
-        App installée
+        App installed
       </div>
     );
   }
@@ -176,7 +175,7 @@ export function PWAInstallButton() {
   return (
     <Button onClick={promptInstall} variant="outline" size="sm">
       <Download className="mr-2 h-4 w-4" />
-      Installer
+      Install
     </Button>
   );
 }

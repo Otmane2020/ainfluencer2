@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles, Mail, Lock, User, ArrowRight, Loader2 } from "lucide-react";
+import { Mail, Lock, User, ArrowRight, Loader2 } from "lucide-react";
 import { z } from "zod";
 
 const authSchema = z.object({
-  email: z.string().email("Email invalide"),
-  password: z.string().min(6, "Mot de passe minimum 6 caractères"),
-  displayName: z.string().min(2, "Nom minimum 2 caractères").optional(),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  displayName: z.string().min(2, "Name must be at least 2 characters").optional(),
 });
 
 const Auth = () => {
@@ -81,8 +81,8 @@ const Auth = () => {
         });
         if (error) throw error;
         toast({
-          title: "Bienvenue !",
-          description: "Connexion réussie",
+          title: "Welcome back!",
+          description: "Successfully signed in",
         });
       } else {
         const redirectUrl = `${window.location.origin}/dashboard`;
@@ -98,7 +98,6 @@ const Auth = () => {
         });
         if (error) throw error;
 
-        // Create profile
         if (data.user) {
           const { error: profileError } = await supabase
             .from("profiles")
@@ -112,29 +111,28 @@ const Auth = () => {
         }
 
         toast({
-          title: "Compte créé !",
-          description: "Bienvenue sur AI Influencer",
+          title: "Account created!",
+          description: "Welcome to ClipMotion",
         });
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Une erreur est survenue";
+      const message = error instanceof Error ? error.message : "An error occurred";
       
-      // Handle specific error cases
       if (message.includes("User already registered")) {
         toast({
-          title: "Email déjà utilisé",
-          description: "Cet email est déjà enregistré. Essayez de vous connecter.",
+          title: "Email already in use",
+          description: "This email is already registered. Try signing in instead.",
           variant: "destructive",
         });
       } else if (message.includes("Invalid login credentials")) {
         toast({
-          title: "Identifiants incorrects",
-          description: "Email ou mot de passe invalide",
+          title: "Invalid credentials",
+          description: "Email or password is incorrect",
           variant: "destructive",
         });
       } else {
         toast({
-          title: "Erreur",
+          title: "Error",
           description: message,
           variant: "destructive",
         });
@@ -156,20 +154,19 @@ const Auth = () => {
             transition={{ delay: 0.2 }}
           >
             <div className="flex items-center gap-3 mb-8">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm">
-                <Sparkles className="h-7 w-7" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl overflow-hidden bg-white/20 backdrop-blur-sm">
+                <img src="/logo.png" alt="ClipMotion" className="h-full w-full object-contain scale-110" />
               </div>
-              <span className="font-display text-3xl font-bold">AI Influencer</span>
+              <span className="font-display text-3xl font-bold">ClipMotion</span>
             </div>
             <h1 className="font-display text-5xl font-bold leading-tight mb-6">
-              Automatisez votre présence sur les réseaux sociaux
+              Automate Your Social Media Presence with AI
             </h1>
             <p className="text-xl text-white/80 max-w-md">
-              Créez, planifiez et publiez du contenu viral généré par IA pour Instagram et Facebook.
+              Create, schedule, and publish viral AI-generated content for Instagram, Facebook, and TikTok.
             </p>
           </motion.div>
 
-          {/* Decorative elements */}
           <div className="absolute bottom-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
           <div className="absolute top-20 right-20 w-64 h-64 bg-white/10 rounded-full blur-2xl" />
         </div>
@@ -184,27 +181,27 @@ const Auth = () => {
         >
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center gap-3 mb-8 justify-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl gradient-primary">
-              <Sparkles className="h-6 w-6 text-white" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl overflow-hidden">
+              <img src="/logo.png" alt="ClipMotion" className="h-full w-full object-contain" />
             </div>
-            <span className="font-display text-2xl font-bold text-gradient">AI Influencer</span>
+            <span className="font-display text-2xl font-bold text-gradient">ClipMotion</span>
           </div>
 
           <div className="text-center mb-8">
             <h2 className="font-display text-3xl font-bold mb-2">
-              {isLogin ? "Content de vous revoir" : "Créer un compte"}
+              {isLogin ? "Welcome back" : "Create an account"}
             </h2>
             <p className="text-muted-foreground">
               {isLogin
-                ? "Connectez-vous pour accéder à votre dashboard"
-                : "Commencez à créer du contenu viral dès maintenant"}
+                ? "Sign in to access your dashboard"
+                : "Start creating viral content today"}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {!isLogin && (
               <div className="space-y-2">
-                <Label htmlFor="displayName">Nom d'affichage</Label>
+                <Label htmlFor="displayName">Display Name</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                   <Input
@@ -229,7 +226,7 @@ const Auth = () => {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="vous@exemple.com"
+                  placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 h-12"
@@ -241,7 +238,7 @@ const Auth = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Mot de passe</Label>
+              <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
@@ -267,7 +264,7 @@ const Auth = () => {
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
                 <>
-                  {isLogin ? "Se connecter" : "Créer mon compte"}
+                  {isLogin ? "Sign In" : "Create Account"}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </>
               )}
@@ -284,8 +281,8 @@ const Auth = () => {
               className="text-sm text-muted-foreground hover:text-primary transition-colors"
             >
               {isLogin
-                ? "Pas encore de compte ? Inscrivez-vous"
-                : "Déjà un compte ? Connectez-vous"}
+                ? "Don't have an account? Sign up"
+                : "Already have an account? Sign in"}
             </button>
           </div>
         </motion.div>
