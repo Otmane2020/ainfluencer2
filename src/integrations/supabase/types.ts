@@ -14,7 +14,143 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          automation_mode: string | null
+          created_at: string
+          description: string | null
+          facebook_enabled: boolean | null
+          id: string
+          instagram_enabled: boolean | null
+          logo_url: string | null
+          name: string
+          posts_per_week: number | null
+          theme_color: string | null
+          updated_at: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          automation_mode?: string | null
+          created_at?: string
+          description?: string | null
+          facebook_enabled?: boolean | null
+          id?: string
+          instagram_enabled?: boolean | null
+          logo_url?: string | null
+          name: string
+          posts_per_week?: number | null
+          theme_color?: string | null
+          updated_at?: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          automation_mode?: string | null
+          created_at?: string
+          description?: string | null
+          facebook_enabled?: boolean | null
+          id?: string
+          instagram_enabled?: boolean | null
+          logo_url?: string | null
+          name?: string
+          posts_per_week?: number | null
+          theme_color?: string | null
+          updated_at?: string
+          url?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      scheduled_posts: {
+        Row: {
+          ai_prompt: string | null
+          content_type: string
+          created_at: string
+          error_message: string | null
+          id: string
+          media_url: string | null
+          platforms: string[] | null
+          project_id: string
+          published_at: string | null
+          scheduled_for: string
+          status: string | null
+          text_content: string | null
+          thumbnail_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_prompt?: string | null
+          content_type: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          media_url?: string | null
+          platforms?: string[] | null
+          project_id: string
+          published_at?: string | null
+          scheduled_for: string
+          status?: string | null
+          text_content?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_prompt?: string | null
+          content_type?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          media_url?: string | null
+          platforms?: string[] | null
+          project_id?: string
+          published_at?: string | null
+          scheduled_for?: string
+          status?: string | null
+          text_content?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_posts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

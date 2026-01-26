@@ -1,0 +1,282 @@
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Plus,
+  Search,
+  FolderKanban,
+  Calendar,
+  Instagram,
+  Facebook,
+  MoreVertical,
+  Trash2,
+  Edit,
+  ExternalLink,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useToast } from "@/hooks/use-toast";
+
+interface Project {
+  id: string;
+  name: string;
+  description: string | null;
+  url: string | null;
+  logo_url: string | null;
+  theme_color: string;
+  instagram_enabled: boolean;
+  facebook_enabled: boolean;
+  posts_per_week: number;
+  automation_mode: string;
+  created_at: string;
+}
+
+const Projects = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setProjects(data || []);
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les projets",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async (projectId: string) => {
+    try {
+      const { error } = await supabase
+        .from("projects")
+        .delete()
+        .eq("id", projectId);
+
+      if (error) throw error;
+
+      setProjects((prev) => prev.filter((p) => p.id !== projectId));
+      toast({
+        title: "Projet supprimé",
+        description: "Le projet a été supprimé avec succès",
+      });
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer le projet",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const filteredProjects = projects.filter(
+    (project) =>
+      project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      project.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const automationLabels: Record<string, string> = {
+    manual: "Manuel",
+    semi_auto: "Semi-auto",
+    full_auto: "Automatique",
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-bold">Projets</h1>
+          <p className="text-muted-foreground">
+            Gérez vos projets et leurs automatisations
+          </p>
+        </div>
+        <Button onClick={() => navigate("/projects/new")} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Nouveau projet
+        </Button>
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Rechercher un projet..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
+      {/* Projects Grid */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-6">
+                <div className="h-10 w-10 rounded-xl bg-muted mb-4" />
+                <div className="h-4 w-3/4 bg-muted rounded mb-2" />
+                <div className="h-3 w-1/2 bg-muted rounded" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : filteredProjects.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
+              <FolderKanban className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="font-semibold mb-2">
+              {searchQuery ? "Aucun résultat" : "Aucun projet"}
+            </h3>
+            <p className="text-muted-foreground text-sm text-center mb-4 max-w-sm">
+              {searchQuery
+                ? "Aucun projet ne correspond à votre recherche"
+                : "Créez votre premier projet pour automatiser vos publications sur les réseaux sociaux"}
+            </p>
+            {!searchQuery && (
+              <Button onClick={() => navigate("/projects/new")} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Créer un projet
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredProjects.map((project, index) => (
+            <motion.div
+              key={project.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+            >
+              <Card className="group hover:shadow-lg transition-all hover:border-primary/30">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div
+                      className="flex items-center gap-3 cursor-pointer flex-1"
+                      onClick={() => navigate(`/projects/${project.id}`)}
+                    >
+                      <div
+                        className="h-12 w-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shrink-0"
+                        style={{ backgroundColor: project.theme_color }}
+                      >
+                        {project.logo_url ? (
+                          <img
+                            src={project.logo_url}
+                            alt={project.name}
+                            className="h-full w-full rounded-xl object-cover"
+                          />
+                        ) : (
+                          project.name[0].toUpperCase()
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <CardTitle className="text-base truncate">
+                          {project.name}
+                        </CardTitle>
+                        <div className="flex items-center gap-2 mt-1">
+                          {project.instagram_enabled && (
+                            <Instagram className="h-3.5 w-3.5 text-muted-foreground" />
+                          )}
+                          {project.facebook_enabled && (
+                            <Facebook className="h-3.5 w-3.5 text-muted-foreground" />
+                          )}
+                          <span className="text-xs text-muted-foreground">
+                            {automationLabels[project.automation_mode]}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => navigate(`/projects/${project.id}`)}
+                        >
+                          <Edit className="h-4 w-4 mr-2" />
+                          Modifier
+                        </DropdownMenuItem>
+                        {project.url && (
+                          <DropdownMenuItem
+                            onClick={() => window.open(project.url!, "_blank")}
+                          >
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Ouvrir le site
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => handleDelete(project.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Supprimer
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </CardHeader>
+                <CardContent
+                  className="cursor-pointer"
+                  onClick={() => navigate(`/projects/${project.id}`)}
+                >
+                  {project.description && (
+                    <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+                      {project.description}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-4 w-4" />
+                      <span>{project.posts_per_week}/sem</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Projects;
