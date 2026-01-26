@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Video, Sparkles, Loader2, Play, Plus, Trash2, Settings2, ChevronDown, ImagePlus, X, User } from "lucide-react";
+import { Video, Sparkles, Loader2, Play, Plus, Trash2, Settings2, ChevronDown, ImagePlus, X, User, Upload, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -71,7 +71,6 @@ export interface GenerationTask {
 }
 
 interface VideoGeneratorProps {
-  avatarUrl?: string;
   onVideosGenerated: (videos: VideoSegment[]) => void;
   onTasksUpdated?: (tasks: GenerationTask[]) => void;
 }
@@ -81,7 +80,7 @@ const VIDEO_AVATAR_PRODUCTS = COMMERCIAL_PRODUCTS.filter(
   (p) => p.category === "video" || p.category === "avatar"
 );
 
-export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }: VideoGeneratorProps) => {
+export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated }: VideoGeneratorProps) => {
   const defaultProduct = VIDEO_AVATAR_PRODUCTS.find((p) => p.id === "ai-reel-pro") || VIDEO_AVATAR_PRODUCTS[0];
   const [generationTasks, setGenerationTasks] = useState<GenerationTask[]>([]);
   const [segments, setSegments] = useState<VideoSegment[]>([
@@ -97,6 +96,60 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
   const [showProgressModal, setShowProgressModal] = useState(false);
   const { addTask, updateTask } = useGenerationTasks();
   const { toast } = useToast();
+
+  // Avatar state
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>();
+  const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarPrompt, setAvatarPrompt] = useState("");
+  const [showAvatarPrompt, setShowAvatarPrompt] = useState(false);
+  const avatarFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Avatar functions
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid format", description: "Please upload an image (JPG, PNG, WebP)", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Maximum size is 5 MB", variant: "destructive" });
+      return;
+    }
+    setIsUploadingAvatar(true);
+    try {
+      const objectUrl = URL.createObjectURL(file);
+      setAvatarUrl(objectUrl);
+      toast({ title: "Avatar updated!", description: "Your photo has been loaded" });
+    } catch {
+      toast({ title: "Error", description: "Unable to load image", variant: "destructive" });
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const generateAvatar = async () => {
+    if (!avatarPrompt.trim()) {
+      toast({ title: "Description required", description: "Describe your AI avatar appearance", variant: "destructive" });
+      return;
+    }
+    setIsGeneratingAvatar(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-avatar", { body: { prompt: avatarPrompt } });
+      if (error) throw error;
+      if (data.imageUrl) {
+        setAvatarUrl(data.imageUrl);
+        toast({ title: "Avatar generated!", description: "Your AI avatar is ready" });
+        setShowAvatarPrompt(false);
+        setAvatarPrompt("");
+      }
+    } catch {
+      toast({ title: "Error", description: "Unable to generate avatar", variant: "destructive" });
+    } finally {
+      setIsGeneratingAvatar(false);
+    }
+  };
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -492,17 +545,71 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
             <DialogHeader>
               <DialogTitle>Avatar</DialogTitle>
             </DialogHeader>
-            <div className="py-4">
-              {avatarUrl ? (
-                <div className="flex flex-col items-center gap-4">
-                  <img src={avatarUrl} alt="Avatar" className="h-32 w-32 rounded-xl object-cover border-2 border-primary/30" />
-                  <p className="text-sm text-muted-foreground">Will be animated with lip-sync</p>
+            <div className="py-4 space-y-4">
+              {/* Avatar Preview */}
+              <div className="flex justify-center">
+                <div className="relative h-28 w-28 overflow-hidden rounded-full bg-gradient-to-br from-primary to-secondary p-0.5">
+                  <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-card">
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+                    ) : (
+                      <User className="h-10 w-10 text-muted-foreground" />
+                    )}
+                  </div>
+                  {(isGeneratingAvatar || isUploadingAvatar) && (
+                    <div className="absolute inset-0 flex items-center justify-center rounded-full bg-background/80">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Actions */}
+              {!showAvatarPrompt ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => avatarFileInputRef.current?.click()}
+                    disabled={isUploadingAvatar || isGeneratingAvatar}
+                    className="h-auto flex-col gap-2 py-3"
+                  >
+                    <Upload className="h-5 w-5" />
+                    <span className="text-xs">Upload</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowAvatarPrompt(true)}
+                    disabled={isUploadingAvatar || isGeneratingAvatar}
+                    className="h-auto flex-col gap-2 py-3"
+                  >
+                    <Wand2 className="h-5 w-5" />
+                    <span className="text-xs">Generate</span>
+                  </Button>
                 </div>
               ) : (
-                <div className="rounded-lg border-2 border-dashed border-border p-8 text-center">
-                  <User className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground">Generate or upload an avatar above</p>
+                <div className="space-y-3">
+                  <Textarea
+                    value={avatarPrompt}
+                    onChange={(e) => setAvatarPrompt(e.target.value)}
+                    placeholder="E.g. A professional woman, brown hair, confident smile, modern style..."
+                    className="min-h-[80px] resize-none text-sm"
+                  />
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => { setShowAvatarPrompt(false); setAvatarPrompt(""); }} className="flex-1">
+                      <X className="mr-1 h-4 w-4" /> Cancel
+                    </Button>
+                    <Button variant="gradient" size="sm" onClick={generateAvatar} disabled={isGeneratingAvatar || !avatarPrompt.trim()} className="flex-1">
+                      {isGeneratingAvatar ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Wand2 className="mr-1 h-4 w-4" />}
+                      Generate
+                    </Button>
+                  </div>
                 </div>
+              )}
+
+              <input ref={avatarFileInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+
+              {avatarUrl && (
+                <p className="text-xs text-center text-muted-foreground">Will be animated with lip-sync</p>
               )}
             </div>
           </DialogContent>
