@@ -54,51 +54,40 @@ const PostHistoryPage = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-bold">Post History</h1>
-          <p className="text-muted-foreground">
-            All your generated posts and images
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Select value={selectedProject} onValueChange={setSelectedProject}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="All projects" />
-            </SelectTrigger>
-            <SelectContent className="bg-card border border-border z-50">
-              <SelectItem value="all">All projects</SelectItem>
-              {projects.map((project) => (
-                <SelectItem key={project.id} value={project.id}>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="h-3 w-3 rounded-full"
-                      style={{ backgroundColor: project.theme_color }}
-                    />
-                    {project.name.slice(0, 30)}{project.name.length > 30 ? "..." : ""}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+    <div className="space-y-4">
+      {/* Compact Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="font-display text-xl font-bold">Posts</h1>
+        <Select value={selectedProject} onValueChange={setSelectedProject}>
+          <SelectTrigger className="h-9 w-[120px] text-sm">
+            <SelectValue placeholder="All" />
+          </SelectTrigger>
+          <SelectContent className="bg-card border border-border z-50">
+            <SelectItem value="all">All</SelectItem>
+            {projects.map((project) => (
+              <SelectItem key={project.id} value={project.id}>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="h-2 w-2 rounded-full shrink-0"
+                    style={{ backgroundColor: project.theme_color }}
+                  />
+                  <span className="truncate max-w-[80px]">{project.name}</span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        <ContentHistory
-          projectId={selectedProject !== "all" ? selectedProject : undefined}
-          onShare={handleShareFromHistory}
-          onPreview={(item) => {
-            if (item.media_url) {
-              window.open(item.media_url, "_blank");
-            }
-          }}
-        />
-      </motion.div>
+      <ContentHistory
+        projectId={selectedProject !== "all" ? selectedProject : undefined}
+        onShare={handleShareFromHistory}
+        onPreview={(item) => {
+          if (item.media_url) {
+            window.open(item.media_url, "_blank");
+          }
+        }}
+      />
 
       {/* Share Modal */}
       <SocialShareModal

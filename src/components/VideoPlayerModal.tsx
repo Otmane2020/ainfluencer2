@@ -54,8 +54,8 @@ export const VideoPlayerModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black/95 border-none">
-        <div className="relative">
+      <DialogContent className="max-w-[95vw] md:max-w-3xl p-0 overflow-hidden bg-black border-none rounded-xl">
+        <div className="relative flex flex-col">
           {/* Close button */}
           <Button
             variant="ghost"
@@ -66,8 +66,8 @@ export const VideoPlayerModal = ({
             <X className="h-4 w-4" />
           </Button>
 
-          {/* Video player */}
-          <div className="aspect-video w-full bg-black">
+          {/* Video player - full screen on mobile */}
+          <div className="aspect-[9/16] md:aspect-video w-full bg-black">
             {videoUrl ? (
               <video
                 ref={videoRef}
@@ -75,27 +75,23 @@ export const VideoPlayerModal = ({
                 poster={thumbnailUrl}
                 controls
                 autoPlay
-                className="h-full w-full"
+                playsInline
+                className="h-full w-full object-contain"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                Vidéo non disponible
+              <div className="flex h-full w-full items-center justify-center text-muted-foreground text-sm">
+                Video not available
               </div>
             )}
           </div>
 
-          {/* Info bar */}
-          <div className="flex items-center justify-between bg-background/95 px-4 py-3">
-            <div className="min-w-0 flex-1">
-              <h3 className="truncate font-medium text-foreground">{title}</h3>
-              {description && (
-                <p className="truncate text-sm text-muted-foreground">
-                  {description}
-                </p>
-              )}
+          {/* Compact info bar */}
+          <div className="flex items-center justify-between bg-background/95 px-3 py-2">
+            <div className="min-w-0 flex-1 mr-2">
+              <h3 className="text-sm font-medium truncate">{title}</h3>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
                 size="icon"

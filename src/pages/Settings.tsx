@@ -77,188 +77,112 @@ const Settings = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-bold">Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your account and preferences
-        </p>
-      </div>
+    <div className="max-w-lg mx-auto space-y-4">
+      <h1 className="font-display text-xl font-bold">Settings</h1>
 
-      {/* Subscription & Credits */}
-      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-secondary/5">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Crown className="h-5 w-5 text-primary" />
-            Subscription & Credits
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Current Pack */}
-          <div className="flex items-center justify-between rounded-xl bg-card p-4 border border-border">
+      {/* Subscription - Compact */}
+      <Card className="border-primary/20">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary">
-                <Zap className="h-6 w-6 text-white" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary">
+                <Crown className="h-5 w-5 text-white" />
               </div>
               <div>
-                <p className="font-semibold">{currentPack?.name || "No plan"}</p>
-                <p className="text-sm text-muted-foreground">
-                  ${currentPack?.price}{currentPack?.priceUnit}
-                </p>
+                <p className="font-semibold text-sm">{currentPack?.name || "No plan"}</p>
+                <p className="text-xs text-muted-foreground">${currentPack?.price}{currentPack?.priceUnit}</p>
               </div>
             </div>
-            <Button variant="outline" size="sm">
-              Change Plan
-            </Button>
+            <Button variant="outline" size="sm">Change</Button>
           </div>
 
-          {/* Credits Remaining */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-xl bg-card p-4 border border-border text-center">
-              <div className="flex items-center justify-center gap-1 mb-1">
-                <Image className="h-4 w-4 text-primary" />
+          {/* Credits - Compact */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-lg bg-muted/50 p-2 text-center">
+              <div className="flex items-center justify-center gap-1">
+                <Image className="h-3 w-3 text-primary" />
+                <span className="text-sm font-bold">{credits.images}</span>
               </div>
-              <p className="text-2xl font-bold text-primary">
-                {credits.images}/{currentPack?.included.images || 0}
-              </p>
-              <p className="text-xs text-muted-foreground">Images</p>
+              <p className="text-[10px] text-muted-foreground">Images</p>
             </div>
-            <div className="rounded-xl bg-card p-4 border border-border text-center">
-              <div className="flex items-center justify-center gap-1 mb-1">
-                <Video className="h-4 w-4 text-secondary" />
+            <div className="rounded-lg bg-muted/50 p-2 text-center">
+              <div className="flex items-center justify-center gap-1">
+                <Video className="h-3 w-3 text-secondary" />
+                <span className="text-sm font-bold">{credits.videos}</span>
               </div>
-              <p className="text-2xl font-bold text-secondary">
-                {credits.videos}/{currentPack?.included.videos || 0}
-              </p>
-              <p className="text-xs text-muted-foreground">Videos</p>
+              <p className="text-[10px] text-muted-foreground">Videos</p>
             </div>
-            <div className="rounded-xl bg-card p-4 border border-border text-center">
-              <div className="flex items-center justify-center gap-1 mb-1">
-                <Sparkles className="h-4 w-4 text-accent" />
+            <div className="rounded-lg bg-muted/50 p-2 text-center">
+              <div className="flex items-center justify-center gap-1">
+                <Sparkles className="h-3 w-3 text-accent" />
+                <span className="text-sm font-bold">{credits.influencerVideos}</span>
               </div>
-              <p className="text-2xl font-bold text-accent">
-                {credits.influencerVideos}/{currentPack?.included.influencerVideos || 0}
-              </p>
-              <p className="text-xs text-muted-foreground">AI Influencer</p>
+              <p className="text-[10px] text-muted-foreground">AI Avatar</p>
             </div>
-          </div>
-
-          <Separator />
-
-          {/* Upgrade CTA */}
-          <div className="text-center py-2">
-            <p className="text-sm text-muted-foreground mb-3">
-              Need more credits? Upgrade to a higher plan!
-            </p>
-            <Button className="bg-gradient-to-r from-primary to-secondary hover:opacity-90">
-              <Crown className="h-4 w-4 mr-2" />
-              View Pro & Agency Plans
-            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Profile */}
+      {/* Profile - Compact */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5 text-primary" />
-            Profile
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-full gradient-primary p-[2px]">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-full gradient-primary p-[2px] shrink-0">
               <div className="flex h-full w-full items-center justify-center rounded-full bg-card">
-                <span className="text-xl font-bold text-gradient">
+                <span className="text-lg font-bold text-gradient">
                   {displayName?.[0]?.toUpperCase() || "U"}
                 </span>
               </div>
             </div>
-            <div className="flex-1">
-              <Label htmlFor="displayName">Display Name</Label>
+            <div className="flex-1 min-w-0">
+              <Label htmlFor="displayName" className="text-xs">Name</Label>
               <Input
                 id="displayName"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="Your name"
+                className="h-9"
               />
             </div>
           </div>
-          <Button
-            onClick={handleUpdateProfile}
-            disabled={isLoading}
-            className="w-full"
-          >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              "Save"
-            )}
+          <Button onClick={handleUpdateProfile} disabled={isLoading} className="w-full h-9">
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
           </Button>
         </CardContent>
       </Card>
 
 
-      {/* Notifications */}
+      {/* Notifications - Compact */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5 text-accent" />
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Bell className="h-4 w-4 text-accent" />
             Notifications
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium">Email Notifications</p>
-              <p className="text-sm text-muted-foreground">
-                Receive emails about your publications
-              </p>
-            </div>
-            <Switch
-              checked={notifications.email}
-              onCheckedChange={(checked) =>
-                setNotifications((prev) => ({ ...prev, email: checked }))
-              }
-            />
           </div>
-
-          <Separator />
-
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium">Weekly Report</p>
-              <p className="text-sm text-muted-foreground">
-                Summary of your performance every week
-              </p>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Email notifications</span>
+              <Switch
+                checked={notifications.email}
+                onCheckedChange={(checked) => setNotifications((prev) => ({ ...prev, email: checked }))}
+              />
             </div>
-            <Switch
-              checked={notifications.weekly}
-              onCheckedChange={(checked) =>
-                setNotifications((prev) => ({ ...prev, weekly: checked }))
-              }
-            />
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Weekly report</span>
+              <Switch
+                checked={notifications.weekly}
+                onCheckedChange={(checked) => setNotifications((prev) => ({ ...prev, weekly: checked }))}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Danger Zone */}
-      <Card className="border-destructive/50">
-        <CardHeader>
-          <CardTitle className="text-destructive">Danger Zone</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Button
-            variant="destructive"
-            onClick={handleSignOut}
-            className="w-full gap-2"
-          >
-            <LogOut className="h-4 w-4" />
-            Sign Out
-          </Button>
-        </CardContent>
-      </Card>
+      {/* Sign Out */}
+      <Button variant="destructive" onClick={handleSignOut} className="w-full gap-2">
+        <LogOut className="h-4 w-4" />
+        Sign Out
+      </Button>
     </div>
   );
 };

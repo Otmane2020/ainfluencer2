@@ -118,94 +118,69 @@ const ImageHistoryPage = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Compact Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-bold">Image History</h1>
-          <p className="text-muted-foreground">
-            All your generated images in one place
-          </p>
-        </div>
-        <Button variant="outline" onClick={fetchImages} disabled={isLoading}>
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            "Refresh"
-          )}
+        <h1 className="font-display text-xl font-bold">Images</h1>
+        <Button variant="ghost" size="icon" onClick={fetchImages} disabled={isLoading} className="h-9 w-9">
+          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
         </Button>
       </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
       ) : images.length === 0 ? (
-        <Card className="flex flex-col items-center justify-center py-12">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
-            <Image className="h-8 w-8 text-muted-foreground" />
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-3">
+            <Image className="h-6 w-6 text-muted-foreground" />
           </div>
-          <h3 className="font-semibold text-lg mb-1">No images yet</h3>
-          <p className="text-muted-foreground text-sm text-center max-w-sm">
-            Generated images will appear here. Start creating content to see your image history.
-          </p>
-        </Card>
+          <p className="text-sm text-muted-foreground">No images yet</p>
+        </div>
       ) : (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
-        >
-          {images.map((image, index) => (
-            <motion.div
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+          {images.map((image) => (
+            <div
               key={image.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className="group relative aspect-square rounded-xl overflow-hidden border border-border bg-card"
+              className="group relative aspect-square rounded-lg overflow-hidden border border-border bg-card"
             >
               <img
                 src={image.url}
                 alt={image.name}
-                className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                className="h-full w-full object-cover"
               />
               
-              {/* Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                <div className="absolute bottom-0 left-0 right-0 p-3">
-                  <p className="text-white text-xs truncate mb-2">
-                    {image.name}
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="flex-1 h-8"
-                      onClick={() => handleDownload(image)}
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="h-8"
-                      onClick={() => window.open(image.url, "_blank")}
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="h-8"
-                      onClick={() => handleDelete(image)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
+              {/* Overlay - visible on touch/hover */}
+              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 active:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handleDownload(image)}
+                >
+                  <Download className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => window.open(image.url, "_blank")}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handleDelete(image)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
+        </div>
       )}
     </div>
   );
