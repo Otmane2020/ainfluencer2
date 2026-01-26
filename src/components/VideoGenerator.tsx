@@ -63,8 +63,13 @@ interface VideoGeneratorProps {
   onTasksUpdated?: (tasks: GenerationTask[]) => void;
 }
 
+// Filter to only show video and avatar models on this page
+const VIDEO_AVATAR_MODELS = AI_MODELS.filter(
+  (m) => m.category === "video" || m.category === "avatar"
+);
+
 export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }: VideoGeneratorProps) => {
-  const defaultModel = AI_MODELS.find((m) => m.id === "sora-2") || AI_MODELS[0];
+  const defaultModel = VIDEO_AVATAR_MODELS.find((m) => m.id === "sora-2") || VIDEO_AVATAR_MODELS[0];
   const [generationTasks, setGenerationTasks] = useState<GenerationTask[]>([]);
   const [segments, setSegments] = useState<VideoSegment[]>([
     { id: "1", script: "", duration: defaultModel.supportedDurations?.[0] || 8, status: "pending" },
@@ -153,24 +158,14 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
       )
     );
 
-    const modelType = selectedModel.category;
-    
     toast({
       title: `Génération ${selectedModel.name} en cours...`,
-      description: `${modelType === "video" ? "Création de vidéos" : modelType === "image" ? "Création d'images" : "Création audio"} (peut prendre quelques minutes)`,
+      description: "Création de vidéos (peut prendre quelques minutes)",
     });
 
     try {
-      if (modelType === "image") {
-        // Image generation with Nano Banana or other image models
-        await generateImages();
-      } else if (modelType === "video") {
-        // Video generation with voice
-        await generateVideos();
-      } else {
-        // Music/Audio generation
-        await generateAudio();
-      }
+      // Video and Avatar generation only on this page
+      await generateVideos();
     } catch (error) {
       console.error("Generation error:", error);
       setIsGenerating(false);
@@ -182,107 +177,6 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
     }
   };
 
-  const generateImages = async () => {
-    const updatedSegments = await Promise.all(
-      segments.map(async (segment) => {
-        if (!segment.script.trim()) return segment;
-
-        try {
-          const { data, error } = await supabase.functions.invoke("generate-content", {
-            body: { 
-              prompt: segment.script, 
-              type: "image",
-              model: selectedModel.id 
-            },
-          });
-
-          if (error) throw error;
-
-          return {
-            ...segment,
-            status: "ready" as const,
-            imageUrl: data.imageUrl,
-            progress: 100,
-          };
-        } catch (error) {
-          console.error("Image generation error:", error);
-          return { ...segment, status: "error" as const };
-        }
-      })
-    );
-
-    setSegments(updatedSegments);
-    setIsGenerating(false);
-
-    const readyCount = updatedSegments.filter((s) => s.status === "ready").length;
-    if (readyCount > 0) {
-      toast({
-        title: `🖼️ ${readyCount} image(s) générée(s) !`,
-        description: `Avec ${selectedModel.name}`,
-      });
-      onVideosGenerated(updatedSegments);
-    }
-  };
-
-  const generateAudio = async () => {
-    const updatedSegments = await Promise.all(
-      segments.map(async (segment) => {
-        if (!segment.script.trim()) return segment;
-
-        try {
-          const audioResponse = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-              },
-              body: JSON.stringify({
-                text: segment.script,
-                voiceId: selectedVoice.id,
-              }),
-            }
-          );
-
-          if (!audioResponse.ok) throw new Error("TTS failed");
-
-          const audioBlob = await audioResponse.blob();
-          const audioFileName = `audio/${Date.now()}-${segment.id}.mp3`;
-          
-          await supabase.storage.from("media").upload(audioFileName, audioBlob, {
-            contentType: "audio/mpeg",
-            upsert: true,
-          });
-
-          const { data: audioUrlData } = supabase.storage.from("media").getPublicUrl(audioFileName);
-
-          return {
-            ...segment,
-            status: "ready" as const,
-            audioUrl: audioUrlData.publicUrl,
-            progress: 100,
-          };
-        } catch (error) {
-          console.error("Audio generation error:", error);
-          return { ...segment, status: "error" as const };
-        }
-      })
-    );
-
-    setSegments(updatedSegments);
-    setIsGenerating(false);
-
-    const readyCount = updatedSegments.filter((s) => s.status === "ready").length;
-    if (readyCount > 0) {
-      toast({
-        title: `🎵 ${readyCount} audio(s) généré(s) !`,
-        description: `Avec ${selectedModel.name}`,
-      });
-      onVideosGenerated(updatedSegments);
-    }
-  };
 
   const generateVideos = async () => {
     // Step 1: Generate audio with ElevenLabs TTS for voiceover
@@ -562,6 +456,7 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
         <CollapsibleContent className="mt-4">
           <ModelSelector
             selectedModel={selectedModel}
+            categories={["video", "avatar"]}
             onModelChange={(model) => {
               setSelectedModel(model);
               // Reset durations to first supported duration for new model
