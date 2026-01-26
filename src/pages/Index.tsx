@@ -160,6 +160,12 @@ const Index = () => {
     console.log("Playing video:", video.id);
   };
 
+  const handleThumbnailGenerated = (id: string, thumbnailUrl: string) => {
+    setVideoHistory((prev) =>
+      prev.map((v) => (v.id === id ? { ...v, thumbnailUrl } : v))
+    );
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -276,6 +282,7 @@ const Index = () => {
                   videos={videoHistory}
                   onDelete={handleDeleteHistoryItem}
                   onPlay={handlePlayHistoryItem}
+                  onThumbnailGenerated={handleThumbnailGenerated}
                 />
               </div>
             </motion.div>

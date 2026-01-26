@@ -1,9 +1,12 @@
 import { motion } from "framer-motion";
-import { Video, Play, Pause, Download, Trash2, Clock, Calendar } from "lucide-react";
+import { Video, Play, Pause, Download, Trash2, Clock, Calendar, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { ShareButton } from "@/components/ShareButton";
+import { useVideoThumbnail } from "@/hooks/useVideoThumbnail";
+import { useToast } from "@/hooks/use-toast";
 
 interface VideoHistoryItem {
   id: string;
@@ -22,11 +25,37 @@ interface VideoHistoryProps {
   videos: VideoHistoryItem[];
   onDelete: (id: string) => void;
   onPlay: (video: VideoHistoryItem) => void;
+  onThumbnailGenerated?: (id: string, thumbnailUrl: string) => void;
 }
 
-export const VideoHistory = ({ videos, onDelete, onPlay }: VideoHistoryProps) => {
+export const VideoHistory = ({ videos, onDelete, onPlay, onThumbnailGenerated }: VideoHistoryProps) => {
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [generatingThumbnails, setGeneratingThumbnails] = useState<Set<string>>(new Set());
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { generateThumbnail } = useVideoThumbnail();
+  const { toast } = useToast();
+
+  // Auto-generate thumbnails for videos without one
+  useEffect(() => {
+    videos.forEach(async (video) => {
+      if (video.videoUrl && !video.thumbnailUrl && !generatingThumbnails.has(video.id)) {
+        setGeneratingThumbnails((prev) => new Set(prev).add(video.id));
+        
+        const result = await generateThumbnail(video.videoUrl);
+        
+        if (result) {
+          onThumbnailGenerated?.(video.id, result.thumbnailUrl);
+        }
+        
+        setGeneratingThumbnails((prev) => {
+          const updated = new Set(prev);
+          updated.delete(video.id);
+          return updated;
+        });
+      }
+    });
+  }, [videos, generateThumbnail, generatingThumbnails, onThumbnailGenerated]);
 
   const togglePlay = (video: VideoHistoryItem) => {
     if (playingId === video.id) {
@@ -47,16 +76,40 @@ export const VideoHistory = ({ videos, onDelete, onPlay }: VideoHistoryProps) =>
   };
 
   const handleDownload = async (video: VideoHistoryItem) => {
-    if (video.videoUrl || video.audioUrl) {
-      const url = video.videoUrl || video.audioUrl;
-      if (url) {
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `video-${video.id}.mp4`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
+    const url = video.videoUrl || video.audioUrl;
+    if (!url) return;
+
+    setDownloadingId(video.id);
+
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Download failed");
+
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `${video.title.replace(/\s+/g, "-")}-${video.id}.${video.videoUrl ? "mp4" : "mp3"}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      URL.revokeObjectURL(blobUrl);
+
+      toast({
+        title: "Téléchargement terminé",
+        description: `${video.title} a été téléchargé`,
+      });
+    } catch (error) {
+      console.error("Download error:", error);
+      toast({
+        title: "Erreur de téléchargement",
+        description: "Impossible de télécharger le fichier",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -119,7 +172,11 @@ export const VideoHistory = ({ videos, onDelete, onPlay }: VideoHistoryProps) =>
             <div className="flex gap-4">
               {/* Thumbnail */}
               <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-muted">
-                {video.thumbnailUrl ? (
+                {generatingThumbnails.has(video.id) ? (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : video.thumbnailUrl ? (
                   <img
                     src={video.thumbnailUrl}
                     alt={video.title}
@@ -170,13 +227,24 @@ export const VideoHistory = ({ videos, onDelete, onPlay }: VideoHistoryProps) =>
 
               {/* Actions */}
               <div className="flex flex-col gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                <ShareButton
+                  videoUrl={video.videoUrl}
+                  thumbnailUrl={video.thumbnailUrl}
+                  title={video.title}
+                  description={video.script.substring(0, 100)}
+                />
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => handleDownload(video)}
+                  disabled={downloadingId === video.id}
                 >
-                  <Download className="h-4 w-4" />
+                  {downloadingId === video.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
                 </Button>
                 <Button
                   variant="ghost"
