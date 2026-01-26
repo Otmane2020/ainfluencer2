@@ -2,11 +2,8 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { VideoGenerator, GenerationTask } from "@/components/VideoGenerator";
 import { VideoPreview } from "@/components/VideoPreview";
-import { VideoHistory, VideoHistoryItem } from "@/components/VideoHistory";
 import { AvatarManager } from "@/components/AvatarManager";
 import { GenerationTracker } from "@/components/GenerationTracker";
-import { useStoredVideos } from "@/hooks/useStoredVideos";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -14,7 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -35,17 +31,14 @@ interface Project {
 
 const Videos = () => {
   const [videoSegments, setVideoSegments] = useState<VideoSegment[]>([]);
-  const [videoHistory, setVideoHistory] = useState<VideoHistoryItem[]>([]);
   const [generationTasks, setGenerationTasks] = useState<GenerationTask[]>([]);
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("all");
-  const { fetchStoredVideos, isLoading: isLoadingVideos } = useStoredVideos();
   const { toast } = useToast();
 
   useEffect(() => {
     fetchProjects();
-    loadVideos();
   }, []);
 
   const fetchProjects = async () => {
@@ -56,41 +49,8 @@ const Videos = () => {
     if (data) setProjects(data);
   };
 
-  const loadVideos = async () => {
-    const storedVideos = await fetchStoredVideos();
-    if (storedVideos.length > 0) {
-      setVideoHistory(storedVideos);
-    }
-  };
-
-  const handleRefreshVideos = async () => {
-    const storedVideos = await fetchStoredVideos();
-    setVideoHistory((prev) => {
-      const existingIds = new Set(prev.map((v) => v.videoUrl));
-      const newVideos = storedVideos.filter((v) => !existingIds.has(v.videoUrl));
-      return [...prev, ...newVideos];
-    });
-  };
-
   const handleVideosGenerated = (videos: VideoSegment[]) => {
     setVideoSegments(videos);
-    
-    const readyVideos = videos.filter((v) => v.status === "ready");
-    const historyItems: VideoHistoryItem[] = readyVideos.map((v, index) => ({
-      id: `${Date.now()}-${index}`,
-      title: `Video ${videoHistory.length + index + 1}`,
-      script: v.script,
-      duration: v.duration,
-      videoUrl: v.videoUrl,
-      audioUrl: v.audioUrl,
-      createdAt: new Date(),
-      voice: "Sarah",
-      status: "ready" as const,
-    }));
-    
-    if (historyItems.length > 0) {
-      setVideoHistory((prev) => [...historyItems, ...prev]);
-    }
   };
 
   const handleMergeVideos = () => {
@@ -102,24 +62,6 @@ const Videos = () => {
 
   const handleDeleteVideoSegment = (id: string) => {
     setVideoSegments((prev) => prev.filter((s) => s.id !== id));
-  };
-
-  const handleDeleteHistoryItem = (id: string) => {
-    setVideoHistory((prev) => prev.filter((v) => v.id !== id));
-    toast({
-      title: "Video deleted",
-      description: "Video has been removed from history",
-    });
-  };
-
-  const handlePlayHistoryItem = (video: VideoHistoryItem) => {
-    console.log("Playing video:", video.id);
-  };
-
-  const handleThumbnailGenerated = (id: string, thumbnailUrl: string) => {
-    setVideoHistory((prev) =>
-      prev.map((v) => (v.id === id ? { ...v, thumbnailUrl } : v))
-    );
   };
 
   return (
@@ -183,27 +125,6 @@ const Videos = () => {
             onMerge={handleMergeVideos}
             onDeleteSegment={handleDeleteVideoSegment}
           />
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-display text-lg font-semibold">History</h3>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefreshVideos}
-                disabled={isLoadingVideos}
-                className="gap-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${isLoadingVideos ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
-            </div>
-            <VideoHistory
-              videos={videoHistory}
-              onDelete={handleDeleteHistoryItem}
-              onPlay={handlePlayHistoryItem}
-              onThumbnailGenerated={handleThumbnailGenerated}
-            />
-          </div>
         </div>
       </motion.div>
     </div>

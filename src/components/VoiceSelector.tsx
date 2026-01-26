@@ -112,8 +112,8 @@ export const VoiceSelector = ({
     <div className="rounded-xl border border-border bg-card/50 p-4 space-y-4">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-          <Volume2 className="h-4 w-4 text-primary" />
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg gradient-primary">
+          <Volume2 className="h-4 w-4 text-white" />
         </div>
         <div>
           <h3 className="font-medium text-sm">AI Voice</h3>
