@@ -3,7 +3,7 @@ import { Video, Play, Pause, Download, Trash2, Clock, Calendar, Loader2, Maximiz
 import { Button } from "@/components/ui/button";
 import { useState, useRef, useEffect } from "react";
 import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 import { ShareButton } from "@/components/ShareButton";
 import { useVideoThumbnail } from "@/hooks/useVideoThumbnail";
 import { useToast } from "@/hooks/use-toast";
@@ -100,14 +100,14 @@ export const VideoHistory = ({ videos, onDelete, onPlay, onThumbnailGenerated }:
       URL.revokeObjectURL(blobUrl);
 
       toast({
-        title: "Téléchargement terminé",
-        description: `${video.title} a été téléchargé`,
+        title: "Download complete",
+        description: `${video.title} has been downloaded`,
       });
     } catch (error) {
       console.error("Download error:", error);
       toast({
-        title: "Erreur de téléchargement",
-        description: "Impossible de télécharger le fichier",
+        title: "Download error",
+        description: "Unable to download the file",
         variant: "destructive",
       });
     } finally {
@@ -126,16 +126,16 @@ export const VideoHistory = ({ videos, onDelete, onPlay, onThumbnailGenerated }:
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary">
             <Clock className="h-5 w-5 text-secondary-foreground" />
           </div>
-          <h3 className="font-display text-lg font-semibold">Historique Vidéos</h3>
+          <h3 className="font-display text-lg font-semibold">Video History</h3>
         </div>
         
         <div className="flex flex-col items-center justify-center py-8 text-center">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
             <Video className="h-8 w-8 text-muted-foreground" />
           </div>
-          <p className="text-muted-foreground">Aucune vidéo dans l'historique</p>
+          <p className="text-muted-foreground">No videos in history</p>
           <p className="text-sm text-muted-foreground">
-            Les vidéos générées apparaîtront ici
+            Generated videos will appear here
           </p>
         </div>
       </motion.div>
@@ -154,9 +154,9 @@ export const VideoHistory = ({ videos, onDelete, onPlay, onThumbnailGenerated }:
             <Clock className="h-5 w-5 text-secondary-foreground" />
           </div>
           <div>
-            <h3 className="font-display text-lg font-semibold">Historique Vidéos</h3>
+            <h3 className="font-display text-lg font-semibold">Video History</h3>
             <p className="text-sm text-muted-foreground">
-              {videos.length} vidéo{videos.length > 1 ? "s" : ""} générée{videos.length > 1 ? "s" : ""}
+              {videos.length} video{videos.length > 1 ? "s" : ""} generated
             </p>
           </div>
         </div>
@@ -215,7 +215,7 @@ export const VideoHistory = ({ videos, onDelete, onPlay, onThumbnailGenerated }:
                   </span>
                   <span className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
-                    {format(video.createdAt, "d MMM yyyy", { locale: fr })}
+                    {format(video.createdAt, "MMM d, yyyy", { locale: enUS })}
                   </span>
                   <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary">
                     {video.voice}
@@ -230,7 +230,7 @@ export const VideoHistory = ({ videos, onDelete, onPlay, onThumbnailGenerated }:
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => setSelectedVideo(video)}
-                  title="Voir en plein écran"
+                  title="View fullscreen"
                 >
                   <Maximize2 className="h-4 w-4" />
                 </Button>

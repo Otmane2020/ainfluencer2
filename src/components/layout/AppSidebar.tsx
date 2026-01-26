@@ -7,6 +7,9 @@ import {
   ImageIcon,
   Settings,
   LogOut,
+  History,
+  Clock,
+  FileText,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
@@ -35,6 +38,11 @@ const mainNavItems = [
 const contentNavItems = [
   { title: "Videos", url: "/videos", icon: Video },
   { title: "Posts", url: "/posts", icon: ImageIcon },
+];
+
+const historyNavItems = [
+  { title: "Video History", url: "/history/videos", icon: Clock },
+  { title: "Post History", url: "/history/posts", icon: FileText },
 ];
 
 const settingsNavItems = [
@@ -108,6 +116,33 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {contentNavItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.url)}
+                    tooltip={item.title}
+                  >
+                    <NavLink
+                      to={item.url}
+                      end
+                      className="flex items-center gap-3"
+                      activeClassName="bg-primary/10 text-primary font-medium"
+                    >
+                      <item.icon className="h-5 w-5 shrink-0" />
+                      {!collapsed && <span>{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>History</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {historyNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild

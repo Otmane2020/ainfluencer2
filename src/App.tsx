@@ -15,6 +15,8 @@ import CalendarPage from "./pages/CalendarPage";
 import Videos from "./pages/Videos";
 import Posts from "./pages/Posts";
 import Settings from "./pages/Settings";
+import VideoHistoryPage from "./pages/VideoHistoryPage";
+import PostHistoryPage from "./pages/PostHistoryPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +38,8 @@ const App = () => (
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/videos" element={<Videos />} />
             <Route path="/posts" element={<Posts />} />
+            <Route path="/history/videos" element={<VideoHistoryPage />} />
+            <Route path="/history/posts" element={<PostHistoryPage />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
           <Route path="*" element={<NotFound />} />
