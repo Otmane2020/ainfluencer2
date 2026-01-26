@@ -276,48 +276,48 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
     setProjectSelectorOpen(null);
     
     try {
-      const { data, error } = await supabase.functions.invoke("suggest-content", {
+      // Use NanoBanana Pro for premium quality French scripts
+      const { data, error } = await supabase.functions.invoke("generate-script-nanobanana", {
         body: {
           projectName: project.name,
           projectDescription: project.description || project.name,
-          contentType: "script", // Signal we want video scripts
           productName: selectedProduct.name,
-          productCategory: selectedProduct.category,
+          scriptType: selectedProduct.category === "avatar" ? "testimonial" : "reel",
         },
       });
 
       if (error) throw error;
 
-      const suggestions = data?.suggestions;
-      if (!suggestions || suggestions.length === 0) {
-        throw new Error("No suggestions received");
+      const scripts = data?.scripts;
+      if (!scripts || scripts.length === 0) {
+        throw new Error("No scripts received");
       }
 
-      // Find the first valid suggestion
-      let validSuggestion = null;
-      for (const suggestion of suggestions) {
-        const content = suggestion.content?.trim();
+      // Find the first valid script
+      let validScript = null;
+      for (const script of scripts) {
+        const content = script.content?.trim();
         const validation = validateScriptQuality(content);
         
         if (validation.valid) {
-          validSuggestion = suggestion;
+          validScript = script;
           break;
         } else {
           console.log("Script rejected:", validation.reason, content?.substring(0, 50));
         }
       }
 
-      if (!validSuggestion) {
-        // If no valid suggestion, use the first one but warn
-        validSuggestion = suggestions[0];
+      if (!validScript) {
+        // If no valid script, use the first one but warn
+        validScript = scripts[0];
         console.warn("No fully valid script found, using first suggestion");
       }
 
-      updateSegment(segmentId, { script: validSuggestion.content });
+      updateSegment(segmentId, { script: validScript.content });
       
       toast({
         title: "Script generated! ✨",
-        description: `Based on ${project.name}`,
+        description: `Premium quality from ${project.name}`,
       });
     } catch (error) {
       console.error("AI script generation error:", error);
