@@ -1,5 +1,8 @@
 project_id = "vgffjuvaedmxoxvzovoq"
 
+[functions.daily-rolling-schedule]
+verify_jwt = false
+
 [functions.generate-content]
 verify_jwt = false
 

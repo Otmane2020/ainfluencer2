@@ -71,7 +71,7 @@ const CalendarPage = () => {
 
   useEffect(() => {
     fetchPosts();
-  }, [currentMonth, selectedProject]);
+  }, [selectedProject]);
 
   const fetchProjects = async () => {
     const { data } = await supabase
@@ -146,14 +146,15 @@ const CalendarPage = () => {
 
   const fetchPosts = async () => {
     setIsLoading(true);
-    const start = startOfMonth(currentMonth);
-    const end = endOfMonth(currentMonth);
+    // Fetch posts for 5 weeks starting from current week
+    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+    const weekEnd = addWeeks(weekStart, 5);
 
     let query = supabase
       .from("scheduled_posts")
       .select("*")
-      .gte("scheduled_for", start.toISOString())
-      .lte("scheduled_for", end.toISOString())
+      .gte("scheduled_for", weekStart.toISOString())
+      .lte("scheduled_for", weekEnd.toISOString())
       .order("scheduled_for");
 
     if (selectedProject !== "all") {
