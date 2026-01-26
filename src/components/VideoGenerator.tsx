@@ -1,41 +1,24 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Video, Sparkles, Loader2, Volume2, Play, Plus, Trash2, Settings2 } from "lucide-react";
+import { Video, Sparkles, Loader2, Play, Plus, Trash2, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { AI_MODELS, type AIModel } from "@/components/ModelSelector";
 import { ProductSelector } from "@/components/ProductSelector";
+import { VoiceSelector } from "@/components/VoiceSelector";
+import { AVAILABLE_VOICES, getDefaultVoice, type Voice } from "@/lib/voices";
 import {
   COMMERCIAL_PRODUCTS,
   CommercialProduct,
   getPrimaryInternalModel,
-  getCommercialName,
 } from "@/lib/commercialProducts";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-
-interface Voice {
-  id: string;
-  name: string;
-  gender: "female" | "male";
-  preview?: string;
-}
-
-const AVAILABLE_VOICES: Voice[] = [
-  { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", gender: "female" },
-  { id: "FGY2WhTYpPnrIDTdsKH5", name: "Laura", gender: "female" },
-  { id: "pFZP5JQG7iQjIQuC4Bku", name: "Lily", gender: "female" },
-  { id: "cgSgspJ2msm6clMCkdW9", name: "Jessica", gender: "female" },
-  { id: "JBFqnCBsd6RMkjVDRZzb", name: "George", gender: "male" },
-  { id: "TX3LPaxmHKxFdv7VOQHJ", name: "Liam", gender: "male" },
-  { id: "cjVigY5qzO86Huf0OWal", name: "Eric", gender: "male" },
-  { id: "nPczCjzI2devNBz1zQrb", name: "Brian", gender: "male" },
-];
 
 interface VideoSegment {
   id: string;
@@ -81,10 +64,9 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
   const [segments, setSegments] = useState<VideoSegment[]>([
     { id: "1", script: "", duration: defaultProduct.supportedDurations?.[0] || 8, status: "pending" },
   ]);
-  const [selectedVoice, setSelectedVoice] = useState<Voice>(AVAILABLE_VOICES[0]);
+  const [selectedVoice, setSelectedVoice] = useState<Voice>(getDefaultVoice());
   const [selectedProduct, setSelectedProduct] = useState<CommercialProduct>(defaultProduct);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
   const [showProductSelector, setShowProductSelector] = useState(false);
   const { toast } = useToast();
   
@@ -113,51 +95,12 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
     );
   };
 
-  const previewVoice = async (voice: Voice) => {
-    if (previewAudio) {
-      previewAudio.pause();
-    }
-
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({
-            text: "Bonjour, je suis votre AI influenceur. Prêt à créer du contenu viral ?",
-            voiceId: voice.id,
-          }),
-        }
-      );
-
-      if (!response.ok) throw new Error("Failed to generate preview");
-
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      setPreviewAudio(audio);
-      await audio.play();
-    } catch (error) {
-      console.error("Preview error:", error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de lire l'aperçu vocal",
-        variant: "destructive",
-      });
-    }
-  };
-
   const generateContent = async () => {
     const validSegments = segments.filter((s) => s.script.trim());
     if (validSegments.length === 0) {
       toast({
-        title: "Scripts requis",
-        description: "Ajoutez au moins un script pour générer le contenu",
+        title: "Script required",
+        description: "Add at least one script to generate content",
         variant: "destructive",
       });
       return;
@@ -171,8 +114,8 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
     );
 
     toast({
-      title: `Génération ${selectedProduct.name} en cours...`,
-      description: "Création de vidéos avec voix IA ultra-réaliste",
+      title: `Generating ${selectedProduct.name}...`,
+      description: "Creating content with ultra-realistic AI voice",
     });
 
     try {
@@ -440,14 +383,14 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
           <Video className="h-5 w-5 text-secondary-foreground" />
         </div>
         <div className="flex-1">
-          <h3 className="font-display text-lg font-semibold">Générateur IA</h3>
+          <h3 className="font-display text-lg font-semibold">AI Generator</h3>
           <p className="text-sm text-muted-foreground">
-            Créez du contenu avec les meilleurs modèles
+            Create content with the best AI models
           </p>
         </div>
         <div className="text-right">
           <p className="text-2xl font-bold text-gradient">~{estimatedCost}€</p>
-          <p className="text-xs text-muted-foreground">Prix estimé</p>
+          <p className="text-xs text-muted-foreground">Estimated price</p>
         </div>
       </div>
 
@@ -457,11 +400,11 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
           <Button variant="outline" className="w-full justify-between">
             <div className="flex items-center gap-2">
               <Settings2 className="h-4 w-4" />
-              <span>Produit: <strong>{selectedProduct.name}</strong></span>
+              <span>Product: <strong>{selectedProduct.name}</strong></span>
               <span className="text-muted-foreground">({selectedProduct.salePrice}€{selectedProduct.salePriceUnit})</span>
             </div>
             <span className="text-xs text-muted-foreground">
-              {showProductSelector ? "Masquer" : "Changer"}
+              {showProductSelector ? "Hide" : "Change"}
             </span>
           </Button>
         </CollapsibleTrigger>
@@ -485,32 +428,11 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
       {/* Voice Selection - Only show if product needs voice */}
       {selectedProduct.needsVoice && (
         <div className="mb-6">
-          <label className="mb-2 block text-sm font-medium">Voix IA ultra-réaliste</label>
-          <div className="flex flex-wrap gap-2">
-            {AVAILABLE_VOICES.map((voice) => (
-              <button
-                key={voice.id}
-                onClick={() => setSelectedVoice(voice)}
-                className={`group relative flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all ${
-                  selectedVoice.id === voice.id
-                    ? "gradient-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                }`}
-              >
-                <span>{voice.gender === "female" ? "👩" : "👨"}</span>
-                {voice.name}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    previewVoice(voice);
-                  }}
-                  className="ml-1 rounded-full p-1 opacity-0 transition-opacity hover:bg-foreground/10 group-hover:opacity-100"
-                >
-                  <Volume2 className="h-3 w-3" />
-                </button>
-              </button>
-            ))}
-          </div>
+          <VoiceSelector
+            selectedVoice={selectedVoice}
+            onVoiceChange={setSelectedVoice}
+            compact
+          />
         </div>
       )}
 
@@ -564,10 +486,10 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
               <Textarea
                 placeholder={
                   selectedProduct.category === "video"
-                    ? "Ex: Salut tout le monde ! Aujourd'hui je vous présente ce produit incroyable..."
+                    ? "Ex: Hey everyone! Today I'm presenting this incredible product..."
                     : selectedProduct.category === "avatar"
-                    ? "Ex: Bonjour, je suis votre AI influenceur préféré..."
-                    : "Ex: Une photo lifestyle d'un influenceur sur une plage au coucher du soleil..."
+                    ? "Ex: Hi, I'm your favorite AI influencer..."
+                    : "Ex: A lifestyle photo of an influencer on a beach at sunset..."
                 }
                 value={segment.script}
                 onChange={(e) => updateSegment(segment.id, { script: e.target.value })}
@@ -581,7 +503,7 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
                       <div className="flex items-center justify-between text-sm">
                         <span className="flex items-center gap-1 text-accent">
                           <Loader2 className="h-4 w-4 animate-spin" />
-                          Génération {selectedProduct.name}...
+                          Generating {selectedProduct.name}...
                         </span>
                         <span className="text-muted-foreground">{segment.progress || 0}%</span>
                       </div>
@@ -596,12 +518,12 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
                   {segment.status === "ready" && (
                     <span className="flex items-center gap-1 text-sm text-primary">
                       <Play className="h-4 w-4" />
-                      {selectedProduct.category === "video" ? "Vidéo prête" : selectedProduct.category === "avatar" ? "Avatar prêt" : "Contenu prêt"}
+                      {selectedProduct.category === "video" ? "Video ready" : selectedProduct.category === "avatar" ? "Avatar ready" : "Content ready"}
                     </span>
                   )}
                   {segment.status === "error" && (
                     <span className="flex items-center gap-1 text-sm text-destructive">
-                      Erreur de génération
+                      Generation error
                     </span>
                   )}
                 </div>
@@ -614,7 +536,7 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
       {/* Add Segment Button */}
       <Button variant="outline" onClick={addSegment} className="mb-4 w-full border-dashed">
         <Plus className="h-4 w-4" />
-        Ajouter {selectedProduct.category === "video" ? "un segment" : selectedProduct.category === "avatar" ? "un avatar" : "une image"}
+        Add {selectedProduct.category === "video" ? "segment" : selectedProduct.category === "avatar" ? "avatar" : "image"}
       </Button>
 
       {/* Generate Button */}
@@ -628,12 +550,12 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
         {isGenerating ? (
           <>
             <Loader2 className="h-5 w-5 animate-spin" />
-            Génération en cours...
+            Generating...
           </>
         ) : (
           <>
             <Sparkles className="h-5 w-5" />
-            Générer avec {selectedProduct.name} (~{estimatedCost}€)
+            Generate with {selectedProduct.name} (~{estimatedCost}€)
           </>
         )}
       </Button>

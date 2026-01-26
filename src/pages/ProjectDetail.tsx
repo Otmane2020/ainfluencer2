@@ -29,9 +29,10 @@ import {
   Zap,
   ChevronDown,
   Pencil,
+  Sparkles,
 } from "lucide-react";
 import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -177,8 +178,8 @@ const ProjectDetail = () => {
       if (error) throw error;
 
       toast({
-        title: "Modifications enregistrées ✓",
-        description: "Le projet a été mis à jour",
+        title: "Changes saved ✓",
+        description: "Project has been updated",
       });
 
       setEditModalOpen(false);
@@ -186,8 +187,8 @@ const ProjectDetail = () => {
     } catch (error) {
       console.error("Update error:", error);
       toast({
-        title: "Erreur",
-        description: "Impossible de sauvegarder les modifications",
+        title: "Error",
+        description: "Unable to save changes",
         variant: "destructive",
       });
     } finally {
@@ -237,7 +238,7 @@ const ProjectDetail = () => {
             <div>
               <h1 className="font-display text-2xl font-bold">{project.name}</h1>
               <p className="text-sm text-muted-foreground">
-                Créé le {format(new Date(project.created_at), "d MMMM yyyy", { locale: fr })}
+                Created on {format(new Date(project.created_at), "MMMM d, yyyy", { locale: enUS })}
               </p>
             </div>
           </div>
@@ -246,33 +247,33 @@ const ProjectDetail = () => {
           <DropdownMenuTrigger asChild>
             <Button variant="outline">
               <Pencil className="h-4 w-4 mr-2" />
-              Modifier
+              Edit
               <ChevronDown className="h-4 w-4 ml-2" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48 bg-popover z-50">
-            <DropdownMenuLabel>Modification rapide</DropdownMenuLabel>
+            <DropdownMenuLabel>Quick edit</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => openEditModal("info")}>
               <FileText className="h-4 w-4 mr-2" />
-              Informations
+              Information
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => openEditModal("branding")}>
               <Palette className="h-4 w-4 mr-2" />
-              Identité visuelle
+              Visual identity
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => openEditModal("platforms")}>
               <Share2 className="h-4 w-4 mr-2" />
-              Plateformes
+              Platforms
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => openEditModal("automation")}>
               <Zap className="h-4 w-4 mr-2" />
-              Automatisation
+              Automation
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => navigate(`/projects/new?edit=${id}`)}>
               <Settings className="h-4 w-4 mr-2" />
-              Wizard complet
+              Full wizard
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -286,11 +287,11 @@ const ProjectDetail = () => {
       >
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>À propos</CardTitle>
+            <CardTitle>About</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground">
-              {project.description || "Aucune description"}
+              {project.description || "No description"}
             </p>
             {project.url && (
               <a
@@ -308,7 +309,7 @@ const ProjectDetail = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Plateformes</CardTitle>
+            <CardTitle>Platforms</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
@@ -325,7 +326,7 @@ const ProjectDetail = () => {
             </div>
             <div className="mt-4 pt-4 border-t">
               <p className="text-sm text-muted-foreground">
-                <span className="font-medium">{project.posts_per_week}</span> posts/semaine
+                <span className="font-medium">{project.posts_per_week}</span> posts/week
               </p>
               <p className="text-sm text-muted-foreground capitalize">
                 Mode: {project.automation_mode.replace("_", " ")}
@@ -338,16 +339,16 @@ const ProjectDetail = () => {
       {/* Recent Posts */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Posts récents</CardTitle>
+          <CardTitle>Recent Posts</CardTitle>
           <Button variant="outline" size="sm" onClick={() => navigate(`/calendar?project=${id}`)}>
             <Calendar className="h-4 w-4 mr-2" />
-            Voir calendrier
+            View calendar
           </Button>
         </CardHeader>
         <CardContent>
           {posts.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">
-              Aucun post programmé pour ce projet
+              No posts scheduled for this project
             </p>
           ) : (
             <div className="space-y-3">
@@ -363,14 +364,14 @@ const ProjectDetail = () => {
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="truncate">
-                      {post.text_content?.slice(0, 60) || "Post sans contenu"}
+                      {post.text_content?.slice(0, 60) || "Post without content"}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {format(new Date(post.scheduled_for), "d MMM yyyy 'à' HH:mm", { locale: fr })}
+                      {format(new Date(post.scheduled_for), "MMM d, yyyy 'at' HH:mm", { locale: enUS })}
                     </p>
                   </div>
                   <Badge variant={post.status === "published" ? "default" : "secondary"}>
-                    {post.status || "brouillon"}
+                    {post.status || "draft"}
                   </Badge>
                 </div>
               ))}
@@ -380,14 +381,18 @@ const ProjectDetail = () => {
       </Card>
 
       {/* Quick Actions */}
-      <div className="flex gap-3">
-        <Button onClick={() => navigate(`/videos?project=${id}`)}>
+      <div className="flex flex-wrap gap-3">
+        <Button className="gradient-primary" onClick={() => navigate(`/videos?project=${id}`)}>
+          <Sparkles className="h-4 w-4 mr-2" />
+          Generate with AI
+        </Button>
+        <Button variant="outline" onClick={() => navigate(`/videos?project=${id}`)}>
           <Video className="h-4 w-4 mr-2" />
-          Générer une vidéo
+          Generate video
         </Button>
         <Button variant="outline" onClick={() => navigate(`/posts?project=${id}`)}>
           <FileText className="h-4 w-4 mr-2" />
-          Créer un post
+          Create post
         </Button>
       </div>
 
@@ -395,20 +400,20 @@ const ProjectDetail = () => {
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Modifier le projet</DialogTitle>
+            <DialogTitle>Edit project</DialogTitle>
           </DialogHeader>
           
           <Tabs value={editTab} onValueChange={setEditTab} className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="info">Info</TabsTrigger>
               <TabsTrigger value="branding">Style</TabsTrigger>
-              <TabsTrigger value="platforms">Réseaux</TabsTrigger>
+              <TabsTrigger value="platforms">Platforms</TabsTrigger>
               <TabsTrigger value="automation">Auto</TabsTrigger>
             </TabsList>
 
             <TabsContent value="info" className="space-y-4 mt-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-name">Nom du projet</Label>
+                <Label htmlFor="edit-name">Project name</Label>
                 <Input
                   id="edit-name"
                   value={editName}
@@ -424,7 +429,7 @@ const ProjectDetail = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-url">URL du site</Label>
+                <Label htmlFor="edit-url">Website URL</Label>
                 <Input
                   id="edit-url"
                   type="url"
@@ -436,7 +441,7 @@ const ProjectDetail = () => {
 
             <TabsContent value="branding" className="space-y-4 mt-4">
               <div className="space-y-2">
-                <Label>Couleur du thème</Label>
+                <Label>Theme color</Label>
                 <div className="flex flex-wrap gap-2">
                   {themeColors.map((color) => (
                     <button
@@ -488,7 +493,7 @@ const ProjectDetail = () => {
 
             <TabsContent value="automation" className="space-y-4 mt-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-posts">Posts par semaine</Label>
+                <Label htmlFor="edit-posts">Posts per week</Label>
                 <Input
                   id="edit-posts"
                   type="number"
@@ -499,10 +504,10 @@ const ProjectDetail = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Mode d'automatisation</Label>
+                <Label>Automation mode</Label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { value: "manual", label: "Manuel" },
+                    { value: "manual", label: "Manual" },
                     { value: "semi_auto", label: "Semi-auto" },
                     { value: "full_auto", label: "Full auto" },
                   ].map((mode) => (
@@ -523,11 +528,11 @@ const ProjectDetail = () => {
 
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="outline" onClick={() => setEditModalOpen(false)}>
-              Annuler
+              Cancel
             </Button>
             <Button onClick={handleSaveChanges} disabled={isSaving}>
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Enregistrer
+              Save
             </Button>
           </div>
         </DialogContent>

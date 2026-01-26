@@ -9,11 +9,11 @@ export interface CommercialProduct {
   name: string;
   category: "image" | "video" | "avatar";
   tier: "standard" | "pro" | "ultra" | "cinema";
-  salePrice: number; // Prix de vente en €
+  salePrice: number;
   salePriceUnit: string;
   description: string;
   features: string[];
-  internalModels: string[]; // IDs des modèles API (NON AFFICHÉ)
+  internalModels: string[]; // API model IDs (NOT DISPLAYED)
   needsVoice: boolean;
   needsAvatar?: boolean;
   supportedDurations?: number[];
@@ -22,7 +22,7 @@ export interface CommercialProduct {
 }
 
 // ============================================================
-// COMMERCIAL PRODUCTS - CLIENT FACING
+// COMMERCIAL PRODUCTS - CLIENT FACING (ENGLISH)
 // ============================================================
 
 export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
@@ -34,8 +34,8 @@ export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
     tier: "standard",
     salePrice: 2,
     salePriceUnit: "/image",
-    description: "Images de qualité pour vos posts quotidiens",
-    features: ["Qualité HD", "Génération rapide", "Tous styles"],
+    description: "Quality images for your daily posts",
+    features: ["HD Quality", "Fast generation", "All styles"],
     internalModels: ["flux-2-flex", "kling-image"],
     needsVoice: false,
   },
@@ -46,8 +46,8 @@ export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
     tier: "pro",
     salePrice: 5,
     salePriceUnit: "/image",
-    description: "Images premium photoréalistes",
-    features: ["Ultra HD 2K", "Photoréaliste", "Styles premium"],
+    description: "Premium photorealistic images",
+    features: ["Ultra HD 2K", "Photorealistic", "Premium styles"],
     internalModels: ["flux-2-pro", "nano-banana-pro"],
     needsVoice: false,
     popular: true,
@@ -59,8 +59,8 @@ export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
     tier: "ultra",
     salePrice: 12,
     salePriceUnit: "/image",
-    description: "Qualité studio professionnelle",
-    features: ["4K Ultra HD", "Cohérence parfaite", "Brand identity"],
+    description: "Professional studio quality",
+    features: ["4K Ultra HD", "Perfect consistency", "Brand identity"],
     internalModels: ["gpt-image-1.5"],
     needsVoice: false,
     badge: "PRO",
@@ -73,9 +73,9 @@ export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
     category: "video",
     tier: "standard",
     salePrice: 15,
-    salePriceUnit: "/vidéo",
-    description: "Vidéos courtes pour vos réseaux sociaux",
-    features: ["HD 1080p", "4-10s", "Voix IA incluse"],
+    salePriceUnit: "/video",
+    description: "Short videos for your social networks",
+    features: ["HD 1080p", "4-10s", "AI Voice included"],
     internalModels: ["kling-v2-master", "minimax-hailuo"],
     needsVoice: true,
     supportedDurations: [4, 6, 10],
@@ -86,9 +86,9 @@ export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
     category: "video",
     tier: "pro",
     salePrice: 29,
-    salePriceUnit: "/vidéo",
-    description: "Vidéos premium ultra-fluides",
-    features: ["Full HD", "4-12s", "Voix naturelle", "Motion fluide"],
+    salePriceUnit: "/video",
+    description: "Ultra-smooth premium videos",
+    features: ["Full HD", "4-12s", "Natural voice", "Smooth motion"],
     internalModels: ["sora-2", "sora-2-pro"],
     needsVoice: true,
     supportedDurations: [4, 8, 12],
@@ -100,25 +100,25 @@ export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
     category: "video",
     tier: "cinema",
     salePrice: 69,
-    salePriceUnit: "/vidéo",
-    description: "Qualité cinéma professionnelle",
-    features: ["4K HDR", "10-30s", "Rendu cinématique", "Son premium"],
+    salePriceUnit: "/video",
+    description: "Professional cinema quality",
+    features: ["4K HDR", "10-30s", "Cinematic rendering", "Premium audio"],
     internalModels: ["veo-3.1", "veo-3.1-pro"],
     needsVoice: true,
     supportedDurations: [10, 20, 30],
     badge: "CINEMA",
   },
 
-  // === AVATARS PARLANTS (AI INFLUENCER) ===
+  // === TALKING AVATARS (AI INFLUENCER) ===
   {
     id: "ai-influencer-standard",
     name: "AI Influencer",
     category: "avatar",
     tier: "pro",
     salePrice: 39,
-    salePriceUnit: "/vidéo",
-    description: "Avatar parlant réaliste pour vos contenus",
-    features: ["Lip-sync HD", "5-15s", "Voix naturelle", "Expressions"],
+    salePriceUnit: "/video",
+    description: "Realistic talking avatar for your content",
+    features: ["HD Lip-sync", "5-15s", "Natural voice", "Expressions"],
     internalModels: ["kling-lip-sync", "sync-labs"],
     needsVoice: true,
     needsAvatar: true,
@@ -130,8 +130,8 @@ export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
     category: "avatar",
     tier: "ultra",
     salePrice: 69,
-    salePriceUnit: "/vidéo",
-    description: "Avatar premium avec émotions naturelles",
+    salePriceUnit: "/video",
+    description: "Premium avatar with natural emotions",
     features: ["Ultra HD", "10-60s", "Multi-expressions", "Storytelling"],
     internalModels: ["kling-lip-sync-pro", "hedra-avatar"],
     needsVoice: true,
@@ -277,7 +277,7 @@ export const getCategoryLabel = (category: CommercialProduct["category"]) => {
     case "image":
       return "🖼️ Images";
     case "video":
-      return "🎬 Vidéos";
+      return "🎬 Videos";
     case "avatar":
       return "🎤 AI Influencer";
   }
