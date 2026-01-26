@@ -51,7 +51,6 @@ const Dashboard = () => {
 
   const fetchData = async () => {
     try {
-      // Fetch projects
       const { data: projectsData } = await supabase
         .from("projects")
         .select("*")
@@ -63,7 +62,6 @@ const Dashboard = () => {
         setStats((prev) => ({ ...prev, totalProjects: projectsData.length }));
       }
 
-      // Fetch posts stats
       const { data: postsData } = await supabase
         .from("scheduled_posts")
         .select("status");
@@ -85,28 +83,28 @@ const Dashboard = () => {
 
   const statCards = [
     {
-      title: "Projets",
+      title: "Projects",
       value: stats.totalProjects,
       icon: FolderKanban,
       color: "text-primary",
       bgColor: "bg-primary/10",
     },
     {
-      title: "Posts programmés",
+      title: "Scheduled",
       value: stats.scheduledPosts,
       icon: Clock,
       color: "text-accent",
       bgColor: "bg-accent/10",
     },
     {
-      title: "Publiés",
+      title: "Published",
       value: stats.publishedPosts,
       icon: CheckCircle2,
-      color: "text-green-500",
-      bgColor: "bg-green-500/10",
+      color: "text-primary",
+      bgColor: "bg-primary/10",
     },
     {
-      title: "En attente",
+      title: "Pending",
       value: stats.pendingPosts,
       icon: TrendingUp,
       color: "text-secondary",
@@ -116,29 +114,29 @@ const Dashboard = () => {
 
   const quickActions = [
     {
-      title: "Nouveau projet",
-      description: "Créer un projet avec automatisation",
+      title: "New Project",
+      description: "Create a project with automation",
       icon: FolderKanban,
       action: () => navigate("/projects/new"),
       gradient: "from-primary to-secondary",
     },
     {
-      title: "Planifier un post",
-      description: "Programmer du contenu",
+      title: "Schedule Post",
+      description: "Plan your content",
       icon: Calendar,
       action: () => navigate("/calendar"),
       gradient: "from-secondary to-accent",
     },
     {
-      title: "Générer une vidéo",
-      description: "Créer une vidéo IA",
+      title: "Generate Video",
+      description: "Create AI video content",
       icon: Video,
       action: () => navigate("/videos"),
       gradient: "from-accent to-primary",
     },
     {
-      title: "Créer un post",
-      description: "Générer du contenu texte/image",
+      title: "Create Post",
+      description: "Generate text/image content",
       icon: ImageIcon,
       action: () => navigate("/posts"),
       gradient: "from-primary to-accent",
@@ -153,10 +151,10 @@ const Dashboard = () => {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="font-display text-3xl font-bold mb-2">
-          Bonjour, <span className="text-gradient">{profile?.display_name || "Créateur"}</span> 👋
+          Hello, <span className="text-gradient">{profile?.display_name || "Creator"}</span> 👋
         </h1>
         <p className="text-muted-foreground">
-          Voici un aperçu de votre activité
+          Here's an overview of your activity
         </p>
       </motion.div>
 
@@ -192,7 +190,7 @@ const Dashboard = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
       >
-        <h2 className="font-display text-xl font-semibold mb-4">Actions rapides</h2>
+        <h2 className="font-display text-xl font-semibold mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {quickActions.map((action, index) => (
             <motion.button
@@ -222,9 +220,9 @@ const Dashboard = () => {
         transition={{ delay: 0.6 }}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display text-xl font-semibold">Projets récents</h2>
+          <h2 className="font-display text-xl font-semibold">Recent Projects</h2>
           <Button variant="ghost" onClick={() => navigate("/projects")} className="gap-2">
-            Voir tout
+            View All
             <ArrowRight className="h-4 w-4" />
           </Button>
         </div>
@@ -235,13 +233,13 @@ const Dashboard = () => {
               <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
                 <FolderKanban className="h-8 w-8 text-muted-foreground" />
               </div>
-              <h3 className="font-semibold mb-2">Aucun projet</h3>
+              <h3 className="font-semibold mb-2">No projects yet</h3>
               <p className="text-muted-foreground text-sm text-center mb-4">
-                Créez votre premier projet pour automatiser vos publications
+                Create your first project to automate your publications
               </p>
               <Button onClick={() => navigate("/projects/new")} className="gap-2">
                 <Plus className="h-4 w-4" />
-                Créer un projet
+                Create Project
               </Button>
             </CardContent>
           </Card>
@@ -277,7 +275,7 @@ const Dashboard = () => {
                       <div className="min-w-0 flex-1">
                         <CardTitle className="text-base truncate">{project.name}</CardTitle>
                         <p className="text-xs text-muted-foreground">
-                          {project.posts_per_week} posts/semaine
+                          {project.posts_per_week} posts/week
                         </p>
                       </div>
                     </div>

@@ -22,10 +22,9 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  MoreHorizontal,
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, isToday, isBefore, startOfDay } from "date-fns";
-import { fr } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 import { ScheduledPostModal } from "@/components/ScheduledPostModal";
 import { ContentSuggestions } from "@/components/ContentSuggestions";
 import { useToast } from "@/hooks/use-toast";
@@ -97,16 +96,16 @@ const CalendarPage = () => {
 
     if (error) {
       toast({
-        title: "Erreur",
-        description: "Impossible de supprimer le post",
+        title: "Error",
+        description: "Unable to delete post",
         variant: "destructive",
       });
       return;
     }
 
     toast({
-      title: "Post supprimé",
-      description: "Le post a été supprimé avec succès",
+      title: "Post deleted",
+      description: "Post has been successfully deleted",
     });
     fetchPosts();
   };
@@ -119,16 +118,16 @@ const CalendarPage = () => {
 
     if (error) {
       toast({
-        title: "Erreur",
-        description: "Impossible de programmer la publication",
+        title: "Error",
+        description: "Unable to schedule publication",
         variant: "destructive",
       });
       return;
     }
 
     toast({
-      title: "Publication programmée",
-      description: "Le post sera publié sous peu",
+      title: "Publication scheduled",
+      description: "Post will be published shortly",
     });
     fetchPosts();
   };
@@ -184,7 +183,7 @@ const CalendarPage = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "published":
-        return <CheckCircle2 className="h-3 w-3 text-green-500" />;
+        return <CheckCircle2 className="h-3 w-3 text-primary" />;
       case "failed":
         return <AlertCircle className="h-3 w-3 text-destructive" />;
       case "scheduled":
@@ -205,9 +204,8 @@ const CalendarPage = () => {
     }
   };
 
-  const weekDays = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+  const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-  // Calculate empty cells for first week
   const firstDayOfMonth = startOfMonth(currentMonth);
   const startDay = firstDayOfMonth.getDay();
   const emptyDays = startDay === 0 ? 6 : startDay - 1;
@@ -217,18 +215,18 @@ const CalendarPage = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold">Calendrier</h1>
+          <h1 className="font-display text-2xl font-bold">Calendar</h1>
           <p className="text-muted-foreground">
-            Planifiez et visualisez vos publications
+            Plan and visualize your publications
           </p>
         </div>
         <div className="flex items-center gap-3">
           <Select value={selectedProject} onValueChange={setSelectedProject}>
             <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Tous les projets" />
+              <SelectValue placeholder="All projects" />
             </SelectTrigger>
             <SelectContent className="bg-card border border-border z-50">
-              <SelectItem value="all">Tous les projets</SelectItem>
+              <SelectItem value="all">All projects</SelectItem>
               {projects.map((project) => (
                 <SelectItem key={project.id} value={project.id}>
                   <div className="flex items-center gap-2">
@@ -244,7 +242,7 @@ const CalendarPage = () => {
           </Select>
           <Button className="gap-2">
             <Plus className="h-4 w-4" />
-            Planifier
+            Schedule
           </Button>
         </div>
       </div>
@@ -265,10 +263,10 @@ const CalendarPage = () => {
             </div>
             <div>
               <p className="font-medium">
-                {projects.find(p => p.id === selectedProject)?.name || "Projet"}
+                {projects.find(p => p.id === selectedProject)?.name || "Project"}
               </p>
               <p className="text-sm text-muted-foreground">
-                Générez des suggestions de contenu pour ce projet
+                Generate content suggestions for this project
               </p>
             </div>
           </div>
@@ -287,7 +285,7 @@ const CalendarPage = () => {
               <ChevronLeft className="h-5 w-5" />
             </Button>
             <CardTitle className="text-xl capitalize">
-              {format(currentMonth, "MMMM yyyy", { locale: fr })}
+              {format(currentMonth, "MMMM yyyy", { locale: enUS })}
             </CardTitle>
             <Button
               variant="ghost"
@@ -393,19 +391,19 @@ const CalendarPage = () => {
       <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-muted-foreground" />
-          Brouillon
+          Draft
         </div>
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-accent" />
-          Programmé
+          Scheduled
         </div>
         <div className="flex items-center gap-2">
           <CheckCircle2 className="h-4 w-4" />
-          Publié
+          Published
         </div>
         <div className="flex items-center gap-2">
           <AlertCircle className="h-4 w-4 text-destructive" />
-          Échec
+          Failed
         </div>
       </div>
 

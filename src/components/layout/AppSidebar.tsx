@@ -28,17 +28,17 @@ import {
 
 const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Projets", url: "/projects", icon: FolderKanban },
-  { title: "Calendrier", url: "/calendar", icon: Calendar },
+  { title: "Projects", url: "/projects", icon: FolderKanban },
+  { title: "Calendar", url: "/calendar", icon: Calendar },
 ];
 
 const contentNavItems = [
-  { title: "Vidéos", url: "/videos", icon: Video },
+  { title: "Videos", url: "/videos", icon: Video },
   { title: "Posts", url: "/posts", icon: ImageIcon },
 ];
 
 const settingsNavItems = [
-  { title: "Paramètres", url: "/settings", icon: Settings },
+  { title: "Settings", url: "/settings", icon: Settings },
 ];
 
 export function AppSidebar() {
@@ -104,7 +104,7 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Création</SidebarGroupLabel>
+          <SidebarGroupLabel>Create</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {contentNavItems.map((item) => (
@@ -131,7 +131,7 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Compte</SidebarGroupLabel>
+          <SidebarGroupLabel>Account</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {settingsNavItems.map((item) => (
@@ -171,7 +171,7 @@ export function AppSidebar() {
             {!collapsed && (
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm truncate">
-                  {profile?.display_name || "Utilisateur"}
+                  {profile?.display_name || "User"}
                 </p>
                 <p className="text-xs text-muted-foreground truncate">Pro Plan</p>
               </div>

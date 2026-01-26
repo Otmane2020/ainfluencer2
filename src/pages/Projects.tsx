@@ -64,8 +64,8 @@ const Projects = () => {
     } catch (error) {
       console.error("Error fetching projects:", error);
       toast({
-        title: "Erreur",
-        description: "Impossible de charger les projets",
+        title: "Error",
+        description: "Unable to load projects",
         variant: "destructive",
       });
     } finally {
@@ -84,14 +84,14 @@ const Projects = () => {
 
       setProjects((prev) => prev.filter((p) => p.id !== projectId));
       toast({
-        title: "Projet supprimé",
-        description: "Le projet a été supprimé avec succès",
+        title: "Project deleted",
+        description: "Project has been successfully deleted",
       });
     } catch (error) {
       console.error("Error deleting project:", error);
       toast({
-        title: "Erreur",
-        description: "Impossible de supprimer le projet",
+        title: "Error",
+        description: "Unable to delete project",
         variant: "destructive",
       });
     }
@@ -104,9 +104,9 @@ const Projects = () => {
   );
 
   const automationLabels: Record<string, string> = {
-    manual: "Manuel",
+    manual: "Manual",
     semi_auto: "Semi-auto",
-    full_auto: "Automatique",
+    full_auto: "Automatic",
   };
 
   return (
@@ -114,14 +114,14 @@ const Projects = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold">Projets</h1>
+          <h1 className="font-display text-2xl font-bold">Projects</h1>
           <p className="text-muted-foreground">
-            Gérez vos projets et leurs automatisations
+            Manage your projects and automations
           </p>
         </div>
         <Button onClick={() => navigate("/projects/new")} className="gap-2">
           <Plus className="h-4 w-4" />
-          Nouveau projet
+          New Project
         </Button>
       </div>
 
@@ -129,7 +129,7 @@ const Projects = () => {
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Rechercher un projet..."
+          placeholder="Search projects..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-10"
@@ -156,17 +156,17 @@ const Projects = () => {
               <FolderKanban className="h-8 w-8 text-muted-foreground" />
             </div>
             <h3 className="font-semibold mb-2">
-              {searchQuery ? "Aucun résultat" : "Aucun projet"}
+              {searchQuery ? "No results" : "No projects"}
             </h3>
             <p className="text-muted-foreground text-sm text-center mb-4 max-w-sm">
               {searchQuery
-                ? "Aucun projet ne correspond à votre recherche"
-                : "Créez votre premier projet pour automatiser vos publications sur les réseaux sociaux"}
+                ? "No projects match your search"
+                : "Create your first project to automate your social media publications"}
             </p>
             {!searchQuery && (
               <Button onClick={() => navigate("/projects/new")} className="gap-2">
                 <Plus className="h-4 w-4" />
-                Créer un projet
+                Create Project
               </Button>
             )}
           </CardContent>
@@ -233,14 +233,14 @@ const Projects = () => {
                           onClick={() => navigate(`/projects/${project.id}`)}
                         >
                           <Edit className="h-4 w-4 mr-2" />
-                          Modifier
+                          Edit
                         </DropdownMenuItem>
                         {project.url && (
                           <DropdownMenuItem
                             onClick={() => window.open(project.url!, "_blank")}
                           >
                             <ExternalLink className="h-4 w-4 mr-2" />
-                            Ouvrir le site
+                            Open Website
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuItem
@@ -248,7 +248,7 @@ const Projects = () => {
                           onClick={() => handleDelete(project.id)}
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
-                          Supprimer
+                          Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -266,7 +266,7 @@ const Projects = () => {
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
-                      <span>{project.posts_per_week}/sem</span>
+                      <span>{project.posts_per_week}/week</span>
                     </div>
                   </div>
                 </CardContent>

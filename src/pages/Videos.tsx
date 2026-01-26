@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RefreshCw, Filter } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -78,7 +78,7 @@ const Videos = () => {
     const readyVideos = videos.filter((v) => v.status === "ready");
     const historyItems: VideoHistoryItem[] = readyVideos.map((v, index) => ({
       id: `${Date.now()}-${index}`,
-      title: `Vidéo ${videoHistory.length + index + 1}`,
+      title: `Video ${videoHistory.length + index + 1}`,
       script: v.script,
       duration: v.duration,
       videoUrl: v.videoUrl,
@@ -95,8 +95,8 @@ const Videos = () => {
 
   const handleMergeVideos = () => {
     toast({
-      title: "Fusion en cours...",
-      description: "Les vidéos sont en cours de fusion",
+      title: "Merging...",
+      description: "Videos are being merged",
     });
   };
 
@@ -107,8 +107,8 @@ const Videos = () => {
   const handleDeleteHistoryItem = (id: string) => {
     setVideoHistory((prev) => prev.filter((v) => v.id !== id));
     toast({
-      title: "Vidéo supprimée",
-      description: "La vidéo a été retirée de l'historique",
+      title: "Video deleted",
+      description: "Video has been removed from history",
     });
   };
 
@@ -126,18 +126,18 @@ const Videos = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold">Générateur de vidéos</h1>
+          <h1 className="font-display text-2xl font-bold">Video Generator</h1>
           <p className="text-muted-foreground">
-            Créez des vidéos IA pour vos réseaux sociaux
+            Create AI videos for your social media
           </p>
         </div>
         <div className="flex items-center gap-3">
           <Select value={selectedProject} onValueChange={setSelectedProject}>
             <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Tous les projets" />
+              <SelectValue placeholder="All projects" />
             </SelectTrigger>
             <SelectContent className="bg-card border border-border z-50">
-              <SelectItem value="all">Tous les projets</SelectItem>
+              <SelectItem value="all">All projects</SelectItem>
               {projects.map((project) => (
                 <SelectItem key={project.id} value={project.id}>
                   <div className="flex items-center gap-2">
@@ -185,7 +185,7 @@ const Videos = () => {
           />
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-display text-lg font-semibold">Historique</h3>
+              <h3 className="font-display text-lg font-semibold">History</h3>
               <Button
                 variant="outline"
                 size="sm"
@@ -194,7 +194,7 @@ const Videos = () => {
                 className="gap-2"
               >
                 <RefreshCw className={`h-4 w-4 ${isLoadingVideos ? "animate-spin" : ""}`} />
-                Actualiser
+                Refresh
               </Button>
             </div>
             <VideoHistory

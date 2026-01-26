@@ -77,8 +77,8 @@ export const PricingPacks = ({
 
             {/* Current pack indicator */}
             {isCurrentPack && (
-              <div className="absolute -top-3 right-4 rounded-full bg-green-500 px-3 py-1 text-xs font-bold text-white shadow-lg">
-                ACTUEL
+              <div className="absolute -top-3 right-4 rounded-full bg-primary px-3 py-1 text-xs font-bold text-white shadow-lg">
+                CURRENT
               </div>
             )}
 
@@ -97,14 +97,14 @@ export const PricingPacks = ({
             {/* Price */}
             <div className="mb-6 text-center">
               <div className="flex items-baseline justify-center gap-1">
-                <span className="text-4xl font-bold text-gradient">{pack.price}€</span>
+                <span className="text-4xl font-bold text-gradient">${pack.price}</span>
                 <span className="text-muted-foreground">{pack.priceUnit}</span>
               </div>
             </div>
 
             {/* Included content summary */}
             <div className="mb-6 rounded-xl bg-muted/50 p-4">
-              <h4 className="mb-3 text-sm font-semibold">Inclus :</h4>
+              <h4 className="mb-3 text-sm font-semibold">Included:</h4>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div>
                   <div className="text-lg font-bold text-primary">
@@ -116,7 +116,7 @@ export const PricingPacks = ({
                   <div className="text-lg font-bold text-secondary">
                     {pack.included.videos === -1 ? "∞" : pack.included.videos}
                   </div>
-                  <div className="text-xs text-muted-foreground">Vidéos</div>
+                  <div className="text-xs text-muted-foreground">Videos</div>
                 </div>
                 <div>
                   <div className="text-lg font-bold text-accent">
@@ -150,7 +150,7 @@ export const PricingPacks = ({
               variant={isPopular ? "default" : "outline"}
               size="lg"
             >
-              {isCurrentPack ? "Pack actuel" : isPopular ? "Choisir Pro" : `Choisir ${pack.name}`}
+              {isCurrentPack ? "Current Plan" : isPopular ? "Choose Pro" : `Choose ${pack.name}`}
             </Button>
           </motion.div>
         );
