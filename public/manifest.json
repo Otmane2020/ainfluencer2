@@ -1,0 +1,27 @@
+{
+  "name": "AI Influencer",
+  "short_name": "AI Influencer",
+  "description": "Plateforme AI pour automatiser votre influence sur les réseaux sociaux",
+  "theme_color": "#0B1118",
+  "background_color": "#0B1118",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["social", "productivity", "business"],
+  "screenshots": [],
+  "prefer_related_applications": false
+}

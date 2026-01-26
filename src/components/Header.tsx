@@ -1,5 +1,4 @@
 import { motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
 
 export const Header = () => {
   return (
@@ -10,8 +9,8 @@ export const Header = () => {
           animate={{ opacity: 1, x: 0 }}
           className="flex items-center gap-3"
         >
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-primary shadow-glow">
-            <Sparkles className="h-5 w-5 text-white" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden shadow-glow">
+            <img src="/logo.png" alt="AI Influencer" className="h-full w-full object-contain" />
           </div>
           <div>
             <h1 className="font-display text-xl font-bold text-gradient">AI Influencer</h1>
@@ -26,8 +25,8 @@ export const Header = () => {
         >
           <div className="hidden sm:flex items-center gap-2 rounded-full bg-muted px-4 py-2">
             <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500"></span>
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75"></span>
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-primary"></span>
             </span>
             <span className="text-sm text-muted-foreground">En ligne</span>
           </div>

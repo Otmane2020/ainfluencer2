@@ -7,12 +7,11 @@ import {
   ImageIcon,
   Settings,
   LogOut,
-  Sparkles,
-  ChevronLeft,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { PWAInstallButton } from "@/components/PWAInstall";
 import {
   Sidebar,
   SidebarContent,
@@ -24,7 +23,6 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
-  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
 
@@ -61,8 +59,8 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-border">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl gradient-primary shadow-glow">
-            <Sparkles className="h-5 w-5 text-white" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden shadow-glow">
+            <img src="/logo.png" alt="AI Influencer" className="h-full w-full object-contain" />
           </div>
           {!collapsed && (
             <div className="flex flex-col overflow-hidden">
@@ -161,32 +159,35 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-4 border-t border-border">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full gradient-primary p-[2px]">
-            <div className="flex h-full w-full items-center justify-center rounded-full bg-card">
-              <span className="text-sm font-bold text-gradient">
-                {profile?.display_name?.[0]?.toUpperCase() || "U"}
-              </span>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full gradient-primary p-[2px]">
+              <div className="flex h-full w-full items-center justify-center rounded-full bg-card">
+                <span className="text-sm font-bold text-gradient">
+                  {profile?.display_name?.[0]?.toUpperCase() || "U"}
+                </span>
+              </div>
             </div>
+            {!collapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm truncate">
+                  {profile?.display_name || "Utilisateur"}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">Pro Plan</p>
+              </div>
+            )}
+            {!collapsed && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleSignOut}
+                className="shrink-0 text-muted-foreground hover:text-destructive"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            )}
           </div>
-          {!collapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm truncate">
-                {profile?.display_name || "Utilisateur"}
-              </p>
-              <p className="text-xs text-muted-foreground truncate">Pro Plan</p>
-            </div>
-          )}
-          {!collapsed && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleSignOut}
-              className="shrink-0 text-muted-foreground hover:text-destructive"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
-          )}
+          {!collapsed && <PWAInstallButton />}
         </div>
       </SidebarFooter>
     </Sidebar>
