@@ -168,10 +168,10 @@ export const GenerationProgressModal = ({
                   <p className="text-sm font-medium truncate">
                     Segment {index + 1} • {task.duration}s
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                     {task.status === "completed" ? "Ready" : 
                      task.status === "failed" ? "Error" :
-                     task.status === "queued" ? "In queue..." : 
+                     task.status === "queued" ? `In queue... ${task.progress}%` : 
                      `Generating... ${task.progress}%`}
                   </p>
                 </div>

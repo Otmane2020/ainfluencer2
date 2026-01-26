@@ -372,13 +372,16 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated }: VideoGener
 
     setSegments(segmentsWithTasks);
 
+    // Create a ref-like variable to track current segments
+    let currentSegments = [...segmentsWithTasks];
+
     // Step 3: Poll for video completion
-    const pollInterval = setInterval(async () => {
+    const pollStatus = async () => {
       let allComplete = true;
       let anyError = false;
 
       const updatedSegments = await Promise.all(
-        segmentsWithTasks.map(async (segment) => {
+        currentSegments.map(async (segment) => {
           if (!segment.taskId || segment.status === "ready" || segment.status === "error") {
             return segment;
           }
@@ -474,21 +477,48 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated }: VideoGener
         })
       );
 
+      // Update the ref-like variable for next poll
+      currentSegments = updatedSegments;
       setSegments(updatedSegments);
 
-      if (allComplete || anyError) {
+      return { allComplete, anyError, readyCount: updatedSegments.filter((s) => s.status === "ready").length, errorCount: updatedSegments.filter((s) => s.status === "error").length };
+    };
+
+    // Immediate first poll
+    const firstResult = await pollStatus();
+    
+    if (firstResult.allComplete || firstResult.anyError) {
+      setIsGenerating(false);
+      if (firstResult.readyCount > 0) {
+        toast({
+          title: `🎬 ${selectedProduct.name} générées !`,
+          description: `${firstResult.readyCount} vidéo(s) prête(s) avec voix IA${firstResult.errorCount > 0 ? `, ${firstResult.errorCount} erreur(s)` : ""}`,
+        });
+        onVideosGenerated(segments);
+      } else {
+        toast({
+          title: "Erreur de génération",
+          description: "Impossible de générer les vidéos",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+
+    // Continue polling
+    const pollInterval = setInterval(async () => {
+      const result = await pollStatus();
+
+      if (result.allComplete || result.anyError) {
         clearInterval(pollInterval);
         setIsGenerating(false);
 
-        const readyCount = updatedSegments.filter((s) => s.status === "ready").length;
-        const errorCount = updatedSegments.filter((s) => s.status === "error").length;
-
-        if (readyCount > 0) {
+        if (result.readyCount > 0) {
           toast({
             title: `🎬 ${selectedProduct.name} générées !`,
-            description: `${readyCount} vidéo(s) prête(s) avec voix IA${errorCount > 0 ? `, ${errorCount} erreur(s)` : ""}`,
+            description: `${result.readyCount} vidéo(s) prête(s) avec voix IA${result.errorCount > 0 ? `, ${result.errorCount} erreur(s)` : ""}`,
           });
-          onVideosGenerated(updatedSegments);
+          onVideosGenerated(currentSegments);
         } else {
           toast({
             title: "Erreur de génération",
