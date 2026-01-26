@@ -23,7 +23,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, isToday, isBefore, startOfDay } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, isToday, isBefore, startOfDay, addWeeks, startOfWeek } from "date-fns";
 import { enUS } from "date-fns/locale";
 import { ScheduledPostModal } from "@/components/ScheduledPostModal";
 import { ContentSuggestions } from "@/components/ContentSuggestions";
@@ -165,14 +165,13 @@ const CalendarPage = () => {
     setIsLoading(false);
   };
 
-  // Start calendar from today if we're in the current month, otherwise from the 1st
-  const calendarStart = isSameDay(startOfMonth(currentMonth), startOfMonth(new Date())) 
-    ? startOfDay(new Date()) 
-    : startOfMonth(currentMonth);
+  // Start calendar from today and show 5 weeks
+  const calendarStart = startOfWeek(new Date(), { weekStartsOn: 1 }); // Start on Monday
+  const calendarEnd = addWeeks(calendarStart, 5);
   
   const days = eachDayOfInterval({
     start: calendarStart,
-    end: endOfMonth(currentMonth),
+    end: calendarEnd,
   });
 
   const getPostsForDay = (day: Date) => {
@@ -212,9 +211,8 @@ const CalendarPage = () => {
 
   const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-  const firstVisibleDay = calendarStart;
-  const startDay = firstVisibleDay.getDay();
-  const emptyDays = startDay === 0 ? 6 : startDay - 1;
+  // No empty days needed since we start on Monday
+  const emptyDays = 0;
 
   return (
     <div className="space-y-6">
