@@ -37,11 +37,19 @@ serve(async (req) => {
 
     if (action === "create") {
       // Create a new video generation task
-      const { prompt, avatarUrl, duration = 4, size = "720x1280" }: VideoRequest = await req.json();
+      const { prompt, avatarUrl, duration: requestedDuration = 4, size = "720x1280" }: VideoRequest = await req.json();
 
       if (!prompt) {
         throw new Error("Prompt is required");
       }
+
+      // IMPORTANT: CometAPI Sora 2 only supports 4, 8, or 12 seconds
+      const validDurations = [4, 8, 12];
+      const duration = validDurations.includes(requestedDuration) 
+        ? requestedDuration 
+        : validDurations.reduce((prev, curr) => 
+            Math.abs(curr - requestedDuration) < Math.abs(prev - requestedDuration) ? curr : prev
+          );
 
       // Build the video prompt with avatar context if provided
       let fullPrompt = prompt;
@@ -50,7 +58,7 @@ serve(async (req) => {
       }
 
       console.log("Creating video with prompt:", fullPrompt.substring(0, 100) + "...");
-      console.log("Duration:", duration, "Size:", size);
+      console.log("Requested duration:", requestedDuration, "Validated duration:", duration, "Size:", size);
 
       // Create FormData for the request
       const formData = new FormData();
