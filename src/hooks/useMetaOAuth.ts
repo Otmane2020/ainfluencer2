@@ -47,8 +47,12 @@ export const useMetaOAuth = () => {
   // Listen for OAuth callback messages
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
+      console.log("[useMetaOAuth] Received message:", event.data?.type);
+      
       if (event.data?.type === "meta-oauth-success") {
         const { accessToken, expiresIn, user, instagram } = event.data;
+        console.log("[useMetaOAuth] OAuth success for user:", user?.name);
+        
         const newConnection: MetaConnection = {
           accessToken,
           expiresAt: Date.now() + expiresIn * 1000,
@@ -63,10 +67,26 @@ export const useMetaOAuth = () => {
           description: `Compte ${user.name} lié avec succès`,
         });
       } else if (event.data?.type === "meta-oauth-error") {
+        console.error("[useMetaOAuth] OAuth error:", event.data.error);
         setIsConnecting(false);
+        
+        let errorMessage = "Impossible de se connecter à Meta";
+        const error = event.data.error;
+        
+        // User-friendly error messages
+        if (error?.includes("access_denied") || error?.includes("user_denied")) {
+          errorMessage = "Vous avez refusé les permissions requises";
+        } else if (error?.includes("invalid_client")) {
+          errorMessage = "Configuration de l'app Meta incorrecte";
+        } else if (error?.includes("redirect_uri")) {
+          errorMessage = "URI de redirection non autorisée dans Meta Developer";
+        } else if (error) {
+          errorMessage = error;
+        }
+        
         toast({
           title: "Erreur de connexion",
-          description: event.data.error || "Impossible de se connecter à Meta",
+          description: errorMessage,
           variant: "destructive",
         });
       }
@@ -78,6 +98,7 @@ export const useMetaOAuth = () => {
 
   const connect = useCallback(async () => {
     setIsConnecting(true);
+    console.log("[useMetaOAuth] Starting OAuth flow...");
 
     try {
       const response = await fetch(
@@ -91,9 +112,10 @@ export const useMetaOAuth = () => {
       );
 
       const data = await response.json();
+      console.log("[useMetaOAuth] Authorize response:", data);
 
-      if (data.error) {
-        throw new Error(data.message || data.error);
+      if (!response.ok || data.error) {
+        throw new Error(data.message || data.error || "Failed to get auth URL");
       }
 
       // Open OAuth popup
@@ -111,10 +133,22 @@ export const useMetaOAuth = () => {
           description: "Autorisez les popups pour vous connecter à Meta",
           variant: "destructive",
         });
+        return;
       }
+
+      // Monitor popup closing
+      const checkPopup = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkPopup);
+          // If still connecting after popup closed, it was cancelled
+          setTimeout(() => {
+            setIsConnecting(false);
+          }, 500);
+        }
+      }, 500);
     } catch (error) {
       setIsConnecting(false);
-      console.error("Meta OAuth error:", error);
+      console.error("[useMetaOAuth] Error:", error);
       toast({
         title: "Erreur",
         description: error instanceof Error ? error.message : "Impossible de démarrer l'authentification",

@@ -1,8 +1,19 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Share2, Facebook, Instagram, Copy, Download, X, Check } from "lucide-react";
+import { Share2, Facebook, Instagram, Linkedin, Copy, Download, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+
+// TikTok icon component
+const TikTokIcon = ({ className }: { className?: string }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    className={className}
+  >
+    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+  </svg>
+);
 
 interface ShareButtonProps {
   videoUrl?: string;
@@ -94,7 +105,39 @@ export const ShareButton = ({
     setIsOpen(false);
   };
 
+  const handleLinkedInShare = () => {
+    const shareUrl = encodeURIComponent(videoUrl || window.location.href);
+    window.open(
+      `https://www.linkedin.com/sharing/share-offsite/?url=${shareUrl}`,
+      "_blank",
+      "width=600,height=400"
+    );
+    toast({
+      title: "Partage LinkedIn",
+      description: "La fenêtre de partage LinkedIn s'est ouverte",
+    });
+    onShare?.("linkedin" as any);
+    setIsOpen(false);
+  };
+
+  const handleTikTokShare = () => {
+    toast({
+      title: "Partager sur TikTok",
+      description: "Téléchargez la vidéo puis partagez-la depuis l'app TikTok",
+    });
+    handleDownload();
+    onShare?.("tiktok" as any);
+    setIsOpen(false);
+  };
+
   const shareOptions = [
+    {
+      id: "instagram",
+      label: "Instagram",
+      icon: Instagram,
+      gradient: "from-[#833AB4] via-[#E1306C] to-[#F77737]",
+      onClick: handleInstagramShare,
+    },
     {
       id: "facebook",
       label: "Facebook",
@@ -103,11 +146,18 @@ export const ShareButton = ({
       onClick: handleFacebookShare,
     },
     {
-      id: "instagram",
-      label: "Instagram",
-      icon: Instagram,
-      gradient: "from-[#833AB4] via-[#E1306C] to-[#F77737]",
-      onClick: handleInstagramShare,
+      id: "linkedin",
+      label: "LinkedIn",
+      icon: Linkedin,
+      gradient: "from-[#0A66C2] to-[#004182]",
+      onClick: handleLinkedInShare,
+    },
+    {
+      id: "tiktok",
+      label: "TikTok",
+      icon: TikTokIcon,
+      gradient: "from-[#000000] via-[#25F4EE] to-[#FE2C55]",
+      onClick: handleTikTokShare,
     },
     {
       id: "copy",

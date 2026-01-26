@@ -49,10 +49,12 @@ export type Database = {
           facebook_enabled: boolean | null
           id: string
           instagram_enabled: boolean | null
+          linkedin_enabled: boolean | null
           logo_url: string | null
           name: string
           posts_per_week: number | null
           theme_color: string | null
+          tiktok_enabled: boolean | null
           updated_at: string
           url: string | null
           user_id: string
@@ -64,10 +66,12 @@ export type Database = {
           facebook_enabled?: boolean | null
           id?: string
           instagram_enabled?: boolean | null
+          linkedin_enabled?: boolean | null
           logo_url?: string | null
           name: string
           posts_per_week?: number | null
           theme_color?: string | null
+          tiktok_enabled?: boolean | null
           updated_at?: string
           url?: string | null
           user_id: string
@@ -79,10 +83,12 @@ export type Database = {
           facebook_enabled?: boolean | null
           id?: string
           instagram_enabled?: boolean | null
+          linkedin_enabled?: boolean | null
           logo_url?: string | null
           name?: string
           posts_per_week?: number | null
           theme_color?: string | null
+          tiktok_enabled?: boolean | null
           updated_at?: string
           url?: string | null
           user_id?: string

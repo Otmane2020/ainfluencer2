@@ -4,9 +4,20 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   Globe, FileText, Palette, Calendar, Share2, 
   ArrowRight, ArrowLeft, Loader2, Sparkles, 
-  Instagram, Facebook, Upload, Zap, Clock,
+  Instagram, Facebook, Linkedin, Upload, Zap, Clock,
   Check
 } from "lucide-react";
+
+// TikTok icon component
+const TikTokIcon = ({ className }: { className?: string }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    className={className}
+  >
+    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+  </svg>
+);
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
@@ -29,6 +40,8 @@ const projectSchema = z.object({
   theme_color: z.string().default("#F97316"),
   instagram_enabled: z.boolean().default(true),
   facebook_enabled: z.boolean().default(true),
+  linkedin_enabled: z.boolean().default(false),
+  tiktok_enabled: z.boolean().default(false),
   posts_per_week: z.number().min(1).max(14).default(3),
   automation_mode: z.enum(["manual", "semi_auto", "full_auto"]).default("semi_auto"),
 });
@@ -72,6 +85,8 @@ const ProjectNew = () => {
     theme_color: "#F97316",
     instagram_enabled: true,
     facebook_enabled: true,
+    linkedin_enabled: false,
+    tiktok_enabled: false,
     posts_per_week: 3,
     automation_mode: "semi_auto",
   });
@@ -279,6 +294,8 @@ const ProjectNew = () => {
           theme_color: formData.theme_color,
           instagram_enabled: formData.instagram_enabled,
           facebook_enabled: formData.facebook_enabled,
+          linkedin_enabled: formData.linkedin_enabled,
+          tiktok_enabled: formData.tiktok_enabled,
           posts_per_week: formData.posts_per_week,
           automation_mode: formData.automation_mode,
           user_id: user.id,
@@ -651,6 +668,60 @@ const ProjectNew = () => {
                             </div>
                           </div>
                           <Switch checked={formData.facebook_enabled} />
+                        </div>
+                      </motion.div>
+
+                      <motion.div
+                        className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                          formData.linkedin_enabled 
+                            ? "border-primary bg-primary/5" 
+                            : "border-border bg-muted/50"
+                        }`}
+                        onClick={() => setFormData(prev => ({ 
+                          ...prev, 
+                          linkedin_enabled: !prev.linkedin_enabled 
+                        }))}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-[hsl(210,100%,40%)] flex items-center justify-center">
+                              <Linkedin className="w-5 h-5 text-primary-foreground" />
+                            </div>
+                            <div>
+                              <p className="font-semibold">LinkedIn</p>
+                              <p className="text-xs text-muted-foreground">Posts, Articles</p>
+                            </div>
+                          </div>
+                          <Switch checked={formData.linkedin_enabled} />
+                        </div>
+                      </motion.div>
+
+                      <motion.div
+                        className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                          formData.tiktok_enabled 
+                            ? "border-primary bg-primary/5" 
+                            : "border-border bg-muted/50"
+                        }`}
+                        onClick={() => setFormData(prev => ({ 
+                          ...prev, 
+                          tiktok_enabled: !prev.tiktok_enabled 
+                        }))}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-foreground flex items-center justify-center">
+                              <TikTokIcon className="w-5 h-5 text-background" />
+                            </div>
+                            <div>
+                              <p className="font-semibold">TikTok</p>
+                              <p className="text-xs text-muted-foreground">Vidéos courtes</p>
+                            </div>
+                          </div>
+                          <Switch checked={formData.tiktok_enabled} />
                         </div>
                       </motion.div>
                     </div>
