@@ -23,9 +23,11 @@ interface SocialConnection {
 interface SocialConnectionsProps {
   connections: SocialConnection[];
   onConnect: (platform: "instagram" | "facebook" | "linkedin" | "tiktok") => void;
+  onDisconnect?: (platform: "instagram" | "facebook" | "linkedin" | "tiktok") => void;
+  compact?: boolean;
 }
 
-export const SocialConnections = ({ connections, onConnect }: SocialConnectionsProps) => {
+export const SocialConnections = ({ connections, onConnect, onDisconnect, compact = false }: SocialConnectionsProps) => {
   const { connection: metaConnection, isConnecting, connect, disconnect, isConnected } = useMetaOAuth();
 
   const platformConfig = {
@@ -79,7 +81,6 @@ export const SocialConnections = ({ connections, onConnect }: SocialConnectionsP
   const handleConnect = (platform: "instagram" | "facebook" | "linkedin" | "tiktok") => {
     if (platform === "linkedin" || platform === "tiktok") {
       // LinkedIn and TikTok need separate OAuth flows
-      // For now, just notify the user
       onConnect(platform);
       return;
     }
@@ -92,6 +93,76 @@ export const SocialConnections = ({ connections, onConnect }: SocialConnectionsP
       connect();
     }
   };
+
+  const handleDisconnect = (platform: "instagram" | "facebook" | "linkedin" | "tiktok") => {
+    if (platform === "instagram" || platform === "facebook") {
+      // Disconnect Meta OAuth
+      disconnect();
+    } else if (onDisconnect) {
+      onDisconnect(platform);
+    }
+  };
+
+  if (compact) {
+    return (
+      <div className="space-y-3">
+        {mergedConnections.map((connection) => {
+          const config = platformConfig[connection.platform];
+          const Icon = config.icon;
+
+          return (
+            <div
+              key={connection.platform}
+              className="flex items-center justify-between rounded-lg border border-border p-3"
+            >
+              <div className="flex items-center gap-3">
+                <div className={`flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br ${config.gradient}`}>
+                  <Icon className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <p className="font-medium text-sm">{config.name}</p>
+                  {connection.connected && connection.username && (
+                    <p className="text-xs text-muted-foreground">@{connection.username}</p>
+                  )}
+                </div>
+              </div>
+
+              {connection.connected ? (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 rounded-full bg-green-500/20 px-2 py-1 text-green-600 dark:text-green-400">
+                    <Check className="h-3 w-3" />
+                    <span className="text-xs font-medium">Connecté</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => handleDisconnect(connection.platform)}
+                  >
+                    <LogOut className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleConnect(connection.platform)}
+                  disabled={isConnecting}
+                  className="text-xs h-7"
+                >
+                  {isConnecting ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    "Connecter"
+                  )}
+                </Button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -141,16 +212,14 @@ export const SocialConnections = ({ connections, onConnect }: SocialConnectionsP
                     <Check className="h-4 w-4" />
                     <span className="text-sm font-medium">Connecté</span>
                   </div>
-                  {isConnected && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={disconnect}
-                    >
-                      <LogOut className="h-4 w-4" />
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => handleDisconnect(connection.platform)}
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </Button>
                 </div>
               ) : (
                 <Button
