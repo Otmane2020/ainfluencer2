@@ -639,26 +639,40 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
                   </div>
 
                   <div className="space-y-2">
-                    {/* Reference Image Upload */}
-                    <div className="flex items-start gap-2">
+                    {/* Script Textarea - Full width */}
+                    <Textarea
+                      placeholder={
+                        selectedProduct.category === "video"
+                          ? "Describe your video scene..."
+                          : selectedProduct.category === "avatar"
+                          ? "What should the avatar say?"
+                          : "Describe the image..."
+                      }
+                      value={segment.script}
+                      onChange={(e) => updateSegment(segment.id, { script: e.target.value })}
+                      className="min-h-[100px] resize-none border focus:border-primary/50 text-sm"
+                    />
+
+                    {/* Reference Image Upload - Below textarea */}
+                    <div className="flex items-center gap-2">
                       {segment.referenceImageUrl ? (
-                        <div className="relative shrink-0">
+                        <div className="relative">
                           <img 
                             src={segment.referenceImageUrl} 
                             alt="Reference" 
-                            className="h-16 w-16 rounded-lg object-cover border border-border"
+                            className="h-12 w-12 rounded-lg object-cover border border-border"
                           />
                           <button
                             onClick={() => updateSegment(segment.id, { referenceImageUrl: undefined })}
-                            className="absolute -right-1.5 -top-1.5 rounded-full bg-destructive p-0.5 text-destructive-foreground hover:bg-destructive/80"
+                            className="absolute -right-1 -top-1 rounded-full bg-destructive p-0.5 text-destructive-foreground hover:bg-destructive/80"
                           >
-                            <X className="h-3 w-3" />
+                            <X className="h-2.5 w-2.5" />
                           </button>
                         </div>
                       ) : (
-                        <label className="flex h-16 w-16 shrink-0 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border hover:border-primary/50 hover:bg-muted/50 transition-colors">
+                        <label className="flex h-9 cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-3 hover:border-primary/50 hover:bg-muted/50 transition-colors">
                           <ImagePlus className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-[9px] text-muted-foreground mt-0.5">Reference</span>
+                          <span className="text-xs text-muted-foreground">Add reference image</span>
                           <input
                             type="file"
                             accept="image/*"
@@ -680,18 +694,6 @@ export const VideoGenerator = ({ avatarUrl, onVideosGenerated, onTasksUpdated }:
                           />
                         </label>
                       )}
-                      <Textarea
-                        placeholder={
-                          selectedProduct.category === "video"
-                            ? "Describe your video scene..."
-                            : selectedProduct.category === "avatar"
-                            ? "What should the avatar say?"
-                            : "Describe the image..."
-                        }
-                        value={segment.script}
-                        onChange={(e) => updateSegment(segment.id, { script: e.target.value })}
-                        className="min-h-[64px] resize-none border focus:border-primary/50 text-xs flex-1"
-                      />
                     </div>
                     
                     {/* AI Script Generation Button */}
