@@ -47,8 +47,8 @@ export const AI_MODELS: AIModel[] = [
     description: "Qualité maximale, détails ultra-réalistes",
     needsVoice: true,
     quality: "pro",
-    features: ["4K", "4-20s", "Voix IA incluse", "HDR"],
-    supportedDurations: [4, 8, 12, 20],
+    features: ["4K", "4-12s", "Voix IA incluse", "HDR"],
+    supportedDurations: [4, 8, 12],
   },
   {
     id: "veo-3.1",
