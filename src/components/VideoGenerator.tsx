@@ -239,6 +239,38 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
     fetchProjects();
   }, []);
 
+  // Quality validation for generated text
+  const validateScriptQuality = (text: string): { valid: boolean; reason?: string } => {
+    if (!text || text.trim().length < 30) {
+      return { valid: false, reason: "Script too short" };
+    }
+    
+    // Check for too much English
+    const englishPatterns = /\b(discover|our|solution|innovative|the|and|with|for|your|this|that|is|are|you|we|AI|learn more)\b/gi;
+    const englishMatches = text.match(englishPatterns) || [];
+    if (englishMatches.length > 2) {
+      return { valid: false, reason: "Too much English detected" };
+    }
+    
+    // Check for generic marketing phrases to reject
+    const genericPhrases = [
+      "découvrez notre",
+      "solution innovante", 
+      "révolutionnaire",
+      "unique en son genre",
+      "n'attendez plus",
+      "découvrir maintenant",
+    ];
+    const lowerText = text.toLowerCase();
+    for (const phrase of genericPhrases) {
+      if (lowerText.includes(phrase)) {
+        return { valid: false, reason: `Generic phrase detected: "${phrase}"` };
+      }
+    }
+    
+    return { valid: true };
+  };
+
   const generateAIScript = async (segmentId: string, project: Project) => {
     setIsGeneratingScript(segmentId);
     setProjectSelectorOpen(null);
@@ -247,24 +279,46 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
       const { data, error } = await supabase.functions.invoke("suggest-content", {
         body: {
           projectName: project.name,
-          projectDescription: `${project.description || project.name}. Create a viral ${selectedProduct.category} script for social media. The content should be engaging, dynamic, and optimized for ${selectedProduct.name}.`,
+          projectDescription: project.description || project.name,
+          contentType: "script", // Signal we want video scripts
+          productName: selectedProduct.name,
+          productCategory: selectedProduct.category,
         },
       });
 
       if (error) throw error;
 
       const suggestions = data?.suggestions;
-      if (suggestions && suggestions.length > 0) {
-        const randomSuggestion = suggestions[Math.floor(Math.random() * suggestions.length)];
-        updateSegment(segmentId, { script: randomSuggestion.content });
-        
-        toast({
-          title: "Script generated! ✨",
-          description: `Based on ${project.name}`,
-        });
-      } else {
+      if (!suggestions || suggestions.length === 0) {
         throw new Error("No suggestions received");
       }
+
+      // Find the first valid suggestion
+      let validSuggestion = null;
+      for (const suggestion of suggestions) {
+        const content = suggestion.content?.trim();
+        const validation = validateScriptQuality(content);
+        
+        if (validation.valid) {
+          validSuggestion = suggestion;
+          break;
+        } else {
+          console.log("Script rejected:", validation.reason, content?.substring(0, 50));
+        }
+      }
+
+      if (!validSuggestion) {
+        // If no valid suggestion, use the first one but warn
+        validSuggestion = suggestions[0];
+        console.warn("No fully valid script found, using first suggestion");
+      }
+
+      updateSegment(segmentId, { script: validSuggestion.content });
+      
+      toast({
+        title: "Script generated! ✨",
+        description: `Based on ${project.name}`,
+      });
     } catch (error) {
       console.error("AI script generation error:", error);
       toast({
