@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { VideoGenerator, GenerationTask } from "@/components/VideoGenerator";
 import { VideoPreview } from "@/components/VideoPreview";
@@ -29,15 +30,29 @@ interface Project {
 }
 
 const Videos = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [videoSegments, setVideoSegments] = useState<VideoSegment[]>([]);
   const [generationTasks, setGenerationTasks] = useState<GenerationTask[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const { toast } = useToast();
 
+  // Get starting frame URL from search params (for video continuation)
+  const startingFrameUrl = searchParams.get("continueFrom") || undefined;
+
   useEffect(() => {
     fetchProjects();
   }, []);
+
+  // Clear the URL param after using it
+  useEffect(() => {
+    if (startingFrameUrl) {
+      const timer = setTimeout(() => {
+        setSearchParams({});
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [startingFrameUrl, setSearchParams]);
 
   const fetchProjects = async () => {
     const { data } = await supabase
@@ -104,6 +119,7 @@ const Videos = () => {
           <VideoGenerator
             onVideosGenerated={handleVideosGenerated}
             onTasksUpdated={setGenerationTasks}
+            initialStartingFrameUrl={startingFrameUrl}
           />
           {generationTasks.length > 0 && (
             <GenerationTracker tasks={generationTasks} />

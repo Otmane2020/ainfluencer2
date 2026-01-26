@@ -73,6 +73,7 @@ export interface GenerationTask {
 interface VideoGeneratorProps {
   onVideosGenerated: (videos: VideoSegment[]) => void;
   onTasksUpdated?: (tasks: GenerationTask[]) => void;
+  initialStartingFrameUrl?: string;
 }
 
 // Filter commercial products for video and avatar only
@@ -82,10 +83,20 @@ const VIDEO_AVATAR_PRODUCTS = COMMERCIAL_PRODUCTS.filter(
 
 const PREFS_KEY = "video_generator_prefs";
 
+type VideoQuality = "720p" | "1080p" | "4k";
+
+const QUALITY_OPTIONS: { value: VideoQuality; label: string; description: string }[] = [
+  { value: "720p", label: "HD 720p", description: "Fast, standard quality" },
+  { value: "1080p", label: "Full HD 1080p", description: "Recommended balance" },
+  { value: "4k", label: "4K Ultra HD", description: "Maximum quality" },
+];
+
 interface StoredPrefs {
   voiceId?: string;
   productId?: string;
   avatarUrl?: string;
+  quality?: VideoQuality;
+  startingFrameUrl?: string;
 }
 
 const loadPrefs = (): StoredPrefs => {
@@ -106,7 +117,7 @@ const savePrefs = (prefs: Partial<StoredPrefs>) => {
   }
 };
 
-export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated }: VideoGeneratorProps) => {
+export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStartingFrameUrl }: VideoGeneratorProps) => {
   const storedPrefs = loadPrefs();
   const defaultProduct = VIDEO_AVATAR_PRODUCTS.find((p) => p.id === storedPrefs.productId) 
     || VIDEO_AVATAR_PRODUCTS.find((p) => p.id === "ai-reel-pro") 
@@ -136,6 +147,10 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated }: VideoGener
   const [showAvatarPrompt, setShowAvatarPrompt] = useState(false);
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Quality and continuation state
+  const [selectedQuality, setSelectedQualityState] = useState<VideoQuality>(storedPrefs.quality || "1080p");
+  const [startingFrameUrl, setStartingFrameUrlState] = useState<string | undefined>(storedPrefs.startingFrameUrl);
+
   // Wrapper functions to persist preferences
   const setSelectedVoice = (voice: Voice) => {
     setSelectedVoiceState(voice);
@@ -150,6 +165,21 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated }: VideoGener
   const setAvatarUrl = (url: string | undefined) => {
     setAvatarUrlState(url);
     savePrefs({ avatarUrl: url });
+  };
+
+  const setSelectedQuality = (quality: VideoQuality) => {
+    setSelectedQualityState(quality);
+    savePrefs({ quality });
+  };
+
+  const setStartingFrameUrl = (url: string | undefined) => {
+    setStartingFrameUrlState(url);
+    savePrefs({ startingFrameUrl: url });
+  };
+
+  const clearStartingFrame = () => {
+    setStartingFrameUrlState(undefined);
+    savePrefs({ startingFrameUrl: undefined });
   };
 
   // Avatar functions
@@ -310,6 +340,16 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated }: VideoGener
     }
   };
 
+  // Effect to set starting frame from prop (for video continuation)
+  useEffect(() => {
+    if (initialStartingFrameUrl) {
+      setStartingFrameUrlState(initialStartingFrameUrl);
+      toast({
+        title: "Video continuation mode",
+        description: "New video will continue from the selected video's last frame",
+      });
+    }
+  }, [initialStartingFrameUrl]);
 
   const generateVideos = async () => {
     // Step 1: Generate audio with ElevenLabs TTS for voiceover
@@ -374,7 +414,9 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated }: VideoGener
                 prompt: segment.script,
                 avatarUrl,
                 duration: segment.duration,
-                size: "720x1280",
+                quality: selectedQuality,
+                orientation: "portrait",
+                startingFrameUrl: startingFrameUrl,
                 model: getInternalModel()?.id || "sora-2",
               }),
             }
@@ -710,6 +752,50 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated }: VideoGener
               </div>
             </DialogContent>
           </Dialog>
+        )}
+
+        {/* Quality Selector */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-xs hover:bg-muted transition-colors">
+              <Settings2 className="h-4 w-4 text-primary" />
+              <span>{selectedQuality}</span>
+              <ChevronDown className="h-3 w-3" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-2">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground mb-2 px-2">Video Quality</p>
+              {QUALITY_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setSelectedQuality(option.value)}
+                  className={`w-full flex flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left transition-colors ${
+                    selectedQuality === option.value
+                      ? "bg-primary/10 text-primary"
+                      : "hover:bg-muted"
+                  }`}
+                >
+                  <span className="text-sm font-medium">{option.label}</span>
+                  <span className="text-xs text-muted-foreground">{option.description}</span>
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* Starting Frame Indicator (for video continuation) */}
+        {startingFrameUrl && (
+          <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs">
+            <Play className="h-4 w-4 text-primary" />
+            <span className="text-primary">Continuing from video</span>
+            <button
+              onClick={clearStartingFrame}
+              className="ml-auto rounded-full p-0.5 hover:bg-primary/20 transition-colors"
+            >
+              <X className="h-3 w-3 text-primary" />
+            </button>
+          </div>
         )}
 
       </div>
