@@ -20,7 +20,82 @@ serve(async (req) => {
       productName,
       scriptType = "reel", // reel, story, ad, testimonial
       duration = 10, // Video duration in seconds
+      // Scenario parameters for contextual script generation
+      sectorId,
+      styleId,
+      toneId,
     } = await req.json();
+
+    // ============================================
+    // SCENARIO SYSTEM (synced with suggest-content)
+    // ============================================
+    interface Sector { id: string; name: string; visualContext: string; }
+    interface VideoStyle { id: string; name: string; visualInstructions: string; }
+    interface EmotionalTone { id: string; name: string; atmosphereNotes: string; }
+
+    const BUSINESS_SECTORS: Sector[] = [
+      { id: "restaurant", name: "Restaurant", visualContext: "busy restaurant kitchen, food preparation, satisfied diners, chef at work" },
+      { id: "boutique", name: "Boutique", visualContext: "elegant retail space, product displays, shopping experience, customer service" },
+      { id: "real-estate", name: "Real Estate", visualContext: "property tours, modern interiors, house keys handover, happy homeowners" },
+      { id: "medical", name: "Doctor/Clinic", visualContext: "clean medical office, patient consultation, modern healthcare equipment, trust" },
+      { id: "hotel", name: "Hotel", visualContext: "luxury lobby, comfortable rooms, hospitality service, guest experience" },
+      { id: "fitness", name: "Fitness/Gym", visualContext: "modern gym equipment, workout sessions, transformation results, motivation" },
+      { id: "beauty", name: "Beauty Salon", visualContext: "relaxing spa environment, beauty treatments, before/after transformations" },
+      { id: "auto", name: "Auto/Garage", visualContext: "car dealership or garage, vehicle showcase, automotive expertise, professional car care" },
+      { id: "tech", name: "Tech/Startup", visualContext: "sleek interfaces, productivity gains, dashboard analytics, digital transformation" },
+      { id: "education", name: "Education", visualContext: "learning environment, student success, knowledge sharing, courses" },
+      { id: "agency", name: "Agency", visualContext: "creative workspace, campaign results, team collaboration, growth charts" },
+      { id: "ecommerce", name: "E-commerce", visualContext: "product unboxing, fast delivery, happy customers, shopping cart" },
+    ];
+
+    const VIDEO_STYLES: VideoStyle[] = [
+      { id: "testimonial", name: "Testimonial", visualInstructions: "authentic customer speaking directly to camera, genuine emotion, real results shared" },
+      { id: "product-demo", name: "Product Demo", visualInstructions: "clear product showcase, step-by-step usage, feature highlights, smooth transitions" },
+      { id: "before-after", name: "Before/After", visualInstructions: "dramatic split screen or transition, clear transformation, compelling comparison" },
+      { id: "tutorial", name: "Tutorial", visualInstructions: "educational step-by-step, clear instructions, helpful tips, easy to follow" },
+      { id: "behind-scenes", name: "Behind the Scenes", visualInstructions: "raw smartphone footage, authentic handheld feel, relatable creator, casual setting" },
+      { id: "story", name: "Brand Story", visualInstructions: "brand storytelling, company journey, founder story, mission and values" },
+      { id: "lifestyle", name: "Lifestyle", visualInstructions: "lifestyle content, aspirational visuals, product in daily life, aesthetic scenes" },
+      { id: "ugc", name: "UGC Style", visualInstructions: "user-generated content style, casual phone recording, authentic and raw, relatable content" },
+    ];
+
+    const EMOTIONAL_TONES: EmotionalTone[] = [
+      { id: "urgent", name: "Urgent", atmosphereNotes: "fast tempo, bold text overlays, countdown feeling, don't miss out energy" },
+      { id: "inspiring", name: "Inspiring", atmosphereNotes: "uplifting music vibe, success stories, motivational, aspirational visuals" },
+      { id: "reassuring", name: "Reassuring", atmosphereNotes: "calm and confident, trust-building, professional yet warm, reliable feeling" },
+      { id: "dynamic", name: "Dynamic", atmosphereNotes: "high energy, action-packed, exciting transitions, vibrant colors" },
+      { id: "professional", name: "Professional", atmosphereNotes: "corporate polish, clean aesthetics, authoritative, business-focused" },
+      { id: "playful", name: "Playful", atmosphereNotes: "fun and light, humor elements, bright colors, entertaining" },
+      { id: "luxurious", name: "Luxurious", atmosphereNotes: "premium feel, elegant details, sophisticated, exclusive atmosphere" },
+      { id: "authentic", name: "Authentic", atmosphereNotes: "raw and real, unfiltered moments, genuine connections, behind-the-scenes" },
+    ];
+
+    const buildScenarioContext = (): string => {
+      const parts: string[] = [];
+      const sector = BUSINESS_SECTORS.find(s => s.id === sectorId);
+      const style = VIDEO_STYLES.find(s => s.id === styleId);
+      const tone = EMOTIONAL_TONES.find(t => t.id === toneId);
+
+      if (sector || style || tone) {
+        parts.push("\n--- SCENARIO CONTEXT ---");
+        if (sector) {
+          parts.push(`BUSINESS SECTOR: ${sector.name}`);
+          parts.push(`Visual elements: ${sector.visualContext}`);
+        }
+        if (style) {
+          parts.push(`VIDEO STYLE: ${style.name}`);
+          parts.push(`Production direction: ${style.visualInstructions}`);
+        }
+        if (tone) {
+          parts.push(`EMOTIONAL TONE: ${tone.name}`);
+          parts.push(`Atmosphere: ${tone.atmosphereNotes}`);
+        }
+        parts.push("--- END SCENARIO ---\n");
+      }
+      return parts.join("\n");
+    };
+
+    const scenarioContext = buildScenarioContext();
 
     const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
     if (!COMETAPI_API_KEY) {
@@ -183,7 +258,7 @@ RÈGLES DE STYLE :
 • ZÉRO emoji
 • ZÉRO phrase générique ("Découvrez", "N'attendez plus", "solution innovante")
 • ZÉRO jargon marketing vide ("révolutionnaire", "unique", "incroyable")
-
+${scenarioContext}
 ${scriptTypePrompts[scriptType] || scriptTypePrompts.reel}
 
 TON ATTENDU :
