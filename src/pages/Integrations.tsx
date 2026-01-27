@@ -1,13 +1,9 @@
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Shield, Plug, Instagram, Facebook, Linkedin, Check, AlertCircle, LogOut, Loader2, Key, Eye, EyeOff, Save, ExternalLink } from "lucide-react";
+import { Shield, Plug, Instagram, Facebook, Linkedin, Check, AlertCircle, LogOut, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { useMetaOAuth } from "@/hooks/useMetaOAuth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -30,10 +26,6 @@ const Integrations = () => {
   const { toast } = useToast();
   const { connection, isConnecting, connect, disconnect, isConnected, isLoading } = useMetaOAuth();
   const [metaConnectionData, setMetaConnectionData] = useState<MetaConnectionData | null>(null);
-  const [showInstagramSecret, setShowInstagramSecret] = useState(false);
-  const [instagramAppId, setInstagramAppId] = useState("");
-  const [instagramAppSecret, setInstagramAppSecret] = useState("");
-  const [isSavingInstagram, setIsSavingInstagram] = useState(false);
 
   useEffect(() => {
     fetchMetaConnection();
@@ -44,7 +36,7 @@ const Integrations = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("meta_connections")
         .select("fb_user_name, fb_picture_url, instagram_username, page_id, expires_at")
         .eq("user_id", session.user.id)
@@ -56,29 +48,6 @@ const Integrations = () => {
     } catch (error) {
       console.error("Error fetching meta connection:", error);
     }
-  };
-
-  const handleSaveInstagramCredentials = async () => {
-    if (!instagramAppId.trim() || !instagramAppSecret.trim()) {
-      toast({
-        title: "Missing fields",
-        description: "Please enter both Instagram App ID and Secret",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsSavingInstagram(true);
-    
-    // Note: In production, these should be stored securely as Supabase secrets
-    // For now we'll just show a success message
-    setTimeout(() => {
-      setIsSavingInstagram(false);
-      toast({
-        title: "Credentials saved",
-        description: "Instagram API credentials have been saved",
-      });
-    }, 1000);
   };
 
   const platformConfig = {
@@ -221,86 +190,6 @@ const Integrations = () => {
               </Button>
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Instagram API Credentials */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-3">
-            <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${platformConfig.instagram.gradient}`}>
-              <Key className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <CardTitle className="text-base">Instagram API Credentials</CardTitle>
-              <CardDescription>For direct Instagram Graph API access</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="instagram-app-id">App ID</Label>
-              <Input
-                id="instagram-app-id"
-                placeholder="Enter your Instagram App ID"
-                value={instagramAppId}
-                onChange={(e) => setInstagramAppId(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="instagram-app-secret">App Secret</Label>
-              <div className="relative">
-                <Input
-                  id="instagram-app-secret"
-                  type={showInstagramSecret ? "text" : "password"}
-                  placeholder="Enter your Instagram App Secret"
-                  value={instagramAppSecret}
-                  onChange={(e) => setInstagramAppSecret(e.target.value)}
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                  onClick={() => setShowInstagramSecret(!showInstagramSecret)}
-                >
-                  {showInstagramSecret ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-2">
-            <a
-              href="https://developers.facebook.com/apps"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
-            >
-              <ExternalLink className="h-3 w-3" />
-              Get credentials from Meta Developer
-            </a>
-            <Button 
-              size="sm" 
-              onClick={handleSaveInstagramCredentials}
-              disabled={isSavingInstagram || (!instagramAppId && !instagramAppSecret)}
-            >
-              {isSavingInstagram ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save
-                </>
-              )}
-            </Button>
-          </div>
         </CardContent>
       </Card>
 
