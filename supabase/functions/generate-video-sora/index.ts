@@ -5,24 +5,62 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Valid sizes for Sora-2 API (CometAPI accepts specific sizes only)
-// Standard sizes: 480x480, 720x480, 1280x720, 480x720, 720x1280
+// Model configuration for CometAPI - maps internal model IDs to API model names
+interface ModelConfig {
+  apiModel: string;
+  durations: number[];
+  maxSize: { portrait: string; landscape: string };
+}
+
+const MODEL_CONFIGS: Record<string, ModelConfig> = {
+  "sora-2": {
+    apiModel: "sora-2",
+    durations: [4, 8, 12],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
+  },
+  "sora-2-pro": {
+    apiModel: "sora-2",
+    durations: [4, 8, 12],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
+  },
+  "kling-v2-master": {
+    apiModel: "kling-video",
+    durations: [5, 10],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
+  },
+  "minimax-hailuo": {
+    apiModel: "minimax-video-01",
+    durations: [4, 6],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
+  },
+  "veo-3.1": {
+    apiModel: "veo-2",
+    durations: [5, 10],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
+  },
+  "veo-3.1-pro": {
+    apiModel: "veo-2",
+    durations: [10, 20, 30],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
+  },
+};
+
+// Legacy quality sizes (fallback if model not found)
 const QUALITY_SIZES: Record<string, { portrait: string; landscape: string }> = {
   "720p": { portrait: "720x1280", landscape: "1280x720" },
-  // 1080p falls back to 720p as CometAPI doesn't support 1080x1920
   "1080p": { portrait: "720x1280", landscape: "1280x720" },
-  // 4K also falls back to 720p (max supported)
   "4k": { portrait: "720x1280", landscape: "1280x720" },
 };
 
 interface VideoRequest {
   prompt: string;
   avatarUrl?: string;
-  duration?: number; // 4, 8, or 12 seconds
+  duration?: number;
   size?: string; // Legacy: "720x1280" or "1280x720"
-  quality?: "720p" | "1080p" | "4k"; // New quality selector
+  quality?: "720p" | "1080p" | "4k";
   orientation?: "portrait" | "landscape";
-  startingFrameUrl?: string; // URL of image/frame to continue from
+  startingFrameUrl?: string;
+  model?: string; // Model ID from frontend (e.g., "kling-v2-master", "veo-3.1")
 }
 
 interface VideoStatusResponse {
@@ -57,24 +95,28 @@ serve(async (req) => {
         size: legacySize,
         quality = "1080p",
         orientation = "portrait",
-        startingFrameUrl
+        startingFrameUrl,
+        model: requestedModel = "sora-2",
       }: VideoRequest = await req.json();
 
       if (!prompt) {
         throw new Error("Prompt is required");
       }
 
-      // IMPORTANT: CometAPI Sora 2 only supports 4, 8, or 12 seconds
-      const validDurations = [4, 8, 12];
+      // Get model configuration (fallback to sora-2 if unknown model)
+      const modelConfig = MODEL_CONFIGS[requestedModel] || MODEL_CONFIGS["sora-2"];
+      const apiModel = modelConfig.apiModel;
+
+      // Validate duration for this specific model
+      const validDurations = modelConfig.durations;
       const duration = validDurations.includes(requestedDuration) 
         ? requestedDuration 
         : validDurations.reduce((prev, curr) => 
             Math.abs(curr - requestedDuration) < Math.abs(prev - requestedDuration) ? curr : prev
           );
 
-      // Determine size based on quality and orientation (or use legacy size)
-      const qualityConfig = QUALITY_SIZES[quality] || QUALITY_SIZES["1080p"];
-      const size = legacySize || qualityConfig[orientation];
+      // Determine size based on model config or legacy size
+      const size = legacySize || modelConfig.maxSize[orientation];
 
       // Build the video prompt with avatar context if provided
       let fullPrompt = prompt;
@@ -89,9 +131,8 @@ serve(async (req) => {
         fullPrompt = `${fullPrompt} Full HD 1080p, sharp details, professional quality.`;
       }
 
-      console.log("Creating video with prompt:", fullPrompt.substring(0, 100) + "...");
-      console.log("Resolution mapping - Quality:", quality, "-> Size:", size, "(max 720p supported)");
-      console.log("Requested duration:", requestedDuration, "Validated duration:", duration);
+      console.log("Model routing - Requested:", requestedModel, "-> API:", apiModel);
+      console.log("Resolution:", size, "| Duration:", duration, "s (requested:", requestedDuration, "s)");
       if (startingFrameUrl) {
         console.log("Starting frame URL provided for video continuation");
       }
@@ -99,7 +140,7 @@ serve(async (req) => {
       // Create FormData for the request
       const formData = new FormData();
       formData.append("prompt", fullPrompt);
-      formData.append("model", "sora-2");
+      formData.append("model", apiModel); // Use dynamic model from config
       formData.append("seconds", duration.toString());
       formData.append("size", size);
 
@@ -125,7 +166,7 @@ serve(async (req) => {
       }
 
       const result = await response.json();
-      console.log("Video task created:", result.id, "Quality:", quality);
+      console.log("Video task created:", result.id, "| Model:", apiModel, "| Duration:", duration, "s");
 
       return new Response(
         JSON.stringify({
@@ -133,8 +174,10 @@ serve(async (req) => {
           taskId: result.id,
           status: result.status,
           progress: result.progress || 0,
-          quality,
+          model: apiModel,
+          requestedModel,
           size,
+          duration,
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
