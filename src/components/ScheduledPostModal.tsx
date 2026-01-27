@@ -489,6 +489,108 @@ export const ScheduledPostModal = ({
     }
   };
 
+  // Generate content (image or video) based on content type
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    
+    try {
+      if (post.content_type === "image") {
+        // Generate image
+        toast({
+          title: "Generating image...",
+          description: "Creating visual content from prompt",
+        });
+
+        const { data, error } = await supabase.functions.invoke("generate-image", {
+          body: {
+            prompt: post.ai_prompt || "Create an engaging social media image",
+            aspectRatio: "1:1",
+          },
+        });
+
+        if (error) throw error;
+
+        if (data?.imageUrl) {
+          // Update post with generated image
+          const { error: updateError } = await supabase
+            .from("scheduled_posts")
+            .update({ 
+              media_url: data.imageUrl,
+              status: "scheduled",
+            })
+            .eq("id", post.id);
+
+          if (updateError) throw updateError;
+
+          toast({
+            title: "Image generated ✓",
+            description: "Your image is ready",
+          });
+          
+          onUpdate?.();
+        }
+      } else if (post.content_type === "video" || post.content_type === "reel") {
+        // For video, use the existing handleGenerateVideo flow
+        await handleGenerateVideo();
+        return;
+      } else {
+        // Text content - just generate social content
+        toast({
+          title: "Generating content...",
+          description: "Creating social post description",
+        });
+
+        const { data, error } = await supabase.functions.invoke("suggest-content", {
+          body: {
+            contentType: "social_post",
+            projectDescription: post.ai_prompt || "Engaging social media content",
+            projectName: "Social Post",
+            projectUrl: null,
+          },
+        });
+
+        if (error) throw error;
+
+        let textContent = "";
+        if (data?.suggestion) {
+          const content = data.suggestion.content || "";
+          const hashtags = (data.suggestion.hashtags || [])
+            .map((h: string) => h.startsWith('#') ? h : `#${h}`)
+            .join(' ');
+          textContent = `${content}\n\n${hashtags}`.trim();
+        }
+
+        if (textContent) {
+          const { error: updateError } = await supabase
+            .from("scheduled_posts")
+            .update({ 
+              text_content: textContent,
+              status: "scheduled",
+            })
+            .eq("id", post.id);
+
+          if (updateError) throw updateError;
+
+          toast({
+            title: "Content generated ✓",
+            description: "Social post is ready",
+          });
+          
+          onUpdate?.();
+        }
+      }
+    } catch (error) {
+      console.error("Generate error:", error);
+      toast({
+        title: "Generation failed",
+        description: "Unable to generate content. Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const availableVoices = getVoicesByLanguage(selectedLanguage);
 
   // Modal content shared between Dialog and Drawer
@@ -1017,14 +1119,16 @@ export const ScheduledPostModal = ({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  // TODO: Implement generate functionality
-                  console.log("Generate content for post:", post.id);
-                }}
+                onClick={handleGenerate}
+                disabled={isGenerating}
                 className="gap-1.5 sm:gap-2"
               >
-                <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Generate</span>
+                {isGenerating ? (
+                  <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                )}
+                <span className="hidden sm:inline">{isGenerating ? "Generating..." : "Generate"}</span>
               </Button>
               {onPublishNow && (
                 <Button
