@@ -292,6 +292,7 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
     
     try {
       // Use NanoBanana Pro for premium quality French scripts
+      // Include scenario context for better targeted scripts
       const { data, error } = await supabase.functions.invoke("generate-script-nanobanana", {
         body: {
           projectName: project.name,
@@ -299,6 +300,10 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
           productName: selectedProduct.name,
           scriptType: selectedProduct.category === "avatar" ? "testimonial" : "reel",
           duration, // Pass duration for script length adaptation
+          // Scenario context for enriched script generation
+          sectorId: selectedSector?.id,
+          styleId: selectedStyle?.id,
+          toneId: selectedTone?.id,
         },
       });
 
