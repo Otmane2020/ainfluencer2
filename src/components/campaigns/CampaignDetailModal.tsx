@@ -14,6 +14,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Video,
   Image as ImageIcon,
   Layers,
@@ -25,7 +31,13 @@ import {
   Clock,
   CheckCircle2,
   Loader2,
+  Share2,
+  Facebook,
+  Link,
+  ExternalLink,
+  Copy,
 } from "lucide-react";
+import { SocialShareModal } from "@/components/SocialShareModal";
 
 interface Campaign {
   id: string;
@@ -88,6 +100,7 @@ export const CampaignDetailModal = ({
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
   const [isTogglingStatus, setIsTogglingStatus] = useState(false);
+  const [shareModal, setShareModal] = useState<{ open: boolean; post?: ScheduledPost }>({ open: false });
 
   useEffect(() => {
     if (campaign && isOpen) {
@@ -304,6 +317,52 @@ export const CampaignDetailModal = ({
                         </p>
                       </div>
 
+                      {/* Share Button */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                            <Share2 className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => setShareModal({ open: true, post })}
+                          >
+                            <Facebook className="h-4 w-4 mr-2" />
+                            Share to Facebook
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              const text = post.text_content || "";
+                              navigator.clipboard.writeText(text);
+                              toast({ title: "Copied!", description: "Content copied to clipboard" });
+                            }}
+                          >
+                            <Copy className="h-4 w-4 mr-2" />
+                            Copy Text
+                          </DropdownMenuItem>
+                          {post.media_url && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                navigator.clipboard.writeText(post.media_url || "");
+                                toast({ title: "Copied!", description: "Image link copied" });
+                              }}
+                            >
+                              <Link className="h-4 w-4 mr-2" />
+                              Copy Image Link
+                            </DropdownMenuItem>
+                          )}
+                          {post.media_url && (
+                            <DropdownMenuItem
+                              onClick={() => window.open(post.media_url || "", "_blank")}
+                            >
+                              <ExternalLink className="h-4 w-4 mr-2" />
+                              Open Image
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+
                       {/* Status */}
                       {post.status === "published" ? (
                         <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
@@ -333,6 +392,17 @@ export const CampaignDetailModal = ({
           </ScrollArea>
         </Tabs>
       </DialogContent>
+      
+      {/* Share Modal */}
+      <SocialShareModal
+        isOpen={shareModal.open}
+        onClose={() => setShareModal({ open: false })}
+        content={shareModal.post ? {
+          text: shareModal.post.text_content || "",
+          mediaUrl: shareModal.post.media_url || undefined,
+          type: shareModal.post.content_type === "video" ? "video" : "image",
+        } : undefined}
+      />
     </Dialog>
   );
 };
