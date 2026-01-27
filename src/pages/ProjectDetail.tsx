@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,9 @@ import {
   ChevronDown,
   Pencil,
   Sparkles,
+  Check,
+  AlertCircle,
+  Link2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { enUS } from "date-fns/locale";
@@ -44,6 +47,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // TikTok icon
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -76,6 +86,15 @@ interface ScheduledPost {
   status: string | null;
 }
 
+interface MetaConnection {
+  id: string;
+  fb_user_name: string;
+  fb_picture_url: string | null;
+  page_id: string | null;
+  instagram_id: string | null;
+  instagram_username: string | null;
+}
+
 const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -86,6 +105,7 @@ const ProjectDetail = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editTab, setEditTab] = useState("info");
   const [isSaving, setIsSaving] = useState(false);
+  const [metaConnection, setMetaConnection] = useState<MetaConnection | null>(null);
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -98,6 +118,7 @@ const ProjectDetail = () => {
   const [editTiktok, setEditTiktok] = useState(false);
   const [editPostsPerWeek, setEditPostsPerWeek] = useState(3);
   const [editAutomationMode, setEditAutomationMode] = useState("semi_auto");
+  const [selectedPublishMode, setSelectedPublishMode] = useState<"auto" | "manual">("manual");
 
   const themeColors = [
     "#F97316", "#EC4899", "#8B5CF6", "#3B82F6", 
@@ -108,6 +129,7 @@ const ProjectDetail = () => {
     if (id) {
       fetchProject();
       fetchPosts();
+      fetchMetaConnection();
     }
   }, [id]);
 
@@ -125,6 +147,19 @@ const ProjectDetail = () => {
       setEditAutomationMode(project.automation_mode);
     }
   }, [project]);
+
+  const fetchMetaConnection = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from("meta_connections")
+      .select("id, fb_user_name, fb_picture_url, page_id, instagram_id, instagram_username")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (data) setMetaConnection(data);
+  };
 
   const fetchProject = async () => {
     const { data, error } = await supabase
@@ -459,34 +494,122 @@ const ProjectDetail = () => {
             </TabsContent>
 
             <TabsContent value="platforms" className="space-y-4 mt-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Instagram className="h-5 w-5" />
-                    <span>Instagram</span>
+              <div className="space-y-4">
+                {/* Facebook - Connected via Meta */}
+                <div className="rounded-lg border p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1877F2]">
+                        <Facebook className="h-4 w-4 text-white" />
+                      </div>
+                      <div>
+                        <span className="font-medium">Facebook</span>
+                        {metaConnection?.page_id ? (
+                          <div className="flex items-center gap-1 text-xs text-green-600">
+                            <Check className="h-3 w-3" />
+                            Page connected
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <AlertCircle className="h-3 w-3" />
+                            Not connected
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <Switch 
+                      checked={editFacebook} 
+                      onCheckedChange={setEditFacebook}
+                      disabled={!metaConnection?.page_id}
+                    />
                   </div>
-                  <Switch checked={editInstagram} onCheckedChange={setEditInstagram} />
+                  {metaConnection?.page_id && editFacebook && (
+                    <div className="pl-10 space-y-2">
+                      <Label className="text-xs text-muted-foreground">Publish mode</Label>
+                      <Select value={selectedPublishMode} onValueChange={(v) => setSelectedPublishMode(v as "auto" | "manual")}>
+                        <SelectTrigger className="h-8 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="auto">Automatic</SelectItem>
+                          <SelectItem value="manual">Manual approval</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  {!metaConnection && (
+                    <Link to="/integrations" className="text-xs text-primary hover:underline flex items-center gap-1 pl-10">
+                      <Link2 className="h-3 w-3" />
+                      Connect in Integrations
+                    </Link>
+                  )}
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Facebook className="h-5 w-5" />
-                    <span>Facebook</span>
+
+                {/* Instagram - Connected via Meta */}
+                <div className="rounded-lg border p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#833AB4] via-[#E1306C] to-[#F77737]">
+                        <Instagram className="h-4 w-4 text-white" />
+                      </div>
+                      <div>
+                        <span className="font-medium">Instagram</span>
+                        {metaConnection?.instagram_id ? (
+                          <div className="flex items-center gap-1 text-xs text-green-600">
+                            <Check className="h-3 w-3" />
+                            @{metaConnection.instagram_username}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <AlertCircle className="h-3 w-3" />
+                            Not connected
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <Switch 
+                      checked={editInstagram} 
+                      onCheckedChange={setEditInstagram}
+                      disabled={!metaConnection?.instagram_id}
+                    />
                   </div>
-                  <Switch checked={editFacebook} onCheckedChange={setEditFacebook} />
+                  {!metaConnection?.instagram_id && metaConnection && (
+                    <p className="text-xs text-muted-foreground pl-10">
+                      Link an Instagram Business account to your Facebook Page
+                    </p>
+                  )}
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Linkedin className="h-5 w-5" />
-                    <span>LinkedIn</span>
+
+                {/* LinkedIn - Manual share */}
+                <div className="rounded-lg border p-3 opacity-60">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0A66C2]">
+                        <Linkedin className="h-4 w-4 text-white" />
+                      </div>
+                      <div>
+                        <span className="font-medium">LinkedIn</span>
+                        <div className="text-xs text-muted-foreground">Manual share only</div>
+                      </div>
+                    </div>
+                    <Switch checked={editLinkedin} onCheckedChange={setEditLinkedin} />
                   </div>
-                  <Switch checked={editLinkedin} onCheckedChange={setEditLinkedin} />
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <TikTokIcon className="h-5 w-5" />
-                    <span>TikTok</span>
+
+                {/* TikTok - Download & share */}
+                <div className="rounded-lg border p-3 opacity-60">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-black">
+                        <TikTokIcon className="h-4 w-4 text-white" />
+                      </div>
+                      <div>
+                        <span className="font-medium">TikTok</span>
+                        <div className="text-xs text-muted-foreground">Download & share</div>
+                      </div>
+                    </div>
+                    <Switch checked={editTiktok} onCheckedChange={setEditTiktok} />
                   </div>
-                  <Switch checked={editTiktok} onCheckedChange={setEditTiktok} />
                 </div>
               </div>
             </TabsContent>
