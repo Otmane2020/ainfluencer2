@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { prompt, productId, format, aspectRatio, width, height, sectorId, styleId, toneId } = await req.json();
+    const { prompt, productId, format, aspectRatio, width, height, sectorId, styleId, toneId, logoUrl, brandName } = await req.json();
 
     if (!prompt) {
       return new Response(
@@ -74,6 +74,11 @@ Deno.serve(async (req) => {
     let enhancedPrompt = prompt;
     const contextParts: string[] = [];
 
+    // Add brand context if provided
+    if (brandName) {
+      contextParts.push(`for ${brandName} brand`);
+    }
+
     // Add format context
     if (format === "reel" || format === "story") {
       contextParts.push("vertical portrait format 9:16 aspect ratio");
@@ -98,6 +103,8 @@ Deno.serve(async (req) => {
     }
 
     console.log("Enhanced prompt:", enhancedPrompt);
+    if (brandName) console.log("Brand context:", brandName);
+    if (logoUrl) console.log("Logo URL provided:", logoUrl);
 
     // Call Lovable AI Gateway for image generation
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
