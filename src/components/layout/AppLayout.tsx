@@ -6,6 +6,7 @@ import { MobileHeader } from "./MobileHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { SupportWidget } from "@/components/SupportWidget";
 
 export function AppLayout() {
   const { user, isLoading } = useAuth();
@@ -41,6 +42,7 @@ export function AppLayout() {
         <main className="flex-1 p-3 overflow-x-hidden">
           <Outlet />
         </main>
+        <SupportWidget />
       </div>
     );
   }
@@ -55,6 +57,7 @@ export function AppLayout() {
             <Outlet />
           </main>
         </SidebarInset>
+        <SupportWidget />
       </div>
     </SidebarProvider>
   );
