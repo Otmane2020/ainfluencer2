@@ -12,6 +12,7 @@ import Projects from "./pages/Projects";
 import ProjectNew from "./pages/ProjectNew";
 import ProjectDetail from "./pages/ProjectDetail";
 import CampaignsPage from "./pages/CampaignsPage";
+import CalendarPage from "./pages/CalendarPage";
 import Videos from "./pages/Videos";
 import Images from "./pages/Images";
 import Posts from "./pages/Posts";
@@ -60,6 +61,7 @@ const App = () => (
             <Route path="/projects/new" element={<ProjectNew />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/campaigns" element={<CampaignsPage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/videos" element={<Videos />} />
             <Route path="/images" element={<Images />} />
             <Route path="/posts" element={<Posts />} />

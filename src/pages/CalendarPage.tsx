@@ -45,9 +45,18 @@ interface Project {
   url?: string;
 }
 
+interface Campaign {
+  id: string;
+  name: string;
+  project_id: string;
+  campaign_type: string;
+  status: string;
+}
+
 interface ScheduledPost {
   id: string;
   project_id: string;
+  campaign_id: string | null;
   user_id: string;
   content_type: string;
   text_content: string | null;
@@ -68,7 +77,9 @@ const CalendarPage = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [viewStartDate] = useState(new Date()); // Always start from today
   const [projects, setProjects] = useState<Project[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("all");
+  const [selectedCampaign, setSelectedCampaign] = useState<string>("all");
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<ScheduledPost | null>(null);
@@ -78,10 +89,16 @@ const CalendarPage = () => {
 
   useEffect(() => {
     fetchProjects();
+    fetchCampaigns();
   }, []);
 
   useEffect(() => {
     fetchPosts();
+  }, [selectedProject, selectedCampaign]);
+
+  // Reset campaign when project changes
+  useEffect(() => {
+    setSelectedCampaign("all");
   }, [selectedProject]);
 
   const fetchProjects = async () => {
@@ -94,6 +111,22 @@ const CalendarPage = () => {
       setProjects(data);
     }
   };
+
+  const fetchCampaigns = async () => {
+    const { data } = await supabase
+      .from("campaigns")
+      .select("id, name, project_id, campaign_type, status")
+      .order("created_at", { ascending: false });
+
+    if (data) {
+      setCampaigns(data);
+    }
+  };
+
+  // Filter campaigns by selected project
+  const filteredCampaigns = selectedProject === "all" 
+    ? campaigns 
+    : campaigns.filter(c => c.project_id === selectedProject);
 
   const handlePostClick = (post: ScheduledPost, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -258,6 +291,10 @@ const CalendarPage = () => {
       query = query.eq("project_id", selectedProject);
     }
 
+    if (selectedCampaign !== "all") {
+      query = query.eq("campaign_id", selectedCampaign);
+    }
+
     const { data } = await query;
     setPosts(data || []);
     setIsLoading(false);
@@ -314,16 +351,20 @@ const CalendarPage = () => {
 
   return (
     <div className="space-y-4">
-      {/* Compact Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-xl font-bold">Calendar</h1>
-        <div className="flex items-center gap-2">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="font-display text-xl font-bold">AutoPost AI</h1>
+          <p className="text-sm text-muted-foreground">Scheduled content calendar</p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Project Filter */}
           <Select value={selectedProject} onValueChange={setSelectedProject}>
-            <SelectTrigger className="h-9 w-[120px] text-sm">
-              <SelectValue placeholder="All" />
+            <SelectTrigger className="h-9 w-[140px] text-sm">
+              <SelectValue placeholder="All Projects" />
             </SelectTrigger>
             <SelectContent className="bg-card border border-border z-50">
-              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="all">All Projects</SelectItem>
               {projects.map((project) => (
                 <SelectItem key={project.id} value={project.id}>
                   <div className="flex items-center gap-2">
@@ -331,12 +372,33 @@ const CalendarPage = () => {
                       className="h-2 w-2 rounded-full shrink-0"
                       style={{ backgroundColor: project.theme_color }}
                     />
-                    <span className="truncate max-w-[80px]">{project.name}</span>
+                    <span className="truncate max-w-[100px]">{project.name}</span>
                   </div>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+
+          {/* Campaign Filter */}
+          <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
+            <SelectTrigger className="h-9 w-[140px] text-sm">
+              <SelectValue placeholder="All Campaigns" />
+            </SelectTrigger>
+            <SelectContent className="bg-card border border-border z-50">
+              <SelectItem value="all">All Campaigns</SelectItem>
+              {filteredCampaigns.map((campaign) => (
+                <SelectItem key={campaign.id} value={campaign.id}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs">
+                      {campaign.campaign_type === "video" ? "🎬" : campaign.campaign_type === "image" ? "🖼️" : "📝"}
+                    </span>
+                    <span className="truncate max-w-[100px]">{campaign.name}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Button size="sm" className="h-9 px-3">
             <Plus className="h-4 w-4" />
           </Button>

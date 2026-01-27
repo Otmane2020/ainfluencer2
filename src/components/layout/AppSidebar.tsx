@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   FolderKanban,
   Megaphone,
+  CalendarDays,
   Video,
   ImageIcon,
   Settings,
@@ -34,6 +35,7 @@ const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderKanban },
   { title: "Campaigns", url: "/campaigns", icon: Megaphone },
+  { title: "AutoPost AI", url: "/calendar", icon: CalendarDays },
 ];
 
 const contentNavItems = [
