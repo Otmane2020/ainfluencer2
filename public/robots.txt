@@ -1,7 +1,29 @@
+# ClipMotion.ai Robots.txt
+# Allow all major search engines and AI crawlers
+
+User-agent: *
+Allow: /
+
+# Specific allow for AI crawlers
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
 User-agent: Googlebot
 Allow: /
 
 User-agent: Bingbot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Anthropic-AI
 Allow: /
 
 User-agent: Twitterbot
@@ -10,5 +32,16 @@ Allow: /
 User-agent: facebookexternalhit
 Allow: /
 
-User-agent: *
-Allow: /
+# Disallow private app routes
+Disallow: /dashboard
+Disallow: /projects
+Disallow: /calendar
+Disallow: /videos
+Disallow: /posts
+Disallow: /history
+Disallow: /integrations
+Disallow: /settings
+Disallow: /auth
+
+# Sitemap location
+Sitemap: https://clipmotion.ai/sitemap.xml

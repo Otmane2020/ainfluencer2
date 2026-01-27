@@ -20,6 +20,17 @@ import VideoHistoryPage from "./pages/VideoHistoryPage";
 import ImageHistoryPage from "./pages/ImageHistoryPage";
 import PostHistoryPage from "./pages/PostHistoryPage";
 import NotFound from "./pages/NotFound";
+// SEO Pages
+import FeaturesPage from "./pages/FeaturesPage";
+import PricingPage from "./pages/PricingPage";
+import UseCasesPage from "./pages/UseCasesPage";
+import AIVideoGeneratorPage from "./pages/AIVideoGeneratorPage";
+import MotionDesignAIPage from "./pages/MotionDesignAIPage";
+import FAQPage from "./pages/FAQPage";
+import BlogPage from "./pages/BlogPage";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+import TermsPage from "./pages/TermsPage";
+import ContactPage from "./pages/ContactPage";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +42,16 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/features" element={<FeaturesPage />} />
+          <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/use-cases" element={<UseCasesPage />} />
+          <Route path="/ai-video-generator" element={<AIVideoGeneratorPage />} />
+          <Route path="/motion-design-ai" element={<MotionDesignAIPage />} />
+          <Route path="/faq" element={<FAQPage />} />
+          <Route path="/blog" element={<BlogPage />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/contact" element={<ContactPage />} />
           <Route path="/auth" element={<Auth />} />
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
