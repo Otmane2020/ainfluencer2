@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   FolderKanban,
-  Calendar,
+  Megaphone,
   Video,
   ImageIcon,
   Settings,
@@ -33,7 +33,7 @@ import {
 const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderKanban },
-  { title: "AutoPost AI", url: "/calendar", icon: Calendar },
+  { title: "Campaigns", url: "/campaigns", icon: Megaphone },
 ];
 
 const contentNavItems = [

@@ -14,6 +14,83 @@ export type Database = {
   }
   public: {
     Tables: {
+      campaigns: {
+        Row: {
+          ai_context: string | null
+          campaign_type: string
+          created_at: string
+          ends_at: string | null
+          format: string | null
+          id: string
+          images_per_month: number | null
+          name: string
+          posts_per_week: number | null
+          project_id: string
+          starts_at: string | null
+          status: string
+          style: string | null
+          subject: string | null
+          tone: string | null
+          total_generated: number | null
+          total_published: number | null
+          updated_at: string
+          user_id: string
+          videos_per_month: number | null
+        }
+        Insert: {
+          ai_context?: string | null
+          campaign_type: string
+          created_at?: string
+          ends_at?: string | null
+          format?: string | null
+          id?: string
+          images_per_month?: number | null
+          name: string
+          posts_per_week?: number | null
+          project_id: string
+          starts_at?: string | null
+          status?: string
+          style?: string | null
+          subject?: string | null
+          tone?: string | null
+          total_generated?: number | null
+          total_published?: number | null
+          updated_at?: string
+          user_id: string
+          videos_per_month?: number | null
+        }
+        Update: {
+          ai_context?: string | null
+          campaign_type?: string
+          created_at?: string
+          ends_at?: string | null
+          format?: string | null
+          id?: string
+          images_per_month?: number | null
+          name?: string
+          posts_per_week?: number | null
+          project_id?: string
+          starts_at?: string | null
+          status?: string
+          style?: string | null
+          subject?: string | null
+          tone?: string | null
+          total_generated?: number | null
+          total_published?: number | null
+          updated_at?: string
+          user_id?: string
+          videos_per_month?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meta_connections: {
         Row: {
           access_token: string
@@ -146,6 +223,7 @@ export type Database = {
       scheduled_posts: {
         Row: {
           ai_prompt: string | null
+          campaign_id: string | null
           content_type: string
           created_at: string
           error_message: string | null
@@ -163,6 +241,7 @@ export type Database = {
         }
         Insert: {
           ai_prompt?: string | null
+          campaign_id?: string | null
           content_type: string
           created_at?: string
           error_message?: string | null
@@ -180,6 +259,7 @@ export type Database = {
         }
         Update: {
           ai_prompt?: string | null
+          campaign_id?: string | null
           content_type?: string
           created_at?: string
           error_message?: string | null
@@ -196,6 +276,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "scheduled_posts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "scheduled_posts_project_id_fkey"
             columns: ["project_id"]
