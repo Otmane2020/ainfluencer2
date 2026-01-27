@@ -149,6 +149,7 @@ export const ScheduledPostModal = ({
   const [isPublishing, setIsPublishing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [publishingStatus, setPublishingStatus] = useState<string>("");
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<CommercialProduct | null>(null);
   const [activeTab, setActiveTab] = useState("details");
@@ -268,14 +269,28 @@ export const ScheduledPostModal = ({
     }
     
     setIsPublishing(true);
+    setPublishingStatus("Connecting to social platforms...");
+    
     try {
+      // Show platform-specific status
+      const metaPlatforms = selectedPlatforms.filter(p => p === "facebook" || p === "instagram");
+      if (metaPlatforms.length > 0) {
+        setPublishingStatus(`Publishing to ${metaPlatforms.join(" & ")}...`);
+      }
+      
       await onPublishNow(post);
+      setPublishingStatus("Published successfully!");
+      
       toast({
-        title: "Publishing",
-        description: "Post is being published",
+        title: "Published! 🎉",
+        description: "Content posted to social media",
       });
+      
+      // Brief delay to show success state
+      await new Promise(resolve => setTimeout(resolve, 500));
       onClose();
     } catch (error) {
+      setPublishingStatus("Publishing failed");
       toast({
         title: "Error",
         description: "Unable to publish post",
@@ -283,12 +298,14 @@ export const ScheduledPostModal = ({
       });
     } finally {
       setIsPublishing(false);
+      setPublishingStatus("");
     }
   };
 
   // Generate video + social content + hashtags, then publish
   const handleGenerateAndPublish = async () => {
     setIsPublishing(true);
+    setPublishingStatus("Generating social content...");
     
     try {
       // Step 1: Generate social post content (description + hashtags) based on AI prompt
@@ -340,6 +357,8 @@ export const ScheduledPostModal = ({
 
       console.log("Generated social content:", finalTextContent.substring(0, 100) + "...");
 
+      setPublishingStatus("Saving content...");
+
       // Step 2: Update the post with generated content
       const { error: updateError } = await supabase
         .from("scheduled_posts")
@@ -353,6 +372,8 @@ export const ScheduledPostModal = ({
 
       // Step 3: If video content and a product is selected, start video generation
       if ((post.content_type === "video" || post.content_type === "reel") && selectedProduct) {
+        setPublishingStatus(`Generating video with ${selectedProduct.name}...`);
+        
         toast({
           title: "Generating video...",
           description: `Using ${selectedProduct.name}`,
@@ -390,6 +411,8 @@ export const ScheduledPostModal = ({
         }
       }
 
+      setPublishingStatus("Publishing to platforms...");
+
       toast({
         title: "Content generated ✓",
         description: "Social post with description and hashtags is ready",
@@ -405,9 +428,12 @@ export const ScheduledPostModal = ({
         });
       }
       
+      setPublishingStatus("Published successfully!");
+      await new Promise(resolve => setTimeout(resolve, 500));
       onClose();
     } catch (error) {
       console.error("Generate and publish error:", error);
+      setPublishingStatus("Failed");
       toast({
         title: "Error",
         description: "Unable to generate content. Please try again.",
@@ -415,6 +441,7 @@ export const ScheduledPostModal = ({
       });
     } finally {
       setIsPublishing(false);
+      setPublishingStatus("");
     }
   };
 
@@ -923,19 +950,26 @@ export const ScheduledPostModal = ({
           </Button>
         )}
         {onPublishNow && post.status !== "published" && (
-          <Button
-            size="sm"
-            onClick={handlePublishNow}
-            disabled={isPublishing}
-            className="ml-auto gap-1.5 sm:gap-2"
-          >
-            {isPublishing ? (
-              <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
-            ) : (
-              <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <div className="ml-auto flex flex-col items-end gap-1">
+            <Button
+              size="sm"
+              onClick={handlePublishNow}
+              disabled={isPublishing}
+              className="gap-1.5 sm:gap-2"
+            >
+              {isPublishing ? (
+                <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+              ) : (
+                <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              )}
+              {isPublishing ? "Publishing..." : "Publish Now"}
+            </Button>
+            {publishingStatus && (
+              <span className="text-xs text-muted-foreground animate-pulse">
+                {publishingStatus}
+              </span>
             )}
-            Publish Now
-          </Button>
+          </div>
         )}
       </div>
     </>
