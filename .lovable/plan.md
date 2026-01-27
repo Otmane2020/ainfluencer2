@@ -1,173 +1,167 @@
 
+# Fix Plan: Video Quality Display and Social Media Publishing
 
-# Plan: Create a New AI Video Scenario Generator
+## Problem Summary
 
-## Problem Analysis
+Two distinct issues need to be resolved:
 
-The current video script generation (sparkles button) produces generic marketing-style text like *"Marre des avis Google sans réponse?"* instead of structured **video scenarios** with:
-- Timestamped segments (`[0-1s]`, `[1-3s]`, etc.)
-- Visual scene descriptions
-- Voiceover text
-- Proper duration-based word counts
+1. **Video Quality Perception**: Users see quality options (720p, 1080p, 4K) but all videos generate at 720p due to provider limitations. This creates a misleading UX.
+
+2. **Social Media Not Posting**: The "Publish" button generates content and updates database status but never actually calls the Meta API to post to Facebook/Instagram.
+
+---
 
 ## Solution Overview
 
-Create a new **dedicated edge function** specifically for generating rich video scenarios, and update the VideoGenerator to use it instead of the generic `suggest-content` function.
-
-## Implementation Steps
-
-### Step 1: Create new `generate-video-scenario` Edge Function
-
-A new edge function that generates **complete video scenarios** with:
-
 ```text
-Video Scenario Structure:
-- Scene-by-scene breakdown with timestamps
-- Visual directions (what to show)
-- Voiceover/script text
-- Transitions and effects suggestions
-- Duration-optimized word count (2.5 words/second)
++------------------+      +-------------------+      +------------------+
+|  ScheduledPost   | ---> | handlePublishNow  | ---> |   shareToMeta    |
+|     Modal        |      | (CalendarPage)    |      | (Meta OAuth API) |
++------------------+      +-------------------+      +------------------+
+                                  |
+                                  v
+                          +---------------+
+                          | Update Status |
+                          |  "published"  |
+                          +---------------+
 ```
 
-**Key Features:**
-- Uses project context (name, description, scraped URL content)
-- Applies scenario parameters (Sector, Style, Tone)
-- Supports multiple script types: Reel, Ad, Testimonial, Story
-- Enforces strict French quality (no English, no generic phrases)
-- Returns structured JSON with multiple scenario options
+---
 
-**Example Output:**
-```json
-{
-  "scenarios": [
-    {
-      "id": "1",
-      "title": "La révélation client",
-      "angle": "emotion",
-      "scenes": [
-        {
-          "timestamp": "[0-2s]",
-          "visual": "Gros plan sur un écran avec des notifications d'avis Google",
-          "voiceover": "Tu vois ça ? 47 avis sans réponse."
-        },
-        {
-          "timestamp": "[2-5s]",
-          "visual": "Le propriétaire fatigué devant son ordinateur",
-          "voiceover": "Chaque avis ignoré, c'est un client perdu."
-        }
-      ],
-      "fullScript": "Tu vois ça ? 47 avis sans réponse...",
-      "hashtags": ["avisGoogle", "businessLocal"]
+## Technical Changes
+
+### 1. Fix Social Media Publishing Flow
+
+**File: `src/pages/CalendarPage.tsx`**
+
+- Import `useMetaOAuth` hook
+- Update `handlePublishNow` to:
+  - Check if Meta is connected
+  - Call `shareToMeta` for each selected platform (Facebook, Instagram)
+  - Wait for video generation to complete before posting (if video content)
+  - Update status to "published" only after successful API calls
+  - Handle errors gracefully with user feedback
+
+### 2. Clarify Video Quality in UI
+
+**File: `src/components/VideoGenerator.tsx`**
+
+- Update quality selector to show honest descriptions:
+  - Remove misleading 1080p/4K labels
+  - Or add a note: "All videos currently render at 720p (provider limitation)"
+- Consider removing quality selector entirely if it has no effect
+
+### 3. Add Publishing Indicators
+
+**File: `src/components/ScheduledPostModal.tsx`**
+
+- Add visual feedback during Meta API calls
+- Show which platforms were successfully posted
+- Display actual post URLs/IDs after successful publishing
+
+---
+
+## Detailed Implementation
+
+### CalendarPage.tsx Changes
+
+```typescript
+// Add hook import
+import { useMetaOAuth } from "@/hooks/useMetaOAuth";
+
+// In component
+const { isConnected, shareToMeta, connection } = useMetaOAuth();
+
+// Updated handlePublishNow
+const handlePublishNow = async (post: ScheduledPost) => {
+  // 1. Check Meta connection
+  if (!isConnected) {
+    toast({ title: "Error", description: "Connect to Meta first", variant: "destructive" });
+    return;
+  }
+
+  // 2. Validate media_url exists for video posts
+  if (post.content_type === "video" && !post.media_url) {
+    toast({ title: "Error", description: "Video not ready yet", variant: "destructive" });
+    return;
+  }
+
+  // 3. Post to each selected platform
+  const platforms = post.platforms || [];
+  const results = [];
+  
+  for (const platform of platforms) {
+    if (platform === "facebook" || platform === "instagram") {
+      const result = await shareToMeta(
+        platform,
+        post.text_content || "",
+        post.media_url || undefined
+      );
+      results.push({ platform, success: result.success });
     }
-  ]
-}
+  }
+
+  // 4. Update database based on results
+  const allSuccess = results.every(r => r.success);
+  await supabase
+    .from("scheduled_posts")
+    .update({
+      status: allSuccess ? "published" : "failed",
+      published_at: allSuccess ? new Date().toISOString() : null,
+    })
+    .eq("id", post.id);
+
+  // 5. Show feedback
+  toast({
+    title: allSuccess ? "Published!" : "Partial failure",
+    description: allSuccess 
+      ? "Posted to all platforms" 
+      : "Some platforms failed",
+  });
+  
+  fetchPosts();
+};
 ```
 
-### Step 2: Update VideoGenerator Component
+### VideoGenerator.tsx Quality Transparency
 
-Modify `generateAIScript` function to:
-
-1. Call the new `generate-video-scenario` edge function
-2. Display a **scenario picker modal** showing multiple options with:
-   - Title and angle (emotion, problem, benefit, urgency)
-   - Scene preview
-   - Estimated engagement level
-3. Allow user to select a scenario or regenerate
-4. Populate the script textarea with the selected scenario's full script
-
-### Step 3: Add Scenario Preview UI Component
-
-Create a `ScenarioPreview` component that displays:
-- Visual scene breakdown with timestamps
-- Voiceover text per segment
-- Quick actions: Select, Copy, Edit
-
-## Technical Details
-
-### New Edge Function: `generate-video-scenario/index.ts`
-
-**Location:** `supabase/functions/generate-video-scenario/index.ts`
-
-**API Input:**
 ```typescript
-{
-  projectId: string;
-  projectName: string;
-  projectDescription?: string;
-  projectUrl?: string;
-  scrapedContent?: string;
-  sectorId?: string;    // Business sector (restaurant, tech, etc.)
-  styleId?: string;     // Video style (testimonial, demo, ugc, etc.)
-  toneId?: string;      // Emotional tone (urgent, inspiring, etc.)
-  scriptType: "reel" | "ad" | "story" | "testimonial";
-  duration: number;     // 4, 8, 12, or 20 seconds
-}
+const QUALITY_OPTIONS = [
+  { 
+    value: "720p", 
+    label: "HD 720p", 
+    description: "Current maximum quality" 
+  },
+];
+// Remove 1080p and 4K options OR
+// Add note: "Higher resolutions coming soon"
 ```
 
-**API Output:**
-```typescript
-{
-  scenarios: Array<{
-    id: string;
-    title: string;
-    angle: "problem" | "benefit" | "emotion" | "proof" | "urgency";
-    scenes: Array<{
-      timestamp: string;
-      visual: string;
-      voiceover: string;
-    }>;
-    fullScript: string;
-    hashtags: string[];
-    estimatedEngagement: "high" | "medium" | "low";
-  }>;
-}
-```
+---
 
-### VideoGenerator Changes
+## Files to Modify
 
-1. Replace current `generateAIScript` call to `suggest-content` with new `generate-video-scenario`
-2. Add state for scenario selection modal
-3. Add scenario picker UI with visual scene cards
+| File | Changes |
+|------|---------|
+| `src/pages/CalendarPage.tsx` | Add Meta OAuth hook, implement actual social posting |
+| `src/components/VideoGenerator.tsx` | Update quality options with honest labeling |
+| `src/components/ScheduledPostModal.tsx` | Add publishing status indicators |
 
-### Updated Config
+---
 
-Add entry in `supabase/config.toml`:
-```toml
-[functions.generate-video-scenario]
-verify_jwt = false
-```
+## Edge Cases Handled
 
-## User Experience Flow
+1. **Video not ready**: If video generation is still in progress, show "Video generating..." and disable publish
+2. **No Meta connection**: Show clear error message directing user to Integrations page
+3. **Partial platform failure**: Update status appropriately, log which platforms failed
+4. **No media_url for video posts**: Block publishing until video is available
 
-```text
-1. User clicks Sparkles button in VideoGenerator
-2. Project selector popover appears (existing)
-3. User selects project
-4. Loading state shows "Generating scenarios..."
-5. Modal appears with 3-5 scenario cards
-6. Each card shows:
-   - Title and angle badge
-   - Scene timeline preview (with timestamps)
-   - Full script preview
-7. User clicks "Use this scenario"
-8. Script populates in textarea, ready for generation
-```
+---
 
-## Files to Create/Modify
+## Testing Checklist
 
-| File | Action | Description |
-|------|--------|-------------|
-| `supabase/functions/generate-video-scenario/index.ts` | **Create** | New edge function for video scenario generation |
-| `supabase/config.toml` | **Modify** | Add function configuration |
-| `src/components/VideoGenerator.tsx` | **Modify** | Update generateAIScript to use new function |
-| `src/components/ScenarioPickerModal.tsx` | **Create** | New modal for selecting generated scenarios |
-
-## Quality Safeguards
-
-The new function will enforce:
-- French language only (reject English words)
-- No generic marketing phrases ("Découvrez", "N'attendez plus")
-- Timestamp structure matching duration
-- Word count validation (2.5 words/second ± 15%)
-- Scene-by-scene visual coherence
-
+- [ ] Publish a video post - verify it appears on Facebook Page
+- [ ] Publish a video post - verify it appears on Instagram Reels
+- [ ] Verify quality selector shows accurate information
+- [ ] Verify failed posts show correct error messages
+- [ ] Verify published_at timestamp is set after successful publish
