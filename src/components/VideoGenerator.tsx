@@ -291,32 +291,35 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
     const duration = segment?.duration || 10;
     
     try {
-      // Use NanoBanana Pro for premium quality French scripts
-      // Include scenario context for better targeted scripts
-      const { data, error } = await supabase.functions.invoke("generate-script-nanobanana", {
+      // Use suggest-content (same as planning) for consistent script generation
+      // This includes full scenario context support
+      const { data, error } = await supabase.functions.invoke("suggest-content", {
         body: {
+          projectId: project.id,
           projectName: project.name,
           projectDescription: project.description || project.name,
+          contentType: "script", // Script mode for video scripts
           productName: selectedProduct.name,
-          scriptType: selectedProduct.category === "avatar" ? "testimonial" : "reel",
-          duration, // Pass duration for script length adaptation
+          productCategory: selectedProduct.category,
           // Scenario context for enriched script generation
           sectorId: selectedSector?.id,
           styleId: selectedStyle?.id,
           toneId: selectedTone?.id,
+          scriptType: selectedProduct.category === "avatar" ? "testimonial" : "reel",
+          duration, // Pass duration for script length adaptation
         },
       });
 
       if (error) throw error;
 
-      const scripts = data?.scripts;
-      if (!scripts || scripts.length === 0) {
+      const suggestions = data?.suggestions;
+      if (!suggestions || suggestions.length === 0) {
         throw new Error("No scripts received");
       }
 
       // Find the first valid script
       let validScript = null;
-      for (const script of scripts) {
+      for (const script of suggestions) {
         const content = script.content?.trim();
         const validation = validateScriptQuality(content);
         
@@ -330,7 +333,7 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
 
       if (!validScript) {
         // If no valid script, use the first one but warn
-        validScript = scripts[0];
+        validScript = suggestions[0];
         console.warn("No fully valid script found, using first suggestion");
       }
 
@@ -338,7 +341,7 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
       
       toast({
         title: "Script generated! ✨",
-        description: `Premium quality from ${project.name}`,
+        description: `${selectedSector?.name || ""} ${selectedStyle?.name || ""} ${selectedTone?.name || ""}`.trim() || project.name,
       });
     } catch (error) {
       console.error("AI script generation error:", error);
