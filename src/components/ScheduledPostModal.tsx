@@ -18,6 +18,12 @@ import {
   Music2,
   Check,
   Sparkles,
+  Mic,
+  User,
+  Monitor,
+  Play,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import {
   Dialog,
@@ -40,6 +46,17 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 import { ProductSelector } from "./ProductSelector";
 import { COMMERCIAL_PRODUCTS, CommercialProduct } from "@/lib/commercialProducts";
+import { AVAILABLE_VOICES, AVAILABLE_LANGUAGES, Voice, VoiceLanguage, getVoicesByLanguage, getDefaultVoiceForLanguage } from "@/lib/voices";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 // TikTok icon component
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -130,19 +147,31 @@ export const ScheduledPostModal = ({
 }: ScheduledPostModalProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<CommercialProduct | null>(null);
   const [activeTab, setActiveTab] = useState("details");
+  
+  // Video generation options
+  const [enableVoice, setEnableVoice] = useState(true);
+  const [selectedLanguage, setSelectedLanguage] = useState<VoiceLanguage>("en");
+  const [selectedVoice, setSelectedVoice] = useState<Voice | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [videoFormat, setVideoFormat] = useState<"reel" | "story" | "landscape" | "mix">("reel");
+  
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
-  // Initialize platforms from post
+  // Initialize platforms and voice from post
   useEffect(() => {
     if (post?.platforms) {
       setSelectedPlatforms(post.platforms);
     }
-  }, [post]);
+    // Set default voice for language
+    const defaultVoice = getDefaultVoiceForLanguage(selectedLanguage);
+    setSelectedVoice(defaultVoice);
+  }, [post, selectedLanguage]);
 
   if (!post) return null;
 
@@ -249,14 +278,72 @@ export const ScheduledPostModal = ({
     }
   };
 
+  const handleGenerateVideo = async () => {
+    if (!selectedProduct) {
+      toast({
+        title: "Product required",
+        description: "Select an AI model first in the AI Models tab",
+        variant: "destructive",
+      });
+      setActiveTab("models");
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      // Here we would call the video generation edge function
+      toast({
+        title: "Generating video...",
+        description: `Using ${selectedProduct.name} with ${enableVoice && selectedVoice ? selectedVoice.name : "no voice"}`,
+      });
+      
+      // Simulate generation - in real implementation, call the edge function
+      console.log("Video generation config:", {
+        postId: post.id,
+        product: selectedProduct.id,
+        enableVoice,
+        voiceId: selectedVoice?.id,
+        language: selectedLanguage,
+        avatarUrl,
+        format: videoFormat,
+      });
+      
+      // TODO: Implement actual video generation call
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      toast({
+        title: "Generation started ✓",
+        description: "Your video is being generated",
+      });
+      
+      onUpdate?.();
+      onClose();
+    } catch (error) {
+      console.error("Video generation error:", error);
+      toast({
+        title: "Error",
+        description: "Unable to generate video",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const availableVoices = getVoicesByLanguage(selectedLanguage);
+
   // Modal content shared between Dialog and Drawer
   const ModalContent = () => (
     <>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="grid w-full grid-cols-3 shrink-0">
+        <TabsList className="grid w-full grid-cols-4 shrink-0">
           <TabsTrigger value="details" className="text-xs sm:text-sm">Details</TabsTrigger>
+          <TabsTrigger value="generation" className="text-xs sm:text-sm">
+            <Video className="h-3 w-3 mr-1" />
+            Generate
+          </TabsTrigger>
           <TabsTrigger value="platforms" className="text-xs sm:text-sm">Platforms</TabsTrigger>
-          <TabsTrigger value="models" className="text-xs sm:text-sm">AI Models</TabsTrigger>
+          <TabsTrigger value="models" className="text-xs sm:text-sm">AI</TabsTrigger>
         </TabsList>
 
         <ScrollArea className="flex-1 mt-4">
@@ -359,6 +446,175 @@ export const ScheduledPostModal = ({
                 <p className="text-xs sm:text-sm text-destructive/80">{post.error_message}</p>
               </div>
             )}
+          </TabsContent>
+
+          {/* Generation Tab - Video Generation Options */}
+          <TabsContent value="generation" className="space-y-4 m-0 px-1">
+            <div className="rounded-xl border border-border p-3 sm:p-4">
+              <h4 className="mb-4 text-xs sm:text-sm font-medium flex items-center gap-2">
+                <Video className="h-4 w-4 text-primary" />
+                Video Generation Options
+              </h4>
+
+              {/* Format Selection */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs sm:text-sm flex items-center gap-2">
+                    <Monitor className="h-4 w-4 text-muted-foreground" />
+                    Format
+                  </Label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { id: "reel", label: "Reel", icon: "9:16" },
+                      { id: "story", label: "Story", icon: "9:16" },
+                      { id: "landscape", label: "Landscape", icon: "16:9" },
+                      { id: "mix", label: "Mix", icon: "Auto" },
+                    ].map((fmt) => (
+                      <motion.button
+                        key={fmt.id}
+                        type="button"
+                        onClick={() => setVideoFormat(fmt.id as "reel" | "story" | "landscape" | "mix")}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className={`flex flex-col items-center justify-center rounded-lg border-2 p-2 transition-all ${
+                          videoFormat === fmt.id
+                            ? "border-primary bg-primary/10"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        <span className="text-[10px] font-medium text-muted-foreground">{fmt.icon}</span>
+                        <span className="text-xs font-medium">{fmt.label}</span>
+                      </motion.button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Voice Toggle */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                  <div className="flex items-center gap-2">
+                    {enableVoice ? (
+                      <Volume2 className="h-4 w-4 text-primary" />
+                    ) : (
+                      <VolumeX className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <Label htmlFor="enable-voice" className="text-xs sm:text-sm">
+                      AI Voiceover
+                    </Label>
+                  </div>
+                  <Switch
+                    id="enable-voice"
+                    checked={enableVoice}
+                    onCheckedChange={setEnableVoice}
+                  />
+                </div>
+
+                {/* Voice Options - Only show when voice is enabled */}
+                {enableVoice && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="space-y-3 pl-4 border-l-2 border-primary/30"
+                  >
+                    {/* Language Selection */}
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Language</Label>
+                      <Select
+                        value={selectedLanguage}
+                        onValueChange={(value) => setSelectedLanguage(value as VoiceLanguage)}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-card border border-border z-50">
+                          {AVAILABLE_LANGUAGES.map((lang) => (
+                            <SelectItem key={lang.code} value={lang.code}>
+                              <span className="flex items-center gap-2">
+                                <span>{lang.flag}</span>
+                                <span>{lang.name}</span>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Voice Selection */}
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Voice</Label>
+                      <Select
+                        value={selectedVoice?.id || ""}
+                        onValueChange={(value) => {
+                          const voice = availableVoices.find((v) => v.id === value);
+                          setSelectedVoice(voice || null);
+                        }}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select voice" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-card border border-border z-50">
+                          {availableVoices.map((voice) => (
+                            <SelectItem key={voice.id} value={voice.id}>
+                              <span className="flex items-center gap-2">
+                                <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                  voice.gender === "female" 
+                                    ? "bg-pink-500/20 text-pink-600" 
+                                    : "bg-blue-500/20 text-blue-600"
+                                }`}>
+                                  {voice.gender === "female" ? "♀" : "♂"}
+                                </span>
+                                <span>{voice.name}</span>
+                                {voice.accent && (
+                                  <span className="text-muted-foreground text-xs">({voice.accent})</span>
+                                )}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Avatar URL */}
+                <div className="space-y-2">
+                  <Label className="text-xs sm:text-sm flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    Avatar (optional)
+                  </Label>
+                  <Input
+                    placeholder="Enter avatar image URL or leave empty"
+                    value={avatarUrl}
+                    onChange={(e) => setAvatarUrl(e.target.value)}
+                    className="h-9 text-xs"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Leave empty for video-only or paste an avatar image URL for AI influencer
+                  </p>
+                </div>
+
+                {/* Generate Button */}
+                <Button
+                  onClick={handleGenerateVideo}
+                  disabled={isGenerating || !selectedProduct}
+                  className="w-full gap-2"
+                  size="lg"
+                >
+                  {isGenerating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4" />
+                  )}
+                  {isGenerating ? "Generating..." : "Generate Video"}
+                </Button>
+
+                {!selectedProduct && (
+                  <p className="text-xs text-center text-muted-foreground">
+                    Select an AI model in the "AI" tab first
+                  </p>
+                )}
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="platforms" className="space-y-4 m-0 px-1">
