@@ -130,6 +130,53 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
     }
   };
 
+  const handleRegenerate = async (item: ContentItem) => {
+    if (!item.ai_prompt) {
+      toast({ title: "Error", description: "No prompt available for regeneration", variant: "destructive" });
+      return;
+    }
+
+    toast({ title: "Generating...", description: "Image generation started" });
+
+    try {
+      // Call the working generate-image function directly
+      const { data, error } = await supabase.functions.invoke("generate-image", {
+        body: { 
+          prompt: item.ai_prompt,
+          productId: "ai-image-standard",
+          format: "reel"
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.imageUrl) {
+        // Update the post with the generated image
+        const { error: updateError } = await supabase
+          .from("scheduled_posts")
+          .update({ 
+            media_url: data.imageUrl,
+            status: "scheduled"
+          })
+          .eq("id", item.id);
+
+        if (updateError) throw updateError;
+
+        toast({ title: "Success!", description: "Image generated successfully" });
+        fetchHistory(); // Refresh the list
+      } else {
+        throw new Error("No image URL returned");
+      }
+    } catch (err: any) {
+      console.error("Regeneration error:", err);
+      toast({ 
+        title: "Generation failed", 
+        description: err.message || "Unable to generate image", 
+        variant: "destructive" 
+      });
+    }
+  };
+
   const handleDelete = async () => {
     if (!deleteItem) return;
 
@@ -232,6 +279,7 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
                   onPreview={(item) => onPreview?.(item)}
                   onShare={(item) => onShare?.(item)}
                   onDelete={setDeleteItem}
+                  onRegenerate={handleRegenerate}
                 />
               ))}
             </AnimatePresence>
