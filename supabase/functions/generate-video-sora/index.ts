@@ -90,7 +90,8 @@ serve(async (req) => {
       }
 
       console.log("Creating video with prompt:", fullPrompt.substring(0, 100) + "...");
-      console.log("Requested duration:", requestedDuration, "Validated duration:", duration, "Quality:", quality, "Size:", size);
+      console.log("Resolution mapping - Quality:", quality, "-> Size:", size, "(max 720p supported)");
+      console.log("Requested duration:", requestedDuration, "Validated duration:", duration);
       if (startingFrameUrl) {
         console.log("Starting frame URL provided for video continuation");
       }
