@@ -24,12 +24,14 @@ export type Database = {
           id: string
           images_per_month: number | null
           name: string
+          posting_hour: number | null
           posts_per_week: number | null
           project_id: string
           starts_at: string | null
           status: string
           style: string | null
           subject: string | null
+          timezone: string | null
           tone: string | null
           total_generated: number | null
           total_published: number | null
@@ -46,12 +48,14 @@ export type Database = {
           id?: string
           images_per_month?: number | null
           name: string
+          posting_hour?: number | null
           posts_per_week?: number | null
           project_id: string
           starts_at?: string | null
           status?: string
           style?: string | null
           subject?: string | null
+          timezone?: string | null
           tone?: string | null
           total_generated?: number | null
           total_published?: number | null
@@ -68,12 +72,14 @@ export type Database = {
           id?: string
           images_per_month?: number | null
           name?: string
+          posting_hour?: number | null
           posts_per_week?: number | null
           project_id?: string
           starts_at?: string | null
           status?: string
           style?: string | null
           subject?: string | null
+          timezone?: string | null
           tone?: string | null
           total_generated?: number | null
           total_published?: number | null

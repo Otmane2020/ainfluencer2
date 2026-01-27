@@ -505,9 +505,9 @@ export const ScheduledPostModal = ({
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
         <TabsList className="grid w-full grid-cols-4 shrink-0">
           <TabsTrigger value="details" className="text-xs sm:text-sm">Details</TabsTrigger>
-          <TabsTrigger value="generation" className="text-xs sm:text-sm">
-            <Video className="h-3 w-3 mr-1" />
-            Generate
+          <TabsTrigger value="ai-settings" className="text-xs sm:text-sm">
+            <Sparkles className="h-3 w-3 mr-1" />
+            AI Settings
           </TabsTrigger>
           <TabsTrigger value="platforms" className="text-xs sm:text-sm">Platforms</TabsTrigger>
           <TabsTrigger value="models" className="text-xs sm:text-sm">AI</TabsTrigger>
@@ -615,173 +615,243 @@ export const ScheduledPostModal = ({
             )}
           </TabsContent>
 
-          {/* Generation Tab - Video Generation Options */}
-          <TabsContent value="generation" className="space-y-4 m-0 px-1">
-            <div className="rounded-xl border border-border p-3 sm:p-4">
-              <h4 className="mb-4 text-xs sm:text-sm font-medium flex items-center gap-2">
-                <Video className="h-4 w-4 text-primary" />
-                Video Generation Options
-              </h4>
+          {/* AI Settings Tab - Different for Video vs Image */}
+          <TabsContent value="ai-settings" className="space-y-4 m-0 px-1">
+            {(post.content_type === "video" || post.content_type === "reel") ? (
+              /* Video Settings */
+              <div className="rounded-xl border border-border p-3 sm:p-4">
+                <h4 className="mb-4 text-xs sm:text-sm font-medium flex items-center gap-2">
+                  <Video className="h-4 w-4 text-primary" />
+                  Video Generation Settings
+                </h4>
 
-              {/* Format Selection */}
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-xs sm:text-sm flex items-center gap-2">
-                    <Monitor className="h-4 w-4 text-muted-foreground" />
-                    Format
-                  </Label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[
-                      { id: "reel", label: "Reel", icon: "9:16" },
-                      { id: "story", label: "Story", icon: "9:16" },
-                      { id: "landscape", label: "Landscape", icon: "16:9" },
-                      { id: "mix", label: "Mix", icon: "Auto" },
-                    ].map((fmt) => (
-                      <motion.button
-                        key={fmt.id}
-                        type="button"
-                        onClick={() => setVideoFormat(fmt.id as "reel" | "story" | "landscape" | "mix")}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        className={`flex flex-col items-center justify-center rounded-lg border-2 p-2 transition-all ${
-                          videoFormat === fmt.id
-                            ? "border-primary bg-primary/10"
-                            : "border-border hover:border-primary/50"
-                        }`}
-                      >
-                        <span className="text-[10px] font-medium text-muted-foreground">{fmt.icon}</span>
-                        <span className="text-xs font-medium">{fmt.label}</span>
-                      </motion.button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Voice Toggle */}
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-2">
-                    {enableVoice ? (
-                      <Volume2 className="h-4 w-4 text-primary" />
-                    ) : (
-                      <VolumeX className="h-4 w-4 text-muted-foreground" />
-                    )}
-                    <Label htmlFor="enable-voice" className="text-xs sm:text-sm">
-                      AI Voiceover
+                <div className="space-y-4">
+                  {/* Format Selection */}
+                  <div className="space-y-2">
+                    <Label className="text-xs sm:text-sm flex items-center gap-2">
+                      <Monitor className="h-4 w-4 text-muted-foreground" />
+                      Format
                     </Label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[
+                        { id: "reel", label: "Reel", icon: "9:16" },
+                        { id: "story", label: "Story", icon: "9:16" },
+                        { id: "landscape", label: "Landscape", icon: "16:9" },
+                        { id: "mix", label: "Mix", icon: "Auto" },
+                      ].map((fmt) => (
+                        <motion.button
+                          key={fmt.id}
+                          type="button"
+                          onClick={() => setVideoFormat(fmt.id as "reel" | "story" | "landscape" | "mix")}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className={`flex flex-col items-center justify-center rounded-lg border-2 p-2 transition-all ${
+                            videoFormat === fmt.id
+                              ? "border-primary bg-primary/10"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                        >
+                          <span className="text-[10px] font-medium text-muted-foreground">{fmt.icon}</span>
+                          <span className="text-xs font-medium">{fmt.label}</span>
+                        </motion.button>
+                      ))}
+                    </div>
                   </div>
-                  <Switch
-                    id="enable-voice"
-                    checked={enableVoice}
-                    onCheckedChange={setEnableVoice}
-                  />
-                </div>
 
-                {/* Voice Options - Only show when voice is enabled */}
-                {enableVoice && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="space-y-3 pl-4 border-l-2 border-primary/30"
-                  >
-                    {/* Language Selection */}
-                    <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Language</Label>
-                      <Select
-                        value={selectedLanguage}
-                        onValueChange={(value) => setSelectedLanguage(value as VoiceLanguage)}
-                      >
-                        <SelectTrigger className="h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-card border border-border z-50">
-                          {AVAILABLE_LANGUAGES.map((lang) => (
-                            <SelectItem key={lang.code} value={lang.code}>
-                              <span className="flex items-center gap-2">
-                                <span>{lang.flag}</span>
-                                <span>{lang.name}</span>
-                              </span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                  {/* Voice Toggle */}
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-2">
+                      {enableVoice ? (
+                        <Volume2 className="h-4 w-4 text-primary" />
+                      ) : (
+                        <VolumeX className="h-4 w-4 text-muted-foreground" />
+                      )}
+                      <Label htmlFor="enable-voice" className="text-xs sm:text-sm">
+                        AI Voiceover
+                      </Label>
                     </div>
+                    <Switch
+                      id="enable-voice"
+                      checked={enableVoice}
+                      onCheckedChange={setEnableVoice}
+                    />
+                  </div>
 
-                    {/* Voice Selection */}
-                    <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Voice</Label>
-                      <Select
-                        value={selectedVoice?.id || ""}
-                        onValueChange={(value) => {
-                          const voice = availableVoices.find((v) => v.id === value);
-                          setSelectedVoice(voice || null);
-                        }}
-                      >
-                        <SelectTrigger className="h-9">
-                          <SelectValue placeholder="Select voice" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-card border border-border z-50">
-                          {availableVoices.map((voice) => (
-                            <SelectItem key={voice.id} value={voice.id}>
-                              <span className="flex items-center gap-2">
-                                <span className={`text-xs px-1.5 py-0.5 rounded ${
-                                  voice.gender === "female" 
-                                    ? "bg-pink-500/20 text-pink-600" 
-                                    : "bg-blue-500/20 text-blue-600"
-                                }`}>
-                                  {voice.gender === "female" ? "♀" : "♂"}
+                  {/* Voice Options */}
+                  {enableVoice && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="space-y-3 pl-4 border-l-2 border-primary/30"
+                    >
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Language</Label>
+                        <Select
+                          value={selectedLanguage}
+                          onValueChange={(value) => setSelectedLanguage(value as VoiceLanguage)}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-card border border-border z-50">
+                            {AVAILABLE_LANGUAGES.map((lang) => (
+                              <SelectItem key={lang.code} value={lang.code}>
+                                <span className="flex items-center gap-2">
+                                  <span>{lang.flag}</span>
+                                  <span>{lang.name}</span>
                                 </span>
-                                <span>{voice.name}</span>
-                                {voice.accent && (
-                                  <span className="text-muted-foreground text-xs">({voice.accent})</span>
-                                )}
-                              </span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </motion.div>
-                )}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                {/* Avatar URL */}
-                <div className="space-y-2">
-                  <Label className="text-xs sm:text-sm flex items-center gap-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    Avatar (optional)
-                  </Label>
-                  <Input
-                    placeholder="Enter avatar image URL or leave empty"
-                    value={avatarUrl}
-                    onChange={(e) => setAvatarUrl(e.target.value)}
-                    className="h-9 text-xs"
-                  />
-                  <p className="text-[10px] text-muted-foreground">
-                    Leave empty for video-only or paste an avatar image URL for AI influencer
-                  </p>
-                </div>
-
-                {/* Generate Button */}
-                <Button
-                  onClick={handleGenerateVideo}
-                  disabled={isGenerating || !selectedProduct}
-                  className="w-full gap-2"
-                  size="lg"
-                >
-                  {isGenerating ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Play className="h-4 w-4" />
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Voice</Label>
+                        <Select
+                          value={selectedVoice?.id || ""}
+                          onValueChange={(value) => {
+                            const voice = availableVoices.find((v) => v.id === value);
+                            setSelectedVoice(voice || null);
+                          }}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Select voice" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-card border border-border z-50">
+                            {availableVoices.map((voice) => (
+                              <SelectItem key={voice.id} value={voice.id}>
+                                <span className="flex items-center gap-2">
+                                  <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                    voice.gender === "female" 
+                                      ? "bg-pink-500/20 text-pink-600" 
+                                      : "bg-blue-500/20 text-blue-600"
+                                  }`}>
+                                    {voice.gender === "female" ? "♀" : "♂"}
+                                  </span>
+                                  <span>{voice.name}</span>
+                                  {voice.accent && (
+                                    <span className="text-muted-foreground text-xs">({voice.accent})</span>
+                                  )}
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </motion.div>
                   )}
-                  {isGenerating ? "Generating..." : "Generate Video"}
-                </Button>
 
-                {!selectedProduct && (
-                  <p className="text-xs text-center text-muted-foreground">
-                    Select an AI model in the "AI" tab first
-                  </p>
-                )}
+                  {/* Avatar URL */}
+                  <div className="space-y-2">
+                    <Label className="text-xs sm:text-sm flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      AI Avatar (optional)
+                    </Label>
+                    <Input
+                      placeholder="Enter avatar image URL"
+                      value={avatarUrl}
+                      onChange={(e) => setAvatarUrl(e.target.value)}
+                      className="h-9 text-xs"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Leave empty for video-only or paste an avatar URL for AI influencer
+                    </p>
+                  </div>
+
+                  {/* Generate Button */}
+                  <Button
+                    onClick={handleGenerateVideo}
+                    disabled={isGenerating || !selectedProduct}
+                    className="w-full gap-2"
+                    size="lg"
+                  >
+                    {isGenerating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Play className="h-4 w-4" />
+                    )}
+                    {isGenerating ? "Generating..." : "Generate Video"}
+                  </Button>
+
+                  {!selectedProduct && (
+                    <p className="text-xs text-center text-muted-foreground">
+                      Select an AI model in the "AI" tab first
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              /* Image Settings */
+              <div className="rounded-xl border border-border p-3 sm:p-4">
+                <h4 className="mb-4 text-xs sm:text-sm font-medium flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4 text-primary" />
+                  Image Generation Settings
+                </h4>
+
+                <div className="space-y-4">
+                  {/* Image Format/Aspect Ratio */}
+                  <div className="space-y-2">
+                    <Label className="text-xs sm:text-sm flex items-center gap-2">
+                      <Monitor className="h-4 w-4 text-muted-foreground" />
+                      Aspect Ratio
+                    </Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: "square", label: "Square", icon: "1:1" },
+                        { id: "portrait", label: "Portrait", icon: "4:5" },
+                        { id: "landscape", label: "Landscape", icon: "16:9" },
+                      ].map((fmt) => (
+                        <motion.button
+                          key={fmt.id}
+                          type="button"
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className={`flex flex-col items-center justify-center rounded-lg border-2 p-3 transition-all ${
+                            videoFormat === fmt.id
+                              ? "border-primary bg-primary/10"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                          onClick={() => setVideoFormat(fmt.id as any)}
+                        >
+                          <span className="text-[10px] font-medium text-muted-foreground">{fmt.icon}</span>
+                          <span className="text-xs font-medium">{fmt.label}</span>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Image Style Hint */}
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <p className="text-xs text-muted-foreground">
+                      💡 The AI will generate an image based on the prompt. Select an AI model in the "AI" tab for quality options.
+                    </p>
+                  </div>
+
+                  {/* Generate Button */}
+                  <Button
+                    onClick={handleGenerateVideo}
+                    disabled={isGenerating || !selectedProduct}
+                    className="w-full gap-2"
+                    size="lg"
+                  >
+                    {isGenerating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                    {isGenerating ? "Generating..." : "Generate Image"}
+                  </Button>
+
+                  {!selectedProduct && (
+                    <p className="text-xs text-center text-muted-foreground">
+                      Select an AI model in the "AI" tab first
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="platforms" className="space-y-4 m-0 px-1">

@@ -34,8 +34,19 @@ import {
   Facebook,
   Instagram,
   Linkedin,
+  Clock,
 } from "lucide-react";
 import { CampaignProgressModal } from "./CampaignProgressModal";
+
+const TIMEZONES = [
+  { id: "Europe/Paris", label: "Paris (CET/CEST)" },
+  { id: "Europe/London", label: "London (GMT/BST)" },
+  { id: "America/New_York", label: "New York (EST/EDT)" },
+  { id: "America/Los_Angeles", label: "Los Angeles (PST/PDT)" },
+  { id: "Asia/Tokyo", label: "Tokyo (JST)" },
+  { id: "Asia/Dubai", label: "Dubai (GST)" },
+  { id: "Australia/Sydney", label: "Sydney (AEST/AEDT)" },
+];
 
 interface Project {
   id: string;
@@ -105,6 +116,8 @@ export const CampaignWizardModal = ({
   const [format, setFormat] = useState("reel");
   const [tone, setTone] = useState("professional");
   const [subject, setSubject] = useState("");
+  const [postingHour, setPostingHour] = useState(10);
+  const [timezone, setTimezone] = useState("Europe/Paris");
   
   // Platform toggles
   const [platforms, setPlatforms] = useState({
@@ -128,6 +141,8 @@ export const CampaignWizardModal = ({
       setFormat("reel");
       setTone("professional");
       setSubject("");
+      setPostingHour(10);
+      setTimezone("Europe/Paris");
       setPlatforms({ facebook: true, instagram: true, linkedin: false, tiktok: false });
     }
   }, [isOpen]);
@@ -173,6 +188,8 @@ export const CampaignWizardModal = ({
           format,
           tone,
           subject,
+          posting_hour: postingHour,
+          timezone,
           status: "draft",
         })
         .select()
@@ -514,6 +531,50 @@ export const CampaignWizardModal = ({
                   placeholder="E.g., Product launches, behind the scenes, customer testimonials..."
                   rows={3}
                 />
+              </div>
+
+              {/* Posting Schedule */}
+              <div className="rounded-xl border border-border p-4 space-y-4">
+                <h4 className="text-sm font-medium flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-primary" />
+                  Posting Schedule
+                </h4>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs">Posting Hour</Label>
+                    <Select value={postingHour.toString()} onValueChange={(v) => setPostingHour(parseInt(v))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card max-h-48">
+                        {Array.from({ length: 24 }, (_, i) => (
+                          <SelectItem key={i} value={i.toString()}>
+                            {i.toString().padStart(2, "0")}:00
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-xs">Timezone</Label>
+                    <Select value={timezone} onValueChange={setTimezone}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card">
+                        {TIMEZONES.map((tz) => (
+                          <SelectItem key={tz.id} value={tz.id}>{tz.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <p className="text-xs text-muted-foreground">
+                  Posts will be scheduled around {postingHour.toString().padStart(2, "0")}:00 in the selected timezone
+                </p>
               </div>
             </motion.div>
           )}
