@@ -35,7 +35,7 @@ serve(async (req) => {
   }
 
   try {
-    const { campaignId } = await req.json();
+    const { campaignId, platforms: selectedPlatforms } = await req.json();
 
     if (!campaignId) {
       return new Response(
@@ -43,6 +43,11 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Default platforms if not provided
+    const targetPlatforms = selectedPlatforms && selectedPlatforms.length > 0 
+      ? selectedPlatforms 
+      : ["instagram", "facebook"];
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -243,7 +248,7 @@ Respond ONLY with valid JSON:
           ai_prompt: parsed.aiPrompt || parsed.title,
           text_content: parsed.textContent || "",
           status: "draft",
-          platforms: ["instagram", "facebook"],
+          platforms: targetPlatforms,
         });
 
         console.log(`Generated ${post.contentType} post ${post.index + 1}/${scheduledPosts.length}`);

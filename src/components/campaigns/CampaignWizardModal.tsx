@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,9 @@ import {
   Sparkles,
   Loader2,
   Check,
+  Facebook,
+  Instagram,
+  Linkedin,
 } from "lucide-react";
 
 interface Project {
@@ -65,6 +69,13 @@ const TONES = [
   { id: "playful", label: "Playful" },
 ];
 
+const PLATFORMS = [
+  { id: "facebook", label: "Facebook", icon: Facebook, color: "bg-blue-600" },
+  { id: "instagram", label: "Instagram", icon: Instagram, color: "bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400" },
+  { id: "linkedin", label: "LinkedIn", icon: Linkedin, color: "bg-blue-700" },
+  { id: "tiktok", label: "TikTok", icon: Video, color: "bg-black" },
+];
+
 export const CampaignWizardModal = ({
   isOpen,
   onClose,
@@ -86,6 +97,14 @@ export const CampaignWizardModal = ({
   const [format, setFormat] = useState("reel");
   const [tone, setTone] = useState("professional");
   const [subject, setSubject] = useState("");
+  
+  // Platform toggles
+  const [platforms, setPlatforms] = useState({
+    facebook: true,
+    instagram: true,
+    linkedin: false,
+    tiktok: false,
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -101,6 +120,7 @@ export const CampaignWizardModal = ({
       setFormat("reel");
       setTone("professional");
       setSubject("");
+      setPlatforms({ facebook: true, instagram: true, linkedin: false, tiktok: false });
     }
   }, [isOpen]);
 
@@ -149,10 +169,10 @@ export const CampaignWizardModal = ({
         description: "Generating content... This may take a moment.",
       });
 
-      // Trigger content generation
+      // Trigger content generation with platforms
       const { data: genResult, error: genError } = await supabase.functions.invoke(
         "generate-campaign-content",
-        { body: { campaignId: newCampaign.id } }
+        { body: { campaignId: newCampaign.id, platforms: selectedPlatforms } }
       );
 
       if (genError) {
@@ -186,12 +206,17 @@ export const CampaignWizardModal = ({
       case 1: return true; // Campaign type always selected
       case 2: return projectId !== "";
       case 3: return true; // Sliders have defaults
-      case 4: return true; // Optional fields
+      case 4: return Object.values(platforms).some(Boolean); // At least one platform
+      case 5: return true; // Optional fields
       default: return true;
     }
   };
 
-  const totalSteps = 4;
+  const selectedPlatforms = Object.entries(platforms)
+    .filter(([_, enabled]) => enabled)
+    .map(([id]) => id);
+
+  const totalSteps = 5;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -376,10 +401,63 @@ export const CampaignWizardModal = ({
             </motion.div>
           )}
 
-          {/* Step 4: Content Settings */}
+          {/* Step 4: Platforms */}
           {step === 4 && (
             <motion.div
               key="step4"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-4"
+            >
+              <div>
+                <Label className="text-base">Target Platforms</Label>
+                <p className="text-sm text-muted-foreground">Select where to publish your content</p>
+              </div>
+
+              <div className="space-y-3">
+                {PLATFORMS.map((platform) => {
+                  const Icon = platform.icon;
+                  const isEnabled = platforms[platform.id as keyof typeof platforms];
+                  return (
+                    <div
+                      key={platform.id}
+                      className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+                        isEnabled ? "border-primary bg-primary/5" : "border-border"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`rounded-lg p-2 ${platform.color} text-white`}>
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{platform.label}</p>
+                          {(platform.id === "linkedin" || platform.id === "tiktok") && (
+                            <p className="text-xs text-muted-foreground">Manual share / download</p>
+                          )}
+                        </div>
+                      </div>
+                      <Switch
+                        checked={isEnabled}
+                        onCheckedChange={(checked) => 
+                          setPlatforms(prev => ({ ...prev, [platform.id]: checked }))
+                        }
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {!Object.values(platforms).some(Boolean) && (
+                <p className="text-sm text-amber-500">Select at least one platform</p>
+              )}
+            </motion.div>
+          )}
+
+          {/* Step 5: Content Settings */}
+          {step === 5 && (
+            <motion.div
+              key="step5"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
