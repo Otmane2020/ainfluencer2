@@ -12,6 +12,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   ChevronLeft,
   ChevronRight,
   Plus,
@@ -28,6 +34,7 @@ import { enUS } from "date-fns/locale";
 import { ScheduledPostModal } from "@/components/ScheduledPostModal";
 import { ContentSuggestions } from "@/components/ContentSuggestions";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 
 interface Project {
   id: string;
@@ -64,6 +71,8 @@ const CalendarPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<ScheduledPost | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [isDayModalOpen, setIsDayModalOpen] = useState(false);
 
   useEffect(() => {
     fetchProjects();
@@ -84,9 +93,22 @@ const CalendarPage = () => {
     }
   };
 
-  const handlePostClick = (post: ScheduledPost) => {
+  const handlePostClick = (post: ScheduledPost, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     setSelectedPost(post);
     setIsModalOpen(true);
+  };
+
+  const handleDayClick = (day: Date, dayPosts: ScheduledPost[]) => {
+    setSelectedDate(day);
+    if (dayPosts.length === 1) {
+      // Only one post - open it directly
+      setSelectedPost(dayPosts[0]);
+      setIsModalOpen(true);
+    } else {
+      // Multiple or no posts - open day modal
+      setIsDayModalOpen(true);
+    }
   };
 
   const handleDeletePost = async (postId: string) => {
@@ -282,7 +304,8 @@ const CalendarPage = () => {
               return (
                 <div
                   key={day.toISOString()}
-                  className={`min-h-[48px] md:min-h-[80px] p-1 rounded transition-colors ${
+                  onClick={() => handleDayClick(day, dayPosts)}
+                  className={`min-h-[48px] md:min-h-[80px] p-1 rounded transition-colors cursor-pointer hover:ring-2 hover:ring-primary/30 ${
                     isToday(day)
                       ? "bg-primary/10 border border-primary/30"
                       : isPast
@@ -298,8 +321,8 @@ const CalendarPage = () => {
                     {dayPosts.slice(0, 3).map((post) => (
                       <div
                         key={post.id}
-                        onClick={() => handlePostClick(post)}
-                        className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full cursor-pointer"
+                        onClick={(e) => handlePostClick(post, e)}
+                        className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full cursor-pointer hover:scale-150 transition-transform"
                         style={{ backgroundColor: getProjectColor(post.project_id) }}
                       />
                     ))}
@@ -334,6 +357,74 @@ const CalendarPage = () => {
           <CheckCircle2 className="h-3 w-3 text-primary" /> Published
         </div>
       </div>
+
+      {/* Day Posts Modal */}
+      <Dialog open={isDayModalOpen} onOpenChange={setIsDayModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedDate && format(selectedDate, "EEEE, MMMM d", { locale: enUS })}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[400px] overflow-y-auto">
+            {selectedDate && getPostsForDay(selectedDate).length > 0 ? (
+              getPostsForDay(selectedDate).map((post) => (
+                <div
+                  key={post.id}
+                  onClick={() => {
+                    setIsDayModalOpen(false);
+                    setSelectedPost(post);
+                    setIsModalOpen(true);
+                  }}
+                  className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer transition-colors"
+                >
+                  <div
+                    className="h-10 w-10 rounded-lg flex items-center justify-center text-white"
+                    style={{ backgroundColor: getProjectColor(post.project_id) }}
+                  >
+                    {getContentIcon(post.content_type)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {post.ai_prompt || post.text_content?.slice(0, 40) || "Untitled post"}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(post.scheduled_for), "HH:mm")}
+                      </span>
+                      <Badge variant="secondary" className="text-[10px] h-4 px-1.5 capitalize">
+                        {post.status || "draft"}
+                      </Badge>
+                    </div>
+                  </div>
+                  {getStatusIcon(post.status || "draft")}
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <CalendarIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No posts scheduled for this day</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                  onClick={() => {
+                    setIsDayModalOpen(false);
+                    // Navigate to create new post
+                    toast({
+                      title: "Coming soon",
+                      description: "Quick post creation will be available soon",
+                    });
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create post
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Post Detail Modal */}
       <ScheduledPostModal
