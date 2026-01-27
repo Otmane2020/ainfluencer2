@@ -35,6 +35,7 @@ import {
   Instagram,
   Linkedin,
 } from "lucide-react";
+import { CampaignProgressModal } from "./CampaignProgressModal";
 
 interface Project {
   id: string;
@@ -86,6 +87,13 @@ export const CampaignWizardModal = ({
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
+  
+  // Progress modal state
+  const [showProgress, setShowProgress] = useState(false);
+  const [progressStatus, setProgressStatus] = useState<"creating" | "scheduling" | "completed" | "error">("creating");
+  const [progressValue, setProgressValue] = useState(0);
+  const [progressStats, setProgressStats] = useState<{ videos: number; images: number; total: number } | undefined>();
+  const [progressError, setProgressError] = useState<string | undefined>();
 
   // Form state
   const [campaignType, setCampaignType] = useState<"video" | "image" | "mixed">("mixed");
@@ -141,15 +149,23 @@ export const CampaignWizardModal = ({
     if (!user || !projectId) return;
 
     setIsSubmitting(true);
+    setShowProgress(true);
+    setProgressStatus("creating");
+    setProgressValue(10);
+    setProgressError(undefined);
+    setProgressStats(undefined);
+
+    const campaignName = name || `${campaignType.charAt(0).toUpperCase() + campaignType.slice(1)} Campaign`;
 
     try {
       // Create the campaign
+      setProgressValue(20);
       const { data: newCampaign, error } = await supabase
         .from("campaigns")
         .insert({
           user_id: user.id,
           project_id: projectId,
-          name: name || `${campaignType.charAt(0).toUpperCase() + campaignType.slice(1)} Campaign`,
+          name: campaignName,
           campaign_type: campaignType,
           videos_per_month: videosPerMonth,
           images_per_month: imagesPerMonth,
@@ -164,10 +180,9 @@ export const CampaignWizardModal = ({
 
       if (error) throw error;
 
-      toast({
-        title: "Campaign created! 🚀",
-        description: "Generating content... This may take a moment.",
-      });
+      // Campaign created, now scheduling posts
+      setProgressStatus("scheduling");
+      setProgressValue(40);
 
       // Trigger content generation with platforms
       const { data: genResult, error: genError } = await supabase.functions.invoke(
@@ -177,27 +192,35 @@ export const CampaignWizardModal = ({
 
       if (genError) {
         console.error("Content generation error:", genError);
-        toast({
-          title: "Content generation started",
-          description: "Some content may still be generating in the background.",
-        });
-      } else {
-        toast({
-          title: "Content ready! ✨",
-          description: `Generated ${genResult?.generated || 0} scheduled posts`,
-        });
+        setProgressStatus("error");
+        setProgressError("Content generation failed. Please try again.");
+        setIsSubmitting(false);
+        return;
       }
+
+      // Success!
+      setProgressValue(100);
+      setProgressStatus("completed");
+      setProgressStats({
+        videos: genResult?.videos || 0,
+        images: genResult?.images || 0,
+        total: genResult?.generated || 0,
+      });
       
       onSuccess();
     } catch (error) {
       console.error("Campaign creation error:", error);
-      toast({
-        title: "Error",
-        description: "Unable to create campaign",
-        variant: "destructive",
-      });
+      setProgressStatus("error");
+      setProgressError("Unable to create campaign. Please try again.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleProgressClose = () => {
+    setShowProgress(false);
+    if (progressStatus === "completed") {
+      onClose();
     }
   };
 
@@ -528,6 +551,17 @@ export const CampaignWizardModal = ({
           )}
         </div>
       </DialogContent>
+
+      {/* Progress Modal */}
+      <CampaignProgressModal
+        isOpen={showProgress}
+        onClose={handleProgressClose}
+        campaignName={name || `${campaignType.charAt(0).toUpperCase() + campaignType.slice(1)} Campaign`}
+        status={progressStatus}
+        progress={progressValue}
+        stats={progressStats}
+        errorMessage={progressError}
+      />
     </Dialog>
   );
 };
