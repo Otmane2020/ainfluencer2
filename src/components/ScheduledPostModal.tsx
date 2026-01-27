@@ -281,21 +281,13 @@ export const ScheduledPostModal = ({
       await onPublishNow(post);
       setPublishingStatus("Published successfully!");
       
-      toast({
-        title: "Published! 🎉",
-        description: "Content posted to social media",
-      });
-      
+      // CalendarPage already shows the success toast, don't duplicate
       // Brief delay to show success state
       await new Promise(resolve => setTimeout(resolve, 500));
       onClose();
     } catch (error) {
       setPublishingStatus("Publishing failed");
-      toast({
-        title: "Error",
-        description: "Unable to publish post",
-        variant: "destructive",
-      });
+      // CalendarPage already shows the error toast, don't duplicate
     } finally {
       setIsPublishing(false);
       setPublishingStatus("");
