@@ -192,7 +192,17 @@ const CalendarPage = () => {
       return;
     }
 
-    // 3. Post to each selected Meta platform
+    // 3. Instagram REQUIRES media (image or video) - cannot post text only
+    if (platforms.includes("instagram") && !post.media_url) {
+      toast({
+        title: "Instagram requires media",
+        description: "Instagram posts must have an image or video. Generate media first or remove Instagram from platforms.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // 4. Post to each selected Meta platform
     const results: { platform: string; success: boolean; error?: string }[] = [];
     
     for (const platform of metaPlatforms) {
@@ -201,9 +211,9 @@ const CalendarPage = () => {
           platform,
           post.text_content || "",
           post.content_type === "video" ? post.media_url || undefined : undefined,
-          post.content_type === "image" ? post.media_url || undefined : undefined
+          (post.content_type === "image" || post.content_type === "text") ? post.media_url || undefined : undefined
         );
-        results.push({ platform, success: result.success });
+        results.push({ platform, success: result.success, error: result.error });
       }
     }
 
