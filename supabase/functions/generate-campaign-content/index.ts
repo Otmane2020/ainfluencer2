@@ -31,6 +31,73 @@ interface Project {
   detected_language: string | null;
 }
 
+// Generate image using Lovable AI
+async function generateImage(prompt: string, format: string, LOVABLE_API_KEY: string, supabase: any): Promise<string | null> {
+  try {
+    // Add format context to prompt
+    let enhancedPrompt = prompt;
+    if (format === "reel" || format === "story") {
+      enhancedPrompt = `${prompt}. Style: vertical portrait format 9:16 aspect ratio. Ultra high resolution, professional quality.`;
+    } else if (format === "landscape") {
+      enhancedPrompt = `${prompt}. Style: horizontal landscape format 16:9 aspect ratio. Ultra high resolution, professional quality.`;
+    } else {
+      enhancedPrompt = `${prompt}. Style: square format 1:1 aspect ratio. Ultra high resolution, professional quality.`;
+    }
+
+    console.log("Generating image with prompt:", enhancedPrompt.slice(0, 100) + "...");
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image",
+        messages: [{ role: "user", content: enhancedPrompt }],
+        modalities: ["image", "text"],
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("Image generation API error:", response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+
+    if (!imageData) {
+      console.error("No image in response");
+      return null;
+    }
+
+    // Upload to Supabase storage
+    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
+    const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+    const fileName = `images/${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("media")
+      .upload(fileName, imageBytes, {
+        contentType: "image/png",
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("Upload error:", uploadError);
+      return imageData; // Return base64 as fallback
+    }
+
+    const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(fileName);
+    console.log("Image uploaded:", publicUrlData.publicUrl);
+    return publicUrlData.publicUrl;
+  } catch (error) {
+    console.error("Image generation error:", error);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -161,6 +228,7 @@ serve(async (req) => {
     const langInstruction = languageInstructions[outputLanguage] || languageInstructions.en;
 
     const generatedPosts: any[] = [];
+    let imagesGenerated = 0;
 
     for (const post of scheduledPosts) {
       try {
@@ -206,6 +274,7 @@ IMAGE PROMPT RULES:
 - Write a detailed visual description for AI image generation
 - Include: subject, setting, lighting, colors, composition, style
 - Must directly showcase the brand, product, or service
+- Do NOT include any text, logos, or watermarks in the image
 - End with: "Ultra high resolution, professional quality"
 `}
 
@@ -247,6 +316,19 @@ Respond ONLY with valid JSON:
 
         if (!parsed) continue;
 
+        // For image posts, actually generate the image
+        let mediaUrl: string | null = null;
+        if (!isVideo && parsed.aiPrompt) {
+          console.log(`Generating image for post ${post.index + 1}...`);
+          mediaUrl = await generateImage(parsed.aiPrompt, campaign.format || "reel", LOVABLE_API_KEY, supabase);
+          if (mediaUrl) {
+            imagesGenerated++;
+            console.log(`Image ${imagesGenerated} generated successfully`);
+          }
+          // Add delay between image generations to avoid rate limiting
+          await new Promise(r => setTimeout(r, 2000));
+        }
+
         generatedPosts.push({
           user_id: campaign.user_id,
           project_id: campaign.project_id,
@@ -255,11 +337,12 @@ Respond ONLY with valid JSON:
           scheduled_for: post.scheduledFor,
           ai_prompt: parsed.aiPrompt || parsed.title,
           text_content: parsed.textContent || "",
-          status: "draft",
+          media_url: mediaUrl, // Now includes the generated image URL
+          status: "scheduled", // Set to scheduled since image is ready
           platforms: targetPlatforms,
         });
 
-        console.log(`Generated ${post.contentType} post ${post.index + 1}/${scheduledPosts.length}`);
+        console.log(`Generated ${post.contentType} post ${post.index + 1}/${scheduledPosts.length}${mediaUrl ? " with image" : ""}`);
         
         // Small delay to avoid rate limiting
         await new Promise(r => setTimeout(r, 500));
@@ -289,7 +372,7 @@ Respond ONLY with valid JSON:
         })
         .eq("id", campaignId);
 
-      console.log(`Successfully created ${generatedPosts.length} scheduled posts`);
+      console.log(`Successfully created ${generatedPosts.length} scheduled posts (${imagesGenerated} images generated)`);
     }
 
     return new Response(
@@ -298,6 +381,7 @@ Respond ONLY with valid JSON:
         generated: generatedPosts.length,
         videos: videoCount,
         images: imageCount,
+        imagesGenerated,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
