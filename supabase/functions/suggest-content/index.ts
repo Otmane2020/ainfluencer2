@@ -138,8 +138,68 @@ serve(async (req) => {
 
     // Different prompts based on content type
     let systemPrompt: string;
+    let userMessage: string;
 
-    if (contentType === "script") {
+    if (contentType === "image_prompt") {
+      // ============================================
+      // IMAGE PROMPT GENERATION (distinct from video!)
+      // ============================================
+      const sector = BUSINESS_SECTORS.find(s => s.id === sectorId);
+      const style = VIDEO_STYLES.find(s => s.id === styleId);
+      const tone = EMOTIONAL_TONES.find(t => t.id === toneId);
+
+      systemPrompt = `You are an expert AI image prompt engineer. Generate a detailed, visual prompt for AI image generation.
+
+CRITICAL RULES:
+• Output is a VISUAL DESCRIPTION for an IMAGE, NOT a video script
+• NO dialogue, NO voiceover, NO timestamps, NO motion descriptions
+• Focus on: composition, colors, lighting, subjects, style, mood
+• Be specific about visual elements: "a warm-lit coffee shop with exposed brick walls" not "a nice cafe"
+• Include style cues: "professional photography", "minimalist design", "editorial style"
+
+CONTEXT:
+- Project: ${projectName || "General"}
+- Description: ${projectDescription || "Not specified"}
+${projectUrl ? `- Website: ${projectUrl}` : ""}
+${scrapedContent ? `- Website content:\n${scrapedContent.substring(0, 1000)}` : ""}
+${sector ? `- Business sector: ${sector.name} - Visual elements: ${sector.visualContext}` : ""}
+${style ? `- Visual style: ${style.name} - ${style.visualInstructions}` : ""}
+${tone ? `- Mood/Tone: ${tone.name} - ${tone.atmosphereNotes}` : ""}
+${productName ? `- Product tier: ${productName}` : ""}
+
+PROMPT STRUCTURE:
+1. Main subject and setting
+2. Lighting and color palette
+3. Composition and framing
+4. Style and mood keywords
+5. Quality enhancers (e.g., "ultra high resolution, professional quality")
+
+EXAMPLE GOOD PROMPTS:
+✅ "Modern minimalist coffee shop interior, warm ambient lighting, exposed brick walls, wooden tables with green plants, morning sunlight streaming through large windows, cozy atmosphere, professional interior photography, shallow depth of field"
+✅ "Professional headshot of a confident business woman in her 40s, neutral gray background, soft studio lighting, warm smile, corporate attire, high-end portrait photography, sharp focus on eyes"
+✅ "Luxury skincare product flatlay, marble surface, gold accents, soft diffused lighting, elegant minimalist composition, premium beauty photography, soft pastel colors"
+
+EXAMPLE BAD PROMPTS (DO NOT DO THIS):
+❌ "Découvrez notre café avec une ambiance chaleureuse..." (this is marketing copy, not a visual prompt)
+❌ "[0-3s] The camera pans across..." (this is a video script)
+❌ "A nice restaurant that serves good food" (too vague)
+
+Respond ONLY with valid JSON:
+{
+  "suggestions": [
+    {
+      "id": "1",
+      "title": "Short descriptive title",
+      "content": "The detailed image generation prompt in English",
+      "contentType": "image",
+      "estimatedEngagement": "high"
+    }
+  ]
+}`;
+
+      userMessage = "Generate 5 distinct AI image prompts for this project. Each should describe a different visual concept or angle.";
+
+    } else if (contentType === "script") {
       // Calculate word count based on duration (same logic as generate-script-nanobanana)
       const dur = duration || 10;
       const wordsPerSecond = 2.5;
@@ -220,6 +280,9 @@ IMPORTANT : Réponds UNIQUEMENT avec un JSON valide, sans markdown ni explicatio
     }
   ]
 }`;
+
+      userMessage = "Génère 5 scripts vidéo courts et percutants pour ce projet.";
+
     } else {
       // Standard prompt for general content suggestions
       systemPrompt = `Tu es un expert en création de contenu pour les réseaux sociaux.
@@ -254,6 +317,8 @@ Réponds UNIQUEMENT avec un JSON valide :
     }
   ]
 }`;
+
+      userMessage = "Génère 5 suggestions de contenu pour ce projet.";
     }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -266,14 +331,9 @@ Réponds UNIQUEMENT avec un JSON valide :
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { 
-            role: "user", 
-            content: contentType === "script" 
-              ? "Génère 5 scripts vidéo courts et percutants pour ce projet."
-              : "Génère 5 suggestions de contenu pour ce projet."
-          },
+          { role: "user", content: userMessage },
         ],
-        temperature: 0.4, // Lower for consistent quality (same as nanobanana)
+        temperature: contentType === "image_prompt" ? 0.7 : 0.4, // Higher creativity for images
       }),
     });
 
