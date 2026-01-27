@@ -270,6 +270,168 @@ serve(async (req) => {
         );
       }
 
+      case "pages": {
+        // Fetch all available Facebook pages for the user
+        const authHeader = req.headers.get("Authorization");
+        if (!authHeader) {
+          return new Response(
+            JSON.stringify({ error: "Unauthorized" }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const token = authHeader.replace("Bearer ", "");
+        const { data: { user } } = await supabase.auth.getUser(token);
+
+        if (!user) {
+          return new Response(
+            JSON.stringify({ error: "Unauthorized" }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const { data: connection } = await supabase
+          .from("meta_connections")
+          .select("access_token, expires_at, page_id")
+          .eq("user_id", user.id)
+          .single();
+
+        if (!connection || new Date(connection.expires_at) < new Date()) {
+          return new Response(
+            JSON.stringify({ error: "Meta connection expired" }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Fetch pages from Meta API
+        const pagesResponse = await fetch(
+          `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account{id,username}&access_token=${connection.access_token}`
+        );
+        const pagesData = await pagesResponse.json();
+
+        if (pagesData.error) {
+          console.error("[meta-oauth] Pages fetch error:", pagesData.error);
+          return new Response(
+            JSON.stringify({ error: pagesData.error.message }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const pages = (pagesData.data || []).map((page: PageData) => ({
+          id: page.id,
+          name: page.name,
+          instagram: page.instagram_business_account ? {
+            id: page.instagram_business_account.id,
+            username: page.instagram_business_account.username,
+          } : null,
+        }));
+
+        return new Response(
+          JSON.stringify({ 
+            pages,
+            selectedPageId: connection.page_id,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      case "select-page": {
+        // Select a specific page for posting
+        const authHeader = req.headers.get("Authorization");
+        if (!authHeader) {
+          return new Response(
+            JSON.stringify({ error: "Unauthorized" }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const token = authHeader.replace("Bearer ", "");
+        const { data: { user } } = await supabase.auth.getUser(token);
+
+        if (!user) {
+          return new Response(
+            JSON.stringify({ error: "Unauthorized" }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const body = await req.json();
+        const { pageId } = body;
+
+        if (!pageId) {
+          return new Response(
+            JSON.stringify({ error: "Page ID required" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Get current connection
+        const { data: connection } = await supabase
+          .from("meta_connections")
+          .select("access_token, expires_at")
+          .eq("user_id", user.id)
+          .single();
+
+        if (!connection || new Date(connection.expires_at) < new Date()) {
+          return new Response(
+            JSON.stringify({ error: "Meta connection expired" }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Fetch page details from Meta API
+        const pagesResponse = await fetch(
+          `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account{id,username}&access_token=${connection.access_token}`
+        );
+        const pagesData = await pagesResponse.json();
+
+        const selectedPage = (pagesData.data || []).find((p: PageData) => p.id === pageId);
+
+        if (!selectedPage) {
+          return new Response(
+            JSON.stringify({ error: "Page not found" }),
+            { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Update connection with selected page
+        const { error: updateError } = await supabase
+          .from("meta_connections")
+          .update({
+            page_id: selectedPage.id,
+            page_access_token: selectedPage.access_token,
+            instagram_id: selectedPage.instagram_business_account?.id || null,
+            instagram_username: selectedPage.instagram_business_account?.username || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("user_id", user.id);
+
+        if (updateError) {
+          console.error("[meta-oauth] Page selection update error:", updateError);
+          return new Response(
+            JSON.stringify({ error: "Failed to update page selection" }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({ 
+            success: true,
+            page: {
+              id: selectedPage.id,
+              name: selectedPage.name,
+            },
+            instagram: selectedPage.instagram_business_account ? {
+              id: selectedPage.instagram_business_account.id,
+              username: selectedPage.instagram_business_account.username,
+            } : null,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       case "disconnect": {
         const authHeader = req.headers.get("Authorization");
         if (!authHeader) {
