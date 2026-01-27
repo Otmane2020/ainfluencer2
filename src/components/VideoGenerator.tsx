@@ -91,12 +91,10 @@ const VIDEO_AVATAR_PRODUCTS = COMMERCIAL_PRODUCTS.filter(
 
 const PREFS_KEY = "video_generator_prefs";
 
-type VideoQuality = "720p" | "1080p" | "4k";
+type VideoQuality = "720p";
 
 const QUALITY_OPTIONS: { value: VideoQuality; label: string; description: string }[] = [
-  { value: "720p", label: "HD 720p", description: "Fast, standard quality" },
-  { value: "1080p", label: "Full HD 1080p", description: "Recommended balance" },
-  { value: "4k", label: "4K Ultra HD", description: "Maximum quality" },
+  { value: "720p", label: "HD 720p", description: "Current maximum (provider limit)" },
 ];
 
 interface StoredPrefs {
@@ -157,7 +155,7 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
 
   // Quality, format and continuation state
-  const [selectedQuality, setSelectedQualityState] = useState<VideoQuality>(storedPrefs.quality || "1080p");
+  const [selectedQuality, setSelectedQualityState] = useState<VideoQuality>("720p");
   const [selectedFormat, setSelectedFormatState] = useState<ContentFormat>(storedPrefs.format || "reel");
   const [startingFrameUrl, setStartingFrameUrlState] = useState<string | undefined>(storedPrefs.startingFrameUrl);
 

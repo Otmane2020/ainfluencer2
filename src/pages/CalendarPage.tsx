@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useMetaOAuth } from "@/hooks/useMetaOAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -63,6 +64,7 @@ interface ScheduledPost {
 const CalendarPage = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { isConnected, shareToMeta, connection } = useMetaOAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [viewStartDate] = useState(new Date()); // Always start from today
   const [projects, setProjects] = useState<Project[]>([]);
@@ -134,30 +136,97 @@ const CalendarPage = () => {
   };
 
   const handlePublishNow = async (post: ScheduledPost) => {
-    // The ScheduledPostModal handles the actual generation flow internally
-    // This callback is called AFTER content generation is complete
-    // We just need to update the status and scheduled_for time
+    // 1. Check Meta connection for Facebook/Instagram
+    const platforms = post.platforms || [];
+    const metaPlatforms = platforms.filter(p => p === "facebook" || p === "instagram");
+    
+    if (metaPlatforms.length > 0 && !isConnected) {
+      toast({
+        title: "Not connected to Meta",
+        description: "Go to Integrations to connect your Facebook/Instagram account",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // 2. Validate media_url exists for video posts
+    if (post.content_type === "video" && !post.media_url) {
+      toast({
+        title: "Video not ready",
+        description: "Please wait for video generation to complete",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // 3. Post to each selected Meta platform
+    const results: { platform: string; success: boolean; error?: string }[] = [];
+    
+    for (const platform of metaPlatforms) {
+      if (platform === "facebook" || platform === "instagram") {
+        const result = await shareToMeta(
+          platform,
+          post.text_content || "",
+          post.content_type === "video" ? post.media_url || undefined : undefined,
+          post.content_type === "image" ? post.media_url || undefined : undefined
+        );
+        results.push({ platform, success: result.success });
+      }
+    }
+
+    // 4. Update database based on results
+    const metaResults = results.filter(r => r.platform === "facebook" || r.platform === "instagram");
+    const allMetaSuccess = metaResults.length === 0 || metaResults.every(r => r.success);
+    const someSuccess = results.some(r => r.success);
+    
+    const newStatus = allMetaSuccess ? "published" : (someSuccess ? "scheduled" : "failed");
+    const errorMessage = !allMetaSuccess 
+      ? `Failed: ${results.filter(r => !r.success).map(r => r.platform).join(", ")}`
+      : null;
+
     const { error } = await supabase
       .from("scheduled_posts")
       .update({ 
-        status: "scheduled", 
-        scheduled_for: new Date().toISOString(),
+        status: newStatus,
+        published_at: allMetaSuccess ? new Date().toISOString() : null,
+        error_message: errorMessage,
       })
       .eq("id", post.id);
 
     if (error) {
       toast({
         title: "Error",
-        description: "Unable to schedule publication",
+        description: "Unable to update post status",
         variant: "destructive",
       });
       return;
     }
 
-    toast({
-      title: "Post published ✓",
-      description: "Content generated and ready for social media",
-    });
+    // 5. Show feedback
+    if (allMetaSuccess && metaResults.length > 0) {
+      toast({
+        title: "Published! 🎉",
+        description: `Posted to ${metaResults.map(r => r.platform).join(" & ")}`,
+      });
+    } else if (someSuccess) {
+      toast({
+        title: "Partial success",
+        description: `Some platforms failed: ${errorMessage}`,
+        variant: "destructive",
+      });
+    } else if (metaResults.length === 0) {
+      toast({
+        title: "Post scheduled ✓",
+        description: "No Meta platforms selected",
+      });
+    } else {
+      toast({
+        title: "Publishing failed",
+        description: errorMessage || "Unable to post to social media",
+        variant: "destructive",
+      });
+    }
+    
     fetchPosts();
   };
 
