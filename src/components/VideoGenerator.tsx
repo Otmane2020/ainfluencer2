@@ -962,6 +962,51 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
                   onChange={(e) => updateSegment(segment.id, { script: e.target.value })}
                   className="min-h-[80px] resize-none text-sm pr-12"
                 />
+
+                {/* AI Sparkles Button */}
+                <Popover open={projectSelectorOpen === segment.id} onOpenChange={(open) => setProjectSelectorOpen(open ? segment.id : null)}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-2 top-2 h-8 w-8"
+                      disabled={isGeneratingScript === segment.id}
+                    >
+                      {isGeneratingScript === segment.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-4 w-4 text-primary" />
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-2" align="end">
+                    <div className="text-xs font-medium mb-2 text-muted-foreground">
+                      Generate from project context
+                    </div>
+                    <ScrollArea className="max-h-48">
+                      <div className="space-y-1">
+                        {projects.map((project) => (
+                          <button
+                            key={project.id}
+                            onClick={() => generateAIScript(segment.id, project)}
+                            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted transition-colors"
+                          >
+                            <div
+                              className="h-3 w-3 rounded-full shrink-0"
+                              style={{ backgroundColor: project.theme_color || "#6366f1" }}
+                            />
+                            <span className="truncate">{project.name}</span>
+                          </button>
+                        ))}
+                        {projects.length === 0 && (
+                          <p className="text-xs text-muted-foreground p-2">
+                            No projects yet. Create one first.
+                          </p>
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="flex items-center gap-2 mt-2">
