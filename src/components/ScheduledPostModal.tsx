@@ -1011,21 +1011,37 @@ export const ScheduledPostModal = ({
             <span className="hidden sm:inline">Delete</span>
           </Button>
         )}
-        {onPublishNow && post.status !== "published" && (
+        {post.status !== "published" && (
           <div className="ml-auto flex flex-col items-end gap-1">
-            <Button
-              size="sm"
-              onClick={handlePublishNow}
-              disabled={isPublishing}
-              className="gap-1.5 sm:gap-2"
-            >
-              {isPublishing ? (
-                <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
-              ) : (
-                <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  // TODO: Implement generate functionality
+                  console.log("Generate content for post:", post.id);
+                }}
+                className="gap-1.5 sm:gap-2"
+              >
+                <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Generate</span>
+              </Button>
+              {onPublishNow && (
+                <Button
+                  size="sm"
+                  onClick={handlePublishNow}
+                  disabled={isPublishing}
+                  className="gap-1.5 sm:gap-2"
+                >
+                  {isPublishing ? (
+                    <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  )}
+                  {isPublishing ? "Publishing..." : "Publish Now"}
+                </Button>
               )}
-              {isPublishing ? "Publishing..." : "Publish Now"}
-            </Button>
+            </div>
             {publishingStatus && (
               <span className="text-xs text-muted-foreground animate-pulse">
                 {publishingStatus}
