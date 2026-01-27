@@ -45,6 +45,7 @@ interface Project {
   name: string;
   description: string | null;
   theme_color: string | null;
+  url: string | null;
 }
 interface VideoSegment {
   id: string;
@@ -243,7 +244,7 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
     const fetchProjects = async () => {
       const { data } = await supabase
         .from("projects")
-        .select("id, name, description, theme_color")
+        .select("id, name, description, theme_color, url")
         .order("name");
       if (data) setProjects(data);
     };
@@ -291,13 +292,28 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
     const duration = segment?.duration || 10;
     
     try {
+      // First, scrape the project URL if available (same as planning)
+      let scrapedContent: string | undefined;
+      if (project.url) {
+        try {
+          const { data: scrapeData } = await supabase.functions.invoke("scrape-project-url", {
+            body: { url: project.url },
+          });
+          scrapedContent = scrapeData?.content?.slice(0, 3000);
+        } catch (scrapeError) {
+          console.log("Scraping skipped:", scrapeError);
+        }
+      }
+
       // Use suggest-content (same as planning) for consistent script generation
-      // This includes full scenario context support
+      // This includes full scenario context support + scraped content
       const { data, error } = await supabase.functions.invoke("suggest-content", {
         body: {
           projectId: project.id,
           projectName: project.name,
           projectDescription: project.description || project.name,
+          projectUrl: project.url,
+          scrapedContent, // Include scraped content like planning does
           contentType: "script", // Script mode for video scripts
           productName: selectedProduct.name,
           productCategory: selectedProduct.category,
