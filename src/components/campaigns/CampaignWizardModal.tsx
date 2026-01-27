@@ -384,19 +384,11 @@ export const CampaignWizardModal = ({
                 </div>
               )}
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label>Publications per week</Label>
-                  <span className="text-xl font-bold text-primary">{postsPerWeek}</span>
-                </div>
-                <Slider
-                  value={[postsPerWeek]}
-                  onValueChange={([v]) => setPostsPerWeek(v)}
-                  min={1}
-                  max={7}
-                  step={1}
-                  className="py-2"
-                />
+              {/* Summary */}
+              <div className="rounded-lg bg-muted/50 p-3 mt-4">
+                <p className="text-sm text-muted-foreground">
+                  📅 Content will be automatically distributed across the month
+                </p>
               </div>
             </motion.div>
           )}
