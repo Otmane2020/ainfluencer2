@@ -118,7 +118,7 @@ const ProjectDetail = () => {
   const [metaPages, setMetaPages] = useState<MetaPage[]>([]);
   const [isLoadingPages, setIsLoadingPages] = useState(false);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
-
+  const [tokenExpired, setTokenExpired] = useState(false);
   // Edit form state
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -179,6 +179,7 @@ const ProjectDetail = () => {
   const fetchMetaPages = async () => {
     if (isLoadingPages) return;
     setIsLoadingPages(true);
+    setTokenExpired(false);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -198,14 +199,22 @@ const ProjectDetail = () => {
         }
       );
 
+      const data = await res.json();
+      
       if (res.ok) {
-        const data = await res.json();
         setMetaPages(data.pages || []);
         if (data.selectedPageId) {
           setSelectedPageId(data.selectedPageId);
         }
       } else {
-        console.error("Error fetching pages:", await res.text());
+        // Check for token expiration/authorization errors
+        const errorMsg = data.error || "";
+        if (errorMsg.includes("access token") || errorMsg.includes("not authorized") || errorMsg.includes("OAuthException")) {
+          setTokenExpired(true);
+          console.error("Meta token expired or revoked:", errorMsg);
+        } else {
+          console.error("Error fetching pages:", errorMsg);
+        }
       }
     } catch (error) {
       console.error("Error fetching pages:", error);
@@ -639,6 +648,20 @@ const ProjectDetail = () => {
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Loader2 className="h-4 w-4 animate-spin" />
                             Loading pages...
+                          </div>
+                        ) : tokenExpired ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-sm text-destructive">
+                              <AlertCircle className="h-4 w-4" />
+                              Your Meta connection has expired
+                            </div>
+                            <Link 
+                              to="/integrations" 
+                              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                            >
+                              <Link2 className="h-3 w-3" />
+                              Reconnect in Integrations
+                            </Link>
                           </div>
                         ) : metaPages.length > 0 ? (
                           <Select value={selectedPageId || ""} onValueChange={handleSelectPage}>
