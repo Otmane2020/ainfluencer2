@@ -182,21 +182,17 @@ const ProjectDetail = () => {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) {
+        setIsLoadingPages(false);
+        return;
+      }
 
-      const response = await supabase.functions.invoke("meta-oauth", {
-        body: {},
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      // Use fetch directly for query params
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meta-oauth?action=pages`,
         {
           headers: {
             Authorization: `Bearer ${session.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             "Content-Type": "application/json",
           },
         }
@@ -208,6 +204,8 @@ const ProjectDetail = () => {
         if (data.selectedPageId) {
           setSelectedPageId(data.selectedPageId);
         }
+      } else {
+        console.error("Error fetching pages:", await res.text());
       }
     } catch (error) {
       console.error("Error fetching pages:", error);
