@@ -157,7 +157,7 @@ export const CampaignWizardModal = ({
           format,
           tone,
           subject,
-          status: "generating",
+          status: "draft",
         })
         .select()
         .single();
