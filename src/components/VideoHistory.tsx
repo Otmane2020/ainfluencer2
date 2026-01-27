@@ -133,7 +133,10 @@ export const VideoHistory = ({ videos, generatingTasks = [], onDelete, onPlay, o
     }
   };
 
-  if (videos.length === 0) {
+  const activeGenerations = generatingTasks.filter(t => t.status === "queued" || t.status === "in_progress");
+
+  // Show generating tasks even if no completed videos
+  if (videos.length === 0 && activeGenerations.length === 0) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -159,8 +162,6 @@ export const VideoHistory = ({ videos, generatingTasks = [], onDelete, onPlay, o
       </motion.div>
     );
   }
-
-  const activeGenerations = generatingTasks.filter(t => t.status === "queued" || t.status === "in_progress");
 
   return (
     <div className="space-y-3">

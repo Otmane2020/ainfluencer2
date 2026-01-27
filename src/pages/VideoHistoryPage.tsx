@@ -12,10 +12,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RefreshCw, Video, Loader2, Clock } from "lucide-react";
+import { RefreshCw, Video, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Progress } from "@/components/ui/progress";
 
 interface Project {
   id: string;
@@ -172,50 +171,7 @@ const VideoHistoryPage = () => {
         </div>
       </div>
 
-      {/* Active Generation Tasks - Compact */}
-      {activeTasks.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl bg-card p-4 border border-primary/20"
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-            <span className="text-sm font-medium">
-              Generating {activeTasks.length} video{activeTasks.length > 1 ? "s" : ""}
-            </span>
-          </div>
-
-          <div className="space-y-2">
-            {activeTasks.map((task, index) => (
-              <motion.div
-                key={task.taskId}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: index * 0.1 }}
-                className="flex items-center gap-3 rounded-lg bg-muted/50 p-3"
-              >
-                <div className="h-10 w-10 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
-                  <Video className="h-5 w-5 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-xs font-medium truncate">
-                      {task.script ? task.script.substring(0, 30) + "..." : `Video ${index + 1}`}
-                    </p>
-                    <span className="text-xs font-medium text-primary ml-2">
-                      {task.progress}%
-                    </span>
-                  </div>
-                  <Progress value={task.progress} className="h-1.5" />
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      )}
-
-      {/* Video List */}
+      {/* Video List with Generating Tasks */}
       {videoHistory.length === 0 && activeTasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
@@ -226,15 +182,24 @@ const VideoHistoryPage = () => {
             Create Video
           </Button>
         </div>
-      ) : videoHistory.length > 0 ? (
+      ) : (
         <VideoHistory
           videos={videoHistory}
+          generatingTasks={activeTasks.map(task => ({
+            id: task.id,
+            taskId: task.taskId,
+            status: task.status,
+            progress: task.progress,
+            model: task.model,
+            duration: task.duration,
+            script: task.script,
+          }))}
           onDelete={handleDeleteHistoryItem}
           onPlay={handlePlayHistoryItem}
           onThumbnailGenerated={handleThumbnailGenerated}
           onContinueVideo={handleContinueVideo}
         />
-      ) : null}
+      )}
     </div>
   );
 };
