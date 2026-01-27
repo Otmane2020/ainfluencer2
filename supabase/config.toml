@@ -35,3 +35,9 @@ verify_jwt = false
 
 [functions.generate-video-scenario]
 verify_jwt = false
+
+[functions.generate-campaign-content]
+verify_jwt = false
+
+[functions.support-chat]
+verify_jwt = false
