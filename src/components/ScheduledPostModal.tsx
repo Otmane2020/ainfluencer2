@@ -158,6 +158,9 @@ export const ScheduledPostModal = ({
   const [expandPrompt, setExpandPrompt] = useState(false);
   const [expandContent, setExpandContent] = useState(false);
   
+  // Local state to track generated media (updates immediately after generation)
+  const [localMediaUrl, setLocalMediaUrl] = useState<string | null>(null);
+  
   // Video generation options
   const [enableVoice, setEnableVoice] = useState(true);
   const [selectedLanguage, setSelectedLanguage] = useState<VoiceLanguage>("en");
@@ -179,6 +182,8 @@ export const ScheduledPostModal = ({
     if (post?.platforms) {
       setSelectedPlatforms(post.platforms);
     }
+    // Sync local media URL with post prop
+    setLocalMediaUrl(post?.media_url || null);
     // Set default voice for language
     const defaultVoice = getDefaultVoiceForLanguage(selectedLanguage);
     setSelectedVoice(defaultVoice);
@@ -521,6 +526,9 @@ export const ScheduledPostModal = ({
         if (error) throw error;
 
         if (data?.imageUrl) {
+          // Update local state immediately for instant preview
+          setLocalMediaUrl(data.imageUrl);
+          
           // Update post with generated image
           const { error: updateError } = await supabase
             .from("scheduled_posts")
@@ -619,8 +627,8 @@ export const ScheduledPostModal = ({
 
         <ScrollArea className="flex-1 mt-4">
           <TabsContent value="details" className="space-y-4 m-0 px-1">
-            {/* Media Preview - Always show if available */}
-            {(post.media_url || post.thumbnail_url) && (
+            {/* Media Preview - Show from local state or post prop */}
+            {(localMediaUrl || post.media_url || post.thumbnail_url) && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -629,7 +637,7 @@ export const ScheduledPostModal = ({
                 {post.content_type === "video" || post.content_type === "reel" ? (
                   <div className="aspect-video">
                     <video
-                      src={post.media_url || undefined}
+                      src={localMediaUrl || post.media_url || undefined}
                       poster={post.thumbnail_url || undefined}
                       controls
                       className="h-full w-full object-cover"
@@ -638,7 +646,7 @@ export const ScheduledPostModal = ({
                 ) : (
                   <div className="aspect-square max-h-64 sm:max-h-80">
                     <img
-                      src={post.media_url || post.thumbnail_url || undefined}
+                      src={localMediaUrl || post.media_url || post.thumbnail_url || undefined}
                       alt="Post media"
                       className="h-full w-full object-cover"
                     />
