@@ -23,11 +23,13 @@ import {
   FileText,
   Plug,
   Image,
+  Megaphone,
 } from "lucide-react";
 
 const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderKanban },
+  { title: "Campaigns", url: "/campaigns", icon: Megaphone },
   { title: "AutoPost AI", url: "/calendar", icon: Calendar },
 ];
 

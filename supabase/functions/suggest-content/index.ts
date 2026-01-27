@@ -160,7 +160,7 @@ serve(async (req) => {
 
     if (contentType === "image_prompt") {
       // ============================================
-      // IMAGE PROMPT GENERATION - BRAND FOCUSED
+      // IMAGE PROMPT GENERATION - SELLER SHOWCASING / IMPACTFUL
       // ============================================
       const sector = BUSINESS_SECTORS.find(s => s.id === sectorId);
       const style = VIDEO_STYLES.find(s => s.id === styleId);
@@ -168,79 +168,98 @@ serve(async (req) => {
 
       // Extract brand-specific elements from scraped content
       const brandContext = scrapedContent ? `
-BRAND ANALYSIS FROM WEBSITE:
-${scrapedContent.substring(0, 2000)}
+WEBSITE ANALYSIS (extract key selling points):
+${scrapedContent.substring(0, 2500)}
 
-Extract and incorporate:
-- Brand personality and values
-- Key products/services mentioned
-- Color palette and visual style hints
-- Target audience indicators
-- Unique selling propositions
+KEY EXTRACTION TARGETS:
+• Main products/services being sold
+• Hero benefits and value propositions
+• Target customer profile
+• Brand aesthetic and color palette
+• Unique competitive advantages
+• Social proof elements (awards, testimonials mentions)
 ` : "";
 
-      systemPrompt = `You are an expert AI image prompt engineer specializing in BRAND-FOCUSED visual content.
+      systemPrompt = `You are a CONVERSION-FOCUSED image prompt specialist creating SELLER SHOWCASING visuals that DRIVE ACTION.
 
-🎯 PRIMARY MISSION:
-Create image prompts that SHOWCASE and PROMOTE the specific brand/project. Every image should:
-- Clearly represent the brand's identity, products, or services
-- Appeal to the brand's target audience
-- Reinforce the brand's unique value proposition
-- Use visual elements consistent with the brand's website and style
+🎯 ULTIMATE GOAL: Create image prompts that make people WANT TO BUY. Every image must:
+- SHOWCASE the product/service as irresistible
+- Create DESIRE and URGENCY in the viewer
+- Highlight TRANSFORMATION and RESULTS
+- Feature the PRODUCT HERO prominently
+- Appeal to EMOTIONS that drive purchase decisions
 
-CRITICAL RULES:
-• ${languageInstruction}
-• Output is a VISUAL DESCRIPTION for an IMAGE, NOT a video script
-• NO dialogue, NO voiceover, NO timestamps, NO motion descriptions
-• MUST be SPECIFIC to this brand - generic images are USELESS
-• Focus on: brand products, brand colors, brand aesthetic, brand message
-• Include style cues: "professional photography", "minimalist design", "editorial style"
-${logoUrl ? `• The brand logo is available at: ${logoUrl} - incorporate branded elements where appropriate` : ""}
+🔥 IMPACTFUL IMAGE FORMULAS:
 
-📍 BRAND CONTEXT:
-- Brand/Project: ${projectName || "Unknown"}
-- What they do: ${projectDescription || "Not specified"}
-${projectUrl ? `- Official website: ${projectUrl}` : ""}
+FORMULA 1 - PRODUCT HERO SHOT:
+"[Product name] displayed as the undisputed hero, [premium setting], [luxury lighting], [aspirational lifestyle context], making viewers NEED to own it"
+
+FORMULA 2 - TRANSFORMATION/RESULT:
+"Dramatic before/after or result visualization showing [the outcome customers desire], [emotional satisfaction visible], [social proof implied]"
+
+FORMULA 3 - LIFESTYLE ASPIRATION:
+"[Target customer persona] living their BEST life thanks to [product/service], [enviable situation], [emotional payoff visible], [creates FOMO]"
+
+FORMULA 4 - SOCIAL PROOF MOMENT:
+"[Happy customer type] experiencing [key benefit], [genuine emotion], [relatable yet aspirational], [makes viewers think 'I want that too']"
+
+FORMULA 5 - URGENCY/SCARCITY:
+"[Product] in a context that implies exclusivity or limited availability, [premium packaging], [VIP treatment vibes], [creates 'must have now' feeling]"
+
+📍 BRAND SELLING CONTEXT:
+- Seller/Brand: ${projectName || "Unknown seller"}
+- What they SELL: ${projectDescription || "Products/services to promote"}
+${projectUrl ? `- Sales page: ${projectUrl}` : ""}
 ${brandContext}
-${sector ? `- Industry sector: ${sector.name} - Typical visuals: ${sector.visualContext}` : ""}
+${sector ? `- Market: ${sector.name} - Visual hooks: ${sector.visualContext}` : ""}
 ${style ? `- Visual approach: ${style.name} - ${style.visualInstructions}` : ""}
-${tone ? `- Brand mood: ${tone.name} - ${tone.atmosphereNotes}` : ""}
-${productName ? `- Content tier: ${productName}` : ""}
+${tone ? `- Emotional trigger: ${tone.name} - ${tone.atmosphereNotes}` : ""}
+${productName ? `- Focus product: ${productName}` : ""}
+${logoUrl ? `- Brand logo: ${logoUrl}` : ""}
 
-📐 PROMPT STRUCTURE:
-1. Main subject directly related to the brand (product, service, result, customer)
-2. Setting that matches the brand's world
-3. Lighting and color palette (aligned with brand colors if mentioned)
-4. Composition and framing for social media impact
-5. Style keywords matching brand personality
-6. Quality enhancers: "ultra high resolution, professional quality"
+🚫 STRICTLY FORBIDDEN (these kill conversions):
+❌ Generic stock photo vibes
+❌ Abstract concepts without product focus
+❌ Boring flat lays without context
+❌ Images that could be ANY brand
+❌ No clear product or benefit visible
+❌ Cluttered compositions that confuse
 
-✅ EXAMPLE GOOD PROMPTS (brand-focused):
-For a SaaS productivity tool: "A satisfied business professional in a modern minimalist office, looking at a sleek laptop screen showing colorful productivity analytics dashboard, soft natural window light, clean desk with coffee cup, confident and accomplished expression, professional corporate photography, shallow depth of field on the person"
+✅ IMPACTFUL PROMPT EXAMPLES:
 
-For a restaurant: "Beautifully plated signature dish of grilled salmon with herb crust on a rustic wooden table, warm ambient restaurant lighting, blurred background showing elegant dining room with exposed brick, steam rising from the food, food photography, appetizing presentation, Michelin-star quality"
+For e-commerce skincare: "Glowing woman in her 30s gently touching her flawless cheek, the signature serum bottle positioned elegantly in foreground, soft morning bathroom light, mirror reflection showing confident smile, the transformation result that makes viewers reach for their credit card, beauty editorial photography, shallow depth of field"
 
-For an AI video tool: "A content creator smiling while reviewing AI-generated video content on a large monitor, creative studio environment with ring lights and camera equipment, modern tech aesthetic, vibrant purple and blue accent lighting, behind-the-scenes creative process, professional lifestyle photography"
+For coaching service: "Confident entrepreneur just closed a major deal, celebrating in a modern glass office with city skyline view, laptop showing growth charts, the exact success their coaching clients achieve, aspirational but attainable, lifestyle photography that sells the dream"
 
-❌ EXAMPLE BAD PROMPTS (avoid these):
-❌ "A beautiful sunset over the ocean" (generic, not brand-related)
-❌ "Professional team working together" (too vague, could be any company)
-❌ "Modern technology concept" (abstract, doesn't showcase specific brand)
+For restaurant: "Signature dish being served to an excited couple at the best table, steam rising, golden hour light through floor-to-ceiling windows, the waiter presenting with pride, FOMO-inducing dining experience, making viewers book a reservation immediately"
+
+For SaaS tool: "Business owner leaning back in chair with satisfied expression, multiple screens showing automated tasks completing, clock showing they're leaving work early, the freedom and results the software delivers, relatable professional success moment"
+
+${languageInstruction}
 
 Respond ONLY with valid JSON:
 {
   "suggestions": [
     {
       "id": "1",
-      "title": "Short descriptive title",
-      "content": "The detailed image generation prompt that showcases this specific brand",
+      "title": "Impactful hook title (max 50 chars)",
+      "content": "The complete seller-focused image prompt that SHOWCASES and SELLS",
       "contentType": "image",
+      "conversionAngle": "product_hero|transformation|lifestyle|social_proof|urgency",
       "estimatedEngagement": "high"
     }
   ]
 }`;
 
-      userMessage = `Generate 5 distinct AI image prompts specifically for "${projectName || 'this project'}". Each prompt MUST directly showcase or promote this brand - its products, services, results, or customer experience. No generic images.`;
+      userMessage = `Generate 5 IMPACTFUL seller-showcasing image prompts for "${projectName || 'this seller'}". 
+Each prompt must:
+1. Put the PRODUCT/SERVICE as the HERO
+2. Show the TRANSFORMATION or RESULT customers get
+3. Create DESIRE and URGENCY
+4. Be SPECIFIC to this brand - no generic images
+5. Make viewers want to BUY NOW
+
+Mix of formulas: 2 product hero shots, 1 transformation, 1 lifestyle, 1 social proof.`;
 
     } else if (contentType === "script") {
       // Calculate word count based on duration (same logic as generate-script-nanobanana)
