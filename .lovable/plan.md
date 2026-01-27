@@ -1,167 +1,173 @@
 
 
-# Plan: Enable All Video Models (Kling, Veo, MiniMax, etc.)
+# Plan: Create a New AI Video Scenario Generator
 
-## Current Problem
+## Problem Analysis
 
-The frontend correctly sends the model parameter:
-```typescript
-// VideoGenerator.tsx line 514
-model: getInternalModel()?.id || "sora-2"  // Sends "kling-v2-master", "veo-3.1", etc.
+The current video script generation (sparkles button) produces generic marketing-style text like *"Marre des avis Google sans réponse?"* instead of structured **video scenarios** with:
+- Timestamped segments (`[0-1s]`, `[1-3s]`, etc.)
+- Visual scene descriptions
+- Voiceover text
+- Proper duration-based word counts
+
+## Solution Overview
+
+Create a new **dedicated edge function** specifically for generating rich video scenarios, and update the VideoGenerator to use it instead of the generic `suggest-content` function.
+
+## Implementation Steps
+
+### Step 1: Create new `generate-video-scenario` Edge Function
+
+A new edge function that generates **complete video scenarios** with:
+
+```text
+Video Scenario Structure:
+- Scene-by-scene breakdown with timestamps
+- Visual directions (what to show)
+- Voiceover/script text
+- Transitions and effects suggestions
+- Duration-optimized word count (2.5 words/second)
 ```
 
-But the edge function **ignores it** and always uses `sora-2`:
-```typescript
-// generate-video-sora/index.ts line 102
-formData.append("model", "sora-2");  // Always hardcoded!
-```
+**Key Features:**
+- Uses project context (name, description, scraped URL content)
+- Applies scenario parameters (Sector, Style, Tone)
+- Supports multiple script types: Reel, Ad, Testimonial, Story
+- Enforces strict French quality (no English, no generic phrases)
+- Returns structured JSON with multiple scenario options
 
-## All Available Models (Not Working)
-
-| Model ID | Provider | API Name | Durations | Status |
-|----------|----------|----------|-----------|--------|
-| sora-2 | OpenAI | sora-2 | 4, 8, 12s | Working |
-| sora-2-pro | OpenAI | sora-2 | 4, 8, 12s | Working |
-| kling-v2-master | Kuaishou | kling-video | 5, 10s | NOT WORKING |
-| minimax-hailuo | MiniMax | minimax-video-01 | 4, 6s | NOT WORKING |
-| veo-3.1 | Google | veo-2 | 5, 10s | NOT WORKING |
-| veo-3.1-pro | Google | veo-2 | 10, 20, 30s | NOT WORKING |
-
----
-
-## Solution
-
-### Step 1: Add Model Configuration Map
-
-Add a configuration object that maps internal model IDs to CometAPI model names with their constraints:
-
-```typescript
-interface ModelConfig {
-  apiModel: string;
-  durations: number[];
-  maxSize: { portrait: string; landscape: string };
-}
-
-const MODEL_CONFIGS: Record<string, ModelConfig> = {
-  "sora-2": {
-    apiModel: "sora-2",
-    durations: [4, 8, 12],
-    maxSize: { portrait: "720x1280", landscape: "1280x720" },
-  },
-  "sora-2-pro": {
-    apiModel: "sora-2",
-    durations: [4, 8, 12],
-    maxSize: { portrait: "720x1280", landscape: "1280x720" },
-  },
-  "kling-v2-master": {
-    apiModel: "kling-video",
-    durations: [5, 10],
-    maxSize: { portrait: "720x1280", landscape: "1280x720" },
-  },
-  "minimax-hailuo": {
-    apiModel: "minimax-video-01",
-    durations: [4, 6],
-    maxSize: { portrait: "720x1280", landscape: "1280x720" },
-  },
-  "veo-3.1": {
-    apiModel: "veo-2",
-    durations: [5, 10],
-    maxSize: { portrait: "720x1280", landscape: "1280x720" },
-  },
-  "veo-3.1-pro": {
-    apiModel: "veo-2",
-    durations: [10, 20, 30],
-    maxSize: { portrait: "720x1280", landscape: "1280x720" },
-  },
-};
-```
-
-### Step 2: Update VideoRequest Interface
-
-```typescript
-interface VideoRequest {
-  prompt: string;
-  avatarUrl?: string;
-  duration?: number;
-  size?: string;
-  quality?: "720p" | "1080p" | "4k";
-  orientation?: "portrait" | "landscape";
-  startingFrameUrl?: string;
-  model?: string;  // NEW: Accept model from frontend
+**Example Output:**
+```json
+{
+  "scenarios": [
+    {
+      "id": "1",
+      "title": "La révélation client",
+      "angle": "emotion",
+      "scenes": [
+        {
+          "timestamp": "[0-2s]",
+          "visual": "Gros plan sur un écran avec des notifications d'avis Google",
+          "voiceover": "Tu vois ça ? 47 avis sans réponse."
+        },
+        {
+          "timestamp": "[2-5s]",
+          "visual": "Le propriétaire fatigué devant son ordinateur",
+          "voiceover": "Chaque avis ignoré, c'est un client perdu."
+        }
+      ],
+      "fullScript": "Tu vois ça ? 47 avis sans réponse...",
+      "hashtags": ["avisGoogle", "businessLocal"]
+    }
+  ]
 }
 ```
 
-### Step 3: Use Dynamic Model in API Call
+### Step 2: Update VideoGenerator Component
 
-```typescript
-// Parse model from request body
-const { 
-  prompt, 
-  model: requestedModel = "sora-2",  // NEW
-  // ... other params
-}: VideoRequest = await req.json();
+Modify `generateAIScript` function to:
 
-// Get model configuration (fallback to sora-2)
-const modelConfig = MODEL_CONFIGS[requestedModel] || MODEL_CONFIGS["sora-2"];
-const apiModel = modelConfig.apiModel;
+1. Call the new `generate-video-scenario` edge function
+2. Display a **scenario picker modal** showing multiple options with:
+   - Title and angle (emotion, problem, benefit, urgency)
+   - Scene preview
+   - Estimated engagement level
+3. Allow user to select a scenario or regenerate
+4. Populate the script textarea with the selected scenario's full script
 
-// Validate duration for this specific model
-const validDurations = modelConfig.durations;
-const duration = validDurations.includes(requestedDuration) 
-  ? requestedDuration 
-  : validDurations.reduce((prev, curr) => 
-      Math.abs(curr - requestedDuration) < Math.abs(prev - requestedDuration) ? curr : prev
-    );
+### Step 3: Add Scenario Preview UI Component
 
-// Use model's max size
-const size = legacySize || modelConfig.maxSize[orientation];
-
-// Use dynamic model instead of hardcoded "sora-2"
-formData.append("model", apiModel);  // Now uses correct API model
-
-console.log("Model routing:", requestedModel, "->", apiModel);
-```
-
----
+Create a `ScenarioPreview` component that displays:
+- Visual scene breakdown with timestamps
+- Voiceover text per segment
+- Quick actions: Select, Copy, Edit
 
 ## Technical Details
 
-### CometAPI Model Names
-The CometAPI uses these model identifiers:
-- `sora-2` - OpenAI Sora 2
-- `kling-video` - Kuaishou Kling V2
-- `minimax-video-01` - MiniMax Hailuo
-- `veo-2` - Google Veo
+### New Edge Function: `generate-video-scenario/index.ts`
 
-### Duration Constraints Per Model
-Each model has specific supported durations - the edge function will automatically clamp to the nearest valid value.
+**Location:** `supabase/functions/generate-video-scenario/index.ts`
 
-### Resolution Cap
-All models currently support max 720p via CometAPI:
-- Portrait: `720x1280`
-- Landscape: `1280x720`
+**API Input:**
+```typescript
+{
+  projectId: string;
+  projectName: string;
+  projectDescription?: string;
+  projectUrl?: string;
+  scrapedContent?: string;
+  sectorId?: string;    // Business sector (restaurant, tech, etc.)
+  styleId?: string;     // Video style (testimonial, demo, ugc, etc.)
+  toneId?: string;      // Emotional tone (urgent, inspiring, etc.)
+  scriptType: "reel" | "ad" | "story" | "testimonial";
+  duration: number;     // 4, 8, 12, or 20 seconds
+}
+```
 
----
+**API Output:**
+```typescript
+{
+  scenarios: Array<{
+    id: string;
+    title: string;
+    angle: "problem" | "benefit" | "emotion" | "proof" | "urgency";
+    scenes: Array<{
+      timestamp: string;
+      visual: string;
+      voiceover: string;
+    }>;
+    fullScript: string;
+    hashtags: string[];
+    estimatedEngagement: "high" | "medium" | "low";
+  }>;
+}
+```
 
-## Files to Modify
+### VideoGenerator Changes
 
-### `supabase/functions/generate-video-sora/index.ts`
-1. Add `MODEL_CONFIGS` object with per-model settings
-2. Add `model` field to `VideoRequest` interface
-3. Parse `model` from request body
-4. Look up model configuration
-5. Use dynamic `apiModel` in formData (line 102)
-6. Apply model-specific duration validation
-7. Add logging for model routing
+1. Replace current `generateAIScript` call to `suggest-content` with new `generate-video-scenario`
+2. Add state for scenario selection modal
+3. Add scenario picker UI with visual scene cards
 
----
+### Updated Config
 
-## Expected Results
+Add entry in `supabase/config.toml`:
+```toml
+[functions.generate-video-scenario]
+verify_jwt = false
+```
 
-After implementation:
-1. **AI Reel** will use Kling or MiniMax (faster, cheaper)
-2. **AI Reel Pro** will use Sora-2 (current behavior)
-3. **AI Cinema** will use Veo (longer durations: 10-30s)
-4. All video products will work with correct models
-5. Duration validation adapts to each model's constraints
+## User Experience Flow
+
+```text
+1. User clicks Sparkles button in VideoGenerator
+2. Project selector popover appears (existing)
+3. User selects project
+4. Loading state shows "Generating scenarios..."
+5. Modal appears with 3-5 scenario cards
+6. Each card shows:
+   - Title and angle badge
+   - Scene timeline preview (with timestamps)
+   - Full script preview
+7. User clicks "Use this scenario"
+8. Script populates in textarea, ready for generation
+```
+
+## Files to Create/Modify
+
+| File | Action | Description |
+|------|--------|-------------|
+| `supabase/functions/generate-video-scenario/index.ts` | **Create** | New edge function for video scenario generation |
+| `supabase/config.toml` | **Modify** | Add function configuration |
+| `src/components/VideoGenerator.tsx` | **Modify** | Update generateAIScript to use new function |
+| `src/components/ScenarioPickerModal.tsx` | **Create** | New modal for selecting generated scenarios |
+
+## Quality Safeguards
+
+The new function will enforce:
+- French language only (reject English words)
+- No generic marketing phrases ("Découvrez", "N'attendez plus")
+- Timestamp structure matching duration
+- Word count validation (2.5 words/second ± 15%)
+- Scene-by-scene visual coherence
 
