@@ -95,6 +95,15 @@ interface MetaConnection {
   instagram_username: string | null;
 }
 
+interface MetaPage {
+  id: string;
+  name: string;
+  instagram: {
+    id: string;
+    username: string;
+  } | null;
+}
+
 const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -106,6 +115,9 @@ const ProjectDetail = () => {
   const [editTab, setEditTab] = useState("info");
   const [isSaving, setIsSaving] = useState(false);
   const [metaConnection, setMetaConnection] = useState<MetaConnection | null>(null);
+  const [metaPages, setMetaPages] = useState<MetaPage[]>([]);
+  const [isLoadingPages, setIsLoadingPages] = useState(false);
+  const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -158,8 +170,104 @@ const ProjectDetail = () => {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (data) setMetaConnection(data);
+    if (data) {
+      setMetaConnection(data);
+      setSelectedPageId(data.page_id);
+    }
   };
+
+  const fetchMetaPages = async () => {
+    if (isLoadingPages) return;
+    setIsLoadingPages(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const response = await supabase.functions.invoke("meta-oauth", {
+        body: {},
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      // Use fetch directly for query params
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meta-oauth?action=pages`,
+        {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        setMetaPages(data.pages || []);
+        if (data.selectedPageId) {
+          setSelectedPageId(data.selectedPageId);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching pages:", error);
+    } finally {
+      setIsLoadingPages(false);
+    }
+  };
+
+  const handleSelectPage = async (pageId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meta-oauth?action=select-page`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ pageId }),
+        }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedPageId(pageId);
+        
+        // Update local state
+        if (metaConnection) {
+          setMetaConnection({
+            ...metaConnection,
+            page_id: pageId,
+            instagram_id: data.instagram?.id || null,
+            instagram_username: data.instagram?.username || null,
+          });
+        }
+
+        toast({
+          title: "Page selected ✓",
+          description: `Now posting to ${data.page?.name}`,
+        });
+      }
+    } catch (error) {
+      console.error("Error selecting page:", error);
+      toast({
+        title: "Error",
+        description: "Failed to select page",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Fetch pages when opening platforms tab
+  useEffect(() => {
+    if (editTab === "platforms" && metaConnection && metaPages.length === 0) {
+      fetchMetaPages();
+    }
+  }, [editTab, metaConnection]);
 
   const fetchProject = async () => {
     const { data, error } = await supabase
@@ -504,10 +612,10 @@ const ProjectDetail = () => {
                       </div>
                       <div>
                         <span className="font-medium">Facebook</span>
-                        {metaConnection?.page_id ? (
+                        {metaConnection ? (
                           <div className="flex items-center gap-1 text-xs text-green-600">
                             <Check className="h-3 w-3" />
-                            Page connected
+                            Connected as {metaConnection.fb_user_name}
                           </div>
                         ) : (
                           <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -520,23 +628,64 @@ const ProjectDetail = () => {
                     <Switch 
                       checked={editFacebook} 
                       onCheckedChange={setEditFacebook}
-                      disabled={!metaConnection?.page_id}
+                      disabled={!metaConnection}
                     />
                   </div>
-                  {metaConnection?.page_id && editFacebook && (
-                    <div className="pl-10 space-y-2">
-                      <Label className="text-xs text-muted-foreground">Publish mode</Label>
-                      <Select value={selectedPublishMode} onValueChange={(v) => setSelectedPublishMode(v as "auto" | "manual")}>
-                        <SelectTrigger className="h-8 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="auto">Automatic</SelectItem>
-                          <SelectItem value="manual">Manual approval</SelectItem>
-                        </SelectContent>
-                      </Select>
+                  
+                  {/* Page Selector */}
+                  {metaConnection && editFacebook && (
+                    <div className="pl-10 space-y-3">
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Select page to post</Label>
+                        {isLoadingPages ? (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Loading pages...
+                          </div>
+                        ) : metaPages.length > 0 ? (
+                          <Select value={selectedPageId || ""} onValueChange={handleSelectPage}>
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Select a page..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {metaPages.map((page) => (
+                                <SelectItem key={page.id} value={page.id}>
+                                  <div className="flex items-center gap-2">
+                                    <span>{page.name}</span>
+                                    {page.instagram && (
+                                      <span className="text-xs text-muted-foreground">
+                                        + @{page.instagram.username}
+                                      </span>
+                                    )}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            No pages found. Make sure you have admin access to a Facebook Page.
+                          </p>
+                        )}
+                      </div>
+                      
+                      {selectedPageId && (
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Publish mode</Label>
+                          <Select value={selectedPublishMode} onValueChange={(v) => setSelectedPublishMode(v as "auto" | "manual")}>
+                            <SelectTrigger className="h-8 text-sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="auto">Automatic</SelectItem>
+                              <SelectItem value="manual">Manual approval</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                     </div>
                   )}
+                  
                   {!metaConnection && (
                     <Link to="/integrations" className="text-xs text-primary hover:underline flex items-center gap-1 pl-10">
                       <Link2 className="h-3 w-3" />
