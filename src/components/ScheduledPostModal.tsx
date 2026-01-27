@@ -30,6 +30,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Drawer,
@@ -161,6 +162,14 @@ export const ScheduledPostModal = ({
   // Local state to track generated media (updates immediately after generation)
   const [localMediaUrl, setLocalMediaUrl] = useState<string | null>(null);
   
+  // Project context for brand-aware generation
+  const [projectContext, setProjectContext] = useState<{
+    name: string;
+    logo_url: string | null;
+    url: string | null;
+    description: string | null;
+  } | null>(null);
+  
   // Video generation options
   const [enableVoice, setEnableVoice] = useState(true);
   const [selectedLanguage, setSelectedLanguage] = useState<VoiceLanguage>("en");
@@ -177,7 +186,7 @@ export const ScheduledPostModal = ({
     return { text: text.substring(0, maxLength) + "...", truncated: true };
   };
 
-  // Initialize platforms and voice from post
+  // Initialize platforms, voice, and fetch project context
   useEffect(() => {
     if (post?.platforms) {
       setSelectedPlatforms(post.platforms);
@@ -187,6 +196,20 @@ export const ScheduledPostModal = ({
     // Set default voice for language
     const defaultVoice = getDefaultVoiceForLanguage(selectedLanguage);
     setSelectedVoice(defaultVoice);
+    
+    // Fetch project context for brand-aware generation
+    const fetchProjectContext = async () => {
+      if (!post?.project_id) return;
+      const { data } = await supabase
+        .from("projects")
+        .select("name, logo_url, url, description")
+        .eq("id", post.project_id)
+        .single();
+      if (data) {
+        setProjectContext(data);
+      }
+    };
+    fetchProjectContext();
   }, [post, selectedLanguage]);
 
   if (!post) return null;
@@ -510,16 +533,34 @@ export const ScheduledPostModal = ({
     
     try {
       if (post.content_type === "image") {
-        // Generate image
+        // Build brand-aware prompt
+        let enhancedPrompt = post.ai_prompt || "Create an engaging social media image";
+        
+        // Add brand context if available
+        if (projectContext) {
+          const brandInfo = [];
+          if (projectContext.name) brandInfo.push(`Brand: ${projectContext.name}`);
+          if (projectContext.description) brandInfo.push(`About: ${projectContext.description.substring(0, 200)}`);
+          if (projectContext.url) brandInfo.push(`Website: ${projectContext.url}`);
+          
+          if (brandInfo.length > 0) {
+            enhancedPrompt = `${enhancedPrompt}\n\nBrand Context:\n${brandInfo.join('\n')}`;
+          }
+        }
+        
         toast({
           title: "Generating image...",
-          description: "Creating visual content from prompt",
+          description: projectContext?.name 
+            ? `Creating visual for ${projectContext.name}` 
+            : "Creating visual content from prompt",
         });
 
         const { data, error } = await supabase.functions.invoke("generate-image", {
           body: {
-            prompt: post.ai_prompt || "Create an engaging social media image",
+            prompt: enhancedPrompt,
             aspectRatio: "1:1",
+            logoUrl: projectContext?.logo_url || undefined,
+            brandName: projectContext?.name || undefined,
           },
         });
 
@@ -1230,13 +1271,15 @@ export const ScheduledPostModal = ({
   if (isMobile) {
     return (
       <Drawer open={isOpen} onOpenChange={onClose}>
-        <DrawerContent className="max-h-[90vh] flex flex-col px-4 pb-6">
-          <DrawerHeader className="px-0 pt-4 pb-2">
+        <DrawerContent className="max-h-[85vh] flex flex-col px-4 pb-4">
+          <DrawerHeader className="px-0 pt-4 pb-2 shrink-0">
             <DrawerTitle>
               <HeaderContent />
             </DrawerTitle>
           </DrawerHeader>
-          <ModalContent />
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <ModalContent />
+          </div>
         </DrawerContent>
       </Drawer>
     );
@@ -1244,7 +1287,7 @@ export const ScheduledPostModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>
             <HeaderContent />
