@@ -70,15 +70,19 @@ serve(async (req) => {
         const scopes = [
           "public_profile",
           "pages_show_list",
-          "pages_read_engagement", 
+          "pages_read_engagement",
+          "pages_read_user_content",
           "pages_manage_posts",
+          "business_management",
           "instagram_basic",
           "instagram_content_publish",
+          "instagram_manage_comments",
         ].join(",");
 
         // Encode userId in state for callback
         const state = userId ? `${crypto.randomUUID()}_${userId}` : crypto.randomUUID();
-        const authUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${META_APP_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}`;
+        // Force re-authorization to ensure all pages/Instagram accounts are selectable
+        const authUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${META_APP_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}&auth_type=rerequest`;
 
         console.log(`[meta-oauth] Generated auth URL for user: ${userId || "anonymous"}`);
 
@@ -142,22 +146,41 @@ serve(async (req) => {
         );
         const profile: UserProfile = await profileResponse.json();
 
-        // Get pages with Instagram accounts
+        // Get pages with Instagram accounts - request ALL pages user has access to
+        console.log(`[meta-oauth] Fetching pages for user ${profile.id}...`);
         const pagesResponse = await fetch(
-          `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account{id,username}&access_token=${tokenData.access_token}`
+          `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account{id,username,name,profile_picture_url}&limit=100&access_token=${tokenData.access_token}`
         );
         const pagesData = await pagesResponse.json();
+        
+        console.log(`[meta-oauth] Pages response:`, JSON.stringify(pagesData, null, 2));
 
         let pageData: PageData | null = null;
         let instagramId: string | null = null;
         let instagramUsername: string | null = null;
+        let allPages: Array<{id: string, name: string, instagram?: {id: string, username: string}}> = [];
 
         if (pagesData.data?.length > 0) {
-          pageData = pagesData.data[0];
+          // Store all available pages
+          allPages = pagesData.data.map((p: PageData) => ({
+            id: p.id,
+            name: p.name,
+            instagram: p.instagram_business_account ? {
+              id: p.instagram_business_account.id,
+              username: p.instagram_business_account.username,
+            } : undefined,
+          }));
+          
+          // Try to find a page with Instagram first, otherwise use first page
+          pageData = pagesData.data.find((p: PageData) => p.instagram_business_account) || pagesData.data[0];
           if (pageData?.instagram_business_account) {
             instagramId = pageData.instagram_business_account.id;
             instagramUsername = pageData.instagram_business_account.username;
           }
+          
+          console.log(`[meta-oauth] Found ${allPages.length} pages, selected: ${pageData?.name}, Instagram: ${instagramUsername || "none"}`);
+        } else {
+          console.log(`[meta-oauth] No pages found for user. Error:`, pagesData.error || "none");
         }
 
         // Calculate expiration (Meta tokens usually 60 days)
@@ -206,16 +229,40 @@ serve(async (req) => {
             username: instagramUsername,
           } : null,
           hasPageAccess: !!pageData,
+          availablePages: allPages,
+          selectedPage: pageData ? { id: pageData.id, name: pageData.name } : null,
           expiresAt,
         };
 
-        console.log(`[meta-oauth] Success for ${profile.name}, Instagram: ${instagramUsername || "none"}`);
+        console.log(`[meta-oauth] Success for ${profile.name}, Pages: ${allPages.length}, Instagram: ${instagramUsername || "none"}`);
 
+        // Close popup and notify opener, then redirect
         return new Response(
-          `<!DOCTYPE html><html><body><script>
-            window.opener.postMessage(${JSON.stringify(result)},'*');
-            window.close();
-          </script></body></html>`,
+          `<!DOCTYPE html>
+          <html>
+          <head><title>Connecting...</title></head>
+          <body style="font-family: system-ui; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f5f5f5;">
+            <div style="text-align: center;">
+              <div style="font-size: 24px; margin-bottom: 16px;">✅</div>
+              <p style="color: #333; font-size: 16px;">Connected successfully!</p>
+              <p style="color: #666; font-size: 14px;">This window will close automatically...</p>
+            </div>
+            <script>
+              try {
+                if (window.opener) {
+                  window.opener.postMessage(${JSON.stringify(result)},'*');
+                  setTimeout(() => window.close(), 500);
+                } else {
+                  // No opener, redirect to app
+                  window.location.href = '/integrations';
+                }
+              } catch(e) {
+                console.error('PostMessage error:', e);
+                window.close();
+              }
+            </script>
+          </body>
+          </html>`,
           { headers: { "Content-Type": "text/html" } }
         );
       }
