@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Video, Play, Pause, Download, Trash2, Clock, Calendar, Loader2, Maximize2, RefreshCw } from "lucide-react";
+import { Video, Play, Pause, Download, Trash2, Clock, Calendar, Loader2, Maximize2, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useRef, useEffect } from "react";
 import { format } from "date-fns";
@@ -8,6 +8,7 @@ import { ShareButton } from "@/components/ShareButton";
 import { useVideoThumbnail } from "@/hooks/useVideoThumbnail";
 import { useToast } from "@/hooks/use-toast";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
+import { Progress } from "@/components/ui/progress";
 import {
   Tooltip,
   TooltipContent,
@@ -27,15 +28,26 @@ interface VideoHistoryItem {
   status: "ready" | "processing" | "error";
 }
 
+interface GeneratingTask {
+  id: string;
+  taskId: string;
+  status: "queued" | "in_progress" | "completed" | "failed";
+  progress: number;
+  model: string;
+  duration: number;
+  script?: string;
+}
+
 interface VideoHistoryProps {
   videos: VideoHistoryItem[];
+  generatingTasks?: GeneratingTask[];
   onDelete: (id: string) => void;
   onPlay: (video: VideoHistoryItem) => void;
   onThumbnailGenerated?: (id: string, thumbnailUrl: string) => void;
   onContinueVideo?: (videoUrl: string) => void;
 }
 
-export const VideoHistory = ({ videos, onDelete, onPlay, onThumbnailGenerated, onContinueVideo }: VideoHistoryProps) => {
+export const VideoHistory = ({ videos, generatingTasks = [], onDelete, onPlay, onThumbnailGenerated, onContinueVideo }: VideoHistoryProps) => {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [generatingThumbnails, setGeneratingThumbnails] = useState<Set<string>>(new Set());
@@ -148,8 +160,74 @@ export const VideoHistory = ({ videos, onDelete, onPlay, onThumbnailGenerated, o
     );
   }
 
+  const activeGenerations = generatingTasks.filter(t => t.status === "queued" || t.status === "in_progress");
+
   return (
     <div className="space-y-3">
+      {/* In-progress generations */}
+      {activeGenerations.map((task, index) => (
+        <motion.div
+          key={task.taskId}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: index * 0.03 }}
+          className="group relative rounded-xl bg-card border border-primary/30 p-3 overflow-hidden"
+        >
+          {/* Animated gradient background */}
+          <div className="absolute inset-0 opacity-10">
+            <motion.div
+              className="absolute inset-0 gradient-primary"
+              animate={{
+                x: ["-100%", "100%"],
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: "linear",
+              }}
+            />
+          </div>
+          
+          <div className="relative flex gap-3">
+            {/* Generating indicator */}
+            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-muted flex items-center justify-center">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                className="h-10 w-10 rounded-full gradient-primary flex items-center justify-center"
+              >
+                <Sparkles className="h-5 w-5 text-primary-foreground" />
+              </motion.div>
+            </div>
+
+            {/* Info */}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium gradient-primary bg-clip-text text-transparent">Made with AI</span>
+                <span className="text-xs text-muted-foreground">• {task.model}</span>
+              </div>
+              <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                {task.script || `Generating ${task.duration}s video...`}
+              </p>
+              
+              {/* Progress bar */}
+              <div className="flex items-center gap-2 mt-2">
+                <Progress value={task.progress} className="h-1.5 flex-1" />
+                <span className="text-xs font-medium text-primary">{task.progress}%</span>
+              </div>
+              
+              <p className="text-xs text-muted-foreground mt-1">
+                {task.status === "queued" ? "In queue..." : "Generating..."}
+              </p>
+            </div>
+
+            {/* Status indicator */}
+            <div className="flex items-center">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            </div>
+          </div>
+        </motion.div>
+      ))}
       {videos.map((video, index) => (
         <motion.div
           key={video.id}
@@ -232,4 +310,4 @@ export const VideoHistory = ({ videos, onDelete, onPlay, onThumbnailGenerated, o
   );
 };
 
-export type { VideoHistoryItem };
+export type { VideoHistoryItem, GeneratingTask };
