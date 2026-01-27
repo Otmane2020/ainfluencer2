@@ -259,6 +259,14 @@ export const ScheduledPostModal = ({
 
   const handlePublishNow = async () => {
     if (!onPublishNow) return;
+    
+    // For video/reel content, we need to generate first
+    if ((post.content_type === "video" || post.content_type === "reel") && !post.media_url) {
+      // Need to generate video + social content first
+      await handleGenerateAndPublish();
+      return;
+    }
+    
     setIsPublishing(true);
     try {
       await onPublishNow(post);
@@ -271,6 +279,138 @@ export const ScheduledPostModal = ({
       toast({
         title: "Error",
         description: "Unable to publish post",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  // Generate video + social content + hashtags, then publish
+  const handleGenerateAndPublish = async () => {
+    setIsPublishing(true);
+    
+    try {
+      // Step 1: Generate social post content (description + hashtags) based on AI prompt
+      toast({
+        title: "Generating content...",
+        description: "Creating social post description and hashtags",
+      });
+
+      // Call the suggest-content edge function to generate social post content
+      const { data: contentData, error: contentError } = await supabase.functions.invoke("suggest-content", {
+        body: {
+          contentType: "social_post",
+          projectDescription: post.ai_prompt || "Engaging social media content",
+          projectName: post.ai_prompt?.substring(0, 50) || "Social Post",
+          projectUrl: null,
+        },
+      });
+
+      if (contentError) {
+        console.error("Content generation error:", contentError);
+        throw new Error("Failed to generate social content");
+      }
+
+      console.log("Content generation response:", contentData);
+
+      // Extract the generated content (handle both response formats)
+      let socialDescription = "";
+      let hashtags: string[] = [];
+      
+      if (contentData?.suggestion) {
+        // New social_post format
+        socialDescription = contentData.suggestion.content || "";
+        hashtags = contentData.suggestion.hashtags || [];
+      } else if (contentData?.suggestions?.[0]) {
+        // Legacy format - use first suggestion
+        socialDescription = contentData.suggestions[0].content || "";
+        hashtags = contentData.suggestions[0].hashtags || [];
+      }
+      
+      // Build final text content (description + hashtags, NOT the original prompt)
+      const formattedHashtags = Array.isArray(hashtags) 
+        ? hashtags.map((h: string) => h.startsWith('#') ? h : `#${h}`).join(' ')
+        : '';
+      
+      // Use generated content, NOT the original prompt
+      const finalTextContent = socialDescription 
+        ? `${socialDescription}\n\n${formattedHashtags}`.trim()
+        : formattedHashtags.trim();
+
+      console.log("Generated social content:", finalTextContent.substring(0, 100) + "...");
+
+      // Step 2: Update the post with generated content
+      const { error: updateError } = await supabase
+        .from("scheduled_posts")
+        .update({ 
+          text_content: finalTextContent,
+          status: "scheduled",
+        })
+        .eq("id", post.id);
+
+      if (updateError) throw updateError;
+
+      // Step 3: If video content and a product is selected, start video generation
+      if ((post.content_type === "video" || post.content_type === "reel") && selectedProduct) {
+        toast({
+          title: "Generating video...",
+          description: `Using ${selectedProduct.name}`,
+        });
+
+        // Get orientation from format
+        const orientation = videoFormat === "landscape" ? "landscape" : "portrait";
+        const modelId = selectedProduct.internalModels?.[0] || "sora-2";
+        
+        // Call video generation
+        const { data: videoData, error: videoError } = await supabase.functions.invoke("generate-video-sora", {
+          body: {
+            prompt: post.ai_prompt || "Create an engaging social media video",
+            duration: 8,
+            orientation,
+            format: videoFormat === "mix" ? "reel" : videoFormat,
+            model: modelId,
+            avatarUrl: avatarUrl || undefined,
+          },
+        });
+
+        if (videoError) {
+          console.warn("Video generation started in background:", videoError);
+        } else {
+          console.log("Video task started:", videoData?.taskId);
+          
+          // Update post with task info (video will be added when complete)
+          await supabase
+            .from("scheduled_posts")
+            .update({ 
+              status: "scheduled",
+              error_message: `Video generation started: ${videoData?.taskId || 'pending'}`,
+            })
+            .eq("id", post.id);
+        }
+      }
+
+      toast({
+        title: "Content generated ✓",
+        description: "Social post with description and hashtags is ready",
+      });
+
+      onUpdate?.();
+      
+      // Now call the original publish handler
+      if (onPublishNow) {
+        await onPublishNow({
+          ...post,
+          text_content: finalTextContent,
+        });
+      }
+      
+      onClose();
+    } catch (error) {
+      console.error("Generate and publish error:", error);
+      toast({
+        title: "Error",
+        description: "Unable to generate content. Please try again.",
         variant: "destructive",
       });
     } finally {

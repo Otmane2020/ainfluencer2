@@ -283,6 +283,60 @@ IMPORTANT : Réponds UNIQUEMENT avec un JSON valide, sans markdown ni explicatio
 
       userMessage = "Génère 5 scripts vidéo courts et percutants pour ce projet.";
 
+    } else if (contentType === "social_post") {
+      // ============================================
+      // SOCIAL POST GENERATION (for Facebook/Instagram)
+      // Generates engaging description + hashtags, NOT the raw prompt
+      // ============================================
+      systemPrompt = `You are an expert social media content creator for Facebook and Instagram.
+
+OBJECTIVE: Create an engaging social media post description with hashtags based on the provided context.
+The output should be ready to publish - NOT the original prompt/brief, but actual CONTENT.
+
+CRITICAL RULES:
+• Write in English (perfect grammar)
+• Create ENGAGING post copy that tells a story or creates curiosity
+• Include a clear call-to-action when relevant
+• Generate 8-12 relevant hashtags
+• NO generic phrases like "Check this out" or "Don't miss"
+• Make it feel authentic and conversational
+• Adapt tone to the platform (Instagram = more casual, Facebook = slightly more professional)
+
+CONTEXT:
+- Topic/Brief: ${projectDescription || projectName || "Engaging content"}
+${projectUrl ? `- Website: ${projectUrl}` : ""}
+${scrapedContent ? `- Brand context:\n${scrapedContent.substring(0, 800)}` : ""}
+${productName ? `- Product/Service: ${productName}` : ""}
+
+POST STRUCTURE:
+1. Hook (first line that stops the scroll)
+2. Main message (2-3 sentences max)
+3. Call-to-action (optional)
+4. Hashtags (8-12, mix of popular and niche)
+
+EXAMPLE GOOD POST:
+"The secret nobody talks about? 🤫
+Small business owners spend 40% of their time on tasks AI can handle in seconds.
+I switched 3 months ago. Haven't looked back.
+
+What's YOUR biggest time-waster? Drop it below 👇
+
+#SmallBusiness #Productivity #AITools #EntrepreneurLife #BusinessGrowth #WorkSmarter #TimeManagement #StartupTips"
+
+EXAMPLE BAD POST (DO NOT DO THIS):
+"Check out our amazing product! It's revolutionary and will change your life! Buy now! #sale #discount #amazing"
+
+Respond ONLY with valid JSON:
+{
+  "suggestion": {
+    "content": "The full post caption ready to publish",
+    "hashtags": ["hashtag1", "hashtag2", "hashtag3", "hashtag4", "hashtag5", "hashtag6", "hashtag7", "hashtag8"],
+    "platform": "instagram_facebook"
+  }
+}`;
+
+      userMessage = `Create an engaging social media post for Facebook and Instagram based on this topic/brief: "${projectDescription || projectName || 'Engaging content for social media'}"`;
+
     } else {
       // Standard prompt for general content suggestions
       systemPrompt = `Tu es un expert en création de contenu pour les réseaux sociaux.
@@ -368,59 +422,75 @@ Réponds UNIQUEMENT avec un JSON valide :
 
     // Parse the JSON from the AI response
     let suggestions;
+    let socialSuggestion = null;
+    
     try {
       // Try to extract JSON from the response (handle markdown code blocks)
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        suggestions = parsed.suggestions || parsed;
         
-        // Quality filter: validate each suggestion (same logic as nanobanana)
-        suggestions = suggestions.filter((s: { content?: string }) => {
-          const text = s.content?.trim() || "";
+        // Handle social_post format (singular suggestion)
+        if (contentType === "social_post" && parsed.suggestion) {
+          socialSuggestion = parsed.suggestion;
+          console.log("Social post suggestion parsed:", socialSuggestion.content?.substring(0, 100));
+        } else {
+          // Handle regular suggestions format
+          suggestions = parsed.suggestions || parsed;
           
-          // Length check (more permissive for ads with timestamps)
-          const textWithoutTimestamps = text.replace(/\[\d+[–-]\d+s\]/g, "").trim();
-          if (textWithoutTimestamps.length < 30 || textWithoutTimestamps.length > 800) return false;
-          
-          // English words check (strict)
-          const englishWords = /\b(discover|our|solution|innovative|boost|game-changer|tips|hack|amazing|incredible|unique|transform|revolutionary)\b/gi;
-          if ((text.match(englishWords) || []).length > 0) return false;
-          
-          // Generic French marketing phrases check
-          const genericPhrases = [
-            "découvrez notre",
-            "n'attendez plus",
-            "solution innovante",
-            "révolutionnaire",
-            "unique en son genre",
-            "va changer votre vie",
-            "ne manquez pas",
-          ];
-          const lowerText = text.toLowerCase();
-          if (genericPhrases.some(phrase => lowerText.includes(phrase))) return false;
-          
-          // For ADS: Check sentence length (max 7 words per sentence)
-          if (scriptType === "ad") {
-            const lines = text.split(/\n/).filter(Boolean);
-            for (const line of lines) {
-              const cleanLine = line.replace(/^\[\d+[–-]\d+s\]\s*/, "").trim();
-              if (cleanLine) {
-                const words = cleanLine.split(/\s+/).filter(Boolean);
-                if (words.length > 8) {
-                  console.log("ADS script rejected - line too long:", cleanLine);
-                  return false;
+          // Quality filter: validate each suggestion (same logic as nanobanana)
+          if (Array.isArray(suggestions)) {
+            suggestions = suggestions.filter((s: { content?: string }) => {
+              const text = s.content?.trim() || "";
+              
+              // Length check (more permissive for ads with timestamps)
+              const textWithoutTimestamps = text.replace(/\[\d+[–-]\d+s\]/g, "").trim();
+              if (textWithoutTimestamps.length < 30 || textWithoutTimestamps.length > 800) return false;
+              
+              // English words check (strict - only for non-English content)
+              if (contentType !== "social_post") {
+                const englishWords = /\b(discover|our|solution|innovative|boost|game-changer|tips|hack|amazing|incredible|unique|transform|revolutionary)\b/gi;
+                if ((text.match(englishWords) || []).length > 0) return false;
+              }
+              
+              // Generic French marketing phrases check (only for French content)
+              if (contentType !== "social_post") {
+                const genericPhrases = [
+                  "découvrez notre",
+                  "n'attendez plus",
+                  "solution innovante",
+                  "révolutionnaire",
+                  "unique en son genre",
+                  "va changer votre vie",
+                  "ne manquez pas",
+                ];
+                const lowerText = text.toLowerCase();
+                if (genericPhrases.some(phrase => lowerText.includes(phrase))) return false;
+              }
+              
+              // For ADS: Check sentence length (max 7 words per sentence)
+              if (scriptType === "ad") {
+                const lines = text.split(/\n/).filter(Boolean);
+                for (const line of lines) {
+                  const cleanLine = line.replace(/^\[\d+[–-]\d+s\]\s*/, "").trim();
+                  if (cleanLine) {
+                    const words = cleanLine.split(/\s+/).filter(Boolean);
+                    if (words.length > 8) {
+                      console.log("ADS script rejected - line too long:", cleanLine);
+                      return false;
+                    }
+                  }
                 }
               }
+              
+              return true;
+            });
+
+            // If all were filtered out, use fallbacks
+            if (suggestions.length === 0) {
+              throw new Error("All suggestions filtered for quality");
             }
           }
-          
-          return true;
-        });
-
-        // If all were filtered out, use fallbacks
-        if (suggestions.length === 0) {
-          throw new Error("All suggestions filtered for quality");
         }
       } else {
         throw new Error("No JSON found in response");
@@ -477,7 +547,16 @@ Réponds UNIQUEMENT avec un JSON valide :
       ];
     }
 
-    console.log("Suggestions generated successfully:", suggestions.length);
+    // Return appropriate format based on content type
+    if (contentType === "social_post" && socialSuggestion) {
+      console.log("Returning social post suggestion");
+      return new Response(
+        JSON.stringify({ suggestion: socialSuggestion }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("Suggestions generated successfully:", suggestions?.length || 0);
 
     return new Response(
       JSON.stringify({ suggestions }),
