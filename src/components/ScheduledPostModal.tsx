@@ -154,6 +154,10 @@ export const ScheduledPostModal = ({
   const [selectedProduct, setSelectedProduct] = useState<CommercialProduct | null>(null);
   const [activeTab, setActiveTab] = useState("details");
   
+  // Expand/collapse states for long text
+  const [expandPrompt, setExpandPrompt] = useState(false);
+  const [expandContent, setExpandContent] = useState(false);
+  
   // Video generation options
   const [enableVoice, setEnableVoice] = useState(true);
   const [selectedLanguage, setSelectedLanguage] = useState<VoiceLanguage>("en");
@@ -163,6 +167,12 @@ export const ScheduledPostModal = ({
   
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  
+  // Truncate text helper
+  const truncateText = (text: string, maxLength: number) => {
+    if (text.length <= maxLength) return { text, truncated: false };
+    return { text: text.substring(0, maxLength) + "...", truncated: true };
+  };
 
   // Initialize platforms and voice from post
   useEffect(() => {
@@ -609,47 +619,85 @@ export const ScheduledPostModal = ({
 
         <ScrollArea className="flex-1 mt-4">
           <TabsContent value="details" className="space-y-4 m-0 px-1">
-            {/* Media Preview */}
+            {/* Media Preview - Always show if available */}
             {(post.media_url || post.thumbnail_url) && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="relative aspect-video overflow-hidden rounded-xl bg-muted"
+                className="relative overflow-hidden rounded-xl bg-muted border border-border"
               >
-                {post.content_type === "video" ? (
-                  <video
-                    src={post.media_url || undefined}
-                    poster={post.thumbnail_url || undefined}
-                    controls
-                    className="h-full w-full object-cover"
-                  />
+                {post.content_type === "video" || post.content_type === "reel" ? (
+                  <div className="aspect-video">
+                    <video
+                      src={post.media_url || undefined}
+                      poster={post.thumbnail_url || undefined}
+                      controls
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
                 ) : (
-                  <img
-                    src={post.media_url || post.thumbnail_url || undefined}
-                    alt="Post media"
-                    className="h-full w-full object-cover"
-                  />
+                  <div className="aspect-square max-h-64 sm:max-h-80">
+                    <img
+                      src={post.media_url || post.thumbnail_url || undefined}
+                      alt="Post media"
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
                 )}
               </motion.div>
             )}
 
-            {/* AI Prompt / Subject */}
+            {/* AI Prompt / Subject - Collapsible */}
             {post.ai_prompt && (
               <div className="rounded-xl bg-muted/50 p-3 sm:p-4">
                 <h4 className="mb-2 text-xs sm:text-sm font-medium text-muted-foreground">
                   Subject / AI Prompt
                 </h4>
-                <p className="text-xs sm:text-sm">{post.ai_prompt}</p>
+                {(() => {
+                  const { text, truncated } = truncateText(post.ai_prompt, 150);
+                  return (
+                    <>
+                      <p className="text-xs sm:text-sm">
+                        {expandPrompt ? post.ai_prompt : text}
+                      </p>
+                      {truncated && (
+                        <button
+                          onClick={() => setExpandPrompt(!expandPrompt)}
+                          className="mt-2 text-xs font-medium text-primary hover:underline"
+                        >
+                          {expandPrompt ? "Show less" : "Read more"}
+                        </button>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             )}
 
-            {/* Text Content */}
+            {/* Text Content - Collapsible */}
             {post.text_content && (
               <div className="rounded-xl border border-border p-3 sm:p-4">
                 <h4 className="mb-2 text-xs sm:text-sm font-medium text-muted-foreground">
                   Content
                 </h4>
-                <p className="whitespace-pre-wrap text-xs sm:text-sm">{post.text_content}</p>
+                {(() => {
+                  const { text, truncated } = truncateText(post.text_content, 200);
+                  return (
+                    <>
+                      <p className="whitespace-pre-wrap text-xs sm:text-sm">
+                        {expandContent ? post.text_content : text}
+                      </p>
+                      {truncated && (
+                        <button
+                          onClick={() => setExpandContent(!expandContent)}
+                          className="mt-2 text-xs font-medium text-primary hover:underline"
+                        >
+                          {expandContent ? "Show less" : "Read more"}
+                        </button>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             )}
 
