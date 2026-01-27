@@ -36,7 +36,7 @@ export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
     salePriceUnit: "/image",
     description: "Quality images for your daily posts",
     features: ["HD Quality", "Fast generation", "All styles"],
-    internalModels: ["flux-2-flex", "kling-image"],
+    internalModels: ["flux-2-flex"], // ONE model only
     needsVoice: false,
   },
   {
@@ -48,7 +48,7 @@ export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
     salePriceUnit: "/image",
     description: "Premium photorealistic images",
     features: ["Ultra HD 2K", "Photorealistic", "Premium styles"],
-    internalModels: ["flux-2-pro", "nano-banana-pro"],
+    internalModels: ["nano-banana-pro"], // ONE model only
     needsVoice: false,
     popular: true,
   },
@@ -61,7 +61,7 @@ export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
     salePriceUnit: "/image",
     description: "Professional studio quality",
     features: ["4K Ultra HD", "Perfect consistency", "Brand identity"],
-    internalModels: ["gpt-image-1.5"],
+    internalModels: ["gpt-image-1.5"], // ONE model only
     needsVoice: false,
     badge: "PRO",
   },
@@ -75,10 +75,10 @@ export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
     salePrice: 15,
     salePriceUnit: "/video",
     description: "Short videos for your social networks",
-    features: ["HD 1080p", "4-10s", "AI Voice included"],
-    internalModels: ["kling-v2-master", "minimax-hailuo"],
+    features: ["HD 1080p", "5-10s", "AI Voice included"],
+    internalModels: ["kling-v2-master"], // ONE model: Kling
     needsVoice: true,
-    supportedDurations: [4, 6, 10],
+    supportedDurations: [5, 10],
   },
   {
     id: "ai-reel-pro",
@@ -89,7 +89,7 @@ export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
     salePriceUnit: "/video",
     description: "Ultra-smooth premium videos",
     features: ["Full HD", "4-12s", "Natural voice", "Smooth motion"],
-    internalModels: ["sora-2", "sora-2-pro"],
+    internalModels: ["sora-2"], // ONE model: Sora 2
     needsVoice: true,
     supportedDurations: [4, 8, 12],
     popular: true,
@@ -102,10 +102,10 @@ export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
     salePrice: 69,
     salePriceUnit: "/video",
     description: "Professional cinema quality",
-    features: ["4K HDR", "10-30s", "Cinematic rendering", "Premium audio"],
-    internalModels: ["veo-3.1", "veo-3.1-pro"],
+    features: ["4K HDR", "5-10s", "Cinematic rendering", "Premium audio"],
+    internalModels: ["veo-3.1"], // ONE model: Veo
     needsVoice: true,
-    supportedDurations: [10, 20, 30],
+    supportedDurations: [5, 10],
     badge: "CINEMA",
   },
 
@@ -118,11 +118,11 @@ export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
     salePrice: 39,
     salePriceUnit: "/video",
     description: "Realistic talking avatar for your content",
-    features: ["HD Lip-sync", "5-15s", "Natural voice", "Expressions"],
-    internalModels: ["kling-lip-sync", "sync-labs"],
+    features: ["HD Lip-sync", "5-10s", "Natural voice", "Expressions"],
+    internalModels: ["kling-lip-sync"], // ONE model: Kling Lip-Sync
     needsVoice: true,
     needsAvatar: true,
-    supportedDurations: [5, 10, 15],
+    supportedDurations: [5, 10],
   },
   {
     id: "ai-influencer-pro",
@@ -132,11 +132,11 @@ export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
     salePrice: 69,
     salePriceUnit: "/video",
     description: "Premium avatar with natural emotions",
-    features: ["Ultra HD", "10-60s", "Multi-expressions", "Storytelling"],
-    internalModels: ["kling-lip-sync-pro", "hedra-avatar"],
+    features: ["Ultra HD", "5-60s", "Multi-expressions", "Storytelling"],
+    internalModels: ["hedra-avatar"], // ONE model: Hedra
     needsVoice: true,
     needsAvatar: true,
-    supportedDurations: [10, 20, 30, 60],
+    supportedDurations: [5, 10, 15, 30, 60],
     badge: "PRO",
     popular: true,
   },
