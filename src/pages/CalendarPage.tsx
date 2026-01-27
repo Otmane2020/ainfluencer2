@@ -245,7 +245,7 @@ const CalendarPage = () => {
       return;
     }
 
-    // 5. Show feedback
+    // 5. Show feedback and throw if failed (so modal catches it)
     if (allMetaSuccess && metaResults.length > 0) {
       toast({
         title: "Published! 🎉",
@@ -257,6 +257,7 @@ const CalendarPage = () => {
         description: `Some platforms failed: ${errorMessage}`,
         variant: "destructive",
       });
+      throw new Error(errorMessage || "Some platforms failed");
     } else if (metaResults.length === 0) {
       toast({
         title: "Post scheduled ✓",
@@ -268,6 +269,7 @@ const CalendarPage = () => {
         description: errorMessage || "Unable to post to social media",
         variant: "destructive",
       });
+      throw new Error(errorMessage || "Publishing failed");
     }
     
     fetchPosts();

@@ -278,10 +278,8 @@ export const useMetaOAuth = () => {
         const data = await response.json();
 
         if (data.success) {
-          toast({
-            title: "Published! 🎉",
-            description: `Content shared on ${platform === "facebook" ? "Facebook" : "Instagram"}`,
-          });
+          // Don't show toast here - let the caller (CalendarPage) show feedback
+          console.log(`[shareToMeta] Successfully posted to ${platform}:`, data.postId);
           return { success: true, postId: data.postId };
         } else {
           throw new Error(data.error || "Unknown error");
