@@ -69,21 +69,22 @@ export const useMetaOAuth = () => {
 
   // Listen for OAuth callback messages with origin verification
   useEffect(() => {
-    let receivedMessage = false;
-
     const handleMessage = (event: MessageEvent) => {
-      // Security: verify origin
-      if (!event.origin.includes("supabase.co") && !event.origin.includes(window.location.hostname)) {
+      // Security: verify origin - allow supabase.co and our app origin
+      const allowedOrigins = ["supabase.co", window.location.hostname];
+      const isAllowedOrigin = allowedOrigins.some(origin => event.origin.includes(origin));
+      
+      if (!isAllowedOrigin) {
+        console.log("[useMetaOAuth] Ignoring message from:", event.origin);
         return;
       }
 
-      console.log("[useMetaOAuth] Received message:", event.data?.type);
+      console.log("[useMetaOAuth] Received message:", event.data?.type, "from:", event.origin);
 
       if (event.data?.type === "meta-oauth-success") {
-        receivedMessage = true;
-        const { user, instagram, hasPageAccess, expiresAt } = event.data;
+        const { user, instagram, hasPageAccess, expiresAt, availablePages, selectedPage } = event.data;
         
-        console.log("[useMetaOAuth] OAuth success for user:", user?.name);
+        console.log("[useMetaOAuth] OAuth success for user:", user?.name, "Pages:", availablePages?.length || 0, "Instagram:", instagram?.username || "none");
 
         setConnection({
           user,
@@ -94,12 +95,19 @@ export const useMetaOAuth = () => {
         
         setIsConnecting(false);
         
+        const instagramInfo = instagram ? ` (Instagram: @${instagram.username})` : 
+          (hasPageAccess ? " (No Instagram Business account linked to Page)" : " (No Facebook Page access)");
+        
         toast({
           title: "Connected! 🎉",
-          description: `Account ${user.name} linked successfully${instagram ? ` (Instagram: @${instagram.username})` : ""}`,
+          description: `Account ${user.name} linked successfully${instagramInfo}`,
         });
+
+        // Redirect to integrations page after successful connection
+        if (window.location.pathname !== "/integrations") {
+          window.location.href = "/integrations";
+        }
       } else if (event.data?.type === "meta-oauth-error") {
-        receivedMessage = true;
         console.error("[useMetaOAuth] OAuth error:", event.data.error);
         setIsConnecting(false);
 
@@ -107,7 +115,7 @@ export const useMetaOAuth = () => {
         const error = event.data.error;
 
         if (error?.includes("access_denied") || error?.includes("user_denied")) {
-          errorMessage = "You declined the required permissions";
+          errorMessage = "You declined the required permissions. Please make sure to select at least one Facebook Page.";
         } else if (error?.includes("invalid_client")) {
           errorMessage = "Meta app configuration error";
         } else if (error?.includes("redirect_uri")) {
