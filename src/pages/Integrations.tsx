@@ -111,7 +111,7 @@ const Integrations = () => {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : isConnected && metaConnectionData ? (
-            <div className="space-y-4">
+          <div className="space-y-4">
               {/* Facebook Account */}
               <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
                 <div className="flex items-center gap-3">
@@ -124,14 +124,52 @@ const Integrations = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {metaConnectionData.page_id && (
+                  {metaConnectionData.page_id ? (
                     <Badge variant="secondary" className="text-xs">
                       Page linked
                     </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/30">
+                      No Page
+                    </Badge>
                   )}
-                  <Check className="h-4 w-4 text-green-500" />
+                  {metaConnectionData.page_id ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 text-amber-500" />
+                  )}
                 </div>
               </div>
+
+              {/* No Facebook Page Warning */}
+              {!metaConnectionData.page_id && (
+                <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-destructive">
+                        No Facebook Page Found
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        To publish automatically, you need a <strong>Facebook Page</strong> (not a personal profile). Meta only allows publishing to Pages.
+                      </p>
+                      <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
+                        <li>Create a Facebook Page if you don't have one</li>
+                        <li>Make sure you are an <strong>Admin</strong> of the Page</li>
+                        <li>During OAuth, select the Pages you want to grant access to</li>
+                      </ul>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => { disconnect(); setTimeout(connect, 500); }}
+                        className="mt-2"
+                      >
+                        Reconnect with Pages
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Instagram Account */}
               <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
