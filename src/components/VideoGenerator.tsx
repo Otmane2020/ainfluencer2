@@ -361,13 +361,37 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
     }
   };
 
-  // Handle scenario selection from modal
+  // Handle scenario selection from modal - insert COMPLETE formatted prompt
   const handleScenarioSelect = (scenario: GeneratedScenario) => {
     if (pendingScenarioSegmentId) {
-      updateSegment(pendingScenarioSegmentId, { script: scenario.fullScript });
+      // Build complete formatted video prompt with scenes breakdown
+      const formattedScenes = scenario.scenes
+        .map((scene) => `${scene.timestamp}\nVisual: ${scene.visual}\nVoiceover: "${scene.voiceover}"`)
+        .join("\n\n");
+      
+      const formattedHashtags = scenario.hashtags
+        .map((h) => (h.startsWith("#") ? h : `#${h}`))
+        .join(" ");
+      
+      // Complete video prompt with all details
+      const completePrompt = `🎬 ${scenario.title.toUpperCase()}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 Angle: ${scenario.angle.toUpperCase()}
+📊 Engagement: ${scenario.estimatedEngagement.toUpperCase()}
+
+📜 SCRIPT:
+${scenario.fullScript}
+
+🎥 SCENE BREAKDOWN:
+${formattedScenes}
+
+${formattedHashtags}`;
+
+      updateSegment(pendingScenarioSegmentId, { script: completePrompt });
       toast({
-        title: "Scenario selected! ✨",
-        description: scenario.title,
+        title: "Scenario inserted! ✨",
+        description: `${scenario.title} - ${scenario.scenes.length} scenes ready`,
       });
     }
     setPendingScenarioSegmentId(null);
