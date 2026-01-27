@@ -246,7 +246,9 @@ serve(async (req) => {
             messages: [
               {
                 role: "system",
-                content: `You are an expert content creator for ${project.name}. ${langInstruction}
+                content: isVideo ? 
+                  // VIDEO SCRIPT PROMPT
+                  `You are an expert video script writer for ${project.name}. ${langInstruction}
 
 PROJECT CONTEXT:
 - Name: ${project.name}
@@ -256,32 +258,66 @@ PROJECT CONTEXT:
 ${project.logo_url ? `- Logo URL: ${project.logo_url}` : ""}
 
 CAMPAIGN SETTINGS:
-- Type: ${campaign.campaign_type}
 - Tone: ${campaign.tone || "professional"}
 - Format: ${campaign.format || "reel"}
 ${campaign.subject ? `- Focus topic: ${campaign.subject}` : ""}
 
-Generate ${isVideo ? "a video script" : "an image prompt"} that DIRECTLY promotes and showcases this brand.
-
-${isVideo ? `
 VIDEO SCRIPT RULES:
 - Write a compelling 15-30 second script with timestamped scenes
 - Include voiceover text for each scene
 - Focus on the brand's products/services/benefits
 - Format: [0-3s] Scene description. Voiceover: "Text to speak"
-` : `
-IMAGE PROMPT RULES:
-- Write a detailed visual description for AI image generation
-- Include: subject, setting, lighting, colors, composition, style
-- Must directly showcase the brand, product, or service
-- Do NOT include any text, logos, or watermarks in the image
-- End with: "Ultra high resolution, professional quality"
-`}
 
 Respond ONLY with valid JSON:
 {
   "title": "Short descriptive title",
-  "aiPrompt": "The ${isVideo ? "video script" : "image prompt"}",
+  "aiPrompt": "The complete video script with timestamps",
+  "textContent": "Social media caption with hashtags (8-12 relevant hashtags)",
+  "angle": "problem|benefit|emotion|proof|urgency"
+}` 
+                  : 
+                  // IMAGE PROMPT - COMPLETELY SEPARATE AND EXPLICIT
+                  `You are an expert AI IMAGE prompt engineer. ${langInstruction}
+
+⚠️ CRITICAL: You are generating a prompt for STATIC IMAGE generation, NOT video.
+Your output will be used by an AI image generator (like DALL-E or Midjourney).
+
+FORBIDDEN (will cause generation failure):
+❌ NO motion words: "moving", "walking", "talking", "animation", "video", "motion"
+❌ NO time references: "then", "next", "after", "scene 1", "0-3s"
+❌ NO sound references: "voiceover", "music", "speaking", "audio"
+❌ NO video terms: "clip", "footage", "reel", "story", "montage"
+❌ NO text overlays or UI elements in the image
+
+REQUIRED (for successful image generation):
+✅ Subject: What is the main focus (person, product, object)
+✅ Setting: Where is this taking place (studio, office, outdoors)
+✅ Lighting: Type of light (soft natural light, studio lighting, golden hour)
+✅ Composition: How is it framed (close-up, wide shot, flat lay)
+✅ Colors: Color palette aligned with brand (mention ${project.theme_color || "brand colors"})
+✅ Style: Photography style (professional, editorial, lifestyle, product photography)
+✅ Quality: End with "Ultra high resolution, professional quality"
+
+PROJECT CONTEXT:
+- Brand: ${project.name}
+- Description: ${project.description || "Not specified"}
+- Website: ${project.url || "Not specified"}
+- Brand color: ${project.theme_color || "#6366F1"}
+
+CAMPAIGN SETTINGS:
+- Tone: ${campaign.tone || "professional"}
+- Format: ${campaign.format || "reel"} (this affects aspect ratio only, NOT motion)
+${campaign.subject ? `- Focus topic: ${campaign.subject}` : ""}
+
+EXAMPLE GOOD IMAGE PROMPTS:
+✅ "A professional flat lay composition on a clean white desk featuring a smartphone displaying the ClipMotion app interface, surrounded by creative tools like a stylus, notebook, and coffee cup. Soft natural lighting from a window, subtle shadows, brand purple (#6366F1) accent elements scattered around. Clean minimalist aesthetic, product photography style. Ultra high resolution, professional quality"
+
+✅ "A confident content creator sitting at a modern desk with dual monitors showing video editing software, warm ambient lighting, shallow depth of field focusing on their satisfied expression, modern office with plants and RGB lighting in brand purple tones. Lifestyle photography, authentic and aspirational mood. Ultra high resolution, professional quality"
+
+Respond ONLY with valid JSON:
+{
+  "title": "Short descriptive title for this image concept",
+  "aiPrompt": "The detailed STATIC IMAGE prompt (no motion, no video, no animation)",
   "textContent": "Social media caption with hashtags (8-12 relevant hashtags)",
   "angle": "problem|benefit|emotion|proof|urgency"
 }`
