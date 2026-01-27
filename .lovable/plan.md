@@ -1,60 +1,69 @@
 
 
-# Plan de correction : Barre de progression vidéo
+## Problem Identified
 
-## Contexte du bug
+The AI script generation in `VideoGenerator` is not receiving the scraped website content because of a **property name mismatch**:
 
-L'API CometAPI retourne bien une progression (20% visible dans les logs), mais la barre de progression reste à 0% dans l'interface. 
+| Component | What it accesses | What actually exists |
+|-----------|------------------|----------------------|
+| VideoGenerator.tsx (line 302) | `scrapeData?.content` | Does not exist |
+| scrape-project-url returns | - | `scrapeData?.markdown` |
 
-## Causes identifiées
+This is why the AI has no context - the `scrapedContent` variable is always `undefined`.
 
-1. **Closure stale** : Le polling utilise `segmentsWithTasks` capturé au moment de la création de l'intervalle, au lieu d'utiliser une référence mise à jour
-2. **Pas de polling initial** : Le premier appel de status ne se fait qu'après le délai du `setInterval`
-3. **Affichage "In queue"** : Quand le status est `queued`, le texte affiche "In queue..." même si progress > 0
+---
 
-## Modifications prévues
+## Root Cause Analysis
 
-### 1. VideoGenerator.tsx - Refactoriser le polling
-
-- Utiliser `useRef` pour maintenir une référence aux segments actifs
-- Ajouter un appel de status immédiat avant le setInterval
-- S'assurer que les mises à jour d'état sont correctement propagées aux `generationTasks`
-
-### 2. GenerationProgressModal.tsx - Améliorer l'affichage
-
-- Afficher la progression même quand le status est `queued` (car l'API retourne progress même en file d'attente)
-- Changer le texte de "In queue..." vers "In queue... X%" pour montrer la vraie progression
-
-### 3. Edge function - Vérification du parsing
-
-- S'assurer que le progress string "20%" est correctement parsé en nombre 20
-
-## Détails techniques
-
-```text
-Flux actuel (bugué) :
-┌─────────────┐     ┌──────────────────┐     ┌─────────────┐
-│  API Call   │────▶│ segmentsWithTasks │────▶│   Modal     │
-│  (status)   │     │  (closure figée)  │     │ progress=0  │
-└─────────────┘     └──────────────────┘     └─────────────┘
-
-Flux corrigé :
-┌─────────────┐     ┌──────────────────┐     ┌─────────────┐
-│  API Call   │────▶│   segmentsRef    │────▶│   Modal     │
-│  (status)   │     │  (useRef actuel) │     │ progress=20 │
-└─────────────┘     └──────────────────┘     └─────────────┘
+In `src/components/VideoGenerator.tsx` (lines 299-302):
+```typescript
+const { data: scrapeData } = await supabase.functions.invoke("scrape-project-url", {
+  body: { url: project.url },
+});
+scrapedContent = scrapeData?.content?.slice(0, 3000); // WRONG - should be .markdown
 ```
 
-## Fichiers à modifier
+But `scrape-project-url/index.ts` returns (line 69-77):
+```typescript
+const scrapedData = {
+  success: true,
+  markdown: data.data?.markdown || "",  // This is the actual property name
+  // ... other fields
+};
+```
 
-| Fichier | Changement |
-|---------|------------|
-| `src/components/VideoGenerator.tsx` | Refactoriser le polling avec useRef, ajouter polling initial immédiat |
-| `src/components/GenerationProgressModal.tsx` | Afficher progression même en status "queued" |
+---
 
-## Résultat attendu
+## Fix Required
 
-- La barre de progression se met à jour en temps réel (toutes les 10 secondes)
-- L'utilisateur voit la progression passer de 0% → 20% → 50% → 100%
-- Le modal affiche correctement le statut même en file d'attente
+### File: `src/components/VideoGenerator.tsx`
+
+**Change line 302 from:**
+```typescript
+scrapedContent = scrapeData?.content?.slice(0, 3000);
+```
+
+**To:**
+```typescript
+scrapedContent = scrapeData?.markdown?.slice(0, 3000);
+```
+
+---
+
+## Technical Details
+
+This single-line fix will:
+1. Correctly extract the website markdown content from the Firecrawl scraping response
+2. Pass that content to the `suggest-content` edge function via the `scrapedContent` parameter
+3. Enable the AI to generate contextual scripts using the project's website information (just like Planning does)
+
+---
+
+## Expected Result
+
+After fixing, when you click the AI sparkles button:
+- The system will scrape the project URL
+- Extract the markdown content (up to 3000 characters)
+- Pass it to the AI along with the project name, description, and scenario
+- Generate detailed scripts with scenes and context (matching Planning output)
 
