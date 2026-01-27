@@ -8,12 +8,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { AI_MODELS, type AIModel } from "@/components/ModelSelector";
 import { ProductSelector } from "@/components/ProductSelector";
 import { VoiceSelector } from "@/components/VoiceSelector";
+import { ScenarioSelector } from "@/components/ScenarioSelector";
 import { AVAILABLE_VOICES, getDefaultVoice, type Voice } from "@/lib/voices";
 import {
   COMMERCIAL_PRODUCTS,
   CommercialProduct,
   getPrimaryInternalModel,
 } from "@/lib/commercialProducts";
+import {
+  VideoScenario,
+  buildScenarioPrompt,
+} from "@/lib/videoScenarios";
 import {
   Dialog,
   DialogContent,
@@ -150,6 +155,12 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
   // Quality and continuation state
   const [selectedQuality, setSelectedQualityState] = useState<VideoQuality>(storedPrefs.quality || "1080p");
   const [startingFrameUrl, setStartingFrameUrlState] = useState<string | undefined>(storedPrefs.startingFrameUrl);
+
+  // Scenario state
+  const [selectedSector, setSelectedSector] = useState<VideoScenario | undefined>();
+  const [selectedStyle, setSelectedStyle] = useState<VideoScenario | undefined>();
+  const [selectedTone, setSelectedTone] = useState<VideoScenario | undefined>();
+
 
   // Wrapper functions to persist preferences
   const setSelectedVoice = (voice: Voice) => {
@@ -470,7 +481,7 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
                 Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
               },
               body: JSON.stringify({
-                prompt: segment.script,
+                prompt: buildScenarioPrompt(selectedSector, selectedStyle, selectedTone) + segment.script,
                 avatarUrl,
                 duration: segment.duration,
                 quality: selectedQuality,
@@ -842,6 +853,16 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
             </div>
           </PopoverContent>
         </Popover>
+
+        {/* Scenario Selector */}
+        <ScenarioSelector
+          selectedSector={selectedSector}
+          selectedStyle={selectedStyle}
+          selectedTone={selectedTone}
+          onSectorChange={setSelectedSector}
+          onStyleChange={setSelectedStyle}
+          onToneChange={setSelectedTone}
+        />
 
         {/* Starting Frame Indicator (for video continuation) */}
         {startingFrameUrl && (
