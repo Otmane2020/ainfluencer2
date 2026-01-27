@@ -4,8 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { format } from "date-fns";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
 
 interface ContentItem {
   id: string;
@@ -84,21 +82,9 @@ export const ContentHistoryItem = ({
     return Math.min(95, Math.round((elapsed / estimatedTime) * 100));
   };
 
-  const handleRetry = async () => {
+  const handleRetry = () => {
     if (onRegenerate) {
       onRegenerate(item);
-    } else {
-      // Fallback: call edge function directly
-      toast({ title: "Regenerating...", description: "Triggering image generation" });
-      try {
-        const { error } = await supabase.functions.invoke("generate-campaign-content", {
-          body: { postId: item.id },
-        });
-        if (error) throw error;
-        toast({ title: "Generation started", description: "Image will appear shortly" });
-      } catch (err: any) {
-        toast({ title: "Error", description: err.message, variant: "destructive" });
-      }
     }
   };
 
