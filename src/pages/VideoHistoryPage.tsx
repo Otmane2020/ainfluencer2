@@ -28,17 +28,70 @@ const VideoHistoryPage = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const { fetchStoredVideos, isLoading: isLoadingVideos } = useStoredVideos();
-  const { tasks: pendingTasks, getPendingTasks, updateTask } = useGenerationTasks();
+  const { tasks, getPendingTasks, updateTask } = useGenerationTasks();
   const { toast } = useToast();
 
+  // Get all in-progress tasks (queued or in_progress status)
   const activeTasks = getPendingTasks();
+  
+  // Debug: log active tasks on mount and when they change
+  useEffect(() => {
+    console.log("[VideoHistory] All tasks:", tasks);
+    console.log("[VideoHistory] Active tasks:", activeTasks);
+  }, [tasks, activeTasks]);
 
   useEffect(() => {
     fetchProjects();
     loadVideos();
   }, []);
 
-  // Poll for pending tasks status
+  // Immediate status check for any pending tasks on mount
+  useEffect(() => {
+    const checkImmediateStatus = async () => {
+      for (const task of activeTasks) {
+        try {
+          console.log("[VideoHistory] Checking status for task:", task.taskId);
+          const statusResponse = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-sora?action=status&taskId=${task.taskId}`,
+            {
+              method: "GET",
+              headers: {
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
+            }
+          );
+
+          if (statusResponse.ok) {
+            const status = await statusResponse.json();
+            console.log("[VideoHistory] Status response:", status);
+            updateTask(task.taskId, {
+              status: status.status,
+              progress: status.progress || 0,
+              finishTime: status.finishTime,
+              videoUrl: status.videoUrl,
+            });
+
+            if (status.status === "completed") {
+              loadVideos();
+              toast({
+                title: "Video ready! 🎬",
+                description: "Your video has been generated successfully",
+              });
+            }
+          }
+        } catch (error) {
+          console.error("[VideoHistory] Status check error:", error);
+        }
+      }
+    };
+
+    if (activeTasks.length > 0) {
+      checkImmediateStatus();
+    }
+  }, []); // Only on mount
+
+  // Poll for pending tasks status every 10 seconds
   useEffect(() => {
     if (activeTasks.length === 0) return;
 
@@ -65,7 +118,6 @@ const VideoHistoryPage = () => {
               videoUrl: status.videoUrl,
             });
 
-            // If completed, refresh the video list
             if (status.status === "completed") {
               loadVideos();
               toast({
