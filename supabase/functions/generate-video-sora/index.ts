@@ -5,12 +5,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Available sizes for Sora-2 (4K is NOT supported by the API)
+// Valid sizes for Sora-2 API (CometAPI accepts specific sizes only)
+// Standard sizes: 480x480, 720x480, 1280x720, 480x720, 720x1280
 const QUALITY_SIZES: Record<string, { portrait: string; landscape: string }> = {
   "720p": { portrait: "720x1280", landscape: "1280x720" },
-  "1080p": { portrait: "1080x1920", landscape: "1920x1080" },
-  // 4K is NOT supported by Sora-2, fallback to 1080p
-  "4k": { portrait: "1080x1920", landscape: "1920x1080" },
+  // 1080p falls back to 720p as CometAPI doesn't support 1080x1920
+  "1080p": { portrait: "720x1280", landscape: "1280x720" },
+  // 4K also falls back to 720p (max supported)
+  "4k": { portrait: "720x1280", landscape: "1280x720" },
 };
 
 interface VideoRequest {
