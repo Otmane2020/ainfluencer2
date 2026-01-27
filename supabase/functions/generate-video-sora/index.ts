@@ -5,11 +5,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Available sizes for different quality levels
-const QUALITY_SIZES = {
+// Available sizes for Sora-2 (4K is NOT supported by the API)
+const QUALITY_SIZES: Record<string, { portrait: string; landscape: string }> = {
   "720p": { portrait: "720x1280", landscape: "1280x720" },
   "1080p": { portrait: "1080x1920", landscape: "1920x1080" },
-  "4k": { portrait: "2160x3840", landscape: "3840x2160" },
+  // 4K is NOT supported by Sora-2, fallback to 1080p
+  "4k": { portrait: "1080x1920", landscape: "1920x1080" },
 };
 
 interface VideoRequest {
