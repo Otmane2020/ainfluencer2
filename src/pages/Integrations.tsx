@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Shield, Plug, Instagram, Facebook, Linkedin, Check, AlertCircle, LogOut, Loader2 } from "lucide-react";
+import { Shield, Plug, Instagram, Facebook, Linkedin, Check, AlertCircle, LogOut, Loader2, Clock, ChevronRight, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useMetaOAuth } from "@/hooks/useMetaOAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { formatDistanceToNow } from "date-fns";
+import { enUS } from "date-fns/locale";
 
 // TikTok icon component
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -20,15 +23,27 @@ interface MetaConnectionData {
   instagram_username: string | null;
   page_id: string | null;
   expires_at: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface Project {
+  id: string;
+  name: string;
+  theme_color: string | null;
+  instagram_enabled: boolean;
+  facebook_enabled: boolean;
 }
 
 const Integrations = () => {
   const { toast } = useToast();
   const { connection, isConnecting, connect, disconnect, isConnected, isLoading } = useMetaOAuth();
   const [metaConnectionData, setMetaConnectionData] = useState<MetaConnectionData | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
 
   useEffect(() => {
     fetchMetaConnection();
+    fetchProjects();
   }, [isConnected]);
 
   const fetchMetaConnection = async () => {
@@ -38,7 +53,7 @@ const Integrations = () => {
 
       const { data } = await supabase
         .from("meta_connections")
-        .select("fb_user_name, fb_picture_url, instagram_username, page_id, expires_at")
+        .select("fb_user_name, fb_picture_url, instagram_username, page_id, expires_at, created_at, updated_at")
         .eq("user_id", session.user.id)
         .maybeSingle();
 
@@ -47,6 +62,21 @@ const Integrations = () => {
       }
     } catch (error) {
       console.error("Error fetching meta connection:", error);
+    }
+  };
+
+  const fetchProjects = async () => {
+    try {
+      const { data } = await supabase
+        .from("projects")
+        .select("id, name, theme_color, instagram_enabled, facebook_enabled")
+        .order("name", { ascending: true });
+
+      if (data) {
+        setProjects(data);
+      }
+    } catch (error) {
+      console.error("Error fetching projects:", error);
     }
   };
 
@@ -77,6 +107,22 @@ const Integrations = () => {
     ? new Date(metaConnectionData.expires_at) < new Date()
     : false;
 
+  // Check if "just connected" (within last 5 minutes)
+  const isJustConnected = metaConnectionData?.updated_at
+    ? (Date.now() - new Date(metaConnectionData.updated_at).getTime()) < 5 * 60 * 1000
+    : false;
+
+  const getConnectionAge = () => {
+    if (!metaConnectionData?.updated_at) return null;
+    return formatDistanceToNow(new Date(metaConnectionData.updated_at), { 
+      addSuffix: true, 
+      locale: enUS 
+    });
+  };
+
+  // Projects using Meta platforms
+  const projectsWithMeta = projects.filter(p => p.instagram_enabled || p.facebook_enabled);
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
@@ -97,12 +143,20 @@ const Integrations = () => {
                 <CardDescription>Facebook & Instagram</CardDescription>
               </div>
             </div>
-            {isConnected && (
-              <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
-                <Check className="h-3 w-3 mr-1" />
-                Connected
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {isJustConnected && (
+                <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30 animate-pulse">
+                  <Clock className="h-3 w-3 mr-1" />
+                  Just connected
+                </Badge>
+              )}
+              {isConnected && !isJustConnected && (
+                <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
+                  <Check className="h-3 w-3 mr-1" />
+                  Connected
+                </Badge>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -112,6 +166,14 @@ const Integrations = () => {
             </div>
           ) : isConnected && metaConnectionData ? (
           <div className="space-y-4">
+              {/* Connection Age */}
+              {getConnectionAge() && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  Connected {getConnectionAge()}
+                </div>
+              )}
+
               {/* Facebook Account */}
               <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
                 <div className="flex items-center gap-3">
@@ -255,6 +317,59 @@ const Integrations = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Projects Using Meta */}
+      {isConnected && projectsWithMeta.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
+                <Building2 className="h-5 w-5 text-foreground" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Projects Using This Connection</CardTitle>
+                <CardDescription>{projectsWithMeta.length} project{projectsWithMeta.length > 1 ? 's' : ''} with Meta platforms enabled</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {projectsWithMeta.map((project) => (
+              <Link
+                key={project.id}
+                to={`/projects/${project.id}`}
+                className="flex items-center justify-between p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-muted/50 transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className="h-8 w-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+                    style={{ backgroundColor: project.theme_color || "#6366F1" }}
+                  >
+                    {project.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">{project.name}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {project.facebook_enabled && (
+                        <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+                          <Facebook className="h-2.5 w-2.5 mr-0.5" />
+                          FB
+                        </Badge>
+                      )}
+                      {project.instagram_enabled && (
+                        <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+                          <Instagram className="h-2.5 w-2.5 mr-0.5" />
+                          IG
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Other Platforms */}
       <Card>

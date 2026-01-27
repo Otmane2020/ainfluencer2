@@ -474,6 +474,36 @@ const ProjectDetail = () => {
                 </Badge>
               ))}
             </div>
+            
+            {/* Meta Connection Status */}
+            {(project.facebook_enabled || project.instagram_enabled) && (
+              <div className="mt-4 pt-4 border-t space-y-2">
+                {metaConnection ? (
+                  <div className="flex items-center gap-2 text-xs">
+                    <Check className="h-3 w-3 text-green-500" />
+                    <span className="text-muted-foreground">
+                      Meta connected as <span className="font-medium text-foreground">{metaConnection.fb_user_name}</span>
+                    </span>
+                    {metaConnection.instagram_username && (
+                      <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+                        @{metaConnection.instagram_username}
+                      </Badge>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs text-amber-500">
+                      <AlertCircle className="h-3 w-3" />
+                      Meta not connected
+                    </div>
+                    <Link to="/integrations" className="text-xs text-primary hover:underline">
+                      Connect
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+            
             <div className="mt-4 pt-4 border-t">
               <p className="text-sm text-muted-foreground">
                 <span className="font-medium">{project.posts_per_week}</span> posts/week
