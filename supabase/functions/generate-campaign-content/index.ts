@@ -17,6 +17,8 @@ interface Campaign {
   format: string;
   tone: string;
   subject: string | null;
+  posting_hour: number | null;
+  timezone: string | null;
 }
 
 interface Project {
@@ -129,7 +131,13 @@ serve(async (req) => {
       const dayOffset = Math.floor(i * (30 / totalPosts));
       const scheduledDate = new Date(now);
       scheduledDate.setDate(scheduledDate.getDate() + dayOffset + 1); // Start tomorrow
-      scheduledDate.setHours(10 + Math.floor(Math.random() * 8), 0, 0, 0); // Between 10am and 6pm
+      
+      // Use campaign's posting_hour or default to 10am
+      const postingHour = campaign.posting_hour ?? 10;
+      // Add small random variance (-1 to +1 hour) to avoid all posts at exact same time
+      const hourVariance = Math.floor(Math.random() * 3) - 1;
+      const finalHour = Math.max(8, Math.min(20, postingHour + hourVariance));
+      scheduledDate.setHours(finalHour, Math.floor(Math.random() * 60), 0, 0);
 
       scheduledPosts.push({
         contentType,

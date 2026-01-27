@@ -43,6 +43,8 @@ interface Campaign {
   total_published: number | null;
   created_at: string;
   project_id: string;
+  posting_hour: number | null;
+  timezone: string | null;
   projects?: { name: string; theme_color: string } | null;
 }
 
@@ -238,6 +240,15 @@ export const CampaignDetailModal = ({
                     <span className="text-muted-foreground">Format:</span>
                     <Badge variant="outline">{campaign.format}</Badge>
                   </div>
+                  {campaign.posting_hour !== null && (
+                    <div className="flex items-center gap-2 col-span-2">
+                      <Clock className="h-4 w-4 text-primary" />
+                      <span className="text-muted-foreground">Posting time:</span>
+                      <span className="font-medium">
+                        {campaign.posting_hour.toString().padStart(2, "0")}:00 ({campaign.timezone || "Europe/Paris"})
+                      </span>
+                    </div>
+                  )}
                 </div>
                 {campaign.subject && (
                   <div className="pt-2 border-t border-border">
