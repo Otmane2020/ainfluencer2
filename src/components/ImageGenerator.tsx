@@ -340,41 +340,52 @@ export const ImageGenerator = ({ onImageGenerated }: ImageGeneratorProps) => {
           {/* AI Sparkles Button */}
           <Popover open={projectSelectorOpen} onOpenChange={setProjectSelectorOpen}>
             <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-2 top-2 h-8 w-8"
-                disabled={isGeneratingPrompt || isGenerating}
-              >
-                {isGeneratingPrompt ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4 text-primary" />
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64 p-2" align="end">
-              <div className="text-xs font-medium mb-2 text-muted-foreground">
-                Generate from project context
+              <div className="absolute right-2 top-2 flex flex-col gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={isGeneratingPrompt || isGenerating}
+                >
+                  {isGeneratingPrompt ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4 text-primary" />
+                  )}
+                </Button>
+                <span className="text-[10px] text-center text-muted-foreground">AI</span>
               </div>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-3" align="end">
+              <div className="text-sm font-medium mb-3">
+                Generate from your project
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                AI will create a visual prompt showcasing your brand, products, and style based on your project's website content.
+              </p>
               <ScrollArea className="max-h-48">
                 <div className="space-y-1">
                   {projects.map((project) => (
                     <button
                       key={project.id}
                       onClick={() => generateAIPrompt(project)}
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted transition-colors"
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted transition-colors border border-transparent hover:border-border"
                     >
                       <div
-                        className="h-3 w-3 rounded-full shrink-0"
+                        className="h-4 w-4 rounded-full shrink-0 ring-2 ring-offset-2 ring-offset-background ring-primary"
                         style={{ backgroundColor: project.theme_color || "#6366f1" }}
                       />
-                      <span className="truncate">{project.name}</span>
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium truncate block">{project.name}</span>
+                        {project.url && (
+                          <span className="text-xs text-muted-foreground truncate block">{project.url}</span>
+                        )}
+                      </div>
                     </button>
                   ))}
                   {projects.length === 0 && (
-                    <p className="text-xs text-muted-foreground p-2">
-                      No projects yet. Create one first.
+                    <p className="text-xs text-muted-foreground p-2 text-center">
+                      No projects yet. Create one to generate branded content.
                     </p>
                   )}
                 </div>

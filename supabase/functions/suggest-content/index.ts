@@ -160,50 +160,72 @@ serve(async (req) => {
 
     if (contentType === "image_prompt") {
       // ============================================
-      // IMAGE PROMPT GENERATION (distinct from video!)
+      // IMAGE PROMPT GENERATION - BRAND FOCUSED
       // ============================================
       const sector = BUSINESS_SECTORS.find(s => s.id === sectorId);
       const style = VIDEO_STYLES.find(s => s.id === styleId);
       const tone = EMOTIONAL_TONES.find(t => t.id === toneId);
 
-      systemPrompt = `You are an expert AI image prompt engineer. Generate a detailed, visual prompt for AI image generation.
+      // Extract brand-specific elements from scraped content
+      const brandContext = scrapedContent ? `
+BRAND ANALYSIS FROM WEBSITE:
+${scrapedContent.substring(0, 2000)}
+
+Extract and incorporate:
+- Brand personality and values
+- Key products/services mentioned
+- Color palette and visual style hints
+- Target audience indicators
+- Unique selling propositions
+` : "";
+
+      systemPrompt = `You are an expert AI image prompt engineer specializing in BRAND-FOCUSED visual content.
+
+🎯 PRIMARY MISSION:
+Create image prompts that SHOWCASE and PROMOTE the specific brand/project. Every image should:
+- Clearly represent the brand's identity, products, or services
+- Appeal to the brand's target audience
+- Reinforce the brand's unique value proposition
+- Use visual elements consistent with the brand's website and style
 
 CRITICAL RULES:
 • ${languageInstruction}
 • Output is a VISUAL DESCRIPTION for an IMAGE, NOT a video script
 • NO dialogue, NO voiceover, NO timestamps, NO motion descriptions
-• Focus on: composition, colors, lighting, subjects, style, mood
-• Be specific about visual elements: "a warm-lit coffee shop with exposed brick walls" not "a nice cafe"
+• MUST be SPECIFIC to this brand - generic images are USELESS
+• Focus on: brand products, brand colors, brand aesthetic, brand message
 • Include style cues: "professional photography", "minimalist design", "editorial style"
-${logoUrl ? `• When appropriate, incorporate the brand logo or branded elements in the visual description` : ""}
+${logoUrl ? `• The brand logo is available at: ${logoUrl} - incorporate branded elements where appropriate` : ""}
 
-CONTEXT:
-- Project: ${projectName || "General"}
-- Description: ${projectDescription || "Not specified"}
-${projectUrl ? `- Website: ${projectUrl}` : ""}
-${scrapedContent ? `- Website content:\n${scrapedContent.substring(0, 1000)}` : ""}
-${sector ? `- Business sector: ${sector.name} - Visual elements: ${sector.visualContext}` : ""}
-${style ? `- Visual style: ${style.name} - ${style.visualInstructions}` : ""}
-${tone ? `- Mood/Tone: ${tone.name} - ${tone.atmosphereNotes}` : ""}
-${productName ? `- Product tier: ${productName}` : ""}
-${logoContext}
+📍 BRAND CONTEXT:
+- Brand/Project: ${projectName || "Unknown"}
+- What they do: ${projectDescription || "Not specified"}
+${projectUrl ? `- Official website: ${projectUrl}` : ""}
+${brandContext}
+${sector ? `- Industry sector: ${sector.name} - Typical visuals: ${sector.visualContext}` : ""}
+${style ? `- Visual approach: ${style.name} - ${style.visualInstructions}` : ""}
+${tone ? `- Brand mood: ${tone.name} - ${tone.atmosphereNotes}` : ""}
+${productName ? `- Content tier: ${productName}` : ""}
 
-PROMPT STRUCTURE:
-1. Main subject and setting
-2. Lighting and color palette
-3. Composition and framing
-4. Style and mood keywords
-5. Quality enhancers (e.g., "ultra high resolution, professional quality")
+📐 PROMPT STRUCTURE:
+1. Main subject directly related to the brand (product, service, result, customer)
+2. Setting that matches the brand's world
+3. Lighting and color palette (aligned with brand colors if mentioned)
+4. Composition and framing for social media impact
+5. Style keywords matching brand personality
+6. Quality enhancers: "ultra high resolution, professional quality"
 
-EXAMPLE GOOD PROMPTS:
-✅ "Modern minimalist coffee shop interior, warm ambient lighting, exposed brick walls, wooden tables with green plants, morning sunlight streaming through large windows, cozy atmosphere, professional interior photography, shallow depth of field"
-✅ "Professional headshot of a confident business woman in her 40s, neutral gray background, soft studio lighting, warm smile, corporate attire, high-end portrait photography, sharp focus on eyes"
-✅ "Luxury skincare product flatlay, marble surface, gold accents, soft diffused lighting, elegant minimalist composition, premium beauty photography, soft pastel colors"
+✅ EXAMPLE GOOD PROMPTS (brand-focused):
+For a SaaS productivity tool: "A satisfied business professional in a modern minimalist office, looking at a sleek laptop screen showing colorful productivity analytics dashboard, soft natural window light, clean desk with coffee cup, confident and accomplished expression, professional corporate photography, shallow depth of field on the person"
 
-EXAMPLE BAD PROMPTS (DO NOT DO THIS):
-❌ "Découvrez notre café avec une ambiance chaleureuse..." (this is marketing copy, not a visual prompt)
-❌ "[0-3s] The camera pans across..." (this is a video script)
-❌ "A nice restaurant that serves good food" (too vague)
+For a restaurant: "Beautifully plated signature dish of grilled salmon with herb crust on a rustic wooden table, warm ambient restaurant lighting, blurred background showing elegant dining room with exposed brick, steam rising from the food, food photography, appetizing presentation, Michelin-star quality"
+
+For an AI video tool: "A content creator smiling while reviewing AI-generated video content on a large monitor, creative studio environment with ring lights and camera equipment, modern tech aesthetic, vibrant purple and blue accent lighting, behind-the-scenes creative process, professional lifestyle photography"
+
+❌ EXAMPLE BAD PROMPTS (avoid these):
+❌ "A beautiful sunset over the ocean" (generic, not brand-related)
+❌ "Professional team working together" (too vague, could be any company)
+❌ "Modern technology concept" (abstract, doesn't showcase specific brand)
 
 Respond ONLY with valid JSON:
 {
@@ -211,14 +233,14 @@ Respond ONLY with valid JSON:
     {
       "id": "1",
       "title": "Short descriptive title",
-      "content": "The detailed image generation prompt",
+      "content": "The detailed image generation prompt that showcases this specific brand",
       "contentType": "image",
       "estimatedEngagement": "high"
     }
   ]
 }`;
 
-      userMessage = "Generate 5 distinct AI image prompts for this project. Each should describe a different visual concept or angle.";
+      userMessage = `Generate 5 distinct AI image prompts specifically for "${projectName || 'this project'}". Each prompt MUST directly showcase or promote this brand - its products, services, results, or customer experience. No generic images.`;
 
     } else if (contentType === "script") {
       // Calculate word count based on duration (same logic as generate-script-nanobanana)
