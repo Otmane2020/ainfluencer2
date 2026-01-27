@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Plus,
@@ -111,61 +111,70 @@ const Projects = () => {
   };
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="font-display text-xl md:text-2xl font-bold">Projects</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage your projects and automations
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="font-display text-xl font-bold">Projects</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground truncate">
+            Manage your projects
           </p>
         </div>
-        <Button onClick={() => navigate("/projects/new")} className="gap-2 w-full sm:w-auto">
+        <Button 
+          onClick={() => navigate("/projects/new")} 
+          size="sm"
+          className="gap-1.5 shrink-0"
+        >
           <Plus className="h-4 w-4" />
-          New Project
+          <span className="hidden sm:inline">New Project</span>
+          <span className="sm:hidden">New</span>
         </Button>
       </div>
 
       {/* Search */}
-      <div className="relative w-full md:max-w-md">
+      <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Search projects..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
+          className="pl-10 h-9"
         />
       </div>
 
-      {/* Projects Grid */}
+      {/* Projects List */}
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+        <div className="space-y-3">
           {[1, 2, 3].map((i) => (
             <Card key={i} className="animate-pulse">
-              <CardContent className="p-4 md:p-6">
-                <div className="h-10 w-10 rounded-xl bg-muted mb-4" />
-                <div className="h-4 w-3/4 bg-muted rounded mb-2" />
-                <div className="h-3 w-1/2 bg-muted rounded" />
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-11 w-11 rounded-xl bg-muted" />
+                  <div className="flex-1">
+                    <div className="h-4 w-3/4 bg-muted rounded mb-2" />
+                    <div className="h-3 w-1/2 bg-muted rounded" />
+                  </div>
+                </div>
               </CardContent>
             </Card>
           ))}
         </div>
       ) : filteredProjects.length === 0 ? (
         <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-8 md:py-12 px-4">
-            <div className="h-14 w-14 md:h-16 md:w-16 rounded-full bg-muted flex items-center justify-center mb-4">
-              <FolderKanban className="h-7 w-7 md:h-8 md:w-8 text-muted-foreground" />
+          <CardContent className="flex flex-col items-center justify-center py-8 px-4">
+            <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
+              <FolderKanban className="h-6 w-6 text-muted-foreground" />
             </div>
-            <h3 className="font-semibold mb-2 text-center">
+            <h3 className="font-semibold text-sm mb-1 text-center">
               {searchQuery ? "No results" : "No projects"}
             </h3>
-            <p className="text-muted-foreground text-sm text-center mb-4 max-w-sm">
+            <p className="text-muted-foreground text-xs text-center mb-4 max-w-xs">
               {searchQuery
                 ? "No projects match your search"
-                : "Create your first project to automate your social media publications"}
+                : "Create your first project to start"}
             </p>
             {!searchQuery && (
-              <Button onClick={() => navigate("/projects/new")} className="gap-2 w-full sm:w-auto">
+              <Button onClick={() => navigate("/projects/new")} size="sm" className="gap-1.5">
                 <Plus className="h-4 w-4" />
                 Create Project
               </Button>
@@ -173,73 +182,69 @@ const Projects = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+        <div className="space-y-3">
           {filteredProjects.map((project, index) => (
             <motion.div
               key={project.id}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
+              transition={{ delay: index * 0.03 }}
             >
-              <Card className="group hover:shadow-lg transition-all hover:border-primary/30">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
+              <Card className="hover:shadow-md transition-shadow">
+                <CardContent className="p-3">
+                  <div className="flex items-start gap-3">
+                    {/* Logo */}
                     <div
-                      className="flex items-center gap-3 cursor-pointer flex-1"
+                      className="h-11 w-11 rounded-xl flex items-center justify-center text-white font-bold text-base shrink-0 cursor-pointer"
+                      style={{ backgroundColor: project.theme_color }}
                       onClick={() => navigate(`/projects/${project.id}`)}
                     >
-                      <div
-                        className="h-12 w-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shrink-0"
-                        style={{ backgroundColor: project.theme_color }}
-                      >
-                        {project.logo_url ? (
-                          <img
-                            src={project.logo_url}
-                            alt={project.name}
-                            className="h-full w-full rounded-xl object-cover"
-                          />
-                        ) : (
-                          project.name[0].toUpperCase()
+                      {project.logo_url ? (
+                        <img
+                          src={project.logo_url}
+                          alt={project.name}
+                          className="h-full w-full rounded-xl object-cover"
+                        />
+                      ) : (
+                        project.name[0].toUpperCase()
+                      )}
+                    </div>
+                    
+                    {/* Content */}
+                    <div 
+                      className="flex-1 min-w-0 cursor-pointer" 
+                      onClick={() => navigate(`/projects/${project.id}`)}
+                    >
+                      <h3 className="font-semibold text-sm truncate">
+                        {project.name}
+                      </h3>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {project.instagram_enabled && (
+                          <Instagram className="h-3 w-3 text-muted-foreground" />
                         )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <CardTitle className="text-base truncate">
-                          {project.name}
-                        </CardTitle>
-                        <div className="flex items-center gap-2 mt-1">
-                          {project.instagram_enabled && (
-                            <Instagram className="h-3.5 w-3.5 text-muted-foreground" />
-                          )}
-                          {project.facebook_enabled && (
-                            <Facebook className="h-3.5 w-3.5 text-muted-foreground" />
-                          )}
-                          <span className="text-xs text-muted-foreground">
-                            {automationLabels[project.automation_mode]}
-                          </span>
-                        </div>
+                        {project.facebook_enabled && (
+                          <Facebook className="h-3 w-3 text-muted-foreground" />
+                        )}
+                        <span className="text-xs text-muted-foreground">
+                          {automationLabels[project.automation_mode]}
+                        </span>
                       </div>
                     </div>
+                    
+                    {/* Actions */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                        >
+                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="bg-card border-border z-50">
-                        <DropdownMenuItem
-                          onClick={() => navigate(`/projects/${project.id}`)}
-                        >
+                        <DropdownMenuItem onClick={() => navigate(`/projects/${project.id}`)}>
                           <Edit className="h-4 w-4 mr-2" />
                           Edit
                         </DropdownMenuItem>
                         {project.url && (
-                          <DropdownMenuItem
-                            onClick={() => window.open(project.url!, "_blank")}
-                          >
+                          <DropdownMenuItem onClick={() => window.open(project.url!, "_blank")}>
                             <ExternalLink className="h-4 w-4 mr-2" />
                             Open Website
                           </DropdownMenuItem>
@@ -254,31 +259,30 @@ const Projects = () => {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                </CardHeader>
-                <CardContent>
+                  
+                  {/* Description - compact */}
                   {project.description && (
-                    <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+                    <p className="text-xs text-muted-foreground line-clamp-1 mt-2">
                       {project.description}
                     </p>
                   )}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        <span>{project.posts_per_week}/week</span>
-                      </div>
+                  
+                  {/* Bottom row */}
+                  <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-border">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Calendar className="h-3.5 w-3.5" />
+                      <span>{project.posts_per_week}/week</span>
                     </div>
                     <Button
                       size="sm"
-                      className="gradient-primary gap-1.5"
+                      className="gradient-primary gap-1.5 h-7 px-2.5 text-xs"
                       onClick={(e) => {
                         e.stopPropagation();
                         navigate(`/videos?project=${project.id}`);
                       }}
                     >
-                      <Sparkles className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">Generate with AI</span>
-                      <span className="sm:hidden">AI</span>
+                      <Sparkles className="h-3 w-3" />
+                      AI Generate
                     </Button>
                   </div>
                 </CardContent>
