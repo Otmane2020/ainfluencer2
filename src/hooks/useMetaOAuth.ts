@@ -235,14 +235,14 @@ export const useMetaOAuth = () => {
       content: string,
       videoUrl?: string,
       imageUrl?: string
-    ) => {
+    ): Promise<{ success: boolean; postId?: string; error?: string }> => {
       if (!connection) {
         toast({
           title: "Not connected",
           description: "Connect to Meta to share",
           variant: "destructive",
         });
-        return { success: false };
+        return { success: false, error: "Not connected to Meta" };
       }
 
       try {
@@ -254,7 +254,7 @@ export const useMetaOAuth = () => {
             description: "Please log in to share content",
             variant: "destructive",
           });
-          return { success: false };
+          return { success: false, error: "Not authenticated" };
         }
 
         const response = await fetch(
@@ -284,16 +284,17 @@ export const useMetaOAuth = () => {
           });
           return { success: true, postId: data.postId };
         } else {
-          throw new Error(data.error);
+          throw new Error(data.error || "Unknown error");
         }
       } catch (error) {
         console.error("Share error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Unable to publish content";
         toast({
           title: "Share error",
-          description: error instanceof Error ? error.message : "Unable to publish content",
+          description: errorMessage,
           variant: "destructive",
         });
-        return { success: false };
+        return { success: false, error: errorMessage };
       }
     },
     [connection, toast]

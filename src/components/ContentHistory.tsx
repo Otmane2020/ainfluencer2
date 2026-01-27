@@ -34,16 +34,19 @@ interface ContentItem {
   status: string;
   created_at: string;
   platforms: string[] | null;
+  campaign_id: string | null;
+  campaign?: { name: string } | null;
 }
 
 interface ContentHistoryProps {
   projectId?: string;
+  campaignId?: string;
   onShare?: (item: ContentItem) => void;
   onPreview?: (item: ContentItem) => void;
   limit?: number;
 }
 
-export const ContentHistory = ({ projectId, onShare, onPreview, limit }: ContentHistoryProps) => {
+export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limit }: ContentHistoryProps) => {
   const [items, setItems] = useState<ContentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "video" | "image" | "text">("all");
@@ -53,18 +56,22 @@ export const ContentHistory = ({ projectId, onShare, onPreview, limit }: Content
 
   useEffect(() => {
     fetchHistory();
-  }, [projectId, filter]);
+  }, [projectId, campaignId, filter]);
 
   const fetchHistory = async () => {
     setIsLoading(true);
     try {
       let query = supabase
         .from("scheduled_posts")
-        .select("id, content_type, text_content, media_url, thumbnail_url, ai_prompt, status, created_at, platforms")
+        .select("id, content_type, text_content, media_url, thumbnail_url, ai_prompt, status, created_at, platforms, campaign_id, campaigns(name)")
         .order("created_at", { ascending: false });
 
       if (projectId) {
         query = query.eq("project_id", projectId);
+      }
+
+      if (campaignId) {
+        query = query.eq("campaign_id", campaignId);
       }
 
       if (filter !== "all") {
@@ -78,7 +85,12 @@ export const ContentHistory = ({ projectId, onShare, onPreview, limit }: Content
       const { data, error } = await query;
 
       if (error) throw error;
-      setItems((data as ContentItem[]) || []);
+      // Map the join result to our interface
+      const mappedData = (data || []).map((item: any) => ({
+        ...item,
+        campaign: item.campaigns ? { name: item.campaigns.name } : null,
+      }));
+      setItems(mappedData as ContentItem[]);
     } catch (error) {
       console.error("Error fetching history:", error);
     } finally {
@@ -267,6 +279,11 @@ export const ContentHistory = ({ projectId, onShare, onPreview, limit }: Content
                             <span className="capitalize">{item.content_type}</span>
                           </div>
                           {getStatusBadge(item.status || "draft")}
+                          {item.campaign && (
+                            <Badge variant="outline" className="text-xs">
+                              📢 {item.campaign.name}
+                            </Badge>
+                          )}
                         </div>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Calendar className="h-3 w-3" />
