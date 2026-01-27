@@ -123,26 +123,50 @@ export const CampaignWizardModal = ({
     setIsSubmitting(true);
 
     try {
-      const { error } = await supabase.from("campaigns").insert({
-        user_id: user.id,
-        project_id: projectId,
-        name: name || `${campaignType.charAt(0).toUpperCase() + campaignType.slice(1)} Campaign`,
-        campaign_type: campaignType,
-        videos_per_month: videosPerMonth,
-        images_per_month: imagesPerMonth,
-        posts_per_week: postsPerWeek,
-        format,
-        tone,
-        subject,
-        status: "active",
-      });
+      // Create the campaign
+      const { data: newCampaign, error } = await supabase
+        .from("campaigns")
+        .insert({
+          user_id: user.id,
+          project_id: projectId,
+          name: name || `${campaignType.charAt(0).toUpperCase() + campaignType.slice(1)} Campaign`,
+          campaign_type: campaignType,
+          videos_per_month: videosPerMonth,
+          images_per_month: imagesPerMonth,
+          posts_per_week: postsPerWeek,
+          format,
+          tone,
+          subject,
+          status: "generating",
+        })
+        .select()
+        .single();
 
       if (error) throw error;
 
       toast({
         title: "Campaign created! 🚀",
-        description: "Content generation will start automatically",
+        description: "Generating content... This may take a moment.",
       });
+
+      // Trigger content generation
+      const { data: genResult, error: genError } = await supabase.functions.invoke(
+        "generate-campaign-content",
+        { body: { campaignId: newCampaign.id } }
+      );
+
+      if (genError) {
+        console.error("Content generation error:", genError);
+        toast({
+          title: "Content generation started",
+          description: "Some content may still be generating in the background.",
+        });
+      } else {
+        toast({
+          title: "Content ready! ✨",
+          description: `Generated ${genResult?.generated || 0} scheduled posts`,
+        });
+      }
       
       onSuccess();
     } catch (error) {
