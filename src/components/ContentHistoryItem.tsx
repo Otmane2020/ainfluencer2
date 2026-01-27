@@ -1,9 +1,11 @@
 import { motion } from "framer-motion";
-import { Video, Image, FileText, Trash2, Share2, Copy, Check, Eye, Calendar, Loader2 } from "lucide-react";
+import { Video, Image, FileText, Trash2, Share2, Copy, Check, Eye, Calendar, Loader2, RefreshCw, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 interface ContentItem {
   id: string;
@@ -27,6 +29,7 @@ interface ContentHistoryItemProps {
   onPreview: (item: ContentItem) => void;
   onShare: (item: ContentItem) => void;
   onDelete: (item: ContentItem) => void;
+  onRegenerate?: (item: ContentItem) => void;
 }
 
 export const ContentHistoryItem = ({
@@ -37,6 +40,7 @@ export const ContentHistoryItem = ({
   onPreview,
   onShare,
   onDelete,
+  onRegenerate,
 }: ContentHistoryItemProps) => {
   const getContentIcon = (type: string) => {
     switch (type) {
@@ -68,13 +72,34 @@ export const ContentHistoryItem = ({
     && !item.media_url 
     && item.status === "draft";
 
+  // Check elapsed time for stale detection
+  const createdAt = new Date(item.created_at).getTime();
+  const now = Date.now();
+  const elapsed = now - createdAt;
+  const isStale = elapsed > 300000; // 5 minutes = stale/failed
+
   // Simulate progress based on creation time (for visual feedback)
   const getEstimatedProgress = () => {
-    const createdAt = new Date(item.created_at).getTime();
-    const now = Date.now();
-    const elapsed = now - createdAt;
     const estimatedTime = item.content_type === "video" ? 120000 : 30000; // 2min for video, 30s for image
     return Math.min(95, Math.round((elapsed / estimatedTime) * 100));
+  };
+
+  const handleRetry = async () => {
+    if (onRegenerate) {
+      onRegenerate(item);
+    } else {
+      // Fallback: call edge function directly
+      toast({ title: "Regenerating...", description: "Triggering image generation" });
+      try {
+        const { error } = await supabase.functions.invoke("generate-campaign-content", {
+          body: { postId: item.id },
+        });
+        if (error) throw error;
+        toast({ title: "Generation started", description: "Image will appear shortly" });
+      } catch (err: any) {
+        toast({ title: "Error", description: err.message, variant: "destructive" });
+      }
+    }
   };
 
   return (
@@ -89,18 +114,27 @@ export const ContentHistoryItem = ({
         {/* Thumbnail / Generation Preview */}
         <div 
           className="h-16 w-16 md:h-20 md:w-20 shrink-0 rounded-lg overflow-hidden bg-muted cursor-pointer relative"
-          onClick={() => !isGenerating && onPreview?.(item)}
+          onClick={() => !isGenerating && !isStale && onPreview?.(item)}
         >
-          {isGenerating ? (
+          {isGenerating && !isStale ? (
             // Show generating state with animated gradient
             <div className="relative h-full w-full flex items-center justify-center bg-gradient-to-br from-primary/20 via-primary/10 to-accent/20">
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
               <div className="relative flex flex-col items-center gap-1">
                 <Loader2 className="h-5 w-5 text-primary animate-spin" />
-                <span className="text-[10px] font-medium text-white">{getEstimatedProgress()}%</span>
+                <span className="text-[10px] font-medium text-primary-foreground">{getEstimatedProgress()}%</span>
               </div>
               {/* Animated shimmer effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-background/10 to-transparent animate-shimmer" />
+            </div>
+          ) : isGenerating && isStale ? (
+            // Show failed/stale state
+            <div className="relative h-full w-full flex items-center justify-center bg-destructive/20">
+              <div className="absolute inset-0 bg-gradient-to-t from-destructive/40 to-transparent" />
+              <div className="relative flex flex-col items-center gap-1">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+                <span className="text-[10px] font-medium text-destructive">Failed</span>
+              </div>
             </div>
           ) : item.media_url || item.thumbnail_url ? (
             item.content_type === "video" ? (
@@ -110,8 +144,8 @@ export const ContentHistoryItem = ({
                   alt="Thumbnail"
                   className="h-full w-full object-cover"
                 />
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                  <Video className="h-6 w-6 text-white" />
+                <div className="absolute inset-0 flex items-center justify-center bg-foreground/40">
+                  <Video className="h-6 w-6 text-primary-foreground" />
                 </div>
               </div>
             ) : (
@@ -137,8 +171,13 @@ export const ContentHistoryItem = ({
                 {getContentIcon(item.content_type)}
                 <span className="capitalize">{item.content_type}</span>
               </div>
-              {isGenerating ? (
-                <Badge variant="default" className="bg-primary/80 animate-pulse">
+              {isGenerating && isStale ? (
+                <Badge variant="destructive" className="animate-pulse">
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  Failed
+                </Badge>
+              ) : isGenerating ? (
+                <Badge variant="default" className="animate-pulse">
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                   Generating...
                 </Badge>
@@ -162,13 +201,29 @@ export const ContentHistoryItem = ({
             </div>
           </div>
 
-          {/* Progress bar for generating items */}
-          {isGenerating && (
+          {/* Progress bar for generating items (not stale) */}
+          {isGenerating && !isStale && (
             <div className="mt-2">
               <Progress value={getEstimatedProgress()} className="h-1.5" />
               <p className="text-xs text-muted-foreground mt-1">
                 AI is {item.content_type === "video" ? "creating your video" : "generating your image"}...
               </p>
+            </div>
+          )}
+
+          {/* Retry button for stale/failed items */}
+          {isGenerating && isStale && (
+            <div className="mt-2 flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRetry}
+                className="h-7 text-xs border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+              >
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Retry Generation
+              </Button>
+              <span className="text-xs text-muted-foreground">Generation timed out</span>
             </div>
           )}
 
