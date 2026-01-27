@@ -144,7 +144,7 @@ const Integrations = () => {
                     {metaConnectionData.instagram_username ? (
                       <p className="text-xs text-muted-foreground">@{metaConnectionData.instagram_username}</p>
                     ) : (
-                      <p className="text-xs text-amber-500">No business account linked</p>
+                      <p className="text-xs text-amber-500">No Business account linked</p>
                     )}
                   </div>
                 </div>
@@ -154,6 +154,31 @@ const Integrations = () => {
                   <AlertCircle className="h-4 w-4 text-amber-500" />
                 )}
               </div>
+
+              {/* Instagram Business Account Info */}
+              {!metaConnectionData.instagram_username && metaConnectionData.page_id && (
+                <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                        Instagram Business Account Required
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        To publish automatically to Instagram, you need:
+                      </p>
+                      <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
+                        <li>An <strong>Instagram Business</strong> or <strong>Creator</strong> account (not Personal)</li>
+                        <li>The Instagram account must be <strong>linked to your Facebook Page</strong></li>
+                        <li>You must be an <strong>admin</strong> of the Facebook Page</li>
+                      </ul>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        After linking your Instagram Business account to your Page, click <strong>Disconnect</strong> below and reconnect.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Token Status */}
               {isTokenExpired && (
