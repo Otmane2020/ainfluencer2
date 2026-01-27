@@ -1,167 +1,64 @@
 
-# Fix Plan: Video Quality Display and Social Media Publishing
+# Fix: Image Generation + Progress Indicators
 
-## Problem Summary
+## Issues Found
 
-Two distinct issues need to be resolved:
+### Root Cause 1: Edge Function Not Deployed
+The `generate-campaign-content` edge function is **NOT registered** in `supabase/config.toml`, so it was never deployed. This is why:
+- No logs appear for the function
+- All images have `media_url: null`
+- All posts are stuck with `status: draft`
 
-1. **Video Quality Perception**: Users see quality options (720p, 1080p, 4K) but all videos generate at 720p due to provider limitations. This creates a misleading UX.
-
-2. **Social Media Not Posting**: The "Publish" button generates content and updates database status but never actually calls the Meta API to post to Facebook/Instagram.
+### Root Cause 2: Progress Detection Logic
+The progress indicator logic in `ContentHistoryItem.tsx` is correct, but since the actual generation never happens (function not deployed), the items remain in "generating" state forever with the estimated progress stuck at 95%.
 
 ---
 
-## Solution Overview
+## Implementation Plan
 
-```text
-+------------------+      +-------------------+      +------------------+
-|  ScheduledPost   | ---> | handlePublishNow  | ---> |   shareToMeta    |
-|     Modal        |      | (CalendarPage)    |      | (Meta OAuth API) |
-+------------------+      +-------------------+      +------------------+
-                                  |
-                                  v
-                          +---------------+
-                          | Update Status |
-                          |  "published"  |
-                          +---------------+
+### Step 1: Register Edge Function in Config
+Add the missing `generate-campaign-content` function to `supabase/config.toml`:
+
+```toml
+[functions.generate-campaign-content]
+verify_jwt = false
 ```
 
----
+### Step 2: Deploy and Test
+After adding to config, the function will be deployed automatically. This will:
+- Enable actual image generation via Lovable AI
+- Upload images to Supabase storage
+- Update posts with `media_url` and `status: scheduled`
 
-## Technical Changes
-
-### 1. Fix Social Media Publishing Flow
-
-**File: `src/pages/CalendarPage.tsx`**
-
-- Import `useMetaOAuth` hook
-- Update `handlePublishNow` to:
-  - Check if Meta is connected
-  - Call `shareToMeta` for each selected platform (Facebook, Instagram)
-  - Wait for video generation to complete before posting (if video content)
-  - Update status to "published" only after successful API calls
-  - Handle errors gracefully with user feedback
-
-### 2. Clarify Video Quality in UI
-
-**File: `src/components/VideoGenerator.tsx`**
-
-- Update quality selector to show honest descriptions:
-  - Remove misleading 1080p/4K labels
-  - Or add a note: "All videos currently render at 720p (provider limitation)"
-- Consider removing quality selector entirely if it has no effect
-
-### 3. Add Publishing Indicators
-
-**File: `src/components/ScheduledPostModal.tsx`**
-
-- Add visual feedback during Meta API calls
-- Show which platforms were successfully posted
-- Display actual post URLs/IDs after successful publishing
-
----
-
-## Detailed Implementation
-
-### CalendarPage.tsx Changes
+### Step 3: Add Status Indicator for Stale Items
+Enhance `ContentHistoryItem.tsx` to detect items that have been "generating" for too long (>5 minutes) and show a "Failed" or "Retry" state instead of stuck progress.
 
 ```typescript
-// Add hook import
-import { useMetaOAuth } from "@/hooks/useMetaOAuth";
-
-// In component
-const { isConnected, shareToMeta, connection } = useMetaOAuth();
-
-// Updated handlePublishNow
-const handlePublishNow = async (post: ScheduledPost) => {
-  // 1. Check Meta connection
-  if (!isConnected) {
-    toast({ title: "Error", description: "Connect to Meta first", variant: "destructive" });
-    return;
-  }
-
-  // 2. Validate media_url exists for video posts
-  if (post.content_type === "video" && !post.media_url) {
-    toast({ title: "Error", description: "Video not ready yet", variant: "destructive" });
-    return;
-  }
-
-  // 3. Post to each selected platform
-  const platforms = post.platforms || [];
-  const results = [];
-  
-  for (const platform of platforms) {
-    if (platform === "facebook" || platform === "instagram") {
-      const result = await shareToMeta(
-        platform,
-        post.text_content || "",
-        post.media_url || undefined
-      );
-      results.push({ platform, success: result.success });
-    }
-  }
-
-  // 4. Update database based on results
-  const allSuccess = results.every(r => r.success);
-  await supabase
-    .from("scheduled_posts")
-    .update({
-      status: allSuccess ? "published" : "failed",
-      published_at: allSuccess ? new Date().toISOString() : null,
-    })
-    .eq("id", post.id);
-
-  // 5. Show feedback
-  toast({
-    title: allSuccess ? "Published!" : "Partial failure",
-    description: allSuccess 
-      ? "Posted to all platforms" 
-      : "Some platforms failed",
-  });
-  
-  fetchPosts();
-};
+const isStale = elapsed > 300000; // 5 minutes
+if (isStale && !item.media_url) {
+  // Show "Generation Failed - Retry" button
+}
 ```
 
-### VideoGenerator.tsx Quality Transparency
-
-```typescript
-const QUALITY_OPTIONS = [
-  { 
-    value: "720p", 
-    label: "HD 720p", 
-    description: "Current maximum quality" 
-  },
-];
-// Remove 1080p and 4K options OR
-// Add note: "Higher resolutions coming soon"
-```
+### Step 4: Add Manual Regeneration
+Add a "Regenerate" button for posts that have `ai_prompt` but no `media_url`, allowing users to manually trigger image generation for failed items.
 
 ---
 
-## Files to Modify
+## Files to Edit
 
-| File | Changes |
-|------|---------|
-| `src/pages/CalendarPage.tsx` | Add Meta OAuth hook, implement actual social posting |
-| `src/components/VideoGenerator.tsx` | Update quality options with honest labeling |
-| `src/components/ScheduledPostModal.tsx` | Add publishing status indicators |
-
----
-
-## Edge Cases Handled
-
-1. **Video not ready**: If video generation is still in progress, show "Video generating..." and disable publish
-2. **No Meta connection**: Show clear error message directing user to Integrations page
-3. **Partial platform failure**: Update status appropriately, log which platforms failed
-4. **No media_url for video posts**: Block publishing until video is available
+| File | Change |
+|------|--------|
+| `supabase/config.toml` | Add `generate-campaign-content` function registration |
+| `src/components/ContentHistoryItem.tsx` | Add stale detection + retry button |
+| `supabase/functions/generate-campaign-content/index.ts` | (already exists, just needs deployment) |
 
 ---
 
-## Testing Checklist
+## Expected Results After Fix
 
-- [ ] Publish a video post - verify it appears on Facebook Page
-- [ ] Publish a video post - verify it appears on Instagram Reels
-- [ ] Verify quality selector shows accurate information
-- [ ] Verify failed posts show correct error messages
-- [ ] Verify published_at timestamp is set after successful publish
+1. Creating a new campaign will actually generate images
+2. Posts will show real-time progress while generating
+3. Completed images will display in history with thumbnails
+4. Stale/failed items will show a "Retry" option
+5. Instagram publishing will work (media_url will be populated)
