@@ -9,6 +9,7 @@ import { AI_MODELS, type AIModel } from "@/components/ModelSelector";
 import { ProductSelector } from "@/components/ProductSelector";
 import { VoiceSelector } from "@/components/VoiceSelector";
 import { ScenarioSelector } from "@/components/ScenarioSelector";
+import { FormatSelector, ContentFormat, FORMAT_OPTIONS } from "@/components/FormatSelector";
 import { AVAILABLE_VOICES, getDefaultVoice, type Voice } from "@/lib/voices";
 import {
   COMMERCIAL_PRODUCTS,
@@ -103,6 +104,7 @@ interface StoredPrefs {
   avatarUrl?: string;
   quality?: VideoQuality;
   startingFrameUrl?: string;
+  format?: ContentFormat;
 }
 
 const loadPrefs = (): StoredPrefs => {
@@ -153,14 +155,20 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
   const [showAvatarPrompt, setShowAvatarPrompt] = useState(false);
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Quality and continuation state
+  // Quality, format and continuation state
   const [selectedQuality, setSelectedQualityState] = useState<VideoQuality>(storedPrefs.quality || "1080p");
+  const [selectedFormat, setSelectedFormatState] = useState<ContentFormat>(storedPrefs.format || "reel");
   const [startingFrameUrl, setStartingFrameUrlState] = useState<string | undefined>(storedPrefs.startingFrameUrl);
 
   // Scenario state
   const [selectedSector, setSelectedSector] = useState<VideoScenario | undefined>();
   const [selectedStyle, setSelectedStyle] = useState<VideoScenario | undefined>();
   const [selectedTone, setSelectedTone] = useState<VideoScenario | undefined>();
+
+  const setSelectedFormat = (format: ContentFormat) => {
+    setSelectedFormatState(format);
+    savePrefs({ format });
+  };
 
 
   // Wrapper functions to persist preferences
@@ -509,7 +517,8 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
                 avatarUrl,
                 duration: segment.duration,
                 quality: selectedQuality,
-                orientation: "portrait",
+                format: selectedFormat,
+                orientation: selectedFormat === "landscape" ? "landscape" : "portrait",
                 startingFrameUrl: startingFrameUrl,
                 model: getInternalModel()?.id || "sora-2",
               }),
@@ -742,6 +751,13 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
 
       {/* Quick Settings Bar - Popup buttons */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
+        {/* Format Selector */}
+        <FormatSelector
+          selectedFormat={selectedFormat}
+          onFormatChange={setSelectedFormat}
+          compact
+        />
+        
         {/* Avatar Button */}
         <Dialog>
           <DialogTrigger asChild>

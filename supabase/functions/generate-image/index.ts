@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { prompt, productId, sectorId, styleId, toneId } = await req.json();
+    const { prompt, productId, format, aspectRatio, width, height, sectorId, styleId, toneId } = await req.json();
 
     if (!prompt) {
       return new Response(
@@ -68,11 +68,18 @@ Deno.serve(async (req) => {
 
     // Select model based on product tier
     const model = PRODUCT_MODEL_MAP[productId] || "google/gemini-2.5-flash-image";
-    console.log(`Using model: ${model} for product: ${productId}`);
+    console.log(`Using model: ${model} for product: ${productId}, format: ${format || "default"}`);
 
-    // Build enhanced prompt with scenario context
+    // Build enhanced prompt with scenario context and format
     let enhancedPrompt = prompt;
     const contextParts: string[] = [];
+
+    // Add format context
+    if (format === "reel" || format === "story") {
+      contextParts.push("vertical portrait format 9:16 aspect ratio");
+    } else if (format === "landscape") {
+      contextParts.push("horizontal landscape format 16:9 aspect ratio");
+    }
 
     if (sectorId && SECTOR_CONTEXT[sectorId]) {
       contextParts.push(SECTOR_CONTEXT[sectorId]);
