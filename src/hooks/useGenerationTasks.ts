@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 export interface GenerationTask {
   id: string;
@@ -16,11 +16,16 @@ export interface GenerationTask {
 
 const STORAGE_KEY = "generation_tasks";
 
+// Custom event name for cross-component sync
+const SYNC_EVENT = "generation_tasks_sync";
+
 export const useGenerationTasks = () => {
   const [tasks, setTasks] = useState<GenerationTask[]>([]);
+  const isInternalUpdate = useRef(false);
+  const instanceId = useRef(Math.random().toString(36).substring(7));
 
-  // Load tasks from localStorage on mount
-  useEffect(() => {
+  // Load tasks from localStorage
+  const loadTasksFromStorage = useCallback(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
@@ -33,16 +38,68 @@ export const useGenerationTasks = () => {
           }
           return true;
         });
-        setTasks(recentTasks);
+        return recentTasks;
       } catch (e) {
         console.error("Failed to parse stored tasks:", e);
+        return [];
       }
     }
+    return [];
   }, []);
 
-  // Persist tasks to localStorage whenever they change
+  // Load tasks from localStorage on mount
   useEffect(() => {
+    const loaded = loadTasksFromStorage();
+    setTasks(loaded);
+  }, [loadTasksFromStorage]);
+
+  // Listen for sync events from other hook instances
+  useEffect(() => {
+    const handleSync = (e: Event) => {
+      const customEvent = e as CustomEvent<{ sourceId: string; tasks: GenerationTask[] }>;
+      // Only update if event came from a different instance
+      if (customEvent.detail && customEvent.detail.sourceId !== instanceId.current) {
+        isInternalUpdate.current = true;
+        setTasks(customEvent.detail.tasks);
+        setTimeout(() => { isInternalUpdate.current = false; }, 0);
+      }
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue) as GenerationTask[];
+          isInternalUpdate.current = true;
+          setTasks(parsed);
+          setTimeout(() => { isInternalUpdate.current = false; }, 0);
+        } catch {
+          // Ignore parse errors
+        }
+      }
+    };
+
+    window.addEventListener(SYNC_EVENT, handleSync);
+    window.addEventListener("storage", handleStorageChange);
+    
+    return () => {
+      window.removeEventListener(SYNC_EVENT, handleSync);
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
+
+  // Persist tasks to localStorage and notify other instances
+  useEffect(() => {
+    // Skip if this was triggered by receiving an external update
+    if (isInternalUpdate.current) {
+      return;
+    }
+    
     localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    
+    // Dispatch event for other hook instances in the same tab
+    window.dispatchEvent(new CustomEvent(SYNC_EVENT, { 
+      detail: { sourceId: instanceId.current, tasks } 
+    }));
   }, [tasks]);
 
   const addTask = useCallback((task: GenerationTask) => {
