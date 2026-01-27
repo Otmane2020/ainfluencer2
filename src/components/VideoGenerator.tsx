@@ -20,6 +20,7 @@ import {
   VideoScenario,
   buildScenarioPrompt,
 } from "@/lib/videoScenarios";
+import { ScenarioPickerModal, GeneratedScenario } from "@/components/ScenarioPickerModal";
 import {
   Dialog,
   DialogContent,
@@ -165,6 +166,12 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
   const [selectedStyle, setSelectedStyle] = useState<VideoScenario | undefined>();
   const [selectedTone, setSelectedTone] = useState<VideoScenario | undefined>();
 
+  // Scenario picker modal state
+  const [showScenarioPicker, setShowScenarioPicker] = useState(false);
+  const [generatedScenarios, setGeneratedScenarios] = useState<GeneratedScenario[]>([]);
+  const [isRegeneratingScenarios, setIsRegeneratingScenarios] = useState(false);
+  const [pendingScenarioSegmentId, setPendingScenarioSegmentId] = useState<string | null>(null);
+
   const setSelectedFormat = (format: ContentFormat) => {
     setSelectedFormatState(format);
     savePrefs({ format });
@@ -294,13 +301,14 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
   const generateAIScript = async (segmentId: string, project: Project) => {
     setIsGeneratingScript(segmentId);
     setProjectSelectorOpen(null);
+    setPendingScenarioSegmentId(segmentId);
     
     // Get the segment's duration for script length adaptation
     const segment = segments.find(s => s.id === segmentId);
     const duration = segment?.duration || 10;
     
     try {
-      // First, scrape the project URL if available (same as planning)
+      // First, scrape the project URL if available
       let scrapedContent: string | undefined;
       if (project.url) {
         try {
@@ -313,69 +321,103 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
         }
       }
 
-      // Use suggest-content (same as planning) for consistent script generation
-      // This includes full scenario context support + scraped content
-      const { data, error } = await supabase.functions.invoke("suggest-content", {
+      // Use the new dedicated video scenario generator
+      const { data, error } = await supabase.functions.invoke("generate-video-scenario", {
         body: {
           projectId: project.id,
           projectName: project.name,
           projectDescription: project.description || project.name,
           projectUrl: project.url,
-          scrapedContent, // Include scraped content like planning does
-          contentType: "script", // Script mode for video scripts
-          productName: selectedProduct.name,
-          productCategory: selectedProduct.category,
-          // Scenario context for enriched script generation
+          scrapedContent,
           sectorId: selectedSector?.id,
           styleId: selectedStyle?.id,
           toneId: selectedTone?.id,
           scriptType: selectedProduct.category === "avatar" ? "testimonial" : "reel",
-          duration, // Pass duration for script length adaptation
+          duration,
         },
       });
 
       if (error) throw error;
 
-      const suggestions = data?.suggestions;
-      if (!suggestions || suggestions.length === 0) {
-        throw new Error("No scripts received");
+      const scenarios = data?.scenarios;
+      if (!scenarios || scenarios.length === 0) {
+        throw new Error("No scenarios generated");
       }
 
-      // Find the first valid script
-      let validScript = null;
-      for (const script of suggestions) {
-        const content = script.content?.trim();
-        const validation = validateScriptQuality(content);
-        
-        if (validation.valid) {
-          validScript = script;
-          break;
-        } else {
-          console.log("Script rejected:", validation.reason, content?.substring(0, 50));
-        }
-      }
-
-      if (!validScript) {
-        // If no valid script, use the first one but warn
-        validScript = suggestions[0];
-        console.warn("No fully valid script found, using first suggestion");
-      }
-
-      updateSegment(segmentId, { script: validScript.content });
+      // Store scenarios and show picker modal
+      setGeneratedScenarios(scenarios);
+      setShowScenarioPicker(true);
+      setIsGeneratingScript(null);
       
-      toast({
-        title: "Script generated! ✨",
-        description: `${selectedSector?.name || ""} ${selectedStyle?.name || ""} ${selectedTone?.name || ""}`.trim() || project.name,
-      });
     } catch (error) {
-      console.error("AI script generation error:", error);
+      console.error("AI scenario generation error:", error);
       toast({
         title: "Generation error",
-        description: "Unable to generate script. Please try again.",
+        description: "Unable to generate scenarios. Please try again.",
+        variant: "destructive",
+      });
+      setIsGeneratingScript(null);
+      setPendingScenarioSegmentId(null);
+    }
+  };
+
+  // Handle scenario selection from modal
+  const handleScenarioSelect = (scenario: GeneratedScenario) => {
+    if (pendingScenarioSegmentId) {
+      updateSegment(pendingScenarioSegmentId, { script: scenario.fullScript });
+      toast({
+        title: "Scenario selected! ✨",
+        description: scenario.title,
+      });
+    }
+    setPendingScenarioSegmentId(null);
+    setGeneratedScenarios([]);
+  };
+
+  // Handle scenario regeneration
+  const handleScenarioRegenerate = async () => {
+    if (!pendingScenarioSegmentId) return;
+    
+    setIsRegeneratingScenarios(true);
+    const segment = segments.find(s => s.id === pendingScenarioSegmentId);
+    const duration = segment?.duration || 10;
+    
+    // Get current project (first one for now, could be improved)
+    const project = projects[0];
+    if (!project) {
+      setIsRegeneratingScenarios(false);
+      return;
+    }
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-video-scenario", {
+        body: {
+          projectId: project.id,
+          projectName: project.name,
+          projectDescription: project.description || project.name,
+          projectUrl: project.url,
+          sectorId: selectedSector?.id,
+          styleId: selectedStyle?.id,
+          toneId: selectedTone?.id,
+          scriptType: selectedProduct.category === "avatar" ? "testimonial" : "reel",
+          duration,
+        },
+      });
+
+      if (error) throw error;
+      
+      if (data?.scenarios) {
+        setGeneratedScenarios(data.scenarios);
+      }
+    } catch (error) {
+      console.error("Regeneration error:", error);
+      toast({
+        title: "Regeneration failed",
+        description: "Please try again",
         variant: "destructive",
       });
     } finally {
-      setIsGeneratingScript(null);
+      setIsRegeneratingScenarios(false);
     }
   };
   
@@ -1092,6 +1134,22 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
         onClose={() => setShowProgressModal(false)}
         tasks={generationTasks}
         productName={selectedProduct.name}
+      />
+
+      {/* Scenario Picker Modal */}
+      <ScenarioPickerModal
+        open={showScenarioPicker}
+        onOpenChange={(open) => {
+          setShowScenarioPicker(open);
+          if (!open) {
+            setPendingScenarioSegmentId(null);
+            setGeneratedScenarios([]);
+          }
+        }}
+        scenarios={generatedScenarios}
+        onSelect={handleScenarioSelect}
+        onRegenerate={handleScenarioRegenerate}
+        isRegenerating={isRegeneratingScenarios}
       />
     </motion.div>
   );
