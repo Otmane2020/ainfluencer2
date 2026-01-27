@@ -134,9 +134,15 @@ const CalendarPage = () => {
   };
 
   const handlePublishNow = async (post: ScheduledPost) => {
+    // The ScheduledPostModal handles the actual generation flow internally
+    // This callback is called AFTER content generation is complete
+    // We just need to update the status and scheduled_for time
     const { error } = await supabase
       .from("scheduled_posts")
-      .update({ status: "scheduled", scheduled_for: new Date().toISOString() })
+      .update({ 
+        status: "scheduled", 
+        scheduled_for: new Date().toISOString(),
+      })
       .eq("id", post.id);
 
     if (error) {
@@ -149,8 +155,8 @@ const CalendarPage = () => {
     }
 
     toast({
-      title: "Publication scheduled",
-      description: "Post will be published shortly",
+      title: "Post published ✓",
+      description: "Content generated and ready for social media",
     });
     fetchPosts();
   };
@@ -436,6 +442,7 @@ const CalendarPage = () => {
         }}
         onDelete={handleDeletePost}
         onPublishNow={handlePublishNow}
+        onUpdate={fetchPosts}
       />
     </div>
   );
