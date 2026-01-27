@@ -604,14 +604,27 @@ serve(async (req) => {
         if (platform === "instagram") {
           if (!connection.instagram_id) {
             return new Response(
-              JSON.stringify({ error: "No Instagram business account connected" }),
+              JSON.stringify({ error: "No Instagram business account connected. Please reconnect and select a Facebook Page with a linked Instagram Business account." }),
               { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
           }
 
+          // Instagram requires media (image or video)
+          if (!imageUrl && !videoUrl) {
+            return new Response(
+              JSON.stringify({ error: "Instagram requires an image or video. Text-only posts are not supported." }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+
+          // Use page_access_token for Instagram API calls (required for business accounts)
+          const accessToken = connection.page_access_token || connection.access_token;
+
+          console.log(`[meta-oauth] Instagram share - Account: ${connection.instagram_id}, Has video: ${!!videoUrl}, Has image: ${!!imageUrl}`);
+
           const mediaParams: Record<string, string> = {
-            access_token: connection.access_token,
-            caption: content,
+            access_token: accessToken,
+            caption: content || "",
           };
 
           if (videoUrl) {
@@ -620,6 +633,8 @@ serve(async (req) => {
           } else if (imageUrl) {
             mediaParams.image_url = imageUrl;
           }
+
+          console.log(`[meta-oauth] Creating Instagram media container...`);
 
           // Create media container
           const createMediaResponse = await fetch(
@@ -632,18 +647,45 @@ serve(async (req) => {
           );
 
           const mediaResult = await createMediaResponse.json();
+          console.log(`[meta-oauth] Instagram media container result:`, JSON.stringify(mediaResult));
 
           if (mediaResult.error || !mediaResult.id) {
+            const errorMsg = mediaResult.error?.message || "Failed to create Instagram media container";
+            console.error(`[meta-oauth] Instagram media error:`, errorMsg);
             return new Response(
-              JSON.stringify({ error: mediaResult.error?.message || "Failed to create media" }),
+              JSON.stringify({ error: errorMsg }),
               { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
           }
 
-          // Wait for video processing if needed
+          // Wait for media processing (especially for videos)
           if (videoUrl) {
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            console.log(`[meta-oauth] Waiting for video processing...`);
+            // Poll for status instead of fixed wait
+            let attempts = 0;
+            const maxAttempts = 30; // 30 seconds max
+            while (attempts < maxAttempts) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              const statusResponse = await fetch(
+                `https://graph.facebook.com/v19.0/${mediaResult.id}?fields=status_code&access_token=${accessToken}`
+              );
+              const statusData = await statusResponse.json();
+              console.log(`[meta-oauth] Video status check ${attempts + 1}:`, statusData.status_code);
+              if (statusData.status_code === "FINISHED") break;
+              if (statusData.status_code === "ERROR") {
+                return new Response(
+                  JSON.stringify({ error: "Video processing failed" }),
+                  { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                );
+              }
+              attempts++;
+            }
+          } else {
+            // Short delay for images
+            await new Promise(resolve => setTimeout(resolve, 2000));
           }
+
+          console.log(`[meta-oauth] Publishing Instagram media...`);
 
           // Publish media
           const publishResponse = await fetch(
@@ -653,13 +695,13 @@ serve(async (req) => {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 creation_id: mediaResult.id,
-                access_token: connection.access_token,
+                access_token: accessToken,
               }),
             }
           );
 
           const publishResult = await publishResponse.json();
-          console.log(`[meta-oauth] Instagram publish result:`, publishResult);
+          console.log(`[meta-oauth] Instagram publish result:`, JSON.stringify(publishResult));
 
           if (publishResult.error) {
             return new Response(
