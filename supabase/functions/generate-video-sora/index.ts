@@ -59,6 +59,7 @@ interface VideoRequest {
   size?: string; // Legacy: "720x1280" or "1280x720"
   quality?: "720p" | "1080p" | "4k";
   orientation?: "portrait" | "landscape";
+  format?: "reel" | "landscape" | "story"; // New: format option
   startingFrameUrl?: string;
   model?: string; // Model ID from frontend (e.g., "kling-v2-master", "veo-3.1")
 }
@@ -94,13 +95,20 @@ serve(async (req) => {
         duration: requestedDuration = 4, 
         size: legacySize,
         quality = "1080p",
-        orientation = "portrait",
+        orientation: requestedOrientation = "portrait",
+        format,
         startingFrameUrl,
         model: requestedModel = "sora-2",
       }: VideoRequest = await req.json();
 
       if (!prompt) {
         throw new Error("Prompt is required");
+      }
+
+      // Determine orientation from format if provided, otherwise use requested orientation
+      let orientation = requestedOrientation;
+      if (format) {
+        orientation = format === "landscape" ? "landscape" : "portrait";
       }
 
       // Get model configuration (fallback to sora-2 if unknown model)

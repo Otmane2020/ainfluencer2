@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ProductSelector } from "@/components/ProductSelector";
 import { ScenarioSelector } from "@/components/ScenarioSelector";
+import { FormatSelector, ContentFormat, FORMAT_OPTIONS } from "@/components/FormatSelector";
 import {
   COMMERCIAL_PRODUCTS,
   CommercialProduct,
@@ -52,6 +53,7 @@ const PREFS_KEY = "image_generator_prefs";
 
 interface StoredPrefs {
   productId?: string;
+  format?: ContentFormat;
 }
 
 const loadPrefs = (): StoredPrefs => {
@@ -81,6 +83,7 @@ export const ImageGenerator = ({ onImageGenerated }: ImageGeneratorProps) => {
 
   const [prompt, setPrompt] = useState("");
   const [selectedProduct, setSelectedProductState] = useState<CommercialProduct>(defaultProduct);
+  const [selectedFormat, setSelectedFormatState] = useState<ContentFormat>(storedPrefs.format || "reel");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
   const [showProductSelector, setShowProductSelector] = useState(false);
@@ -92,6 +95,11 @@ export const ImageGenerator = ({ onImageGenerated }: ImageGeneratorProps) => {
   const [selectedSector, setSelectedSector] = useState<VideoScenario | undefined>();
   const [selectedStyle, setSelectedStyle] = useState<VideoScenario | undefined>();
   const [selectedTone, setSelectedTone] = useState<VideoScenario | undefined>();
+
+  const setSelectedFormat = (format: ContentFormat) => {
+    setSelectedFormatState(format);
+    savePrefs({ format });
+  };
 
   const setSelectedProduct = (product: CommercialProduct) => {
     setSelectedProductState(product);
@@ -187,10 +195,16 @@ export const ImageGenerator = ({ onImageGenerated }: ImageGeneratorProps) => {
     });
 
     try {
+      const formatConfig = FORMAT_OPTIONS.find((f) => f.id === selectedFormat) || FORMAT_OPTIONS[0];
+      
       const { data, error } = await supabase.functions.invoke("generate-image", {
         body: {
           prompt: prompt.trim(),
           productId: selectedProduct.id,
+          format: selectedFormat,
+          aspectRatio: formatConfig.aspectRatio,
+          width: formatConfig.dimensions.width,
+          height: formatConfig.dimensions.height,
           sectorId: selectedSector?.id,
           styleId: selectedStyle?.id,
           toneId: selectedTone?.id,
@@ -274,35 +288,43 @@ export const ImageGenerator = ({ onImageGenerated }: ImageGeneratorProps) => {
         />
       </div>
 
-      {/* Quality/Product Selector */}
-      <Dialog open={showProductSelector} onOpenChange={setShowProductSelector}>
-        <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="mb-4 w-full justify-between">
-            <span className="flex items-center gap-2">
-              <span className="text-lg">🖼️</span>
-              {selectedProduct.name}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {selectedProduct.salePrice}€{selectedProduct.salePriceUnit}
-            </span>
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-2xl max-h-[85vh]">
-          <DialogHeader>
-            <DialogTitle>Select Image Quality</DialogTitle>
-          </DialogHeader>
-          <ScrollArea className="max-h-[60vh] pr-4">
-            <ProductSelector
-              selectedProduct={selectedProduct}
-              onProductChange={(p) => {
-                setSelectedProduct(p);
-                setShowProductSelector(false);
-              }}
-              category="image"
-            />
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
+      {/* Format & Quality Selectors */}
+      <div className="flex gap-2 mb-4">
+        <FormatSelector
+          selectedFormat={selectedFormat}
+          onFormatChange={setSelectedFormat}
+          compact
+        />
+        
+        <Dialog open={showProductSelector} onOpenChange={setShowProductSelector}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="flex-1 justify-between">
+              <span className="flex items-center gap-2">
+                <span className="text-lg">🖼️</span>
+                {selectedProduct.name}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {selectedProduct.salePrice}€{selectedProduct.salePriceUnit}
+              </span>
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-2xl max-h-[85vh]">
+            <DialogHeader>
+              <DialogTitle>Select Image Quality</DialogTitle>
+            </DialogHeader>
+            <ScrollArea className="max-h-[60vh] pr-4">
+              <ProductSelector
+                selectedProduct={selectedProduct}
+                onProductChange={(p) => {
+                  setSelectedProduct(p);
+                  setShowProductSelector(false);
+                }}
+                category="image"
+              />
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
+      </div>
 
       {/* Prompt Workspace */}
       <div className="space-y-3">
