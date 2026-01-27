@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.support-chat]
 verify_jwt = false
+
+[functions.run-campaigns-cron]
+verify_jwt = false
