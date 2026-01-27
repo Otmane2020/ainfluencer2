@@ -124,6 +124,9 @@ serve(async (req) => {
       toneId,
       scriptType, // reel, story, ad, testimonial
       duration, // Video duration in seconds
+      // NEW: Project branding
+      logoUrl,
+      detectedLanguage, // Language detected from Firecrawl
     } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -131,10 +134,25 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Generating content for project:", projectName, "type:", contentType, "scenario:", { sectorId, styleId, toneId });
+    // Determine output language
+    const outputLanguage = detectedLanguage || "en";
+    const languageInstructions: Record<string, string> = {
+      en: "OUTPUT ONLY IN ENGLISH - Use natural, conversational American English.",
+      fr: "OUTPUT ONLY IN FRENCH - No English words except brand names. Use natural, conversational French.",
+      es: "OUTPUT ONLY IN SPANISH - No English words except brand names. Use natural, conversational Spanish.",
+      de: "OUTPUT ONLY IN GERMAN - No English words except brand names. Use natural, conversational German.",
+      it: "OUTPUT ONLY IN ITALIAN - No English words except brand names. Use natural, conversational Italian.",
+      pt: "OUTPUT ONLY IN PORTUGUESE - No English words except brand names. Use natural, conversational Portuguese.",
+    };
+    const languageInstruction = languageInstructions[outputLanguage] || languageInstructions.en;
+
+    console.log("Generating content for project:", projectName, "type:", contentType, "language:", outputLanguage, "logo:", logoUrl ? "present" : "none");
 
     // Build scenario context
     const scenarioContext = buildScenarioPrompt(sectorId, styleId, toneId);
+
+    // Logo context for branding
+    const logoContext = logoUrl ? `\nBRAND LOGO URL: ${logoUrl} (Consider incorporating brand logo in visual descriptions when appropriate)` : "";
 
     // Different prompts based on content type
     let systemPrompt: string;
@@ -151,11 +169,13 @@ serve(async (req) => {
       systemPrompt = `You are an expert AI image prompt engineer. Generate a detailed, visual prompt for AI image generation.
 
 CRITICAL RULES:
+• ${languageInstruction}
 • Output is a VISUAL DESCRIPTION for an IMAGE, NOT a video script
 • NO dialogue, NO voiceover, NO timestamps, NO motion descriptions
 • Focus on: composition, colors, lighting, subjects, style, mood
 • Be specific about visual elements: "a warm-lit coffee shop with exposed brick walls" not "a nice cafe"
 • Include style cues: "professional photography", "minimalist design", "editorial style"
+${logoUrl ? `• When appropriate, incorporate the brand logo or branded elements in the visual description` : ""}
 
 CONTEXT:
 - Project: ${projectName || "General"}
@@ -166,6 +186,7 @@ ${sector ? `- Business sector: ${sector.name} - Visual elements: ${sector.visual
 ${style ? `- Visual style: ${style.name} - ${style.visualInstructions}` : ""}
 ${tone ? `- Mood/Tone: ${tone.name} - ${tone.atmosphereNotes}` : ""}
 ${productName ? `- Product tier: ${productName}` : ""}
+${logoContext}
 
 PROMPT STRUCTURE:
 1. Main subject and setting
@@ -190,7 +211,7 @@ Respond ONLY with valid JSON:
     {
       "id": "1",
       "title": "Short descriptive title",
-      "content": "The detailed image generation prompt in English",
+      "content": "The detailed image generation prompt",
       "contentType": "image",
       "estimatedEngagement": "high"
     }
@@ -210,78 +231,80 @@ Respond ONLY with valid JSON:
       // ADS-specific aggressive template
       const isAdsScript = scriptType === "ad";
       const adsInstructions = isAdsScript ? `
-🔥 FORMAT OBLIGATOIRE POUR LES ADS :
-Chaque ligne DOIT commencer par un timestamp [0–1s], [1–3s], etc.
-Chaque phrase = 2 à 6 mots MAX. JAMAIS plus de 7 mots par phrase !
-Ton brutal, direct, sans fioritures.
+🔥 MANDATORY FORMAT FOR ADS:
+Each line MUST start with a timestamp [0–1s], [1–3s], etc.
+Each phrase = 2 to 6 words MAX. NEVER more than 7 words per phrase!
+Brutal, direct tone, no fluff.
 
-EXEMPLE EXACT À SUIVRE :
-[0–1s] Tu perds de l'argent.
-[1–3s] Tous les jours.
-[3–5s] À cause de Google.
-[5–7s] Avis sans réponse.
-[7–9s] Les clients partent.
+EXAMPLE FORMAT TO FOLLOW:
+[0–1s] You're losing money.
+[1–3s] Every single day.
+[3–5s] Because of bad reviews.
+[5–7s] No responses.
+[7–9s] Customers leave.
 ` : "";
 
-      // ULTRA-STRICT PROMPT for video scripts (synced with generate-script-nanobanana)
-      systemPrompt = `Tu es un copywriter professionnel francophone spécialisé en scripts vidéo viraux.
+      // ULTRA-STRICT PROMPT for video scripts
+      systemPrompt = `You are a professional copywriter specialized in viral video scripts.
 
-⚠️ RÈGLE #1 LA PLUS IMPORTANTE - LONGUEUR DU SCRIPT :
-Le script DOIT contenir entre ${minWords} et ${maxWords} mots pour une durée de ${dur} secondes.
-Un script trop court = vidéo ratée. COMPTE TES MOTS avant de répondre !
+⚠️ RULE #1 MOST IMPORTANT - LANGUAGE:
+${languageInstruction}
+
+⚠️ RULE #2 - SCRIPT LENGTH:
+The script MUST contain between ${minWords} and ${maxWords} words for a ${dur} second duration.
+A script too short = failed video. COUNT YOUR WORDS before responding!
 ${adsInstructions}
-RÈGLES DE STYLE :
-• Langue : français parfait de France (pas belge, pas québécois)
-• ZÉRO faute d'orthographe ou de grammaire
-• ZÉRO mot anglais (pas de "tips", "boost", "game-changer", etc.)
-• ZÉRO emoji
-• ZÉRO phrase générique ("Découvrez", "N'attendez plus", "solution innovante")
-• ZÉRO jargon marketing vide ("révolutionnaire", "unique", "incroyable")
+STYLE RULES:
+• Perfect grammar and spelling
+• ZERO emojis
+• ZERO generic phrases ("Discover", "Don't wait", "innovative solution")
+• ZERO empty marketing jargon ("revolutionary", "unique", "incredible")
 ${scenarioContext}
-CONTEXTE DU PROJET :
-Nom : ${projectName || "Non spécifié"}
-Description : ${projectDescription || "Non spécifiée"}
-${projectUrl ? `Site web : ${projectUrl}` : ""}
-${scrapedContent ? `Contenu du site :\n${scrapedContent.substring(0, 1500)}` : ""}
-${productName ? `Produit/Service ciblé : ${productName}` : ""}
-${productCategory ? `Type de contenu : ${productCategory}` : ""}
+${logoContext}
+PROJECT CONTEXT:
+Name: ${projectName || "Not specified"}
+Description: ${projectDescription || "Not specified"}
+${projectUrl ? `Website: ${projectUrl}` : ""}
+${scrapedContent ? `Website content:\n${scrapedContent.substring(0, 1500)}` : ""}
+${productName ? `Targeted product/service: ${productName}` : ""}
+${productCategory ? `Content type: ${productCategory}` : ""}
 
-TON ATTENDU :
-- Naturel, comme si tu parlais à un ami
-- Direct et sans blabla
-- Concret avec des exemples chiffrés si possible
-- Émotionnel mais crédible
+EXPECTED TONE:
+- Natural, like talking to a friend
+- Direct and no-nonsense
+- Concrete with examples and numbers if possible
+- Emotional but credible
 
-EXEMPLES DE BON STYLE (à adapter selon la durée) :
-✅ "Tu perds 3h par semaine à répondre aux mêmes questions ? Cette automatisation fait le travail pendant que tu dors."
-✅ "Un client mécontent coûte 5 fois plus cher qu'un client fidélisé. Voilà pourquoi j'ai créé ça."
-✅ "J'ai testé 12 outils avant de trouver celui-ci. Résultat : 40% de temps gagné."
+GOOD STYLE EXAMPLES (adapt to duration):
+✅ "You waste 3 hours a week answering the same questions? This automation does the work while you sleep."
+✅ "An unhappy customer costs 5 times more than keeping a loyal one. That's why I created this."
+✅ "I tested 12 tools before finding this one. Result: 40% time saved."
 
-EXEMPLES DE MAUVAIS STYLE :
-❌ "Découvrez notre solution innovante qui révolutionne votre quotidien..."
-❌ "N'attendez plus pour booster votre business !"
-❌ "Cette méthode unique va transformer votre vie..."
+BAD STYLE EXAMPLES:
+❌ "Discover our innovative solution that revolutionizes your daily life..."
+❌ "Don't wait to boost your business!"
+❌ "This unique method will transform your life..."
 
-Tu dois générer 5 scripts différents, variés en angle et en ton.
+Generate 5 different scripts, varied in angle and tone.
 
-RAPPEL FINAL : Chaque script DOIT faire ${minWords}-${maxWords} mots pour ${dur} secondes de vidéo !${isAdsScript ? "\n⚠️ FORMAT ADS : Timestamps obligatoires + phrases de 2-6 mots MAX !" : ""}
+FINAL REMINDER: Each script MUST be ${minWords}-${maxWords} words for ${dur} seconds of video!${isAdsScript ? "\n⚠️ ADS FORMAT: Mandatory timestamps + phrases of 2-6 words MAX!" : ""}
 
-IMPORTANT : Réponds UNIQUEMENT avec un JSON valide, sans markdown ni explication :
+IMPORTANT: Respond ONLY with valid JSON, no markdown or explanation:
 {
   "suggestions": [
     {
       "id": "1",
-      "title": "Titre court (max 50 car)",
-      "content": "Le script complet en français parfait",
+      "title": "Short title (max 50 char)",
+      "content": "The complete script",
       "contentType": "video",
-      "angle": "probleme|benefice|emotion|preuve|urgence",
+      "angle": "problem|benefit|emotion|proof|urgency",
       "estimatedEngagement": "high",
-      "hashtags": ["mot1", "mot2", "mot3"]
+      "hashtags": ["word1", "word2", "word3"]
     }
   ]
 }`;
 
-      userMessage = "Génère 5 scripts vidéo courts et percutants pour ce projet.";
+      userMessage = "Generate 5 short, punchy video scripts for this project.";
 
     } else if (contentType === "social_post") {
       // ============================================
@@ -294,7 +317,7 @@ OBJECTIVE: Create an engaging social media post description with hashtags based 
 The output should be ready to publish - NOT the original prompt/brief, but actual CONTENT.
 
 CRITICAL RULES:
-• Write in English (perfect grammar)
+• ${languageInstruction}
 • Create ENGAGING post copy that tells a story or creates curiosity
 • Include a clear call-to-action when relevant
 • Generate 8-12 relevant hashtags
@@ -307,6 +330,7 @@ CONTEXT:
 ${projectUrl ? `- Website: ${projectUrl}` : ""}
 ${scrapedContent ? `- Brand context:\n${scrapedContent.substring(0, 800)}` : ""}
 ${productName ? `- Product/Service: ${productName}` : ""}
+${logoContext}
 
 POST STRUCTURE:
 1. Hook (first line that stops the scroll)
@@ -339,32 +363,33 @@ Respond ONLY with valid JSON:
 
     } else {
       // Standard prompt for general content suggestions
-      systemPrompt = `Tu es un expert en création de contenu pour les réseaux sociaux.
+      systemPrompt = `You are an expert in creating social media content.
 
-LANGUE : Français parfait uniquement. Pas d'anglicismes, pas de fautes.
+LANGUAGE: ${languageInstruction}
 ${scenarioContext}
-CONTEXTE :
-- Projet : ${projectName || "Non spécifié"}
-- Description : ${projectDescription || "Non spécifiée"}
-${projectUrl ? `- URL : ${projectUrl}` : ""}
-${scrapedContent ? `- Contenu du site :\n${scrapedContent.substring(0, 1500)}` : ""}
+${logoContext}
+CONTEXT:
+- Project: ${projectName || "Not specified"}
+- Description: ${projectDescription || "Not specified"}
+${projectUrl ? `- URL: ${projectUrl}` : ""}
+${scrapedContent ? `- Website content:\n${scrapedContent.substring(0, 1500)}` : ""}
 
-OBJECTIF : Générer 5 idées de contenu créatives et engageantes.
+OBJECTIVE: Generate 5 creative and engaging content ideas.
 
-Pour chaque suggestion :
-1. Titre accrocheur (max 60 caractères)
-2. Contenu/script détaillé en français impeccable
-3. Type : "video", "image" ou "text"
-4. Potentiel d'engagement : "high", "medium" ou "low"
-5. 5-8 hashtags pertinents (sans le #)
+For each suggestion:
+1. Catchy title (max 60 characters)
+2. Detailed content/script
+3. Type: "video", "image" or "text"
+4. Engagement potential: "high", "medium" or "low"
+5. 5-8 relevant hashtags (without #)
 
-Réponds UNIQUEMENT avec un JSON valide :
+Respond ONLY with valid JSON:
 {
   "suggestions": [
     {
       "id": "1",
-      "title": "Titre",
-      "content": "Contenu détaillé...",
+      "title": "Title",
+      "content": "Detailed content...",
       "contentType": "video",
       "estimatedEngagement": "high",
       "hashtags": ["hashtag1", "hashtag2"]
@@ -372,7 +397,7 @@ Réponds UNIQUEMENT avec un JSON valide :
   ]
 }`;
 
-      userMessage = "Génère 5 suggestions de contenu pour ce projet.";
+      userMessage = "Generate 5 content suggestions for this project.";
     }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

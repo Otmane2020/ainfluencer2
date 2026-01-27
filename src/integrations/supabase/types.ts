@@ -171,6 +171,7 @@ export type Database = {
           automation_mode: string | null
           created_at: string
           description: string | null
+          detected_language: string | null
           facebook_enabled: boolean | null
           id: string
           instagram_enabled: boolean | null
@@ -188,6 +189,7 @@ export type Database = {
           automation_mode?: string | null
           created_at?: string
           description?: string | null
+          detected_language?: string | null
           facebook_enabled?: boolean | null
           id?: string
           instagram_enabled?: boolean | null
@@ -205,6 +207,7 @@ export type Database = {
           automation_mode?: string | null
           created_at?: string
           description?: string | null
+          detected_language?: string | null
           facebook_enabled?: boolean | null
           id?: string
           instagram_enabled?: boolean | null

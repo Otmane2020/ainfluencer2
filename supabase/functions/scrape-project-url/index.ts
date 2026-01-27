@@ -5,6 +5,53 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Detect language from text content
+function detectLanguage(content: string): string {
+  if (!content) return "en";
+  
+  // Common French words/patterns
+  const frenchPatterns = /\b(le|la|les|de|du|des|un|une|et|est|que|pour|avec|dans|sur|par|pas|plus|nous|vous|ils|elles|ce|cette|sont|ont|fait|peut|tout|bien|très|même|aussi|comme)\b/gi;
+  // Common English words/patterns
+  const englishPatterns = /\b(the|is|are|was|were|have|has|had|will|would|could|should|been|being|their|there|they|this|that|with|from|about|which|when|what|your|more|also|just|like|into|some|than)\b/gi;
+  // Common Spanish words/patterns
+  const spanishPatterns = /\b(el|la|los|las|de|del|un|una|que|en|es|por|con|para|su|sus|son|han|este|esta|como|más|pero|muy|también|todos|puede|hay|sin|sobre)\b/gi;
+  // Common German words/patterns
+  const germanPatterns = /\b(der|die|das|und|ist|von|mit|für|auf|sich|nicht|auch|als|ein|eine|dem|den|werden|nach|bei|haben|kann|sind|wird|aus|oder)\b/gi;
+  // Common Italian words/patterns
+  const italianPatterns = /\b(il|lo|la|le|di|del|un|una|che|in|è|per|con|sono|questa|questo|come|più|ma|anche|tutto|può|essere|fare|non|solo)\b/gi;
+  // Common Portuguese words/patterns
+  const portuguesePatterns = /\b(o|a|os|as|de|do|da|um|uma|que|em|é|para|com|são|esta|este|como|mais|mas|também|pode|ter|fazer|não|só)\b/gi;
+
+  const text = content.toLowerCase();
+  
+  const frenchMatches = (text.match(frenchPatterns) || []).length;
+  const englishMatches = (text.match(englishPatterns) || []).length;
+  const spanishMatches = (text.match(spanishPatterns) || []).length;
+  const germanMatches = (text.match(germanPatterns) || []).length;
+  const italianMatches = (text.match(italianPatterns) || []).length;
+  const portugueseMatches = (text.match(portuguesePatterns) || []).length;
+
+  const scores = [
+    { lang: "fr", score: frenchMatches },
+    { lang: "en", score: englishMatches },
+    { lang: "es", score: spanishMatches },
+    { lang: "de", score: germanMatches },
+    { lang: "it", score: italianMatches },
+    { lang: "pt", score: portugueseMatches },
+  ];
+
+  scores.sort((a, b) => b.score - a.score);
+  
+  console.log("Language detection scores:", scores);
+  
+  // Return detected language if confident (at least 5 matches)
+  if (scores[0].score >= 5) {
+    return scores[0].lang;
+  }
+  
+  return "en"; // Default to English
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -65,6 +112,16 @@ serve(async (req) => {
 
     console.log("Scrape successful");
 
+    // Combine all text content for language detection
+    const textForDetection = [
+      data.data?.metadata?.title || "",
+      data.data?.metadata?.description || "",
+      data.data?.markdown?.substring(0, 2000) || "",
+    ].join(" ");
+
+    const detectedLanguage = detectLanguage(textForDetection);
+    console.log("Detected language:", detectedLanguage);
+
     // Extract relevant info for project context
     const scrapedData = {
       success: true,
@@ -74,6 +131,7 @@ serve(async (req) => {
       branding: data.data?.branding || null,
       logo: data.data?.branding?.images?.logo || data.data?.branding?.logo || null,
       colors: data.data?.branding?.colors || null,
+      detectedLanguage: detectedLanguage,
     };
 
     return new Response(

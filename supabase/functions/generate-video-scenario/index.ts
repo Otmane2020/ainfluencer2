@@ -34,6 +34,7 @@ interface RequestBody {
   scriptType: "reel" | "ad" | "story" | "testimonial";
   duration: number;
   detectedLanguage?: string;
+  logoUrl?: string;
 }
 
 // Business sectors context
@@ -138,6 +139,7 @@ Deno.serve(async (req) => {
       scriptType,
       duration,
       detectedLanguage,
+      logoUrl,
     } = body;
 
     // Detect language from scraped content or use provided
@@ -152,6 +154,7 @@ Deno.serve(async (req) => {
       styleId,
       toneId,
       detectedLanguage: language,
+      hasLogo: !!logoUrl,
     });
 
     // Build context from scenario selections
@@ -169,6 +172,7 @@ Deno.serve(async (req) => {
 PROJECT: ${projectName}
 ${projectDescription ? `DESCRIPTION: ${projectDescription}` : ""}
 ${projectUrl ? `WEBSITE: ${projectUrl}` : ""}
+${logoUrl ? `BRAND LOGO: ${logoUrl} (Consider incorporating brand logo or branded elements in visual descriptions)` : ""}
 ${scrapedContent ? `\nWEBSITE CONTENT:\n${scrapedContent.slice(0, 2000)}` : ""}
     `.trim();
 

@@ -32,9 +32,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { WizardProgress, WizardStep as WizardStepType } from "@/components/wizard/WizardProgress";
 import { WizardStep, WizardStepContainer } from "@/components/wizard/WizardStep";
 
-// Schema de validation
+// Validation schema
 const projectSchema = z.object({
-  name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
+  name: z.string().min(2, "Name must be at least 2 characters"),
   description: z.string().optional(),
   url: z.string().url().optional().or(z.literal("")),
   theme_color: z.string().default("#F97316"),
@@ -48,23 +48,23 @@ const projectSchema = z.object({
 
 type ProjectFormData = z.infer<typeof projectSchema>;
 
-// Configuration des étapes
+// Step configuration
 const wizardSteps: WizardStepType[] = [
-  { id: "site", title: "Site web", icon: Globe },
-  { id: "info", title: "Informations", icon: FileText },
-  { id: "branding", title: "Identité", icon: Palette },
-  { id: "content", title: "Contenu", icon: Calendar },
-  { id: "platforms", title: "Plateformes", icon: Share2 },
+  { id: "site", title: "Website", icon: Globe },
+  { id: "info", title: "Information", icon: FileText },
+  { id: "branding", title: "Branding", icon: Palette },
+  { id: "content", title: "Content", icon: Calendar },
+  { id: "platforms", title: "Platforms", icon: Share2 },
 ];
 
 const themeColors = [
   { value: "#F97316", name: "Orange" },
-  { value: "#EC4899", name: "Rose" },
-  { value: "#8B5CF6", name: "Violet" },
-  { value: "#3B82F6", name: "Bleu" },
-  { value: "#10B981", name: "Vert" },
-  { value: "#F59E0B", name: "Ambre" },
-  { value: "#EF4444", name: "Rouge" },
+  { value: "#EC4899", name: "Pink" },
+  { value: "#8B5CF6", name: "Purple" },
+  { value: "#3B82F6", name: "Blue" },
+  { value: "#10B981", name: "Green" },
+  { value: "#F59E0B", name: "Amber" },
+  { value: "#EF4444", name: "Red" },
   { value: "#6366F1", name: "Indigo" },
 ];
 
@@ -103,6 +103,7 @@ const ProjectNew = () => {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [videosPerMonth, setVideosPerMonth] = useState(4);
   const [imagesPerMonth, setImagesPerMonth] = useState(12);
+  const [detectedLanguage, setDetectedLanguage] = useState("en");
 
   // Fetch existing project data in edit mode
   useEffect(() => {
@@ -140,8 +141,8 @@ const ProjectNew = () => {
       } catch (error) {
         console.error("Error fetching project:", error);
         toast({
-          title: "Erreur",
-          description: "Impossible de charger le projet",
+          title: "Error",
+          description: "Unable to load project",
           variant: "destructive",
         });
         navigate("/projects");
@@ -153,7 +154,7 @@ const ProjectNew = () => {
     fetchProject();
   }, [editProjectId, user, toast, navigate]);
 
-  // Navigation du wizard
+  // Wizard navigation
   const nextStep = useCallback(() => {
     if (currentStep < wizardSteps.length - 1) {
       setDirection("forward");
@@ -173,30 +174,30 @@ const ProjectNew = () => {
     setCurrentStep(index);
   }, [currentStep]);
 
-  // Validation par étape
+  // Step validation
   const validateCurrentStep = (): boolean => {
     switch (currentStep) {
-      case 0: // Site web - optionnel
+      case 0: // Website - optional
         return true;
-      case 1: // Informations
+      case 1: // Information
         if (!formData.name || formData.name.length < 2) {
           toast({
-            title: "Nom requis",
-            description: "Le nom du projet doit contenir au moins 2 caractères",
+            title: "Name required",
+            description: "Project name must be at least 2 characters",
             variant: "destructive",
           });
           return false;
         }
         return true;
-      case 2: // Branding - toujours valide (couleur par défaut)
+      case 2: // Branding - always valid (default color)
         return true;
-      case 3: // Contenu - toujours valide (valeurs par défaut)
+      case 3: // Content - always valid (default values)
         return true;
-      case 4: // Plateformes
+      case 4: // Platforms
         if (!formData.instagram_enabled && !formData.facebook_enabled && !formData.linkedin_enabled && !formData.tiktok_enabled) {
           toast({
-            title: "Plateforme requise",
-            description: "Sélectionnez au moins une plateforme de publication",
+            title: "Platform required",
+            description: "Select at least one publishing platform",
             variant: "destructive",
           });
           return false;
@@ -213,12 +214,12 @@ const ProjectNew = () => {
     }
   };
 
-  // Scraping URL avec Firecrawl
+  // Scrape URL with Firecrawl
   const handleScrapeUrl = async () => {
     if (!formData.url) {
       toast({
-        title: "URL requise",
-        description: "Entrez une URL pour l'analyser",
+        title: "URL required",
+        description: "Enter a URL to analyze",
         variant: "destructive",
       });
       return;
@@ -247,19 +248,24 @@ const ProjectNew = () => {
           setFormData(prev => ({ ...prev, theme_color: data.colors.primary }));
         }
 
+        // Store detected language
+        if (data.detectedLanguage) {
+          setDetectedLanguage(data.detectedLanguage);
+        }
+
         toast({
-          title: "Site analysé !",
-          description: "Les informations ont été extraites avec succès",
+          title: "Website analyzed!",
+          description: "Information extracted successfully",
         });
         
-        // Passer automatiquement à l'étape suivante
+        // Automatically move to next step
         nextStep();
       }
     } catch (error) {
       console.error("Scrape error:", error);
       toast({
-        title: "Erreur d'analyse",
-        description: "Impossible d'analyser le site. Continuez manuellement.",
+        title: "Analysis error",
+        description: "Unable to analyze website. Continue manually.",
         variant: "destructive",
       });
     } finally {
@@ -280,29 +286,29 @@ const ProjectNew = () => {
     }
   };
 
-  // Soumission finale
+  // Final submission
   const handleSubmit = async () => {
-    // Vérification utilisateur
+    // User verification
     if (!user) {
       console.error("No user found");
       toast({
-        title: "Non connecté",
-        description: "Veuillez vous reconnecter pour créer un projet",
+        title: "Not logged in",
+        description: "Please log in again to create a project",
         variant: "destructive",
       });
       navigate("/auth");
       return;
     }
 
-    // Validation finale
+    // Final validation
     try {
       projectSchema.parse(formData);
     } catch (error) {
       if (error instanceof z.ZodError) {
         console.error("Validation error:", error.errors);
         toast({
-          title: "Données invalides",
-          description: error.errors[0]?.message || "Vérifiez le formulaire",
+          title: "Invalid data",
+          description: error.errors[0]?.message || "Check the form",
           variant: "destructive",
         });
         return;
@@ -314,7 +320,7 @@ const ProjectNew = () => {
     try {
       let logoUrl: string | null = null;
 
-      // Upload du logo si présent
+      // Upload logo if present
       if (logoFile) {
         const fileExt = logoFile.name.split(".").pop();
         const fileName = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
@@ -349,10 +355,11 @@ const ProjectNew = () => {
         tiktok_enabled: formData.tiktok_enabled,
         posts_per_week: formData.posts_per_week,
         automation_mode: formData.automation_mode,
+        detected_language: detectedLanguage,
       };
 
       if (isEditMode && editProjectId) {
-        // Mode édition - Update
+        // Edit mode - Update
         const { error } = await supabase
           .from("projects")
           .update(projectData)
@@ -364,13 +371,13 @@ const ProjectNew = () => {
         }
 
         toast({
-          title: "Projet modifié ! ✓",
-          description: `${formData.name} a été mis à jour`,
+          title: "Project updated! ✓",
+          description: `${formData.name} has been updated`,
         });
 
         navigate(`/projects/${editProjectId}`);
       } else {
-        // Mode création - Insert
+        // Create mode - Insert
         const { data, error } = await supabase
           .from("projects")
           .insert({
@@ -388,8 +395,8 @@ const ProjectNew = () => {
         console.log("Project created:", data);
         
         toast({
-          title: "Projet créé ! 🎉",
-          description: "Génération du planning mensuel en cours...",
+          title: "Project created! 🎉",
+          description: "Generating monthly schedule...",
         });
 
         // Generate monthly schedule automatically after creation
@@ -410,8 +417,8 @@ const ProjectNew = () => {
           } else {
             console.log("Monthly schedule generated:", scheduleData);
             toast({
-              title: "Planning généré ! 📅",
-              description: scheduleData?.message || "Vos posts sont programmés",
+              title: "Schedule generated! 📅",
+              description: scheduleData?.message || "Your posts are scheduled",
             });
           }
         } catch (scheduleErr) {
@@ -423,8 +430,8 @@ const ProjectNew = () => {
     } catch (error) {
       console.error("Save project error:", error);
       toast({
-        title: isEditMode ? "Erreur de modification" : "Erreur de création",
-        description: "Impossible de sauvegarder le projet. Veuillez réessayer.",
+        title: isEditMode ? "Update error" : "Creation error",
+        description: "Unable to save project. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -441,12 +448,12 @@ const ProjectNew = () => {
     );
   }
 
-  // Non connecté
+  // Not logged in
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">Vous devez être connecté pour créer un projet</p>
-        <Button onClick={() => navigate("/auth")}>Se connecter</Button>
+        <p className="text-muted-foreground">You must be logged in to create a project</p>
+        <Button onClick={() => navigate("/auth")}>Log in</Button>
       </div>
     );
   }
@@ -463,12 +470,12 @@ const ProjectNew = () => {
           animate={{ opacity: 1, y: 0 }}
         >
           <h1 className="text-3xl md:text-4xl font-bold gradient-text">
-            {isEditMode ? "Modifier le projet" : "Nouveau projet"}
+            {isEditMode ? "Edit Project" : "New Project"}
           </h1>
           <p className="text-muted-foreground">
             {isEditMode 
-              ? "Modifiez les paramètres de votre projet"
-              : "Configurez votre projet en quelques étapes"
+              ? "Modify your project settings"
+              : "Configure your project in a few steps"
             }
           </p>
         </motion.div>
@@ -482,21 +489,21 @@ const ProjectNew = () => {
 
         {/* Step Content */}
         <AnimatePresence mode="wait">
-          {/* Step 1: Site web */}
+          {/* Step 1: Website */}
           {currentStep === 0 && (
             <WizardStep isActive={true} direction={direction}>
               <WizardStepContainer
-                title="Site web"
-                description="Analysez votre site pour pré-remplir les informations (optionnel)"
+                title="Website"
+                description="Analyze your website to pre-fill information (optional)"
               >
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <Label htmlFor="url">URL du site</Label>
+                    <Label htmlFor="url">Website URL</Label>
                     <div className="flex gap-2">
                       <Input
                         id="url"
                         type="url"
-                        placeholder="https://monsite.com"
+                        placeholder="https://mywebsite.com"
                         value={formData.url}
                         onChange={(e) => setFormData(prev => ({ ...prev, url: e.target.value }))}
                         className="flex-1"
@@ -512,13 +519,13 @@ const ProjectNew = () => {
                         ) : (
                           <>
                             <Sparkles className="w-4 h-4 mr-2" />
-                            Analyser
+                            Analyze
                           </>
                         )}
                       </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      L'IA analysera votre site pour extraire le nom, la description et les couleurs
+                      AI will analyze your website to extract name, description and colors
                     </p>
                   </div>
                 </div>
@@ -526,19 +533,19 @@ const ProjectNew = () => {
             </WizardStep>
           )}
 
-          {/* Step 2: Informations */}
+          {/* Step 2: Information */}
           {currentStep === 1 && (
             <WizardStep isActive={true} direction={direction}>
               <WizardStepContainer
-                title="Informations"
-                description="Donnez un nom et une description à votre projet"
+                title="Information"
+                description="Give your project a name and description"
               >
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Nom du projet *</Label>
+                    <Label htmlFor="name">Project name *</Label>
                     <Input
                       id="name"
-                      placeholder="Mon super projet"
+                      placeholder="My awesome project"
                       value={formData.name}
                       onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     />
@@ -548,7 +555,7 @@ const ProjectNew = () => {
                     <Label htmlFor="description">Description</Label>
                     <Textarea
                       id="description"
-                      placeholder="Décrivez votre projet en quelques mots..."
+                      placeholder="Describe your project in a few words..."
                       value={formData.description}
                       onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                       rows={4}
@@ -563,8 +570,8 @@ const ProjectNew = () => {
           {currentStep === 2 && (
             <WizardStep isActive={true} direction={direction}>
               <WizardStepContainer
-                title="Identité visuelle"
-                description="Personnalisez l'apparence de votre projet"
+                title="Visual Identity"
+                description="Customize your project's appearance"
               >
                 <div className="space-y-8">
                   {/* Logo */}
@@ -593,15 +600,15 @@ const ProjectNew = () => {
                           className="cursor-pointer"
                         />
                         <p className="text-xs text-muted-foreground">
-                          PNG, JPG ou SVG. Max 2MB.
+                          PNG, JPG or SVG. Max 2MB.
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Couleur */}
+                  {/* Color */}
                   <div className="space-y-4">
-                    <Label>Couleur thème</Label>
+                    <Label>Theme color</Label>
                     <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
                       {themeColors.map((color) => (
                         <motion.button
@@ -631,22 +638,22 @@ const ProjectNew = () => {
             </WizardStep>
           )}
 
-          {/* Step 4: Contenu */}
+          {/* Step 4: Content */}
           {currentStep === 3 && (
             <WizardStep isActive={true} direction={direction}>
               <WizardStepContainer
-                title="Génération de contenu"
-                description="Définissez la quantité de contenu à générer chaque mois"
+                title="Content Generation"
+                description="Define how much content to generate each month"
               >
                 <div className="space-y-8">
-                  {/* Vidéos par mois */}
+                  {/* Videos per month */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <Label className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                           <Zap className="w-4 h-4 text-primary" />
                         </div>
-                        Vidéos / Reels par mois
+                        Videos / Reels per month
                       </Label>
                       <span className="text-2xl font-bold text-primary">{videosPerMonth}</span>
                     </div>
@@ -659,18 +666,18 @@ const ProjectNew = () => {
                       className="w-full"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Recommandé: 4-8 vidéos par mois pour un bon engagement
+                      Recommended: 4-8 videos per month for good engagement
                     </p>
                   </div>
 
-                  {/* Images par mois */}
+                  {/* Images per month */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <Label className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
                           <Palette className="w-4 h-4 text-accent" />
                         </div>
-                        Posts images par mois
+                        Image posts per month
                       </Label>
                       <span className="text-2xl font-bold text-accent">{imagesPerMonth}</span>
                     </div>
@@ -683,18 +690,18 @@ const ProjectNew = () => {
                       className="w-full"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Recommandé: 12-16 images par mois pour une présence régulière
+                      Recommended: 12-16 images per month for regular presence
                     </p>
                   </div>
 
-                  {/* Fréquence publication */}
+                  {/* Publishing frequency */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <Label className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center">
                           <Clock className="w-4 h-4 text-foreground" />
                         </div>
-                        Publications par semaine
+                        Posts per week
                       </Label>
                       <span className="text-2xl font-bold">{formData.posts_per_week}</span>
                     </div>
@@ -712,17 +719,17 @@ const ProjectNew = () => {
             </WizardStep>
           )}
 
-          {/* Step 5: Plateformes */}
+          {/* Step 5: Platforms */}
           {currentStep === 4 && (
             <WizardStep isActive={true} direction={direction}>
               <WizardStepContainer
-                title="Plateformes & Automatisation"
-                description="Choisissez où publier et comment automatiser"
+                title="Platforms & Automation"
+                description="Choose where to publish and how to automate"
               >
                 <div className="space-y-8">
-                  {/* Plateformes */}
+                  {/* Platforms */}
                   <div className="space-y-4">
-                    <Label>Plateformes de publication</Label>
+                    <Label>Publishing platforms</Label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <motion.div
                         className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
@@ -771,7 +778,7 @@ const ProjectNew = () => {
                             </div>
                             <div>
                               <p className="font-semibold">Facebook</p>
-                              <p className="text-xs text-muted-foreground">Posts, Vidéos, Reels</p>
+                              <p className="text-xs text-muted-foreground">Posts, Videos, Reels</p>
                             </div>
                           </div>
                           <Switch checked={formData.facebook_enabled} />
@@ -825,7 +832,7 @@ const ProjectNew = () => {
                             </div>
                             <div>
                               <p className="font-semibold">TikTok</p>
-                              <p className="text-xs text-muted-foreground">Vidéos courtes</p>
+                              <p className="text-xs text-muted-foreground">Short videos</p>
                             </div>
                           </div>
                           <Switch checked={formData.tiktok_enabled} />
@@ -834,25 +841,25 @@ const ProjectNew = () => {
                     </div>
                   </div>
 
-                  {/* Mode automatisation */}
+                  {/* Automation mode */}
                   <div className="space-y-4">
-                    <Label>Mode d'automatisation</Label>
+                    <Label>Automation mode</Label>
                     <div className="space-y-3">
                       {[
                         { 
                           value: "manual", 
-                          label: "Manuel", 
-                          desc: "Validation manuelle de chaque post" 
+                          label: "Manual", 
+                          desc: "Manual approval for each post" 
                         },
                         { 
                           value: "semi_auto", 
                           label: "Semi-auto", 
-                          desc: "Génération auto, publication manuelle" 
+                          desc: "Auto generation, manual publishing" 
                         },
                         { 
                           value: "full_auto", 
                           label: "100% Auto", 
-                          desc: "Tout est automatisé" 
+                          desc: "Everything is automated" 
                         },
                       ].map((mode) => (
                         <motion.div
@@ -889,7 +896,7 @@ const ProjectNew = () => {
                     </div>
                   </div>
 
-                  {/* Résumé */}
+                  {/* Summary */}
                   <motion.div 
                     className="p-4 rounded-xl bg-muted/30 border border-border"
                     initial={{ opacity: 0 }}
@@ -898,23 +905,23 @@ const ProjectNew = () => {
                   >
                     <h4 className="font-semibold mb-3 flex items-center gap-2">
                       <Sparkles className="w-4 h-4 text-primary" />
-                      Résumé du projet
+                      Project Summary
                     </h4>
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
-                        <span className="text-muted-foreground">Nom:</span>
+                        <span className="text-muted-foreground">Name:</span>
                         <p className="font-medium">{formData.name || "—"}</p>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Vidéos/mois:</span>
+                        <span className="text-muted-foreground">Videos/month:</span>
                         <p className="font-medium">{videosPerMonth}</p>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Images/mois:</span>
+                        <span className="text-muted-foreground">Images/month:</span>
                         <p className="font-medium">{imagesPerMonth}</p>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Publications/sem:</span>
+                        <span className="text-muted-foreground">Posts/week:</span>
                         <p className="font-medium">{formData.posts_per_week}</p>
                       </div>
                     </div>
@@ -940,7 +947,7 @@ const ProjectNew = () => {
             className="min-w-[120px]"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            {currentStep === 0 ? "Annuler" : "Précédent"}
+            {currentStep === 0 ? "Cancel" : "Previous"}
           </Button>
 
           {isLastStep ? (
@@ -956,7 +963,7 @@ const ProjectNew = () => {
               ) : (
                 <>
                   <Sparkles className="w-4 h-4 mr-2" />
-                  Créer le projet
+                  Create Project
                 </>
               )}
             </Button>
@@ -966,7 +973,7 @@ const ProjectNew = () => {
               onClick={handleNext}
               className="min-w-[120px]"
             >
-              Suivant
+              Next
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           )}
