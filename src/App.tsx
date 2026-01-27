@@ -13,6 +13,7 @@ import ProjectNew from "./pages/ProjectNew";
 import ProjectDetail from "./pages/ProjectDetail";
 import CalendarPage from "./pages/CalendarPage";
 import Videos from "./pages/Videos";
+import Images from "./pages/Images";
 import Posts from "./pages/Posts";
 import Settings from "./pages/Settings";
 import Integrations from "./pages/Integrations";
@@ -60,6 +61,7 @@ const App = () => (
             <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/videos" element={<Videos />} />
+            <Route path="/images" element={<Images />} />
             <Route path="/posts" element={<Posts />} />
             <Route path="/history/videos" element={<VideoHistoryPage />} />
             <Route path="/history/images" element={<ImageHistoryPage />} />
