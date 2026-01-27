@@ -1,11 +1,8 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { History, Image, Video, FileText, Trash2, Share2, Copy, Check, Eye, Filter, Calendar } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { History, Filter } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
 import {
   Select,
   SelectContent,
@@ -23,6 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ContentHistoryItem } from "./ContentHistoryItem";
 
 interface ContentItem {
   id: string;
@@ -56,7 +54,22 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
 
   useEffect(() => {
     fetchHistory();
-  }, [projectId, campaignId, filter]);
+    
+    // Set up polling for items that are generating
+    const interval = setInterval(() => {
+      const hasGenerating = items.some(item => 
+        (item.content_type === "image" || item.content_type === "video") 
+        && item.ai_prompt 
+        && !item.media_url 
+        && item.status === "draft"
+      );
+      if (hasGenerating) {
+        fetchHistory();
+      }
+    }, 10000); // Poll every 10 seconds
+    
+    return () => clearInterval(interval);
+  }, [projectId, campaignId, filter, items]);
 
   const fetchHistory = async () => {
     setIsLoading(true);
@@ -85,7 +98,6 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
       const { data, error } = await query;
 
       if (error) throw error;
-      // Map the join result to our interface
       const mappedData = (data || []).map((item: any) => ({
         ...item,
         campaign: item.campaigns ? { name: item.campaigns.name } : null,
@@ -144,29 +156,6 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
     } finally {
       setDeleteItem(null);
     }
-  };
-
-  const getContentIcon = (type: string) => {
-    switch (type) {
-      case "video":
-        return <Video className="h-4 w-4" />;
-      case "image":
-        return <Image className="h-4 w-4" />;
-      default:
-        return <FileText className="h-4 w-4" />;
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    const config: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-      draft: { label: "Draft", variant: "secondary" },
-      scheduled: { label: "Scheduled", variant: "default" },
-      published: { label: "Published", variant: "outline" },
-      failed: { label: "Failed", variant: "destructive" },
-    };
-    
-    const cfg = config[status] || { label: status, variant: "secondary" as const };
-    return <Badge variant={cfg.variant}>{cfg.label}</Badge>;
   };
 
   if (isLoading) {
@@ -234,141 +223,16 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
           <div className="space-y-3">
             <AnimatePresence>
               {items.map((item, index) => (
-                <motion.div
+                <ContentHistoryItem
                   key={item.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  transition={{ delay: 0.05 * index }}
-                  className="group rounded-xl border border-border p-3 md:p-4 transition-all hover:border-primary/30 hover:bg-muted/30"
-                >
-                  <div className="flex gap-3">
-                    {/* Thumbnail */}
-                    {(item.media_url || item.thumbnail_url) && (
-                      <div 
-                        className="h-16 w-16 md:h-20 md:w-20 shrink-0 rounded-lg overflow-hidden bg-muted cursor-pointer"
-                        onClick={() => onPreview?.(item)}
-                      >
-                        {item.content_type === "video" ? (
-                          <div className="relative h-full w-full">
-                            <img
-                              src={item.thumbnail_url || item.media_url || ""}
-                              alt="Thumbnail"
-                              className="h-full w-full object-cover"
-                            />
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                              <Video className="h-6 w-6 text-white" />
-                            </div>
-                          </div>
-                        ) : (
-                          <img
-                            src={item.media_url || item.thumbnail_url || ""}
-                            alt="Content"
-                            className="h-full w-full object-cover"
-                          />
-                        )}
-                      </div>
-                    )}
-
-                    {/* Content Info */}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            {getContentIcon(item.content_type)}
-                            <span className="capitalize">{item.content_type}</span>
-                          </div>
-                          {getStatusBadge(item.status || "draft")}
-                          {item.campaign && (
-                            <Badge variant="outline" className="text-xs">
-                              📢 {item.campaign.name}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Calendar className="h-3 w-3" />
-                          <span className="hidden sm:inline">
-                            {format(new Date(item.created_at), "MMM d, yyyy")}
-                          </span>
-                          <span className="sm:hidden">
-                            {format(new Date(item.created_at), "MM/dd")}
-                          </span>
-                        </div>
-                      </div>
-
-                      {item.text_content && (
-                        <p className="mt-2 text-sm line-clamp-2">{item.text_content}</p>
-                      )}
-                      
-                      {item.ai_prompt && !item.text_content && (
-                        <p className="mt-2 text-sm text-muted-foreground line-clamp-2 italic">
-                          "{item.ai_prompt}"
-                        </p>
-                      )}
-
-                      {/* Platforms */}
-                      {item.platforms && item.platforms.length > 0 && (
-                        <div className="mt-2 flex gap-1">
-                          {item.platforms.map((platform) => (
-                            <span
-                              key={platform}
-                              className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground capitalize"
-                            >
-                              {platform}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Actions - Always visible on mobile, hover on desktop */}
-                  <div className="mt-3 flex flex-wrap items-center gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                    {item.text_content && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleCopy(item)}
-                        className="h-8 text-xs"
-                      >
-                        {copiedId === item.id ? (
-                          <Check className="h-3 w-3 mr-1 text-green-500" />
-                        ) : (
-                          <Copy className="h-3 w-3 mr-1" />
-                        )}
-                        Copy
-                      </Button>
-                    )}
-                    {item.media_url && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onPreview?.(item)}
-                        className="h-8 text-xs"
-                      >
-                        <Eye className="h-3 w-3 mr-1" />
-                        View
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onShare?.(item)}
-                      className="h-8 text-xs"
-                    >
-                      <Share2 className="h-3 w-3 mr-1" />
-                      Share
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setDeleteItem(item)}
-                      className="h-8 text-xs text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </motion.div>
+                  item={item}
+                  index={index}
+                  copiedId={copiedId}
+                  onCopy={handleCopy}
+                  onPreview={(item) => onPreview?.(item)}
+                  onShare={(item) => onShare?.(item)}
+                  onDelete={setDeleteItem}
+                />
               ))}
             </AnimatePresence>
           </div>
