@@ -33,6 +33,7 @@ interface RequestBody {
   toneId?: string;
   scriptType: "reel" | "ad" | "story" | "testimonial";
   duration: number;
+  detectedLanguage?: string;
 }
 
 // Business sectors context
@@ -75,6 +76,50 @@ const TONE_CONTEXT: Record<string, string> = {
   authentic: "Raw, no filters, genuine, transparent",
 };
 
+// Detect language from content
+function detectLanguage(content: string): string {
+  if (!content) return "en";
+  
+  // Common French words/patterns
+  const frenchPatterns = /\b(le|la|les|de|du|des|un|une|et|est|que|pour|avec|dans|sur|par|pas|plus|nous|vous|ils|elles|ce|cette|sont|ont|fait|peut|tout|bien|très|même|aussi|comme)\b/gi;
+  // Common English words/patterns
+  const englishPatterns = /\b(the|is|are|was|were|have|has|had|will|would|could|should|been|being|their|there|they|this|that|with|from|about|which|when|what|your|more|also|just|like|into|some|than)\b/gi;
+  // Common Spanish words/patterns
+  const spanishPatterns = /\b(el|la|los|las|de|del|un|una|que|en|es|por|con|para|su|sus|son|han|este|esta|como|más|pero|muy|también|todos|puede|hay|sin|sobre)\b/gi;
+  // Common German words/patterns
+  const germanPatterns = /\b(der|die|das|und|ist|von|mit|für|auf|sich|nicht|auch|als|ein|eine|dem|den|werden|nach|bei|haben|kann|sind|wird|aus|oder)\b/gi;
+
+  const text = content.toLowerCase();
+  
+  const frenchMatches = (text.match(frenchPatterns) || []).length;
+  const englishMatches = (text.match(englishPatterns) || []).length;
+  const spanishMatches = (text.match(spanishPatterns) || []).length;
+  const germanMatches = (text.match(germanPatterns) || []).length;
+
+  const scores = [
+    { lang: "fr", score: frenchMatches },
+    { lang: "en", score: englishMatches },
+    { lang: "es", score: spanishMatches },
+    { lang: "de", score: germanMatches },
+  ];
+
+  scores.sort((a, b) => b.score - a.score);
+  
+  // Return detected language if confident (at least 5 matches)
+  if (scores[0].score >= 5) {
+    return scores[0].lang;
+  }
+  
+  return "en"; // Default to English
+}
+
+const LANGUAGE_INSTRUCTIONS: Record<string, string> = {
+  fr: "OUTPUT ONLY IN FRENCH - No English words except brand names. Use natural, conversational French.",
+  en: "OUTPUT ONLY IN ENGLISH - Use natural, conversational American English.",
+  es: "OUTPUT ONLY IN SPANISH - No English words except brand names. Use natural, conversational Spanish.",
+  de: "OUTPUT ONLY IN GERMAN - No English words except brand names. Use natural, conversational German.",
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -92,7 +137,12 @@ Deno.serve(async (req) => {
       toneId,
       scriptType,
       duration,
+      detectedLanguage,
     } = body;
+
+    // Detect language from scraped content or use provided
+    const language = detectedLanguage || detectLanguage(scrapedContent || projectDescription || projectName);
+    const languageInstruction = LANGUAGE_INSTRUCTIONS[language] || LANGUAGE_INSTRUCTIONS.en;
 
     console.log("[generate-video-scenario] Request:", {
       projectName,
@@ -101,6 +151,7 @@ Deno.serve(async (req) => {
       sectorId,
       styleId,
       toneId,
+      detectedLanguage: language,
     });
 
     // Build context from scenario selections
@@ -132,21 +183,21 @@ ${scrapedContent ? `\nWEBSITE CONTENT:\n${scrapedContent.slice(0, 2000)}` : ""}
       ad: `Create an AGGRESSIVE ad script with STRICT format:
 - Each line MUST have timestamp: [0-1s], [1-3s], [3-5s], etc.
 - Maximum 7-8 words per line
-- NO marketing jargon (no "découvrez", "solution", "innovant")
+- NO marketing jargon
 - Direct, punchy, scroll-stopping phrases
 - Problem → Agitation → Solution flow`,
       story: `Create an emotional brand story. Focus on journey, values, human connection. Slower pace, deeper emotion.`,
       testimonial: `Create authentic customer testimonial script. Real-sounding language, specific details, genuine enthusiasm.`,
     };
 
-    const systemPrompt = `You are an expert French video scriptwriter creating viral social media content.
+    const systemPrompt = `You are an expert multilingual video scriptwriter creating viral social media content.
 
 CRITICAL RULES:
-1. OUTPUT ONLY IN FRENCH - No English words except brand names
+1. ${languageInstruction}
 2. Each scenario MUST have timestamped scenes matching the ${duration}s duration
 3. Voiceover text MUST be between ${minWords}-${maxWords} words total
-4. NO generic marketing phrases: "découvrez", "n'attendez plus", "solution innovante", "révolutionnaire"
-5. Use conversational, authentic language that feels real and relatable
+4. NO generic marketing clichés - be specific, authentic, relatable
+5. Use conversational language that feels real
 6. Each scene needs: [timestamp], visual description, voiceover text
 
 ${scriptTypeInstructions[scriptType] || scriptTypeInstructions.reel}
@@ -160,7 +211,7 @@ RESPOND WITH VALID JSON ONLY:
   "scenarios": [
     {
       "id": "1",
-      "title": "Short catchy title in French",
+      "title": "Short catchy title",
       "angle": "problem|benefit|emotion|proof|urgency",
       "scenes": [
         {
