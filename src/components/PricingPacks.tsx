@@ -1,35 +1,35 @@
 import { motion } from "framer-motion";
-import { Check, Crown, Zap, Building2, Sparkles } from "lucide-react";
+import { Check, Crown, Zap, Building2, Sparkles, Image, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { PRICING_PACKS, PricingPack } from "@/lib/commercialProducts";
+import { PRICING_PLANS, PricingPlan } from "@/lib/commercialProducts";
 
 interface PricingPacksProps {
-  onSelectPack?: (pack: PricingPack) => void;
-  currentPackId?: string;
+  onSelectPack?: (plan: PricingPlan) => void;
+  currentPlanId?: string;
   compact?: boolean;
 }
 
-const getPackIcon = (packId: string) => {
-  switch (packId) {
+const getPlanIcon = (planId: string) => {
+  switch (planId) {
     case "starter":
       return Sparkles;
     case "pro":
       return Zap;
-    case "agency":
+    case "business":
       return Building2;
     default:
       return Crown;
   }
 };
 
-const getPackGradient = (packId: string) => {
-  switch (packId) {
+const getPlanGradient = (planId: string) => {
+  switch (planId) {
     case "starter":
       return "from-blue-500 to-cyan-500";
     case "pro":
       return "from-primary to-secondary";
-    case "agency":
+    case "business":
       return "from-purple-500 to-pink-500";
     default:
       return "from-gray-500 to-gray-600";
@@ -38,7 +38,7 @@ const getPackGradient = (packId: string) => {
 
 export const PricingPacks = ({
   onSelectPack,
-  currentPackId,
+  currentPlanId,
   compact = false,
 }: PricingPacksProps) => {
   return (
@@ -46,14 +46,14 @@ export const PricingPacks = ({
       "grid gap-6",
       compact ? "grid-cols-1 md:grid-cols-3" : "grid-cols-1 lg:grid-cols-3"
     )}>
-      {PRICING_PACKS.map((pack, index) => {
-        const Icon = getPackIcon(pack.id);
-        const isCurrentPack = currentPackId === pack.id;
-        const isPopular = pack.popular;
+      {PRICING_PLANS.map((plan, index) => {
+        const Icon = getPlanIcon(plan.id);
+        const isCurrentPlan = currentPlanId === plan.id;
+        const isPopular = plan.popular;
 
         return (
           <motion.div
-            key={pack.id}
+            key={plan.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
@@ -62,21 +62,21 @@ export const PricingPacks = ({
               isPopular
                 ? "border-primary shadow-xl shadow-primary/20"
                 : "border-border hover:border-primary/50",
-              isCurrentPack && "ring-2 ring-primary ring-offset-2"
+              isCurrentPlan && "ring-2 ring-primary ring-offset-2"
             )}
           >
             {/* Badge */}
-            {pack.badge && (
+            {plan.badge && (
               <div className={cn(
                 "absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-4 py-1 text-xs font-bold text-white shadow-lg",
-                `bg-gradient-to-r ${getPackGradient(pack.id)}`
+                `bg-gradient-to-r ${getPlanGradient(plan.id)}`
               )}>
-                {pack.badge}
+                {plan.badge}
               </div>
             )}
 
-            {/* Current pack indicator */}
-            {isCurrentPack && (
+            {/* Current plan indicator */}
+            {isCurrentPlan && (
               <div className="absolute -top-3 right-4 rounded-full bg-primary px-3 py-1 text-xs font-bold text-white shadow-lg">
                 CURRENT
               </div>
@@ -86,50 +86,50 @@ export const PricingPacks = ({
             <div className="mb-6 text-center">
               <div className={cn(
                 "mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl",
-                `bg-gradient-to-br ${getPackGradient(pack.id)}`
+                `bg-gradient-to-br ${getPlanGradient(plan.id)}`
               )}>
                 <Icon className="h-7 w-7 text-white" />
               </div>
-              <h3 className="mb-1 font-display text-2xl font-bold">{pack.name}</h3>
-              <p className="text-sm text-muted-foreground">{pack.description}</p>
+              <h3 className="mb-1 font-display text-2xl font-bold">{plan.name}</h3>
+              <p className="text-sm text-muted-foreground">{plan.description}</p>
             </div>
 
             {/* Price */}
             <div className="mb-6 text-center">
               <div className="flex items-baseline justify-center gap-1">
-                <span className="text-4xl font-bold text-gradient">${pack.price}</span>
-                <span className="text-muted-foreground">{pack.priceUnit}</span>
+                <span className="text-4xl font-bold text-gradient">{plan.price}€</span>
+                <span className="text-muted-foreground">{plan.priceUnit}</span>
               </div>
             </div>
 
-            {/* Included content summary */}
+            {/* AutoPost Limits */}
             <div className="mb-6 rounded-xl bg-muted/50 p-4">
-              <h4 className="mb-3 text-sm font-semibold">Included:</h4>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div>
-                  <div className="text-lg font-bold text-primary">
-                    {pack.included.images === -1 ? "∞" : pack.included.images}
+              <h4 className="mb-3 text-sm font-semibold">AutoPost AI Limits:</h4>
+              <div className="grid grid-cols-2 gap-2 text-center">
+                <div className="rounded-lg bg-card p-2">
+                  <div className="flex items-center justify-center gap-1">
+                    <Image className="h-3 w-3 text-primary" />
+                    <span className="text-lg font-bold text-primary">
+                      {plan.limits.autopostImages === -1 ? "∞" : plan.limits.autopostImages}
+                    </span>
                   </div>
-                  <div className="text-xs text-muted-foreground">Images</div>
+                  <div className="text-xs text-muted-foreground">Images/day</div>
                 </div>
-                <div>
-                  <div className="text-lg font-bold text-secondary">
-                    {pack.included.videos === -1 ? "∞" : pack.included.videos}
+                <div className="rounded-lg bg-card p-2">
+                  <div className="flex items-center justify-center gap-1">
+                    <Video className="h-3 w-3 text-secondary" />
+                    <span className="text-lg font-bold text-secondary">
+                      {plan.limits.autopostVideos === -1 ? "∞" : plan.limits.autopostVideos}
+                    </span>
                   </div>
-                  <div className="text-xs text-muted-foreground">Videos</div>
-                </div>
-                <div>
-                  <div className="text-lg font-bold text-accent">
-                    {pack.included.influencerVideos === -1 ? "∞" : pack.included.influencerVideos}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Influencer</div>
+                  <div className="text-xs text-muted-foreground">Videos/day</div>
                 </div>
               </div>
             </div>
 
             {/* Features */}
             <div className="mb-6 flex-1 space-y-3">
-              {pack.features.map((feature) => (
+              {plan.features.map((feature) => (
                 <div key={feature} className="flex items-start gap-3">
                   <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/20">
                     <Check className="h-3 w-3 text-primary" />
@@ -141,8 +141,8 @@ export const PricingPacks = ({
 
             {/* CTA Button */}
             <Button
-              onClick={() => onSelectPack?.(pack)}
-              disabled={isCurrentPack}
+              onClick={() => onSelectPack?.(plan)}
+              disabled={isCurrentPlan}
               className={cn(
                 "w-full",
                 isPopular && "bg-gradient-to-r from-primary to-secondary hover:opacity-90"
@@ -150,8 +150,13 @@ export const PricingPacks = ({
               variant={isPopular ? "default" : "outline"}
               size="lg"
             >
-              {isCurrentPack ? "Current Plan" : isPopular ? "Choose Pro" : `Choose ${pack.name}`}
+              {isCurrentPlan ? "Current Plan" : isPopular ? "Choose Pro" : `Choose ${plan.name}`}
             </Button>
+
+            {/* Credit info */}
+            <p className="mt-3 text-center text-xs text-muted-foreground">
+              + Pay per generation with credits
+            </p>
           </motion.div>
         );
       })}

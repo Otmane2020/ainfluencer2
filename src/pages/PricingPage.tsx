@@ -2,7 +2,9 @@ import { useNavigate } from "react-router-dom";
 import { SEOHead } from "@/components/seo/SEOHead";
 import { PublicPageLayout } from "@/components/seo/PublicPageLayout";
 import { PricingPacks } from "@/components/PricingPacks";
+import { CreditPacks } from "@/components/CreditPacks";
 import { seoPages, productSchema, organizationSchema } from "@/lib/seo-data";
+import { Separator } from "@/components/ui/separator";
 
 const PricingPage = () => {
   const navigate = useNavigate();
@@ -24,11 +26,86 @@ const PricingPage = () => {
           <h1 className="font-display text-4xl md:text-6xl font-bold mb-6">
             Simple, <span className="text-gradient">Transparent</span> Pricing
           </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12">
-            Choose the plan that fits your needs. Start free, upgrade anytime. No hidden fees, cancel anytime.
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-4">
+            Choose the plan that fits your needs. Start with a subscription, pay per generation with credits.
+          </p>
+          <p className="text-sm text-muted-foreground mb-12">
+            No hidden fees • Cancel anytime • 1 credit = 1€
           </p>
           
           <PricingPacks />
+        </div>
+      </section>
+
+      {/* Credit Packs */}
+      <section className="py-16 bg-muted/30">
+        <div className="container mx-auto px-4 max-w-4xl">
+          <div className="text-center mb-8">
+            <h2 className="font-display text-3xl font-bold mb-4">
+              Top Up Your Credits
+            </h2>
+            <p className="text-muted-foreground">
+              Each AI generation consumes credits. Buy packs to get bonus credits!
+            </p>
+          </div>
+          <CreditPacks />
+        </div>
+      </section>
+
+      {/* How Credits Work */}
+      <section className="py-16">
+        <div className="container mx-auto px-4 max-w-3xl">
+          <h2 className="font-display text-3xl font-bold text-center mb-8">
+            How Credits Work
+          </h2>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="bg-card rounded-xl p-6 border">
+              <h3 className="font-semibold mb-4 flex items-center gap-2">
+                🖼️ Image Generation
+              </h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span>Smart Image</span>
+                  <span className="font-bold">1 credit</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Standard Image</span>
+                  <span className="font-bold">2 credits</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Pro Image</span>
+                  <span className="font-bold">5 credits</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Studio Image</span>
+                  <span className="font-bold">12 credits</span>
+                </div>
+              </div>
+            </div>
+            <div className="bg-card rounded-xl p-6 border">
+              <h3 className="font-semibold mb-4 flex items-center gap-2">
+                🎬 Video Generation
+              </h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span>AI Reel</span>
+                  <span className="font-bold">15 credits</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>AI Reel Pro</span>
+                  <span className="font-bold">29 credits</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>AI Cinema</span>
+                  <span className="font-bold">69 credits</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>AI Influencer</span>
+                  <span className="font-bold">39-69 credits</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -41,24 +118,28 @@ const PricingPage = () => {
           <div className="space-y-6">
             {[
               {
+                q: "How does the subscription + credits model work?",
+                a: "Your subscription (Starter, Pro, or Business) gives you access to the app features and AutoPost limits. Each AI generation (image or video) consumes credits from your balance. This way, you only pay for what you actually use.",
+              },
+              {
                 q: "Can I try ClipMotion for free?",
-                a: "Yes! We offer a free plan with limited video generations so you can experience our AI video creation tools before committing to a paid plan.",
-              },
-              {
-                q: "What payment methods do you accept?",
-                a: "We accept all major credit cards (Visa, Mastercard, American Express), PayPal, and bank transfers for annual plans.",
-              },
-              {
-                q: "Can I upgrade or downgrade my plan?",
-                a: "Absolutely. You can change your plan at any time. If you upgrade, you'll be charged the prorated difference. If you downgrade, the new pricing takes effect at your next billing cycle.",
+                a: "Yes! New users receive 10 free credits to try our AI generation tools. You can upgrade to a paid plan when you're ready.",
               },
               {
                 q: "What happens if I run out of credits?",
-                a: "You can purchase additional credits or upgrade to a higher plan. Unused credits don't roll over, so we recommend choosing a plan that fits your regular usage.",
+                a: "AutoPost will automatically pause when your credits are depleted. You can purchase additional credits anytime to resume generation. Your scheduled content remains safe.",
               },
               {
-                q: "Do you offer refunds?",
-                a: "We offer a 14-day money-back guarantee on all paid plans. If you're not satisfied, contact our support team for a full refund.",
+                q: "What's included in AutoPost?",
+                a: "AutoPost automatically generates and schedules content for your projects. Starter plan includes up to 30 images/day. Pro adds 1 video/day, and Business includes 3 videos/day. Each generation consumes credits.",
+              },
+              {
+                q: "Do credits expire?",
+                a: "No, your credits never expire. Use them whenever you need, at your own pace.",
+              },
+              {
+                q: "Can I upgrade or downgrade my plan?",
+                a: "Absolutely. You can change your plan at any time. If you upgrade, you'll get immediate access to higher limits. If you downgrade, the change takes effect at your next billing cycle.",
               },
             ].map((item) => (
               <div key={item.q} className="bg-card rounded-lg p-6 border">
