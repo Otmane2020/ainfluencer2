@@ -13,6 +13,46 @@ interface ContentSuggestion {
   hashtags: string[];
 }
 
+// Language-specific prompt templates
+const LANGUAGE_PROMPTS: Record<string, { system: string; generate: string; fallbackTitle: string; fallbackContent: string }> = {
+  en: {
+    system: `You are an expert in creating viral social media content.`,
+    generate: `Generate a ${"{contentType}"} content idea for the date ${"{date}"}.`,
+    fallbackTitle: `Content for ${"{date}"}`,
+    fallbackContent: `${"{contentType}"} idea for ${"{projectName}"}`,
+  },
+  fr: {
+    system: `Tu es un expert en création de contenu viral pour les réseaux sociaux.`,
+    generate: `Génère une idée de contenu ${"{contentType}"} pour la date du ${"{date}"}.`,
+    fallbackTitle: `Contenu du ${"{date}"}`,
+    fallbackContent: `Idée de contenu ${"{contentType}"} pour ${"{projectName}"}`,
+  },
+  es: {
+    system: `Eres un experto en creación de contenido viral para redes sociales.`,
+    generate: `Genera una idea de contenido ${"{contentType}"} para la fecha ${"{date}"}.`,
+    fallbackTitle: `Contenido del ${"{date}"}`,
+    fallbackContent: `Idea de contenido ${"{contentType}"} para ${"{projectName}"}`,
+  },
+  de: {
+    system: `Du bist ein Experte für die Erstellung von viralem Social-Media-Content.`,
+    generate: `Erstelle eine ${"{contentType}"}-Content-Idee für das Datum ${"{date}"}.`,
+    fallbackTitle: `Inhalt für ${"{date}"}`,
+    fallbackContent: `${"{contentType}"}-Idee für ${"{projectName}"}`,
+  },
+  it: {
+    system: `Sei un esperto nella creazione di contenuti virali per i social media.`,
+    generate: `Genera un'idea di contenuto ${"{contentType}"} per la data ${"{date}"}.`,
+    fallbackTitle: `Contenuto del ${"{date}"}`,
+    fallbackContent: `Idea di contenuto ${"{contentType}"} per ${"{projectName}"}`,
+  },
+  pt: {
+    system: `Você é um especialista em criação de conteúdo viral para redes sociais.`,
+    generate: `Gere uma ideia de conteúdo ${"{contentType}"} para a data ${"{date}"}.`,
+    fallbackTitle: `Conteúdo de ${"{date}"}`,
+    fallbackContent: `Ideia de conteúdo ${"{contentType}"} para ${"{projectName}"}`,
+  },
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -52,7 +92,11 @@ serve(async (req) => {
     let totalPostsCreated = 0;
 
     for (const project of projects) {
-      console.log(`Processing project: ${project.name}`);
+      console.log(`Processing project: ${project.name} (language: ${project.detected_language || "en"})`);
+
+      // Get project language
+      const language = project.detected_language || "en";
+      const langPrompts = LANGUAGE_PROMPTS[language] || LANGUAGE_PROMPTS.en;
 
       // Calculate the target date (30 days from now)
       const targetDate = new Date();
@@ -87,28 +131,35 @@ serve(async (req) => {
       // Determine content type based on day of week (alternate video/image)
       const dayOfMonth = targetDate.getDate();
       const contentType = dayOfMonth % 3 === 0 ? "video" : "image";
+      const contentTypeLabel = contentType === "video" ? (language === "fr" ? "vidéo/reel" : "video/reel") : (language === "fr" ? "image/post" : "image/post");
 
-      // Generate content suggestion via AI
-      const systemPrompt = `Tu es un expert en création de contenu viral pour les réseaux sociaux.
+      // Format date based on language
+      const dateLocale = language === "fr" ? "fr-FR" : language === "es" ? "es-ES" : language === "de" ? "de-DE" : language === "it" ? "it-IT" : language === "pt" ? "pt-BR" : "en-US";
+      const formattedDate = targetDate.toLocaleDateString(dateLocale);
 
-Contexte du projet:
-- Nom: ${project.name}
-- Description: ${project.description || "Non spécifiée"}
-- URL: ${project.url || "Non spécifiée"}
-- Plateformes: ${platforms.join(", ")}
-- Type de contenu demandé: ${contentType}
+      // Build language-specific system prompt
+      const systemPrompt = `${langPrompts.system}
 
-Génère UNE SEULE idée de contenu ${contentType === "video" ? "vidéo/reel" : "image/post"} pour ce projet.
+Project context:
+- Name: ${project.name}
+- Description: ${project.description || "Not specified"}
+- URL: ${project.url || "Not specified"}
+- Platforms: ${platforms.join(", ")}
+- Content type requested: ${contentTypeLabel}
 
-L'idée doit être:
-1. Originale et engageante
-2. Adaptée aux réseaux sociaux
-3. En lien avec l'activité du projet
+Generate ONE ${contentTypeLabel} content idea for this project.
 
-Réponds UNIQUEMENT avec un JSON valide:
+The idea must be:
+1. Original and engaging
+2. Adapted to social media
+3. Related to the project's activity
+
+CRITICAL: Output ONLY in ${language.toUpperCase()}. No other language allowed!
+
+Respond ONLY with valid JSON:
 {
-  "title": "Titre accrocheur (max 60 caractères)",
-  "content": "Description détaillée du contenu...",
+  "title": "Catchy title (max 60 characters)",
+  "content": "Detailed content description...",
   "contentType": "${contentType}",
   "hashtags": ["tag1", "tag2", "tag3", "tag4", "tag5"]
 }`;
@@ -124,7 +175,7 @@ Réponds UNIQUEMENT avec un JSON valide:
             model: "google/gemini-2.5-flash",
             messages: [
               { role: "system", content: systemPrompt },
-              { role: "user", content: `Génère une idée de contenu ${contentType} pour la date du ${targetDate.toLocaleDateString('fr-FR')}.` },
+              { role: "user", content: langPrompts.generate.replace("{contentType}", contentTypeLabel).replace("{date}", formattedDate) },
             ],
             temperature: 0.9,
           }),
@@ -155,8 +206,8 @@ Réponds UNIQUEMENT avec un JSON valide:
         } catch {
           // Fallback suggestion
           suggestion = {
-            title: `Contenu du ${targetDate.toLocaleDateString('fr-FR')}`,
-            content: `Idée de contenu ${contentType} pour ${project.name}`,
+            title: langPrompts.fallbackTitle.replace("{date}", formattedDate),
+            content: langPrompts.fallbackContent.replace("{contentType}", contentTypeLabel).replace("{projectName}", project.name),
             contentType: contentType as "video" | "image",
             hashtags: ["viral", "content", project.name.toLowerCase().replace(/\s+/g, "")],
           };
@@ -187,7 +238,7 @@ Réponds UNIQUEMENT avec un JSON valide:
         }
 
         totalPostsCreated++;
-        console.log(`Created post for ${project.name} on ${targetDate.toISOString()}`);
+        console.log(`Created post for ${project.name} on ${targetDate.toISOString()} in ${language}`);
       } catch (error) {
         console.error(`Error processing project ${project.name}:`, error);
         continue;
@@ -200,7 +251,7 @@ Réponds UNIQUEMENT avec un JSON valide:
       JSON.stringify({
         success: true,
         postsCreated: totalPostsCreated,
-        message: `${totalPostsCreated} nouveaux posts créés pour J+30`,
+        message: `${totalPostsCreated} new posts created for D+30`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

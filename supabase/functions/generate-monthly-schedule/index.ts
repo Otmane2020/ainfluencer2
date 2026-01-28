@@ -15,6 +15,97 @@ interface ContentSuggestion {
   hashtags: string[];
 }
 
+// Language-specific configurations
+const LANGUAGE_CONFIG: Record<string, { 
+  systemIntro: string; 
+  videoLabel: string; 
+  imageLabel: string;
+  generateLabel: string;
+  fallbackVideoIdeas: { title: string; content: string }[];
+  fallbackImageIdeas: { title: string; content: string }[];
+}> = {
+  en: {
+    systemIntro: "You are an expert in creating viral social media content.",
+    videoLabel: "videos/reels",
+    imageLabel: "image posts",
+    generateLabel: "Generate",
+    fallbackVideoIdeas: [
+      { title: "Discover our story", content: "Share your brand's story and values authentically." },
+      { title: "Behind the scenes", content: "Show what goes on behind the scenes of your business." },
+      { title: "Quick tutorial", content: "Explain how to use your product or service in 60 seconds." },
+      { title: "Video FAQ", content: "Answer the most frequently asked customer questions." },
+      { title: "Customer testimonial", content: "Share a satisfied customer's experience." },
+    ],
+    fallbackImageIdeas: [
+      { title: "Inspiring quote", content: "Share a motivational quote related to your industry." },
+      { title: "Tip of the day", content: "Offer a practical tip to your audience." },
+      { title: "Before/After", content: "Show a transformation or result." },
+      { title: "Infographic", content: "Present interesting statistics or facts." },
+      { title: "New release", content: "Announce a new offer or feature." },
+    ],
+  },
+  fr: {
+    systemIntro: "Tu es un expert en création de contenu viral pour les réseaux sociaux.",
+    videoLabel: "vidéos/reels",
+    imageLabel: "posts images",
+    generateLabel: "Génère",
+    fallbackVideoIdeas: [
+      { title: "Découvrez notre histoire", content: "Partagez l'histoire et les valeurs de votre marque de manière authentique." },
+      { title: "Les coulisses", content: "Montrez l'envers du décor de votre activité." },
+      { title: "Tutoriel rapide", content: "Expliquez comment utiliser votre produit ou service en 60 secondes." },
+      { title: "FAQ en vidéo", content: "Répondez aux questions les plus fréquentes de vos clients." },
+      { title: "Témoignage client", content: "Partagez l'expérience d'un client satisfait." },
+    ],
+    fallbackImageIdeas: [
+      { title: "Citation inspirante", content: "Partagez une citation motivante en lien avec votre domaine." },
+      { title: "Conseil du jour", content: "Proposez un conseil pratique à votre audience." },
+      { title: "Avant/Après", content: "Montrez une transformation ou un résultat." },
+      { title: "Infographie", content: "Présentez des statistiques ou des faits intéressants." },
+      { title: "Nouveauté", content: "Annoncez une nouvelle offre ou fonctionnalité." },
+    ],
+  },
+  es: {
+    systemIntro: "Eres un experto en creación de contenido viral para redes sociales.",
+    videoLabel: "videos/reels",
+    imageLabel: "posts de imagen",
+    generateLabel: "Genera",
+    fallbackVideoIdeas: [
+      { title: "Descubre nuestra historia", content: "Comparte la historia y valores de tu marca de forma auténtica." },
+      { title: "Tras bastidores", content: "Muestra lo que hay detrás de tu negocio." },
+      { title: "Tutorial rápido", content: "Explica cómo usar tu producto o servicio en 60 segundos." },
+      { title: "FAQ en video", content: "Responde las preguntas más frecuentes de tus clientes." },
+      { title: "Testimonio de cliente", content: "Comparte la experiencia de un cliente satisfecho." },
+    ],
+    fallbackImageIdeas: [
+      { title: "Cita inspiradora", content: "Comparte una cita motivadora relacionada con tu industria." },
+      { title: "Consejo del día", content: "Ofrece un consejo práctico a tu audiencia." },
+      { title: "Antes/Después", content: "Muestra una transformación o resultado." },
+      { title: "Infografía", content: "Presenta estadísticas o datos interesantes." },
+      { title: "Novedad", content: "Anuncia una nueva oferta o función." },
+    ],
+  },
+  de: {
+    systemIntro: "Du bist ein Experte für die Erstellung von viralem Social-Media-Content.",
+    videoLabel: "Videos/Reels",
+    imageLabel: "Bild-Posts",
+    generateLabel: "Erstelle",
+    fallbackVideoIdeas: [
+      { title: "Entdecke unsere Geschichte", content: "Teile authentisch die Geschichte und Werte deiner Marke." },
+      { title: "Hinter den Kulissen", content: "Zeige, was hinter deinem Geschäft passiert." },
+      { title: "Schnelles Tutorial", content: "Erkläre in 60 Sekunden, wie man dein Produkt oder Service nutzt." },
+      { title: "Video-FAQ", content: "Beantworte die häufigsten Kundenfragen." },
+      { title: "Kundenreferenz", content: "Teile die Erfahrung eines zufriedenen Kunden." },
+    ],
+    fallbackImageIdeas: [
+      { title: "Inspirierendes Zitat", content: "Teile ein motivierendes Zitat aus deiner Branche." },
+      { title: "Tipp des Tages", content: "Biete deinem Publikum einen praktischen Tipp." },
+      { title: "Vorher/Nachher", content: "Zeige eine Transformation oder ein Ergebnis." },
+      { title: "Infografik", content: "Präsentiere interessante Statistiken oder Fakten." },
+      { title: "Neuheit", content: "Kündige ein neues Angebot oder Feature an." },
+    ],
+  },
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -49,7 +140,11 @@ serve(async (req) => {
       throw new Error("Project not found");
     }
 
-    console.log("Generating monthly schedule for project:", project.name);
+    // Get project language
+    const language = project.detected_language || "en";
+    const langConfig = LANGUAGE_CONFIG[language] || LANGUAGE_CONFIG.en;
+
+    console.log("Generating monthly schedule for project:", project.name, "language:", language);
 
     // Get enabled platforms
     const platforms: string[] = [];
@@ -61,35 +156,37 @@ serve(async (req) => {
     const totalPosts = videosPerMonth + imagesPerMonth;
 
     // Generate content suggestions via AI
-    const systemPrompt = `Tu es un expert en création de contenu viral pour les réseaux sociaux.
+    const systemPrompt = `${langConfig.systemIntro}
 
-Contexte du projet:
-- Nom: ${project.name}
-- Description: ${project.description || "Non spécifiée"}
-- URL: ${project.url || "Non spécifiée"}
-- Plateformes: ${platforms.join(", ")}
+Project context:
+- Name: ${project.name}
+- Description: ${project.description || "Not specified"}
+- URL: ${project.url || "Not specified"}
+- Platforms: ${platforms.join(", ")}
 
-Tu dois générer ${totalPosts} idées de contenu pour un planning mensuel:
-- ${videosPerMonth} vidéos/reels
-- ${imagesPerMonth} posts images
+You must generate ${totalPosts} content ideas for a monthly schedule:
+- ${videosPerMonth} ${langConfig.videoLabel}
+- ${imagesPerMonth} ${langConfig.imageLabel}
 
-Pour chaque post, génère:
-1. Un titre accrocheur (max 60 caractères)
-2. Un contenu/script détaillé
-3. Le type: "video" ou "image"
-4. Le potentiel d'engagement: "high", "medium" ou "low"
-5. 5-8 hashtags pertinents (sans le #)
+For each post, generate:
+1. A catchy title (max 60 characters)
+2. Detailed content/script
+3. Type: "video" or "image"
+4. Engagement potential: "high", "medium" or "low"
+5. 5-8 relevant hashtags (without #)
 
-Répartis les types de contenu de manière équilibrée sur le mois.
-Assure-toi que les idées sont variées et engageantes.
+Distribute content types evenly across the month.
+Ensure ideas are varied and engaging.
 
-Réponds UNIQUEMENT avec un JSON valide:
+CRITICAL: Output ONLY in ${language.toUpperCase()}. No other language allowed!
+
+Respond ONLY with valid JSON:
 {
   "suggestions": [
     {
       "id": "1",
-      "title": "Titre",
-      "content": "Contenu détaillé...",
+      "title": "Title",
+      "content": "Detailed content...",
       "contentType": "video",
       "estimatedEngagement": "high",
       "hashtags": ["tag1", "tag2"]
@@ -107,7 +204,7 @@ Réponds UNIQUEMENT avec un JSON valide:
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Génère ${totalPosts} suggestions de contenu viral pour ce projet.` },
+          { role: "user", content: `${langConfig.generateLabel} ${totalPosts} viral content suggestions for this project.` },
         ],
         temperature: 0.8,
       }),
@@ -139,7 +236,7 @@ Réponds UNIQUEMENT avec un JSON valide:
     } catch (parseError) {
       console.error("Parse error:", parseError);
       // Generate fallback suggestions
-      suggestions = generateFallbackSuggestions(project.name, videosPerMonth, imagesPerMonth);
+      suggestions = generateFallbackSuggestions(project.name, videosPerMonth, imagesPerMonth, langConfig);
     }
 
     console.log(`Generated ${suggestions.length} content suggestions`);
@@ -182,13 +279,14 @@ Réponds UNIQUEMENT avec un JSON valide:
       throw new Error("Failed to create scheduled posts");
     }
 
-    console.log(`Created ${insertedPosts?.length || 0} scheduled posts`);
+    console.log(`Created ${insertedPosts?.length || 0} scheduled posts in ${language}`);
 
     return new Response(
       JSON.stringify({
         success: true,
         postsCreated: insertedPosts?.length || 0,
-        message: `${insertedPosts?.length} posts programmés pour les 30 prochains jours`,
+        message: `${insertedPosts?.length} posts scheduled for the next 30 days`,
+        language: language,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -204,28 +302,13 @@ Réponds UNIQUEMENT avec un JSON valide:
 function generateFallbackSuggestions(
   projectName: string,
   videosCount: number,
-  imagesCount: number
+  imagesCount: number,
+  langConfig: typeof LANGUAGE_CONFIG["en"]
 ): ContentSuggestion[] {
   const suggestions: ContentSuggestion[] = [];
   
-  const videoIdeas = [
-    { title: "Découvrez notre histoire", content: "Partagez l'histoire et les valeurs de votre marque de manière authentique." },
-    { title: "Les coulisses", content: "Montrez l'envers du décor de votre activité." },
-    { title: "Tutoriel rapide", content: "Expliquez comment utiliser votre produit ou service en 60 secondes." },
-    { title: "FAQ en vidéo", content: "Répondez aux questions les plus fréquentes de vos clients." },
-    { title: "Témoignage client", content: "Partagez l'expérience d'un client satisfait." },
-  ];
-
-  const imageIdeas = [
-    { title: "Citation inspirante", content: "Partagez une citation motivante en lien avec votre domaine." },
-    { title: "Conseil du jour", content: "Proposez un conseil pratique à votre audience." },
-    { title: "Avant/Après", content: "Montrez une transformation ou un résultat." },
-    { title: "Infographie", content: "Présentez des statistiques ou des faits intéressants." },
-    { title: "Nouveauté", content: "Annoncez une nouvelle offre ou fonctionnalité." },
-  ];
-
   for (let i = 0; i < videosCount; i++) {
-    const idea = videoIdeas[i % videoIdeas.length];
+    const idea = langConfig.fallbackVideoIdeas[i % langConfig.fallbackVideoIdeas.length];
     suggestions.push({
       id: `video-${i + 1}`,
       title: idea.title,
@@ -237,7 +320,7 @@ function generateFallbackSuggestions(
   }
 
   for (let i = 0; i < imagesCount; i++) {
-    const idea = imageIdeas[i % imageIdeas.length];
+    const idea = langConfig.fallbackImageIdeas[i % langConfig.fallbackImageIdeas.length];
     suggestions.push({
       id: `image-${i + 1}`,
       title: idea.title,
