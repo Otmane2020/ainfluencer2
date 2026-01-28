@@ -450,36 +450,25 @@ export const ModelSelector = ({
                     </div>
                   )}
 
-                  {/* Price & Voice & Avatar */}
-                  <div className="mt-auto flex items-center justify-between gap-1">
-                    <div className="flex items-center gap-1">
-                      {model.originalPrice && (
-                        <span className="text-xs text-muted-foreground line-through">
-                          ${model.originalPrice.toFixed(2)}
-                        </span>
-                      )}
-                      <span className="text-lg font-bold text-primary">{model.price}</span>
-                      <span className="text-xs text-muted-foreground">{model.priceUnit}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {model.needsAvatar && (
-                        <div className="flex items-center gap-0.5 rounded-full bg-accent/20 px-1.5 py-0.5 text-[10px] font-medium text-accent">
-                          <User className="h-2.5 w-2.5" />
-                          Avatar
-                        </div>
-                      )}
-                      {showVoiceIndicator && (
-                        <div className={cn(
-                          "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-                          model.needsVoice
-                            ? "bg-secondary text-secondary-foreground"
-                            : "bg-muted text-muted-foreground"
-                        )}>
-                          <Volume2 className="h-2.5 w-2.5" />
-                          {model.needsVoice ? "Voix" : "Sans"}
-                        </div>
-                      )}
-                    </div>
+                  {/* Voice & Avatar indicators (prices hidden) */}
+                  <div className="mt-auto flex items-center justify-end gap-1">
+                    {model.needsAvatar && (
+                      <div className="flex items-center gap-0.5 rounded-full bg-accent/20 px-1.5 py-0.5 text-[10px] font-medium text-accent">
+                        <User className="h-2.5 w-2.5" />
+                        Avatar
+                      </div>
+                    )}
+                    {showVoiceIndicator && (
+                      <div className={cn(
+                        "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                        model.needsVoice
+                          ? "bg-secondary text-secondary-foreground"
+                          : "bg-muted text-muted-foreground"
+                      )}>
+                        <Volume2 className="h-2.5 w-2.5" />
+                        {model.needsVoice ? "Voice" : "No voice"}
+                      </div>
+                    )}
                   </div>
                 </motion.button>
               );
