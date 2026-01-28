@@ -5,10 +5,51 @@ import { PricingPacks } from "@/components/PricingPacks";
 import { CreditPacks } from "@/components/CreditPacks";
 import { seoPages, productSchema, organizationSchema } from "@/lib/seo-data";
 import { Separator } from "@/components/ui/separator";
+import { IMAGE_PACKS, VIDEO_PACKS } from "@/lib/commercialProducts";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Image, Film, Star, Coins } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 
 const PricingPage = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const seo = seoPages.pricing;
+
+  const getQualityLabel = (quality: string) => {
+    switch (quality) {
+      case "smart-image":
+        return "Smart / High";
+      case "high-image":
+        return "Smart / High";
+      case "studio-image":
+        return "Studio";
+      case "smart-video":
+        return "Smart";
+      case "high-video":
+        return "Smart / High";
+      case "cinema-video":
+        return "Cinema";
+      default:
+        return quality;
+    }
+  };
+
+  const handleBuyPack = (packName: string) => {
+    toast({
+      title: "Coming Soon",
+      description: `${packName} purchase will be available soon via Stripe.`,
+    });
+  };
 
   return (
     <PublicPageLayout>
@@ -37,18 +78,125 @@ const PricingPage = () => {
         </div>
       </section>
 
-      {/* Credit Packs */}
+      {/* Pack Shop - Image & Video Packs */}
       <section className="py-16 bg-muted/30">
-        <div className="container mx-auto px-4 max-w-4xl">
+        <div className="container mx-auto px-4 max-w-5xl">
           <div className="text-center mb-8">
             <h2 className="font-display text-3xl font-bold mb-4">
               Top Up Your Credits
             </h2>
             <p className="text-muted-foreground">
-              Each AI generation consumes credits. Buy packs to get bonus credits!
+              Buy packs for bulk discounts or credits for maximum flexibility
             </p>
           </div>
-          <CreditPacks />
+
+          <Tabs defaultValue="images" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-8">
+              <TabsTrigger value="images" className="flex items-center gap-2">
+                <Image className="h-4 w-4" />
+                Image Packs
+              </TabsTrigger>
+              <TabsTrigger value="videos" className="flex items-center gap-2">
+                <Film className="h-4 w-4" />
+                Video Packs
+              </TabsTrigger>
+              <TabsTrigger value="credits" className="flex items-center gap-2">
+                <Coins className="h-4 w-4" />
+                À la carte
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Image Packs Tab */}
+            <TabsContent value="images">
+              <div className="bg-card rounded-xl border overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="font-semibold">Pack</TableHead>
+                      <TableHead className="font-semibold">Content</TableHead>
+                      <TableHead className="text-right font-semibold">Price</TableHead>
+                      <TableHead className="text-right font-semibold w-32"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {IMAGE_PACKS.map((pack) => (
+                      <TableRow key={pack.id} className="hover:bg-muted/30">
+                        <TableCell className="font-medium">
+                          {pack.name}
+                          {pack.popular && (
+                            <Star className="inline-block h-4 w-4 text-amber-500 ml-2" fill="currentColor" />
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {pack.quantity} images {getQualityLabel(pack.quality)}
+                        </TableCell>
+                        <TableCell className="text-right font-bold">
+                          {pack.price} €
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleBuyPack(pack.name)}
+                          >
+                            Buy
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </TabsContent>
+
+            {/* Video Packs Tab */}
+            <TabsContent value="videos">
+              <div className="bg-card rounded-xl border overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="font-semibold">Pack</TableHead>
+                      <TableHead className="font-semibold">Content</TableHead>
+                      <TableHead className="text-right font-semibold">Price</TableHead>
+                      <TableHead className="text-right font-semibold w-32"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {VIDEO_PACKS.map((pack) => (
+                      <TableRow key={pack.id} className="hover:bg-muted/30">
+                        <TableCell className="font-medium">
+                          {pack.name}
+                          {pack.popular && (
+                            <Star className="inline-block h-4 w-4 text-amber-500 ml-2" fill="currentColor" />
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {pack.quantity} videos {getQualityLabel(pack.quality)}
+                        </TableCell>
+                        <TableCell className="text-right font-bold">
+                          {pack.price} €
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleBuyPack(pack.name)}
+                          >
+                            Buy
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </TabsContent>
+
+            {/* Credits Tab */}
+            <TabsContent value="credits">
+              <CreditPacks />
+            </TabsContent>
+          </Tabs>
         </div>
       </section>
 
@@ -66,19 +214,15 @@ const PricingPage = () => {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span>Smart Image</span>
-                  <span className="font-bold">1 credit</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Standard Image</span>
                   <span className="font-bold">2 credits</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Pro Image</span>
-                  <span className="font-bold">5 credits</span>
+                  <span>High Image</span>
+                  <span className="font-bold">3 credits</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Studio Image</span>
-                  <span className="font-bold">12 credits</span>
+                  <span className="font-bold">4 credits</span>
                 </div>
               </div>
             </div>
@@ -88,20 +232,16 @@ const PricingPage = () => {
               </h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span>AI Reel</span>
-                  <span className="font-bold">15 credits</span>
+                  <span>Smart Video</span>
+                  <span className="font-bold">10 credits</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>AI Reel Pro</span>
-                  <span className="font-bold">29 credits</span>
+                  <span>High Video</span>
+                  <span className="font-bold">13 credits</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>AI Cinema</span>
-                  <span className="font-bold">69 credits</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>AI Influencer</span>
-                  <span className="font-bold">39-69 credits</span>
+                  <span>Cinema Video</span>
+                  <span className="font-bold">20 credits</span>
                 </div>
               </div>
             </div>
