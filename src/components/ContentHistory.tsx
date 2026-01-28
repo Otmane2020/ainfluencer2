@@ -54,24 +54,24 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
+  // Track if we have generating items for polling
+  const [hasGenerating, setHasGenerating] = useState(false);
+
+  // Fetch on filter/project changes
   useEffect(() => {
     fetchHistory();
+  }, [projectId, campaignId, filter, statusFilter]);
+
+  // Separate polling effect that doesn't depend on items
+  useEffect(() => {
+    if (!hasGenerating) return;
     
-    // Set up polling for items that are generating
     const interval = setInterval(() => {
-      const hasGenerating = items.some(item => 
-        (item.content_type === "image" || item.content_type === "video") 
-        && item.ai_prompt 
-        && !item.media_url 
-        && item.status === "draft"
-      );
-      if (hasGenerating) {
-        fetchHistory();
-      }
+      fetchHistory();
     }, 10000); // Poll every 10 seconds
     
     return () => clearInterval(interval);
-  }, [projectId, campaignId, filter, statusFilter, items]);
+  }, [hasGenerating, projectId, campaignId, filter, statusFilter]);
 
   const fetchHistory = async () => {
     setIsLoading(true);
@@ -112,6 +112,15 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
         campaign: item.campaigns ? { name: item.campaigns.name } : null,
       }));
       setItems(mappedData as ContentItem[]);
+      
+      // Check if any items are still generating
+      const generating = mappedData.some((item: any) => 
+        (item.content_type === "image" || item.content_type === "video") 
+        && item.ai_prompt 
+        && !item.media_url 
+        && item.status === "draft"
+      );
+      setHasGenerating(generating);
     } catch (error) {
       console.error("Error fetching history:", error);
       toast({
