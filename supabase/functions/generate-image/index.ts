@@ -49,7 +49,25 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { prompt, productId, format, aspectRatio, width, height, sectorId, styleId, toneId, logoUrl, brandName, includeLogo, includeUrl, projectUrl } = await req.json();
+    const { 
+      prompt, 
+      productId, 
+      format, 
+      aspectRatio, 
+      width, 
+      height, 
+      sectorId, 
+      styleId, 
+      toneId, 
+      logoUrl, 
+      brandName, 
+      includeLogo, 
+      includeUrl, 
+      projectUrl,
+      detectedLanguage, // Language from project/website
+      includeText, // Add text overlay for social media
+      overlayText, // Custom text to include
+    } = await req.json();
 
     if (!prompt) {
       return new Response(
@@ -67,9 +85,21 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Determine output language for any text in the image
+    const outputLanguage = detectedLanguage || "en";
+    const languageMap: Record<string, string> = {
+      en: "English",
+      fr: "French",
+      es: "Spanish",
+      de: "German",
+      it: "Italian",
+      pt: "Portuguese",
+    };
+    const languageName = languageMap[outputLanguage] || "English";
+
     // Select model based on product tier
     const model = PRODUCT_MODEL_MAP[productId] || "google/gemini-2.5-flash-image";
-    console.log(`Using model: ${model} for product: ${productId}, format: ${format || "default"}`);
+    console.log(`Using model: ${model} for product: ${productId}, format: ${format || "default"}, language: ${outputLanguage}`);
 
     // Build enhanced prompt with scenario context and format
     let enhancedPrompt = prompt;
@@ -111,8 +141,18 @@ Deno.serve(async (req) => {
       enhancedPrompt += ` Include the website URL "${projectUrl}" as a subtle watermark or call-to-action element.`;
     }
 
+    // SOCIAL MEDIA TEXT OVERLAY - Key for engagement
+    if (includeText) {
+      const textToOverlay = overlayText || brandName || "";
+      if (textToOverlay) {
+        enhancedPrompt += ` IMPORTANT: Include bold, eye-catching text overlay in ${languageName}: "${textToOverlay}". The text should be large, readable, placed prominently (top or center), with high contrast against the background. Use modern social media typography style - bold sans-serif font, possibly with subtle shadow or outline for readability. This is a social media post image that needs text to grab attention.`;
+      } else {
+        enhancedPrompt += ` IMPORTANT: This is a social media image. Include a short, punchy headline or call-to-action text overlay in ${languageName}. Use bold, modern typography that pops against the image. Text should be large, centered or at top, highly readable.`;
+      }
+    }
+
     console.log("Enhanced prompt:", enhancedPrompt);
-    console.log("Brand options - Logo:", includeLogo, "URL:", includeUrl);
+    console.log("Brand options - Logo:", includeLogo, "URL:", includeUrl, "Text:", includeText);
 
     // Call Lovable AI Gateway for image generation
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

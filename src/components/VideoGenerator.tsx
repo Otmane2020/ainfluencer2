@@ -174,7 +174,7 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
 
   // Brand options state
   const [brandOptions, setBrandOptionsState] = useState<BrandOptionsState>(
-    storedPrefs.brandOptions || { includeLogo: false, includeUrl: false }
+    storedPrefs.brandOptions || { includeLogo: false, includeUrl: false, includeText: false }
   );
 
   const setBrandOptions = (options: BrandOptionsState) => {
