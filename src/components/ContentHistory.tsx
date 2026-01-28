@@ -143,6 +143,19 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
         .select("id, content_type, text_content, media_url, thumbnail_url, ai_prompt, status, created_at, published_at, platforms, campaign_id, error_message, campaigns(name)")
         .order("created_at", { ascending: false });
 
+      // IMPORTANT: Post History only shows PUBLISHED posts (completed/archived)
+      // Calendar shows draft/scheduled posts (future content)
+      // This ensures deleting history doesn't affect the calendar
+      if (statusFilter === "all") {
+        // Default: only show published posts in history
+        query = query.eq("status", "published");
+      } else if (statusFilter === "failed") {
+        // Also allow viewing failed posts in history
+        query = query.eq("status", "failed");
+      } else {
+        query = query.eq("status", statusFilter);
+      }
+
       if (projectId) {
         query = query.eq("project_id", projectId);
       }
@@ -153,10 +166,6 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
 
       if (filter !== "all") {
         query = query.eq("content_type", filter);
-      }
-
-      if (statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
       }
 
       // Apply time range filter
@@ -453,10 +462,7 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent className="bg-card border border-border z-50">
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="scheduled">Scheduled</SelectItem>
-                <SelectItem value="published">Published</SelectItem>
+                <SelectItem value="all">Published</SelectItem>
                 <SelectItem value="failed">Failed</SelectItem>
               </SelectContent>
             </Select>
