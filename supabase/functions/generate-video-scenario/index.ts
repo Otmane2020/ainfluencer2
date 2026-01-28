@@ -35,6 +35,7 @@ interface RequestBody {
   duration: number;
   detectedLanguage?: string;
   logoUrl?: string;
+  videoMode?: "standard" | "clipmotion"; // NEW: Video generation mode
 }
 
 // Business sectors context
@@ -140,6 +141,7 @@ Deno.serve(async (req) => {
       duration,
       detectedLanguage,
       logoUrl,
+      videoMode = "standard", // NEW: Default to standard mode
     } = body;
 
     // Detect language from scraped content or use provided
@@ -155,6 +157,7 @@ Deno.serve(async (req) => {
       toneId,
       detectedLanguage: language,
       hasLogo: !!logoUrl,
+      videoMode, // NEW: Log video mode
     });
 
     // Build context from scenario selections
@@ -194,6 +197,21 @@ ${scrapedContent ? `\nWEBSITE CONTENT:\n${scrapedContent.slice(0, 2000)}` : ""}
       testimonial: `Create authentic customer testimonial script. Real-sounding language, specific details, genuine enthusiasm.`,
     };
 
+    // ClipMotion-specific instructions
+    const clipMotionInstructions = videoMode === "clipmotion" ? `
+
+CLIPMOTION MODE - SOCIAL MEDIA VIRAL OPTIMIZATION:
+- Generate SHORT, PUNCHY scenarios optimized for social media virality
+- Hook in first 2 seconds (question, shocking stat, or bold statement)
+- Maximum 5 scenes, 1-2 seconds each for fast-paced rhythm
+- Include text overlay suggestions for each scene (animated typography)
+- End with a call-to-action or engagement hook (comment, share, follow)
+- Use trending formats: POV, quick tips, hot takes, behind-the-scenes
+- Camera movements: zoom ins, pans, shake effects for energy
+- Style: TikTok/Reels native aesthetic
+- HIGH ENERGY throughout - never static or boring
+` : "";
+
     const systemPrompt = `You are an expert multilingual video scriptwriter creating viral social media content.
 
 CRITICAL RULES:
@@ -205,6 +223,7 @@ CRITICAL RULES:
 6. Each scene needs: [timestamp], visual description, voiceover text
 
 ${scriptTypeInstructions[scriptType] || scriptTypeInstructions.reel}
+${clipMotionInstructions}
 
 SCENARIO CONTEXT: ${scenarioContext || "General business video"}
 

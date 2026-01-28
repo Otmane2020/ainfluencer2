@@ -38,6 +38,7 @@ import {
   Linkedin,
   Clock,
   Music,
+  Sparkles,
 } from "lucide-react";
 import { CampaignProgressModal } from "./CampaignProgressModal";
 
@@ -123,6 +124,7 @@ export const CampaignWizardModal = ({
   const [timezone, setTimezone] = useState("Europe/Paris");
   const [imageAsReel, setImageAsReel] = useState(false); // NEW: Convert images to reels with audio
   const [audioCategory, setAudioCategory] = useState("upbeat"); // NEW: Audio category for reels
+  const [clipmotion, setClipmotion] = useState(false); // NEW: ClipMotion mode for videos
   const [brandOptions, setBrandOptions] = useState<BrandOptionsState>({
     includeLogo: false,
     includeUrl: false,
@@ -156,6 +158,7 @@ export const CampaignWizardModal = ({
       setTimezone("Europe/Paris");
       setImageAsReel(false);
       setAudioCategory("upbeat");
+      setClipmotion(false);
       setBrandOptions({ includeLogo: false, includeUrl: false, includeText: false, includeAvatar: false });
       setPlatforms({ facebook: true, instagram: true, linkedin: false, tiktok: false });
     }
@@ -226,7 +229,8 @@ export const CampaignWizardModal = ({
             includeUrl: brandOptions.includeUrl,
             imageAsReel: imageAsReel,
             audioCategory: audioCategory,
-          } 
+            clipmotion: clipmotion, // Pass ClipMotion mode
+          }
         }
       );
 
@@ -426,6 +430,35 @@ export const CampaignWizardModal = ({
                 </div>
               )}
 
+              {/* ClipMotion Toggle for Video Campaigns */}
+              {(campaignType === "video" || campaignType === "mixed") && (
+                <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-lg p-2 bg-gradient-to-br from-violet-500 to-purple-600 text-white">
+                        <Sparkles className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="font-medium">ClipMotion Mode</p>
+                        <p className="text-xs text-muted-foreground">Fast-paced, social-optimized videos</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={clipmotion}
+                      onCheckedChange={setClipmotion}
+                    />
+                  </div>
+                  
+                  {clipmotion && (
+                    <div className="pt-2 border-t border-border/50">
+                      <p className="text-xs text-violet-600 dark:text-violet-400">
+                        Videos will use fast cuts, zoom effects, animated text overlays, and TikTok/Reels aesthetic for maximum engagement.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {(campaignType === "image" || campaignType === "mixed") && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
@@ -493,8 +526,9 @@ export const CampaignWizardModal = ({
               {/* Summary */}
               <div className="rounded-lg bg-muted/50 p-3 mt-4">
                 <p className="text-sm text-muted-foreground">
-                  📅 Content will be automatically distributed across the month
-                  {imageAsReel && " • 🎵 Images will be converted to reels with music"}
+                  Content will be automatically distributed across the month
+                  {imageAsReel && " • Images will be converted to reels with music"}
+                  {clipmotion && " • ClipMotion style enabled"}
                 </p>
               </div>
             </motion.div>

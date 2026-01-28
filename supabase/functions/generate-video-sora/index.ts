@@ -123,7 +123,20 @@ interface VideoRequest {
   format?: "reel" | "landscape" | "story";
   startingFrameUrl?: string;
   model?: string; // Quality ID (e.g., "smart-video") or internal model ID
+  videoMode?: "standard" | "clipmotion"; // NEW: Video generation mode
 }
+
+// ClipMotion prompt modifiers for social-optimized videos
+const CLIPMOTION_PREFIX = `[CLIPMOTION - Social Media Optimized Video]
+- Fast-paced editing with 1-2 second scene cuts. Dynamic rhythm. Quick transitions.
+- Frequent zoom effects, subtle pan movements, smooth parallax. Camera always moving.
+- High energy opening hook in first 2 seconds. Immediate visual impact.
+- Animated text overlays. Kinetic typography. Punchlines emphasized with motion.
+- Modern social media aesthetic. TikTok/Reels style. Trendy and viral potential.
+- High energy throughout. Never static. Constant visual interest.
+
+CONTENT TO VISUALIZE:
+`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -150,6 +163,7 @@ serve(async (req) => {
         format,
         startingFrameUrl,
         model: requestedModel = "smart-video", // Default to Smart Video
+        videoMode = "standard", // NEW: Default to standard mode
       }: VideoRequest = await req.json();
 
       if (!prompt) {
@@ -179,8 +193,15 @@ serve(async (req) => {
 
       // Build enhanced prompt
       let fullPrompt = prompt;
+      
+      // Apply ClipMotion prefix if mode is enabled
+      if (videoMode === "clipmotion") {
+        fullPrompt = CLIPMOTION_PREFIX + prompt;
+        console.log("ClipMotion mode enabled - applying social-optimized prompt");
+      }
+      
       if (avatarUrl) {
-        fullPrompt = `Cinematic ultra-realistic promotional video: ${prompt}. Style: professional, high quality, cinematic lighting, vibrant colors.`;
+        fullPrompt = `Cinematic ultra-realistic promotional video: ${fullPrompt}. Style: professional, high quality, cinematic lighting, vibrant colors.`;
       }
       
       // Add quality instructions
@@ -191,6 +212,7 @@ serve(async (req) => {
       }
 
       console.log("=== Video Generation Request ===");
+      console.log("Video Mode:", videoMode);
       console.log("Quality Level:", requestedModel);
       console.log("API Model:", apiModel);
       console.log("Resolution:", size);
