@@ -30,7 +30,7 @@ import {
   Layers,
   ChevronRight,
   ChevronLeft,
-  Sparkles,
+  Wand2,
   Loader2,
   Check,
   Facebook,
@@ -286,7 +286,7 @@ export const CampaignWizardModal = ({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
+            <Wand2 className="h-5 w-5 text-primary" />
             Create Campaign
           </DialogTitle>
         </DialogHeader>
@@ -674,7 +674,7 @@ export const CampaignWizardModal = ({
                 </>
               ) : (
                 <>
-                  <Sparkles className="h-4 w-4 mr-2" />
+                  <Wand2 className="h-4 w-4 mr-2" />
                   Launch Campaign
                 </>
               )}

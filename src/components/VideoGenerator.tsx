@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Video, Sparkles, Loader2, Play, Plus, Trash2, Settings2, ChevronDown, ImagePlus, X, User, Upload, Wand2, Volume2 } from "lucide-react";
+import { Video, Wand2, Loader2, Play, Plus, Trash2, Settings2, ChevronDown, ImagePlus, X, User, Upload, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -412,7 +412,7 @@ ${formattedHashtags}`;
 
       updateSegment(pendingScenarioSegmentId, { script: completePrompt });
       toast({
-        title: "Scenario inserted! ✨",
+        title: "Scenario inserted!",
         description: `${scenario.title} - ${scenario.scenes.length} scenes ready`,
       });
     }
@@ -1070,7 +1070,7 @@ ${formattedHashtags}`;
                       {isGeneratingScript === segment.id ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <Sparkles className="h-4 w-4 text-primary" />
+                        <Wand2 className="h-4 w-4 text-primary" />
                       )}
                     </Button>
                   </PopoverTrigger>
@@ -1178,7 +1178,7 @@ ${formattedHashtags}`;
 
       {/* Generate Button */}
       <Button onClick={generateContent} disabled={isGenerating || segments.every((s) => !s.script.trim())} variant="gradient" className="w-full">
-        {isGenerating ? <><Loader2 className="h-4 w-4 animate-spin" />Generating...</> : <><Sparkles className="h-4 w-4" />Generate (~{estimatedCost}€)</>}
+        {isGenerating ? <><Loader2 className="h-4 w-4 animate-spin" />Generating...</> : <><Wand2 className="h-4 w-4" />Generate (~{estimatedCost}€)</>}
       </Button>
 
       {/* Generation Progress Modal */}

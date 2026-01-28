@@ -410,7 +410,7 @@ const ProjectNew = () => {
         console.log("Project created:", data);
         
         toast({
-          title: "Project created! 🎉",
+          title: "Project created!",
           description: "Generating monthly schedule...",
         });
 

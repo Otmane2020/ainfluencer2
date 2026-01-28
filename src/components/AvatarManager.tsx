@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { User, Upload, Wand2, Loader2, Check, X } from "lucide-react";
+import { User, Upload, Wand2, Loader2, Check, X, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -220,10 +220,10 @@ export const AvatarManager = ({ currentAvatar, onAvatarChange }: AvatarManagerPr
       />
 
       {/* Tips */}
-      <div className="mt-4 rounded-lg bg-muted/50 p-3">
+      <div className="mt-4 rounded-lg bg-muted/50 p-3 flex items-start gap-2">
+        <Lightbulb className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
         <p className="text-xs text-muted-foreground">
-          💡 <strong>Astuce :</strong> Pour de meilleurs résultats, utilisez une photo de face
-          avec un bon éclairage ou décrivez précisément votre avatar idéal.
+          <strong>Tip:</strong> For best results, use a front-facing photo with good lighting or describe your ideal avatar in detail.
         </p>
       </div>
     </motion.div>

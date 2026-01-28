@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Check, Crown, Zap, Building2, Sparkles, Image, Video } from "lucide-react";
+import { Check, Award, Zap, Building2, Wand2, Image, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { PRICING_PLANS, PricingPlan } from "@/lib/commercialProducts";
@@ -13,13 +13,13 @@ interface PricingPacksProps {
 const getPlanIcon = (planId: string) => {
   switch (planId) {
     case "starter":
-      return Sparkles;
+      return Wand2;
     case "pro":
       return Zap;
     case "business":
       return Building2;
     default:
-      return Crown;
+      return Award;
   }
 };
 

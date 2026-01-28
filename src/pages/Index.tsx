@@ -200,8 +200,8 @@ const Index = () => {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <h2 className="font-display text-3xl font-bold mb-2">
-            Bonjour, <span className="text-gradient">Créateur</span> 👋
+        <h2 className="font-display text-3xl font-bold mb-2">
+            Hello, <span className="text-gradient">Creator</span>
           </h2>
           <p className="text-muted-foreground">
             Prêt à créer du contenu viral aujourd'hui ?

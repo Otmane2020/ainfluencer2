@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Video, Image, User, Check, Crown, Star, Sparkles } from "lucide-react";
+import { Video, Image, User, Check, Award, Star, Wand2, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   CommercialProduct,
@@ -22,11 +22,11 @@ const getCategoryIcon = (category: CommercialProduct["category"]) => {
 const getTierBadgeIcon = (tier: CommercialProduct["tier"]) => {
   switch (tier) {
     case "cinema":
-      return Crown;
+      return Award;
     case "ultra":
       return Star;
     case "pro":
-      return Sparkles;
+      return Wand2;
     default:
       return null;
   }
@@ -174,7 +174,7 @@ export const ProductSelector = ({
                     )}
                     {product.needsVoice && (
                       <div className="flex items-center gap-1 rounded-full bg-secondary/20 px-2 py-0.5 text-[10px] font-medium text-secondary-foreground">
-                        🎤 AI Voice included
+                        <Mic className="h-2.5 w-2.5" /> AI Voice included
                       </div>
                     )}
                   </div>
