@@ -1,281 +1,191 @@
 
-# ClipMotion Feature Implementation Plan
+# Billing & Access Control Fix - Critical Financial Security
 
-## Overview
+## Problem Summary
 
-ClipMotion is a specialized **video generation mode** for creating short, dynamic, highly-engaging videos optimized for social media platforms (TikTok, Instagram Reels, YouTube Shorts). It uses the **same existing APIs** (CometAPI, Kling, Veo, Sora) but applies a different prompt engineering approach to produce fast-paced, animated content.
+You have identified a critical security and financial issue: **you have access to all features (ClipMotion, Video, Images, Campaigns, Projects) without having paid**. 
 
----
+### Root Causes Identified
 
-## What is ClipMotion?
+1. **Orphan Stripe Subscription**: Your Stripe subscription uses price `price_1SrHtCEfti9t9nN9L8Fytsni` (299 cents = 2.99 EUR for "Starlinko Starter" - a completely different product), but the `check-subscription` edge function only recognizes these product IDs:
+   - `prod_TsR9Pr6RC1wKB9` -> starter (19 EUR)
+   - `prod_TsR9BN6zNpq8Rp` -> pro (49 EUR)
+   - `prod_TsR93v9Am93N8O` -> business (99 EUR)
 
-```text
-+----------------------------------+     +----------------------------------+
-|        STANDARD VIDEO            |     |          CLIPMOTION              |
-+----------------------------------+     +----------------------------------+
-| - Cinematic pacing               |     | - Fast cuts (1-2s per scene)     |
-| - Long shots                     |     | - Zoom & pan movements           |
-| - Smooth transitions             |     | - Dynamic text animations        |
-| - Professional narration         |     | - High energy rhythm             |
-| - 4-12 seconds typical           |     | - Social-first (5-15 seconds)    |
-| - Any aspect ratio               |     | - Always vertical 9:16           |
-+----------------------------------+     +----------------------------------+
-```
+2. **No Feature Gating in UI**: The pages (ClipMotion, Videos, Images, Campaigns) have **zero access controls** - they render content for everyone regardless of subscription status.
 
-**Key Differentiators:**
-- Optimized for Reels / TikTok / Shorts
-- Vertical format (9:16) by default
-- Animated text overlays
-- Fast-paced editing rhythm
-- Designed to capture attention in the first 2 seconds
+3. **Default "Starter" Fallback Grants Access**: When the subscription check cannot map the price, it defaults to "starter" plan with `subscribed: true`, which still grants access to features.
+
+4. **No Checkout Redirect**: Users who haven't paid are never redirected to checkout - they just get default access.
 
 ---
 
-## Implementation Approach
+## Implementation Plan
 
-### 1. Create ClipMotion Configuration
+### Phase 1: Fix Stripe Product Mapping (Backend - Critical)
 
-**File:** `src/lib/clipMotionConfig.ts` (new)
+**File: `supabase/functions/check-subscription/index.ts`**
 
-Define ClipMotion-specific parameters:
-- Default duration: 5-10 seconds
-- Format: Always 9:16 vertical
-- Prompt modifiers for dynamic editing
-- Scene pacing guidelines
-- Text animation instructions
+Update the product-to-plan mapping to handle unknown products correctly:
 
 ```typescript
-export interface ClipMotionConfig {
-  enabled: boolean;
-  scenePacing: "fast" | "medium";  // cuts per second
-  textAnimations: boolean;
-  cameraMovements: boolean;        // zoom, pan, tilt
-  hookIntensity: "high" | "ultra"; // first 2s attention grabber
+// CURRENT (broken):
+const PRODUCT_TO_PLAN: Record<string, string> = {
+  "prod_TsR9Pr6RC1wKB9": "starter",
+  "prod_TsR9BN6zNpq8Rp": "pro",
+  "prod_TsR93v9Am93N8O": "business",
+};
+
+// FIXED: Also map by price ID as fallback
+const PRICE_TO_PLAN: Record<string, string> = {
+  "price_1SugHFEfti9t9nN9b36Qye6L": "starter",
+  "price_1SugHGEfti9t9nN9luP2Qtj9": "pro",
+  "price_1SugHIEfti9t9nN9eJMHoewy": "business",
+};
+
+// If product not recognized AND price not recognized = NO valid subscription
+```
+
+**Logic Change:**
+- If subscription exists but product/price is not in our mapping -> treat as `subscribed: false`
+- This ensures legacy/orphan subscriptions don't grant unearned access
+
+---
+
+### Phase 2: Create Paywall Guard Component (Frontend)
+
+**New File: `src/components/PaywallGuard.tsx`**
+
+A reusable component that blocks access to premium features:
+
+```typescript
+interface PaywallGuardProps {
+  feature: "video" | "clipmotion" | "campaigns" | "images" | "projects";
+  children: React.ReactNode;
+  requiredPlan?: "starter" | "pro" | "business";
 }
 
-export const CLIPMOTION_PROMPT_MODIFIERS = {
-  pacing: "Fast-paced editing with 1-2 second cuts. Dynamic rhythm.",
-  camera: "Frequent zoom effects, subtle pan movements, smooth parallax.",
-  hook: "Opening hook in first 2 seconds. Immediate visual impact.",
-  text: "Animated text overlays. Kinetic typography. Punchlines emphasized.",
-  style: "Social media optimized. TikTok/Reels aesthetic. Trendy and modern.",
+// Shows upgrade prompt if user doesn't have access
+// Redirects to checkout if clicked
+```
+
+---
+
+### Phase 3: Protect All Feature Pages (Frontend - Critical)
+
+Add paywall guards to these pages:
+
+| Page | File | Required Access |
+|------|------|-----------------|
+| ClipMotion | `src/pages/ClipMotionPage.tsx` | Pro or higher (video access) |
+| Videos | `src/pages/Videos.tsx` | Pro or higher (video access) |
+| Images | `src/pages/Images.tsx` | Starter or higher (but verify subscription) |
+| Campaigns | `src/pages/CampaignsPage.tsx` | Check campaign limits |
+
+**Example Protection:**
+```typescript
+const ClipMotionPage = () => {
+  const { canAccessFeature, startCheckout, isLoading } = useSubscription();
+  
+  if (isLoading) return <LoadingSpinner />;
+  
+  if (!canAccessFeature("video")) {
+    return <PaywallUpgrade feature="ClipMotion" requiredPlan="pro" />;
+  }
+  
+  return <VideoGenerator ... />;
 };
 ```
 
-### 2. Add Video Mode Toggle in VideoGenerator
+---
 
-**File:** `src/components/VideoGenerator.tsx`
+### Phase 4: Add Generation-Time Credit Checks (Backend)
 
-Add a mode selector in the Quick Settings Bar:
+**Edge Functions to Update:**
+- `generate-video-sora` 
+- `generate-image`
+- `run-campaigns-cron`
 
-```text
-+----------------------------------------------+
-| [Format▼] [Avatar] [Voice] [Quality▼]        |
-| [Standard Video] [ClipMotion ✨]              | <-- New toggle
-| [Scenario] [Brand Options]                    |
-+----------------------------------------------+
-```
-
-Changes:
-- Add `videoMode` state: `"standard" | "clipmotion"`
-- Create toggle group or segmented control
-- When ClipMotion is selected:
-  - Force format to "reel" (9:16)
-  - Adjust duration options (5s, 10s recommended)
-  - Display ClipMotion-specific tips
-
-### 3. Modify Prompt Engineering
-
-**File:** `supabase/functions/generate-video-sora/index.ts`
-
-Add ClipMotion prompt enhancement:
+Before generating content, verify:
+1. User has active, valid subscription
+2. User has sufficient credits/quota
+3. Plan allows the requested quality level
 
 ```typescript
-if (videoMode === "clipmotion") {
-  fullPrompt = `[CLIPMOTION MODE] ${CLIPMOTION_PROMPT_MODIFIERS.hook}
-${CLIPMOTION_PROMPT_MODIFIERS.pacing}
-${CLIPMOTION_PROMPT_MODIFIERS.camera}
-${CLIPMOTION_PROMPT_MODIFIERS.text}
-${CLIPMOTION_PROMPT_MODIFIERS.style}
-
-CONTENT: ${prompt}`;
-}
-```
-
-### 4. Update Scenario Generation
-
-**File:** `supabase/functions/generate-video-scenario/index.ts`
-
-Add ClipMotion-specific scenario templates:
-
-```typescript
-if (videoMode === "clipmotion") {
-  systemPrompt += `
-Generate SHORT, PUNCHY scenarios optimized for social media:
-- Hook in first 2 seconds (question, shocking stat, or bold statement)
-- Maximum 5 scenes, 1-2 seconds each
-- Include text overlay suggestions for each scene
-- End with a call-to-action or hook for engagement
-- Use trending formats: POV, storytelling, quick tips
-`;
-}
-```
-
-### 5. Add ClipMotion to Campaign Wizard
-
-**File:** `src/components/campaigns/CampaignWizardModal.tsx`
-
-In the Volume step (Step 3), add a ClipMotion toggle for video campaigns:
-
-```text
-+--------------------------------------------------+
-| Video Settings                                    |
-| [x] Generate as ClipMotion                        |
-|     Create dynamic, social-first video content    |
-+--------------------------------------------------+
-```
-
-When enabled:
-- Store `clipmotion: true` in campaign settings
-- Pass to `generate-campaign-content` edge function
-
-### 6. Update Campaign Content Generation
-
-**File:** `supabase/functions/generate-campaign-content/index.ts`
-
-Add ClipMotion handling:
-
-```typescript
-const isClipMotion = body.clipmotion || false;
-
-// When generating video prompts
-if (isClipMotion) {
-  promptInstructions += `
-Style: ClipMotion (social-first, fast-paced)
-- Create hook-heavy content
-- Short punchy scenes
-- Dynamic camera movements
-- Animated text suggestions
-`;
+// Check subscription before expensive API calls
+const subCheck = await checkUserSubscription(userId);
+if (!subCheck.valid) {
+  return { error: "Subscription required", redirect_to_checkout: true };
 }
 ```
 
 ---
 
-## UI/UX Design
+### Phase 5: Upgrade/Checkout Flow (Frontend)
 
-### VideoGenerator Mode Selector
+**Update: `src/components/CreditsDisplay.tsx`**
 
-```text
-┌─────────────────────────────────────────────────┐
-│  Video Type                                      │
-│  ┌──────────────┐  ┌──────────────────────────┐  │
-│  │  Standard    │  │  ✨ ClipMotion           │  │
-│  │  Video       │  │  Social & Dynamic        │  │
-│  └──────────────┘  └──────────────────────────┘  │
-└─────────────────────────────────────────────────┘
-```
+When user has no valid subscription:
+- Show "Subscribe" button instead of credits
+- Clicking triggers checkout for starter plan
 
-### Toggle Group Component
+**New: Upgrade Prompt Modal**
 
-Using existing `ToggleGroup` from `@radix-ui/react-toggle-group`:
-
-```tsx
-<ToggleGroup type="single" value={videoMode} onValueChange={setVideoMode}>
-  <ToggleGroupItem value="standard">
-    <Video className="h-4 w-4 mr-1" />
-    Standard
-  </ToggleGroupItem>
-  <ToggleGroupItem value="clipmotion" className="gap-1">
-    <Sparkles className="h-4 w-4 mr-1 text-primary" />
-    ClipMotion
-  </ToggleGroupItem>
-</ToggleGroup>
-```
+When blocked by paywall, show:
+- Current plan limitations
+- What they'll get with upgrade
+- One-click checkout button
 
 ---
 
-## Files to Create/Modify
+## Database Cleanup Required
 
-| File | Action | Description |
-|------|--------|-------------|
-| `src/lib/clipMotionConfig.ts` | **Create** | ClipMotion configuration & prompt modifiers |
-| `src/components/VideoGenerator.tsx` | **Modify** | Add video mode toggle, pass mode to API |
-| `src/components/VideoModeSelector.tsx` | **Create** | Reusable mode selector component |
-| `supabase/functions/generate-video-sora/index.ts` | **Modify** | Handle ClipMotion prompt enhancement |
-| `supabase/functions/generate-video-scenario/index.ts` | **Modify** | ClipMotion-specific scenario generation |
-| `supabase/functions/generate-campaign-content/index.ts` | **Modify** | Support ClipMotion flag in campaigns |
-| `src/components/campaigns/CampaignWizardModal.tsx` | **Modify** | Add ClipMotion toggle for video campaigns |
-| `src/lib/videoScenarios.ts` | **Modify** | Add ClipMotion-specific presets |
+Your current subscription record has an orphan `stripe_subscription_id` that doesn't match our products:
+
+```sql
+-- Query to identify orphan subscriptions
+SELECT * FROM subscriptions 
+WHERE stripe_subscription_id IS NOT NULL 
+AND plan_id = 'starter';
+```
+
+The subscription with `sub_1SrpUqEfti9t9nN9pfMLpJDO` is for product `prod_TovkM38DxsrZVX` ("Starlinko Starter" at 2.99 EUR) - this is NOT one of the ClipMotion plans.
 
 ---
 
 ## Technical Details
 
-### VideoGenerator Changes
+### Files to Create/Modify
 
-```typescript
-// New state
-const [videoMode, setVideoMode] = useState<"standard" | "clipmotion">("standard");
+| Action | File | Purpose |
+|--------|------|---------|
+| Create | `src/components/PaywallGuard.tsx` | Reusable access control component |
+| Create | `src/components/PaywallUpgrade.tsx` | Upgrade prompt UI |
+| Modify | `supabase/functions/check-subscription/index.ts` | Fix product mapping, strict validation |
+| Modify | `src/pages/ClipMotionPage.tsx` | Add paywall guard |
+| Modify | `src/pages/Videos.tsx` | Add paywall guard |
+| Modify | `src/pages/Images.tsx` | Add paywall guard |
+| Modify | `src/pages/CampaignsPage.tsx` | Add paywall guard |
+| Modify | `src/pages/Projects.tsx` | Add project limit check |
+| Modify | `supabase/functions/generate-video-sora/index.ts` | Add subscription check |
+| Modify | `supabase/functions/generate-image/index.ts` | Add subscription check |
+| Modify | `src/hooks/useSubscription.ts` | Add `redirectToCheckout` helper |
 
-// Auto-adjust format when ClipMotion selected
-useEffect(() => {
-  if (videoMode === "clipmotion") {
-    setSelectedFormat("reel");
-  }
-}, [videoMode]);
+### Security Considerations
 
-// Pass mode to API
-body: JSON.stringify({
-  prompt: ...,
-  videoMode, // "standard" or "clipmotion"
-  duration: segment.duration,
-  format: selectedFormat,
-  ...
-})
-```
-
-### Edge Function Enhancement
-
-```typescript
-// In generate-video-sora/index.ts
-const { videoMode = "standard" } = await req.json();
-
-let fullPrompt = prompt;
-
-if (videoMode === "clipmotion") {
-  const clipMotionPrefix = `
-[CLIPMOTION - Social Media Optimized Video]
-- Fast-paced editing with 1-2 second scene cuts
-- Dynamic camera movements (zoom, pan, parallax)
-- High energy opening hook in first 2 seconds
-- Animated text overlays and kinetic typography
-- Modern social media aesthetic (TikTok/Reels style)
-
-CONTENT TO VISUALIZE:
-`;
-  fullPrompt = clipMotionPrefix + prompt;
-}
-```
+1. **Never trust client-side checks alone** - Always verify subscription in edge functions before expensive operations
+2. **Fail secure** - If subscription check fails, deny access rather than grant it
+3. **Log payment events** - Add logging for audit trail
+4. **Webhook verification** - Ensure `stripe-webhook` properly validates signatures
 
 ---
 
-## Constraints Respected
+## Expected Outcome
 
-1. **No new APIs** - Uses existing CometAPI models (Kling, Veo, Sora)
-2. **No module recreation** - Extends existing VideoGenerator
-3. **Clean integration** - Just adds a mode toggle
-4. **Backwards compatible** - Default is "Standard" mode
-5. **English UI** - All labels and text in English
+After implementation:
+- Users without valid subscription will see upgrade prompts
+- ClipMotion/Videos blocked for Starter plan
+- Each generation verifies subscription server-side
+- Orphan subscriptions will not grant access
+- Clear path from paywall to checkout
 
----
-
-## Estimated Changes
-
-- **~150 lines** new configuration file
-- **~80 lines** new VideoModeSelector component
-- **~50 lines** modifications to VideoGenerator
-- **~30 lines** modifications per edge function (3 functions)
-- **~20 lines** modifications to CampaignWizardModal
-
-**Total: ~400-450 lines of new/modified code**
