@@ -171,14 +171,7 @@ serve(async (req) => {
     const totalImages = campaign.campaign_type === "video" ? 0 : (campaign.images_per_month || 12);
     const totalPosts = totalVideos + totalImages;
 
-    // Limit to max 10 posts per request to avoid timeout
-    const maxPostsPerBatch = 10;
-    const postsToGenerate = Math.min(totalPosts, maxPostsPerBatch);
-
-    // Distribute posts over 30 days based on posts_per_week
-    const postsPerWeek = campaign.posts_per_week || 3;
-    const daysPerPost = Math.floor(7 / postsPerWeek);
-    
+    // Distribute posts over 30 days
     const scheduledPosts: any[] = [];
     const now = new Date();
     
@@ -186,7 +179,7 @@ serve(async (req) => {
     let videoCount = 0;
     let imageCount = 0;
     
-    for (let i = 0; i < postsToGenerate; i++) {
+    for (let i = 0; i < totalPosts; i++) {
       // Determine content type for this post
       let contentType: "video" | "image";
       
