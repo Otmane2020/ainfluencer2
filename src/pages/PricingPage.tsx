@@ -91,7 +91,7 @@ const PricingPage = () => {
           </div>
 
           <Tabs defaultValue="images" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-8">
+            <TabsList className="grid w-full grid-cols-2 mb-8">
               <TabsTrigger value="images" className="flex items-center gap-2">
                 <Image className="h-4 w-4" />
                 Image Packs
@@ -99,10 +99,6 @@ const PricingPage = () => {
               <TabsTrigger value="videos" className="flex items-center gap-2">
                 <Film className="h-4 w-4" />
                 Video Packs
-              </TabsTrigger>
-              <TabsTrigger value="credits" className="flex items-center gap-2">
-                <Coins className="h-4 w-4" />
-                À la carte
               </TabsTrigger>
             </TabsList>
 
@@ -190,11 +186,6 @@ const PricingPage = () => {
                   </TableBody>
                 </Table>
               </div>
-            </TabsContent>
-
-            {/* Credits Tab */}
-            <TabsContent value="credits">
-              <CreditPacks />
             </TabsContent>
           </Tabs>
         </div>
