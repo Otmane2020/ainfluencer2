@@ -12,6 +12,7 @@ import {
   FileText,
   Plug,
   Image,
+  Camera,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,7 @@ const mainNavItems = [
 const contentNavItems = [
   { title: "Videos", url: "/videos", icon: Video },
   { title: "Images", url: "/images", icon: Image },
+  { title: "Product Shots", url: "/product-shots", icon: Camera },
   { title: "Posts", url: "/posts", icon: ImageIcon },
 ];
 

@@ -76,3 +76,6 @@ verify_jwt = false
 
 [functions.delete-post]
 verify_jwt = false
+
+[functions.generate-product-shots]
+verify_jwt = false

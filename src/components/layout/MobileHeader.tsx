@@ -24,6 +24,7 @@ import {
   Plug,
   Image,
   Megaphone,
+  Camera,
 } from "lucide-react";
 
 const mainNavItems = [
@@ -36,6 +37,7 @@ const mainNavItems = [
 const contentNavItems = [
   { title: "Videos", url: "/videos", icon: Video },
   { title: "Images", url: "/images", icon: Image },
+  { title: "Product Shots", url: "/product-shots", icon: Camera },
   { title: "Posts", url: "/posts", icon: ImageIcon },
 ];
 
