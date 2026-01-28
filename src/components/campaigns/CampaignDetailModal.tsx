@@ -140,7 +140,7 @@ export const CampaignDetailModal = ({
       toast({ title: "Error", description: "Unable to update status", variant: "destructive" });
     } else {
       toast({
-        title: newStatus === "active" ? "Campaign activated! 🚀" : "Campaign paused",
+        title: newStatus === "active" ? "Campaign activated!" : "Campaign paused",
       });
       onUpdate();
     }

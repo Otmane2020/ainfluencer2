@@ -357,10 +357,10 @@ export const ModelSelector = ({
   }, {} as Record<string, AIModel[]>);
 
   const categoryLabels = {
-    video: "🎬 Vidéos",
-    avatar: "👤 Avatars Parlants",
-    image: "🖼️ Images",
-    music: "🎵 Audio & Voix",
+    video: "Videos",
+    avatar: "AI Avatars",
+    image: "Images",
+    music: "Audio & Voice",
   };
 
   const categoryOrder = ["video", "avatar", "image", "music"];

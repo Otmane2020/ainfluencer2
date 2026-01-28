@@ -10,9 +10,9 @@ import {
   Video,
   Image as ImageIcon,
   Layers,
-  Sparkles,
+  Wand2,
   Loader2,
-  Rocket,
+  Play,
 } from "lucide-react";
 
 interface Project {
@@ -154,7 +154,7 @@ export const CampaignSuggestions = ({ projectId, onCampaignCreated }: CampaignSu
       if (error) throw error;
 
       toast({
-        title: `${selectedIds.length} campaign(s) launched! 🚀`,
+        title: `${selectedIds.length} campaign(s) launched!`,
         description: "Content generation will start automatically",
       });
 
@@ -186,7 +186,7 @@ export const CampaignSuggestions = ({ projectId, onCampaignCreated }: CampaignSu
     <Card className="overflow-hidden">
       <div className="bg-gradient-to-r from-primary/10 to-accent/10 p-4 border-b border-border">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-primary" />
+          <Wand2 className="h-5 w-5 text-primary" />
           <h3 className="font-display font-semibold">AI-Suggested Campaigns</h3>
         </div>
         <p className="text-sm text-muted-foreground mt-1">
@@ -265,7 +265,7 @@ export const CampaignSuggestions = ({ projectId, onCampaignCreated }: CampaignSu
                 </>
               ) : (
                 <>
-                  <Rocket className="h-4 w-4" />
+                  <Play className="h-4 w-4" />
                   Launch {selectedIds.length} Campaign{selectedIds.length > 1 ? "s" : ""}
                 </>
               )}

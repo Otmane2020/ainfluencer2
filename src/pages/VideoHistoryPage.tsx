@@ -98,7 +98,7 @@ const VideoHistoryPage = () => {
             if (status.status === "completed") {
               loadVideos();
               toast({
-                title: "Video ready! 🎬",
+                title: "Video ready!",
                 description: "Your video has been generated successfully",
               });
             }
@@ -144,7 +144,7 @@ const VideoHistoryPage = () => {
             if (status.status === "completed") {
               loadVideos();
               toast({
-                title: "Video ready! 🎬",
+                title: "Video ready!",
                 description: "Your video has been generated successfully",
               });
             }

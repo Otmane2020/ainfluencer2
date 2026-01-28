@@ -18,7 +18,7 @@ import {
   Edit,
   Trash2,
   Eye,
-  Sparkles,
+  Wand2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -106,7 +106,7 @@ const CampaignsPage = () => {
     }
 
     toast({ 
-      title: newStatus === "active" ? "Campaign started! 🚀" : "Campaign paused",
+      title: newStatus === "active" ? "Campaign started!" : "Campaign paused",
       description: newStatus === "active" ? "Content generation will begin" : "Content generation paused",
     });
     fetchCampaigns();
@@ -159,7 +159,7 @@ const CampaignsPage = () => {
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <div className="rounded-full bg-primary/10 p-4 mb-4">
-              <Sparkles className="h-8 w-8 text-primary" />
+              <Wand2 className="h-8 w-8 text-primary" />
             </div>
             <h3 className="font-display text-lg font-semibold mb-2">No campaigns yet</h3>
             <p className="text-muted-foreground text-sm max-w-sm mb-4">

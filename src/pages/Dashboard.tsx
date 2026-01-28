@@ -151,7 +151,7 @@ const Dashboard = () => {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="font-display text-2xl md:text-3xl font-bold mb-1 md:mb-2">
-          Hello, <span className="text-gradient">{profile?.display_name || "Creator"}</span> 👋
+          Hello, <span className="text-gradient">{profile?.display_name || "Creator"}</span>
         </h1>
         <p className="text-sm md:text-base text-muted-foreground">
           Here's an overview of your activity

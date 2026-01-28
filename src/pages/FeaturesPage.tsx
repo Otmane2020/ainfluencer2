@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { seoPages, softwareApplicationSchema, organizationSchema } from "@/lib/seo-data";
 import {
-  Video, Sparkles, Calendar, TrendingUp, Globe, Zap, Mic, Users, Palette,
+  Video, Wand2, Calendar, TrendingUp, Globe, Zap, Mic, Users, Palette,
   Clock, Languages, Shield, ArrowRight, Check
 } from "lucide-react";
 
@@ -18,7 +18,7 @@ const features = [
     benefits: ["1080p HD quality", "Multiple aspect ratios", "30+ video styles"],
   },
   {
-    icon: Sparkles,
+    icon: Wand2,
     title: "AI Influencer Avatars",
     description: "Create realistic AI avatars that represent your brand. Generate virtual influencers that speak in your voice and style.",
     benefits: ["Photorealistic quality", "Custom appearances", "Lip-sync technology"],
@@ -170,7 +170,7 @@ const FeaturesPage = () => {
             Start your free trial today and see how ClipMotion can transform your content creation workflow.
           </p>
           <Button size="lg" onClick={() => navigate("/auth")} className="gradient-primary">
-            <Sparkles className="mr-2 h-5 w-5" /> Get Started Free
+            <Wand2 className="mr-2 h-5 w-5" /> Get Started Free
           </Button>
         </div>
       </section>

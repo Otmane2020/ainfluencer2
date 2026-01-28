@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Sparkles, Loader2, CheckCircle, Calendar, Image as ImageIcon, Video } from "lucide-react";
+import { Wand2, Loader2, CheckCircle, Calendar, Image as ImageIcon, Video, AlertCircle, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,10 +25,10 @@ interface CampaignProgressModalProps {
 }
 
 const statusMessages = {
-  creating: "Creating your campaign... ✨",
-  scheduling: "Scheduling your posts... 📅",
-  completed: "Campaign ready! 🎉",
-  error: "Something went wrong 😕",
+  creating: "Creating your campaign...",
+  scheduling: "Scheduling your posts...",
+  completed: "Campaign ready!",
+  error: "Something went wrong",
 };
 
 export const CampaignProgressModal = ({
@@ -89,7 +89,7 @@ export const CampaignProgressModal = ({
                 {isComplete ? (
                   <CheckCircle className="h-12 w-12 text-primary-foreground" />
                 ) : isError ? (
-                  <Sparkles className="h-12 w-12 text-destructive" />
+                  <AlertCircle className="h-12 w-12 text-destructive" />
                 ) : (
                   <Loader2 className="h-12 w-12 animate-spin text-primary-foreground" />
                 )}
@@ -165,9 +165,9 @@ export const CampaignProgressModal = ({
 
           {/* Info message */}
           {!isComplete && !isError && (
-            <div className="rounded-lg bg-primary/10 p-3 text-center">
-              <p className="text-sm text-primary">
-                💡 We'll notify you when your campaign is ready!
+            <div className="rounded-lg bg-primary/10 p-3 flex items-center justify-center gap-2">
+              <Lightbulb className="h-4 w-4 text-primary" />
+              <p className="text-sm text-primary">We'll notify you when your campaign is ready!
               </p>
             </div>
           )}

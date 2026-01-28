@@ -248,7 +248,7 @@ const CalendarPage = () => {
     // 5. Show feedback and throw if failed (so modal catches it)
     if (allMetaSuccess && metaResults.length > 0) {
       toast({
-        title: "Published! 🎉",
+        title: "Published!",
         description: `Posted to ${metaResults.map(r => r.platform).join(" & ")}`,
       });
     } else if (someSuccess) {

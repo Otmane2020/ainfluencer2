@@ -17,7 +17,7 @@ import {
   Loader2,
   Music2,
   Check,
-  Sparkles,
+  Wand2,
   Mic,
   User,
   Monitor,
@@ -28,6 +28,7 @@ import {
   Link,
   Copy,
   ExternalLink,
+  Lightbulb,
 } from "lucide-react";
 import {
   Dialog,
@@ -673,7 +674,7 @@ export const ScheduledPostModal = ({
         <TabsList className="grid w-full grid-cols-4 shrink-0">
           <TabsTrigger value="details" className="text-xs sm:text-sm">Details</TabsTrigger>
           <TabsTrigger value="ai-settings" className="text-xs sm:text-sm">
-            <Sparkles className="h-3 w-3 mr-1" />
+            <Wand2 className="h-3 w-3 mr-1" />
             AI Settings
           </TabsTrigger>
           <TabsTrigger value="platforms" className="text-xs sm:text-sm">Platforms</TabsTrigger>
@@ -1028,9 +1029,10 @@ export const ScheduledPostModal = ({
                   </div>
 
                   {/* Image Style Hint */}
-                  <div className="rounded-lg bg-muted/50 p-3">
+                  <div className="rounded-lg bg-muted/50 p-3 flex items-start gap-2">
+                    <Lightbulb className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
                     <p className="text-xs text-muted-foreground">
-                      💡 The AI will generate an image based on the prompt. Select an AI model in the "AI" tab for quality options.
+                      The AI will generate an image based on the prompt. Select an AI model in the "AI" tab for quality options.
                     </p>
                   </div>
 
@@ -1044,7 +1046,7 @@ export const ScheduledPostModal = ({
                     {isGenerating ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Sparkles className="h-4 w-4" />
+                      <Wand2 className="h-4 w-4" />
                     )}
                     {isGenerating ? "Generating..." : "Generate Image"}
                   </Button>
@@ -1118,7 +1120,7 @@ export const ScheduledPostModal = ({
           <TabsContent value="models" className="space-y-4 m-0 px-1">
             <div className="rounded-xl border border-border p-3 sm:p-4">
               <h4 className="mb-2 text-xs sm:text-sm font-medium flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
+                <Wand2 className="h-4 w-4 text-primary" />
                 Available AI Products
               </h4>
               <p className="mb-4 text-[10px] sm:text-xs text-muted-foreground">
@@ -1185,7 +1187,7 @@ export const ScheduledPostModal = ({
                     {selectedProduct.name} - {selectedProduct.salePrice}€{selectedProduct.salePriceUnit}
                   </p>
                   <Button className="mt-3 w-full" size="sm">
-                    <Sparkles className="h-4 w-4 mr-2" />
+                    <Wand2 className="h-4 w-4 mr-2" />
                     Regenerate with {selectedProduct.name}
                   </Button>
                 </div>
@@ -1282,7 +1284,7 @@ export const ScheduledPostModal = ({
                 {isGenerating ? (
                   <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
                 ) : (
-                  <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <Wand2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 )}
                 <span className="hidden sm:inline">{isGenerating ? "Generating..." : "Generate"}</span>
               </Button>

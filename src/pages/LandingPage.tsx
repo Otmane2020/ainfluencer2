@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PricingPacks } from "@/components/PricingPacks";
 import {
   Play,
-  Sparkles,
+  Wand2,
   Video,
   Calendar,
   TrendingUp,
@@ -24,7 +24,7 @@ const features = [
     description: "Create stunning AI-powered videos for Reels, TikTok, and Shorts in seconds.",
   },
   {
-    icon: Sparkles,
+    icon: Wand2,
     title: "AI Influencer Avatars",
     description: "Generate realistic AI influencers that represent your brand perfectly.",
   },
@@ -125,7 +125,7 @@ const LandingPage = () => {
             className="max-w-4xl mx-auto text-center"
           >
             <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 md:px-4 py-1.5 md:py-2 mb-6 md:mb-8">
-              <Sparkles className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
+              <Wand2 className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
               <span className="text-xs md:text-sm font-medium">AI-Powered Content Creation</span>
             </div>
             
@@ -352,7 +352,7 @@ const LandingPage = () => {
                 onClick={() => navigate("/auth")}
                 className="h-14 px-8 text-lg bg-white text-foreground hover:bg-white/90"
               >
-                <Sparkles className="mr-2 h-5 w-5" />
+                <Wand2 className="mr-2 h-5 w-5" />
                 Get Started Free
               </Button>
               <p className="text-sm text-white/60 mt-4">No credit card required • Free forever plan available</p>
