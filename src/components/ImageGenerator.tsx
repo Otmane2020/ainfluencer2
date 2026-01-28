@@ -34,6 +34,7 @@ interface Project {
   description: string | null;
   theme_color: string | null;
   url: string | null;
+  detected_language: string | null;
 }
 
 interface GeneratedImage {
@@ -93,7 +94,7 @@ export const ImageGenerator = ({ onImageGenerated }: ImageGeneratorProps) => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projectSelectorOpen, setProjectSelectorOpen] = useState(false);
   const [brandOptions, setBrandOptionsState] = useState<BrandOptionsState>(
-    storedPrefs.brandOptions || { includeLogo: false, includeUrl: false }
+    storedPrefs.brandOptions || { includeLogo: false, includeUrl: false, includeText: false }
   );
   const { toast } = useToast();
 
@@ -121,7 +122,7 @@ export const ImageGenerator = ({ onImageGenerated }: ImageGeneratorProps) => {
     const fetchProjects = async () => {
       const { data } = await supabase
         .from("projects")
-        .select("id, name, description, theme_color, url")
+        .select("id, name, description, theme_color, url, detected_language")
         .order("name");
       if (data) setProjects(data);
     };
@@ -222,8 +223,11 @@ export const ImageGenerator = ({ onImageGenerated }: ImageGeneratorProps) => {
           toneId: selectedTone?.id,
           includeLogo: brandOptions.includeLogo,
           includeUrl: brandOptions.includeUrl,
+          includeText: brandOptions.includeText,
+          overlayText: brandOptions.overlayText,
           brandName: selectedProject?.name,
           projectUrl: selectedProject?.url,
+          detectedLanguage: selectedProject?.detected_language || "en",
         },
       });
 

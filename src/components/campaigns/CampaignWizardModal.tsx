@@ -122,6 +122,7 @@ export const CampaignWizardModal = ({
   const [brandOptions, setBrandOptions] = useState<BrandOptionsState>({
     includeLogo: false,
     includeUrl: false,
+    includeText: false,
   });
   
   // Platform toggles
@@ -148,7 +149,7 @@ export const CampaignWizardModal = ({
       setSubject("");
       setPostingHour(10);
       setTimezone("Europe/Paris");
-      setBrandOptions({ includeLogo: false, includeUrl: false });
+      setBrandOptions({ includeLogo: false, includeUrl: false, includeText: false });
       setPlatforms({ facebook: true, instagram: true, linkedin: false, tiktok: false });
     }
   }, [isOpen]);
