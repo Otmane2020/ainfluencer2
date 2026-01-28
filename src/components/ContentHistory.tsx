@@ -78,7 +78,7 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
     try {
       let query = supabase
         .from("scheduled_posts")
-        .select("id, content_type, text_content, media_url, thumbnail_url, ai_prompt, status, created_at, platforms, campaign_id, campaigns(name)")
+        .select("id, content_type, text_content, media_url, thumbnail_url, ai_prompt, status, created_at, platforms, campaign_id, error_message, campaigns(name)")
         .order("created_at", { ascending: false });
 
       if (projectId) {
