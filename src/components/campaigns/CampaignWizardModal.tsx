@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { AUDIO_CATEGORIES } from "@/lib/audioBank";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -36,6 +37,7 @@ import {
   Instagram,
   Linkedin,
   Clock,
+  Music,
 } from "lucide-react";
 import { CampaignProgressModal } from "./CampaignProgressModal";
 
@@ -119,6 +121,8 @@ export const CampaignWizardModal = ({
   const [subject, setSubject] = useState("");
   const [postingHour, setPostingHour] = useState(10);
   const [timezone, setTimezone] = useState("Europe/Paris");
+  const [imageAsReel, setImageAsReel] = useState(false); // NEW: Convert images to reels with audio
+  const [audioCategory, setAudioCategory] = useState("upbeat"); // NEW: Audio category for reels
   const [brandOptions, setBrandOptions] = useState<BrandOptionsState>({
     includeLogo: false,
     includeUrl: false,
@@ -150,6 +154,8 @@ export const CampaignWizardModal = ({
       setSubject("");
       setPostingHour(10);
       setTimezone("Europe/Paris");
+      setImageAsReel(false);
+      setAudioCategory("upbeat");
       setBrandOptions({ includeLogo: false, includeUrl: false, includeText: false, includeAvatar: false });
       setPlatforms({ facebook: true, instagram: true, linkedin: false, tiktok: false });
     }
@@ -218,6 +224,8 @@ export const CampaignWizardModal = ({
             platforms: selectedPlatforms,
             includeLogo: brandOptions.includeLogo,
             includeUrl: brandOptions.includeUrl,
+            imageAsReel: imageAsReel,
+            audioCategory: audioCategory,
           } 
         }
       );
@@ -439,10 +447,54 @@ export const CampaignWizardModal = ({
                 </div>
               )}
 
+              {/* Image as Reel Option */}
+              {(campaignType === "image" || campaignType === "mixed") && (
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-lg p-2 bg-gradient-to-br from-pink-500 to-orange-400 text-white">
+                        <Music className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Post Images as Reels</p>
+                        <p className="text-xs text-muted-foreground">Convert images to video reels with music</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={imageAsReel}
+                      onCheckedChange={setImageAsReel}
+                    />
+                  </div>
+                  
+                  {imageAsReel && (
+                    <div className="pt-2 border-t border-border/50">
+                      <Label className="text-xs mb-2 block">Background Music Style</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {AUDIO_CATEGORIES.slice(0, 4).map((cat) => (
+                          <button
+                            key={cat.id}
+                            onClick={() => setAudioCategory(cat.id)}
+                            className={`p-2 rounded-lg text-xs text-left transition-all ${
+                              audioCategory === cat.id 
+                                ? "bg-primary text-primary-foreground" 
+                                : "bg-muted hover:bg-muted/80"
+                            }`}
+                          >
+                            <span className="mr-1">{cat.emoji}</span>
+                            {cat.label.split(" ")[0]}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Summary */}
               <div className="rounded-lg bg-muted/50 p-3 mt-4">
                 <p className="text-sm text-muted-foreground">
                   📅 Content will be automatically distributed across the month
+                  {imageAsReel && " • 🎵 Images will be converted to reels with music"}
                 </p>
               </div>
             </motion.div>
