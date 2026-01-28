@@ -323,16 +323,23 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
     try {
       // First, scrape the project URL if available
       let scrapedContent: string | undefined;
+      let scrapedLanguage: string | undefined;
+      
       if (project.url) {
         try {
           const { data: scrapeData } = await supabase.functions.invoke("scrape-project-url", {
             body: { url: project.url },
           });
-          scrapedContent = scrapeData?.content?.slice(0, 3000);
+          scrapedContent = scrapeData?.markdown?.slice(0, 3000);
+          scrapedLanguage = scrapeData?.detectedLanguage; // Use freshly detected language
         } catch (scrapeError) {
           console.log("Scraping skipped:", scrapeError);
         }
       }
+
+      // Prioritize: scraped language > project language > default
+      const finalLanguage = scrapedLanguage || project.detected_language || "en";
+      console.log("[VideoGenerator] Using language:", finalLanguage, "(scraped:", scrapedLanguage, ", project:", project.detected_language, ")");
 
       // Use the new dedicated video scenario generator
       const { data, error } = await supabase.functions.invoke("generate-video-scenario", {
@@ -347,7 +354,7 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
           toneId: selectedTone?.id,
           scriptType: selectedProduct.category === "avatar" ? "testimonial" : "reel",
           duration,
-          detectedLanguage: project.detected_language || "en",
+          detectedLanguage: finalLanguage,
           logoUrl: project.avatar_url,
         },
       });
