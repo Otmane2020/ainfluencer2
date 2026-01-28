@@ -23,6 +23,7 @@ import ImageHistoryPage from "./pages/ImageHistoryPage";
 import PostHistoryPage from "./pages/PostHistoryPage";
 import NotFound from "./pages/NotFound";
 import ProductShotsPage from "./pages/ProductShotsPage";
+import ClipMotionPage from "./pages/ClipMotionPage";
 // SEO Pages
 import FeaturesPage from "./pages/FeaturesPage";
 import PricingPage from "./pages/PricingPage";
@@ -63,6 +64,7 @@ const App = () => (
             <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/campaigns" element={<CampaignsPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/clipmotion" element={<ClipMotionPage />} />
             <Route path="/videos" element={<Videos />} />
             <Route path="/images" element={<Images />} />
             <Route path="/product-shots" element={<ProductShotsPage />} />

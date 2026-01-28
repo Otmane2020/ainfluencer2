@@ -13,6 +13,7 @@ import {
   Plug,
   Image,
   Camera,
+  Sparkles,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { NavLink } from "@/components/NavLink";
@@ -42,6 +43,7 @@ const mainNavItems = [
 ];
 
 const contentNavItems = [
+  { title: "ClipMotion", url: "/clipmotion", icon: Sparkles, label: "NEW" },
   { title: "Videos", url: "/videos", icon: Video },
   { title: "Images", url: "/images", icon: Image },
   { title: "Product Shots", url: "/product-shots", icon: Camera, label: "AI Smart" },
