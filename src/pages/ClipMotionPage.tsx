@@ -1,12 +1,26 @@
+import { useState } from "react";
 import { Sparkles, Zap, TrendingUp, Film, Clock, Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { VideoGenerator } from "@/components/VideoGenerator";
 import { CLIPMOTION_FEATURES } from "@/lib/clipMotionConfig";
-import { PaywallGuard } from "@/components/PaywallGuard";
+import { PaywallModal } from "@/components/PaywallModal";
+import { useSubscription } from "@/hooks/useSubscription";
 
 const ClipMotionPage = () => {
+  const [showPaywall, setShowPaywall] = useState(false);
+  const { canAccessFeature } = useSubscription();
+
+  // Check if user can generate before proceeding
+  const handleBeforeGenerate = (): boolean => {
+    if (!canAccessFeature("video")) {
+      setShowPaywall(true);
+      return false;
+    }
+    return true;
+  };
+
   return (
-    <PaywallGuard feature="clipmotion" requiredPlan="pro">
+    <>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-4">
@@ -46,9 +60,21 @@ const ClipMotionPage = () => {
         </div>
 
         {/* Video Generator with ClipMotion mode forced */}
-        <VideoGenerator defaultVideoMode="clipmotion" hideVideoModeSelector />
+        <VideoGenerator 
+          defaultVideoMode="clipmotion" 
+          hideVideoModeSelector 
+          onBeforeGenerate={handleBeforeGenerate}
+        />
       </div>
-    </PaywallGuard>
+
+      {/* Paywall Modal */}
+      <PaywallModal
+        open={showPaywall}
+        onOpenChange={setShowPaywall}
+        feature="clipmotion"
+        requiredPlan="pro"
+      />
+    </>
   );
 };
 
