@@ -14,6 +14,7 @@ interface ContentItem {
   ai_prompt: string | null;
   status: string;
   created_at: string;
+  published_at?: string | null;
   platforms: string[] | null;
   campaign_id: string | null;
   campaign?: { name: string } | null;
@@ -179,12 +180,25 @@ export const ContentHistoryItem = ({
             </div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Calendar className="h-3 w-3" />
-              <span className="hidden sm:inline">
-                {format(new Date(item.created_at), "MMM d, yyyy 'at' HH:mm")}
-              </span>
-              <span className="sm:hidden">
-                {format(new Date(item.created_at), "MM/dd HH:mm")}
-              </span>
+              {item.status === "published" && item.published_at ? (
+                <>
+                  <span className="hidden sm:inline">
+                    Published {format(new Date(item.published_at), "MMM d 'at' HH:mm")}
+                  </span>
+                  <span className="sm:hidden">
+                    {format(new Date(item.published_at), "MM/dd HH:mm")}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="hidden sm:inline">
+                    {format(new Date(item.created_at), "MMM d, yyyy 'at' HH:mm")}
+                  </span>
+                  <span className="sm:hidden">
+                    {format(new Date(item.created_at), "MM/dd HH:mm")}
+                  </span>
+                </>
+              )}
             </div>
           </div>
 
