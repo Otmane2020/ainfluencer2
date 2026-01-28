@@ -104,7 +104,12 @@ serve(async (req) => {
   }
 
   try {
-    const { campaignId, platforms: selectedPlatforms } = await req.json();
+    const { 
+      campaignId, 
+      platforms: selectedPlatforms, 
+      imageAsReel = false, 
+      audioCategory = "upbeat" 
+    } = await req.json();
 
     if (!campaignId) {
       return new Response(
@@ -117,6 +122,8 @@ serve(async (req) => {
     const targetPlatforms = selectedPlatforms && selectedPlatforms.length > 0 
       ? selectedPlatforms 
       : ["instagram", "facebook"];
+    
+    console.log(`Image as Reel mode: ${imageAsReel}, Audio: ${audioCategory}`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -365,16 +372,19 @@ Respond ONLY with valid JSON:
           await new Promise(r => setTimeout(r, 2000));
         }
 
+        // When imageAsReel is enabled, mark image posts as "video" type for Reel posting
+        const finalContentType = (imageAsReel && !isVideo) ? "video" : post.contentType;
+
         generatedPosts.push({
           user_id: campaign.user_id,
           project_id: campaign.project_id,
           campaign_id: campaign.id,
-          content_type: post.contentType,
+          content_type: finalContentType, // "video" if imageAsReel, otherwise original type
           scheduled_for: post.scheduledFor,
           ai_prompt: parsed.aiPrompt || parsed.title,
           text_content: parsed.textContent || "",
-          media_url: mediaUrl, // Now includes the generated image URL
-          status: "scheduled", // Set to scheduled since image is ready
+          media_url: mediaUrl, // Image URL - will be converted to reel during publishing
+          status: "scheduled",
           platforms: targetPlatforms,
         });
 

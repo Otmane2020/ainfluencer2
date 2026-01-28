@@ -277,13 +277,25 @@ async function publishToInstagram(
   post: ScheduledPost,
   metaConnection: any
 ): Promise<{ success: boolean; error?: string }> {
-  if (!metaConnection.instagram_id || !post.media_url) {
-    return { success: false, error: "No Instagram ID or media" };
+  // Instagram REQUIRES media - no text-only posts allowed
+  if (!metaConnection.instagram_id) {
+    console.log("[Instagram] No instagram_id in connection");
+    return { success: false, error: "No Instagram Business account connected" };
+  }
+
+  if (!post.media_url) {
+    console.log("[Instagram] No media_url - Instagram requires media");
+    return { success: false, error: "Instagram requires media (image or video)" };
   }
 
   try {
     const accessToken = metaConnection.page_access_token || metaConnection.access_token;
+    if (!accessToken) {
+      return { success: false, error: "No access token available" };
+    }
+
     const isVideo = post.content_type === "video";
+    console.log(`[Instagram] Publishing ${isVideo ? "video/reel" : "image"} to ${metaConnection.instagram_id}`);
 
     // Step 1: Create media container
     const containerBody: any = {
@@ -294,10 +306,13 @@ async function publishToInstagram(
     if (isVideo) {
       containerBody.media_type = "REELS";
       containerBody.video_url = post.media_url;
+      containerBody.share_to_feed = true; // Also share to feed
     } else {
+      // For images, we don't set media_type (defaults to IMAGE/PHOTO)
       containerBody.image_url = post.media_url;
     }
 
+    console.log("[Instagram] Creating media container...");
     const containerResponse = await fetch(
       `https://graph.facebook.com/v18.0/${metaConnection.instagram_id}/media`,
       {
@@ -307,15 +322,28 @@ async function publishToInstagram(
       }
     );
 
+    const containerText = await containerResponse.text();
+    console.log("[Instagram] Container response:", containerResponse.status, containerText.slice(0, 200));
+
     if (!containerResponse.ok) {
-      const errorData = await containerResponse.text();
-      return { success: false, error: errorData };
+      // Parse error for better messaging
+      try {
+        const errorJson = JSON.parse(containerText);
+        const errorMsg = errorJson.error?.message || containerText;
+        return { success: false, error: `Container failed: ${errorMsg}` };
+      } catch {
+        return { success: false, error: `Container failed (${containerResponse.status}): ${containerText.slice(0, 100)}` };
+      }
     }
 
-    const containerData = await containerResponse.json();
+    const containerData = JSON.parse(containerText);
+    if (!containerData.id) {
+      return { success: false, error: "No container ID returned" };
+    }
 
     // For videos, wait for processing
     if (isVideo) {
+      console.log("[Instagram] Waiting for video processing...");
       const maxWait = 60;
       for (let i = 0; i < maxWait; i++) {
         await new Promise(resolve => setTimeout(resolve, 5000));
@@ -323,16 +351,20 @@ async function publishToInstagram(
         const statusRes = await fetch(
           `https://graph.facebook.com/v18.0/${containerData.id}?fields=status_code&access_token=${accessToken}`
         );
-        const statusData = await statusRes.json();
+        const statusText = await statusRes.text();
+        const statusData = JSON.parse(statusText);
+        
+        console.log(`[Instagram] Processing status (${i + 1}/${maxWait}): ${statusData.status_code}`);
         
         if (statusData.status_code === "FINISHED") break;
         if (statusData.status_code === "ERROR") {
-          return { success: false, error: "Video processing failed" };
+          return { success: false, error: "Video processing failed at Instagram" };
         }
       }
     }
 
-    // Step 2: Publish
+    // Step 2: Publish the container
+    console.log("[Instagram] Publishing container...");
     const publishResponse = await fetch(
       `https://graph.facebook.com/v18.0/${metaConnection.instagram_id}/media_publish`,
       {
@@ -345,13 +377,23 @@ async function publishToInstagram(
       }
     );
 
+    const publishText = await publishResponse.text();
+    console.log("[Instagram] Publish response:", publishResponse.status, publishText.slice(0, 200));
+
     if (!publishResponse.ok) {
-      const errorData = await publishResponse.text();
-      return { success: false, error: errorData };
+      try {
+        const errorJson = JSON.parse(publishText);
+        const errorMsg = errorJson.error?.message || publishText;
+        return { success: false, error: `Publish failed: ${errorMsg}` };
+      } catch {
+        return { success: false, error: `Publish failed (${publishResponse.status}): ${publishText.slice(0, 100)}` };
+      }
     }
 
+    console.log("[Instagram] ✅ Published successfully!");
     return { success: true };
   } catch (error) {
+    console.error("[Instagram] Exception:", error);
     return { success: false, error: String(error) };
   }
 }
