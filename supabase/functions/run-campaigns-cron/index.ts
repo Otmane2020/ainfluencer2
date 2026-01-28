@@ -39,7 +39,7 @@ interface ScheduledPost {
 // SMART IMAGE GENERATION (via CometAPI - Flux 2 Flex)
 // ============================================================
 
-async function generateImage(prompt: string, supabase: any, brandName?: string): Promise<string | null> {
+async function generateImage(prompt: string, supabase: any, brandName?: string, language?: string): Promise<string | null> {
   const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
   if (!COMETAPI_API_KEY) {
     console.error("[generateImage] COMETAPI_API_KEY not configured");
@@ -47,9 +47,14 @@ async function generateImage(prompt: string, supabase: any, brandName?: string):
   }
 
   try {
+    // Add language constraint for any text in the image
+    const langPrefix = language && language !== "en" 
+      ? `[LANGUAGE: All text in this image MUST be in ${language === "fr" ? "French" : language === "es" ? "Spanish" : language === "de" ? "German" : language === "it" ? "Italian" : language === "pt" ? "Portuguese" : "English"}. NO English text allowed.] `
+      : "";
+    
     const enhancedPrompt = brandName 
-      ? `${prompt} for ${brandName} brand. Ultra high resolution, professional quality.`
-      : `${prompt}. Ultra high resolution, professional quality.`;
+      ? `${langPrefix}${prompt} for ${brandName} brand. Ultra high resolution, professional quality.`
+      : `${langPrefix}${prompt}. Ultra high resolution, professional quality.`;
 
     console.log("[generateImage] Using Smart Image (flux-2-flex) via CometAPI");
 
@@ -451,7 +456,8 @@ Deno.serve(async (req) => {
 
     for (const post of duePosts) {
       const brandName = post.projects?.name;
-      console.log(`[cron] Processing post ${post.id} (${post.content_type})`);
+      const projectLanguage = post.projects?.detected_language || "en";
+      console.log(`[cron] Processing post ${post.id} (${post.content_type}) - language: ${projectLanguage}`);
 
       // STEP 1: Generate media if missing (using Smart quality)
       if (!post.media_url && post.ai_prompt) {
@@ -464,8 +470,8 @@ Deno.serve(async (req) => {
           !post.ai_prompt.toLowerCase().includes("scene ");
         
         if (post.content_type === "image" || isImageAsReel) {
-          console.log(`[cron] Generating Smart Image for post ${post.id}${isImageAsReel ? " (Image as Reel)" : ""}`);
-          const imageUrl = await generateImage(post.ai_prompt, supabase, brandName);
+          console.log(`[cron] Generating Smart Image for post ${post.id}${isImageAsReel ? " (Image as Reel)" : ""} in ${projectLanguage}`);
+          const imageUrl = await generateImage(post.ai_prompt, supabase, brandName, projectLanguage);
           if (imageUrl) {
             await supabase.from("scheduled_posts").update({ 
               media_url: imageUrl,

@@ -5,7 +5,106 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// NanoBanana Pro via CometAPI - optimized for French copywriting
+// Language instructions for multilingual support
+const LANGUAGE_INSTRUCTIONS: Record<string, { system: string; rules: string; tone: string; fallback: string }> = {
+  en: {
+    system: "You are a professional English copywriter specialized in viral video scripts.",
+    rules: `STYLE RULES:
+• Language: perfect American English
+• ZERO spelling or grammar mistakes
+• ZERO emojis
+• ZERO generic phrases ("Discover", "Don't wait", "innovative solution")
+• ZERO empty marketing jargon ("revolutionary", "unique", "incredible")`,
+    tone: `EXPECTED TONE:
+- Natural, like talking to a friend
+- Direct and no-nonsense
+- Concrete with examples and numbers if possible
+- Emotional but credible`,
+    fallback: "our solution",
+  },
+  fr: {
+    system: "Tu es un copywriter professionnel francophone spécialisé en scripts vidéo viraux.",
+    rules: `RÈGLES DE STYLE :
+• Langue : français parfait de France (pas belge, pas québécois)
+• ZÉRO faute d'orthographe ou de grammaire
+• ZÉRO mot anglais (pas de "tips", "boost", "game-changer", etc.)
+• ZÉRO emoji
+• ZÉRO phrase générique ("Découvrez", "N'attendez plus", "solution innovante")
+• ZÉRO jargon marketing vide ("révolutionnaire", "unique", "incroyable")`,
+    tone: `TON ATTENDU :
+- Naturel, comme si tu parlais à un ami
+- Direct et sans blabla
+- Concret avec des exemples chiffrés si possible
+- Émotionnel mais crédible`,
+    fallback: "notre solution",
+  },
+  es: {
+    system: "Eres un copywriter profesional especializado en guiones de video virales en español.",
+    rules: `REGLAS DE ESTILO:
+• Idioma: español perfecto (España o Latinoamérica neutro)
+• CERO errores de ortografía o gramática
+• CERO palabras en inglés (excepto marcas)
+• CERO emojis
+• CERO frases genéricas ("Descubre", "No esperes más", "solución innovadora")
+• CERO jerga de marketing vacía ("revolucionario", "único", "increíble")`,
+    tone: `TONO ESPERADO:
+- Natural, como si hablaras con un amigo
+- Directo y sin rodeos
+- Concreto con ejemplos y números si es posible
+- Emocional pero creíble`,
+    fallback: "nuestra solución",
+  },
+  de: {
+    system: "Du bist ein professioneller deutschsprachiger Copywriter, spezialisiert auf virale Videoskripte.",
+    rules: `STILREGELN:
+• Sprache: perfektes Hochdeutsch
+• NULL Rechtschreib- oder Grammatikfehler
+• NULL englische Wörter (außer Markennamen)
+• NULL Emojis
+• NULL generische Phrasen ("Entdecken Sie", "Warten Sie nicht", "innovative Lösung")
+• NULL leeres Marketing-Jargon ("revolutionär", "einzigartig", "unglaublich")`,
+    tone: `ERWARTETER TON:
+- Natürlich, wie ein Gespräch mit einem Freund
+- Direkt und ohne Umschweife
+- Konkret mit Beispielen und Zahlen wenn möglich
+- Emotional aber glaubwürdig`,
+    fallback: "unsere Lösung",
+  },
+  it: {
+    system: "Sei un copywriter professionista italiano specializzato in script video virali.",
+    rules: `REGOLE DI STILE:
+• Lingua: italiano perfetto
+• ZERO errori di ortografia o grammatica
+• ZERO parole inglesi (tranne nomi di brand)
+• ZERO emoji
+• ZERO frasi generiche ("Scopri", "Non aspettare", "soluzione innovativa")
+• ZERO gergo marketing vuoto ("rivoluzionario", "unico", "incredibile")`,
+    tone: `TONO ATTESO:
+- Naturale, come parlare con un amico
+- Diretto e senza fronzoli
+- Concreto con esempi e numeri se possibile
+- Emotivo ma credibile`,
+    fallback: "la nostra soluzione",
+  },
+  pt: {
+    system: "Você é um copywriter profissional especializado em roteiros de vídeo virais em português.",
+    rules: `REGRAS DE ESTILO:
+• Idioma: português perfeito (Brasil ou Portugal)
+• ZERO erros de ortografia ou gramática
+• ZERO palavras em inglês (exceto marcas)
+• ZERO emojis
+• ZERO frases genéricas ("Descubra", "Não espere", "solução inovadora")
+• ZERO jargão de marketing vazio ("revolucionário", "único", "incrível")`,
+    tone: `TOM ESPERADO:
+- Natural, como se estivesse falando com um amigo
+- Direto e sem rodeios
+- Concreto com exemplos e números se possível
+- Emocional mas credível`,
+    fallback: "nossa solução",
+  },
+};
+
+// NanoBanana Pro via CometAPI - multilingual support
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -24,7 +123,15 @@ serve(async (req) => {
       sectorId,
       styleId,
       toneId,
+      // Language parameter - CRITICAL for multilingual support
+      detectedLanguage,
     } = await req.json();
+
+    // Determine output language
+    const language = detectedLanguage || "en";
+    const langConfig = LANGUAGE_INSTRUCTIONS[language] || LANGUAGE_INSTRUCTIONS.en;
+    
+    console.log("Generating script for:", projectName, "type:", scriptType, "duration:", duration, "language:", language);
 
     // ============================================
     // SCENARIO SYSTEM (synced with suggest-content)
@@ -102,8 +209,6 @@ serve(async (req) => {
       throw new Error("COMETAPI_API_KEY is not configured");
     }
 
-    console.log("Generating script for:", projectName, "type:", scriptType, "duration:", duration);
-
     // Calculate optimal word count based on duration
     // Average speaking rate: ~2.5 words per second
     const wordsPerSecond = 2.5;
@@ -111,190 +216,54 @@ serve(async (req) => {
     const minWords = Math.max(10, targetWords - 10);
     const maxWords = targetWords + 15;
 
-    // AGGRESSIVE ADS TEMPLATE - Ultra short sentences with timestamps
-    const generateAggressiveAdTemplate = (dur: number): string => {
-      if (dur <= 10) {
-        return `[0–1s] Phrase choc (max 4 mots)
-[1–3s] Accusation directe
-[3–5s] Solution (nom produit)
-[5–7s] Résultat chiffré
-[7–${dur}s] CTA brutal`;
-      } else if (dur <= 20) {
-        return `[0–1s] Phrase choc (max 4 mots)
-[1–3s] Accusation directe
-[3–5s] Cause claire
-[5–7s] Conséquence business
-[7–9s] Rupture / ordre
-[9–12s] Solution (nom du produit)
-[12–14s] Actions automatisées (liste courte)
-[14–16s] Résultat chiffré
-[16–18s] Émotion / soulagement
-[18–${dur}s] CTA brutal`;
-      } else {
-        return `[0–2s] Phrase choc violente
-[2–5s] Accusation directe
-[5–8s] Développement problème
-[8–12s] Conséquence business
-[12–15s] Rupture / solution
-[15–20s] Fonctionnalités clés
-[20–25s] Résultats chiffrés
-[25–28s] Émotion / témoignage
-[28–${dur}s] CTA brutal`;
-      }
-    };
-
-    // Generate timing segments based on duration (for non-ads)
-    const generateTimingTemplate = (dur: number): string => {
-      if (dur <= 5) {
-        return `[0-${dur}s] Hook + Message complet`;
-      } else if (dur <= 10) {
-        return `[0-2s] Hook accrocheur
-[2-${Math.floor(dur * 0.6)}s] Problème ou bénéfice
-[${Math.floor(dur * 0.6)}-${dur}s] Solution + CTA`;
-      } else if (dur <= 20) {
-        return `[0-3s] Hook accrocheur (question ou stat choc)
-[3-7s] Problème identifié (douleur du client)
-[7-13s] Solution présentée (ton produit/service)
-[13-17s] Bénéfice concret (chiffres, résultats)
-[17-${dur}s] Call-to-action (invitation à agir)`;
-      } else {
-        return `[0-3s] Hook viral (question choc ou stat)
-[3-8s] Contexte et problème
-[8-15s] Solution détaillée
-[15-22s] Preuves et bénéfices
-[22-${dur}s] Call-to-action émotionnel`;
-      }
-    };
-
-    // Duration-based instructions
-    const getDurationInstructions = (dur: number): string => {
-      const timingTemplate = generateTimingTemplate(dur);
-      
-      if (dur <= 5) {
-        return `⚠️ DURÉE : ${dur} secondes = ${minWords}-${maxWords} mots
-STRUCTURE OBLIGATOIRE :
-${timingTemplate}`;
-      } else if (dur <= 10) {
-        return `⚠️ DURÉE : ${dur} secondes = ${minWords}-${maxWords} mots
-STRUCTURE OBLIGATOIRE (avec timestamps) :
-${timingTemplate}`;
-      } else if (dur <= 20) {
-        return `⚠️ DURÉE : ${dur} secondes = ${minWords}-${maxWords} mots
-STRUCTURE OBLIGATOIRE (avec timestamps précis) :
-${timingTemplate}
-
-Chaque segment DOIT contenir 1-2 phrases. Le script final doit couvrir TOUS les segments.`;
-      } else {
-        return `⚠️ DURÉE : ${dur} secondes = ${minWords}-${maxWords} mots
-STRUCTURE OBLIGATOIRE (avec timestamps) :
-${timingTemplate}
-
-Chaque segment DOIT être développé. Storytelling complet.`;
-      }
-    };
-
-    // Script type specific instructions
+    // Script type specific instructions (language-agnostic structure)
     const scriptTypePrompts: Record<string, string> = {
-      reel: `Format : Reel/TikTok (vertical)
-${getDurationInstructions(duration)}`,
-      story: `Format : Story Instagram
-${getDurationInstructions(Math.min(duration, 15))}`,
-      ad: `Format : Publicité PAYANTE (Meta / TikTok Ads)
-
-${generateAggressiveAdTemplate(duration)}
-
-RÈGLES ABSOLUES ADS :
-- Chaque segment = 1 phrase MAX
-- Chaque phrase = 2 à 6 mots MAX (JAMAIS plus de 7 mots)
-- Phrases TRÈS courtes, percutantes
-- Ton direct, presque brutal
-- Aucune phrase explicative longue
-- Impact > politesse
-- ZÉRO mot de liaison inutile
-
-EXEMPLE DE SCRIPT ADS PARFAIT :
-[0–1s] Tu perds de l'argent.
-[1–3s] Tous les jours.
-[3–5s] À cause de Google.
-[5–7s] Avis sans réponse.
-[7–9s] Les clients partent.
-[9–12s] Starlinko agit pour toi.
-[12–14s] Avis. Posts. Questions.
-[14–16s] 30 % de temps gagné.
-[16–18s] Moins de pression.
-[18–20s] Starlinko. Réagis.`,
-      testimonial: `Format : Témoignage authentique
-${getDurationInstructions(duration)}
-- Ton humain et crédible`,
+      reel: `Format: Reel/TikTok (vertical)
+Duration: ${duration} seconds = ${minWords}-${maxWords} words`,
+      story: `Format: Instagram Story
+Duration: ${Math.min(duration, 15)} seconds`,
+      ad: `Format: Paid Ad (Meta / TikTok Ads)
+Each line MUST start with a timestamp [0-1s], [1-3s], etc.
+Each phrase = 2 to 6 words MAX. NEVER more than 7 words per phrase!
+Brutal, direct tone, no fluff.`,
+      testimonial: `Format: Authentic testimonial
+Duration: ${duration} seconds
+- Human and credible tone`,
     };
 
-    // Ads-specific system prompt rules
-    const adsRules = scriptType === "ad" ? `
+    const systemPrompt = `${langConfig.system}
 
-🔥 FORMAT OBLIGATOIRE POUR LES ADS :
-Chaque ligne DOIT commencer par un timestamp [0–1s], [1–3s], etc.
-Chaque phrase = 2 à 6 mots MAX. JAMAIS plus de 7 mots par phrase !
-Ton brutal, direct, sans fioritures.
+⚠️ RULE #1 MOST IMPORTANT - SCRIPT LENGTH:
+The script MUST contain between ${minWords} and ${maxWords} words for a ${duration} second duration.
+A script too short = failed video. COUNT YOUR WORDS before responding!
 
-EXEMPLE EXACT À SUIVRE :
-[0–1s] Tu perds de l'argent.
-[1–3s] Tous les jours.
-[3–5s] À cause de Google.
-[5–7s] Avis sans réponse.
-[7–9s] Les clients partent.
+⚠️ RULE #2 - LANGUAGE:
+OUTPUT ONLY IN ${language.toUpperCase()}. NO other languages except brand names!
 
-` : "";
-
-    const systemPrompt = `Tu es un copywriter professionnel francophone spécialisé en scripts vidéo viraux.
-
-⚠️ RÈGLE #1 LA PLUS IMPORTANTE - LONGUEUR DU SCRIPT :
-Le script DOIT contenir entre ${minWords} et ${maxWords} mots pour une durée de ${duration} secondes.
-Un script trop court = vidéo ratée. COMPTE TES MOTS avant de répondre !
-${adsRules}
-RÈGLES DE STYLE :
-• Langue : français parfait de France (pas belge, pas québécois)
-• ZÉRO faute d'orthographe ou de grammaire
-• ZÉRO mot anglais (pas de "tips", "boost", "game-changer", etc.)
-• ZÉRO emoji
-• ZÉRO phrase générique ("Découvrez", "N'attendez plus", "solution innovante")
-• ZÉRO jargon marketing vide ("révolutionnaire", "unique", "incroyable")
+${langConfig.rules}
 ${scenarioContext}
 ${scriptTypePrompts[scriptType] || scriptTypePrompts.reel}
 
-TON ATTENDU :
-- Naturel, comme si tu parlais à un ami
-- Direct et sans blabla
-- Concret avec des exemples chiffrés si possible
-- Émotionnel mais crédible
+${langConfig.tone}
 
-EXEMPLES DE BON STYLE (à adapter selon la durée) :
-✅ "Tu perds 3h par semaine à répondre aux mêmes questions ? Cette automatisation fait le travail pendant que tu dors."
-✅ "Un client mécontent coûte 5 fois plus cher qu'un client fidélisé. Voilà pourquoi j'ai créé ça."
-✅ "J'ai testé 12 outils avant de trouver celui-ci. Résultat : 40% de temps gagné."
+FINAL REMINDER: Each script MUST be ${minWords}-${maxWords} words for ${duration} seconds of video!`;
 
-EXEMPLES DE MAUVAIS STYLE :
-❌ "Découvrez notre solution innovante qui révolutionne votre quotidien..."
-❌ "N'attendez plus pour booster votre business !"
-❌ "Cette méthode unique va transformer votre vie..."
+    const userPrompt = `Generate 5 different scripts for this project:
 
-RAPPEL FINAL : Chaque script DOIT faire ${minWords}-${maxWords} mots pour ${duration} secondes de vidéo !${scriptType === "ad" ? "\n⚠️ FORMAT ADS : Timestamps obligatoires + phrases de 2-6 mots MAX !" : ""}`;
+PROJECT: ${projectName || "Not specified"}
+DESCRIPTION: ${projectDescription || "Not specified"}
+${projectUrl ? `WEBSITE: ${projectUrl}` : ""}
+${scrapedContent ? `WEBSITE CONTENT (excerpt):\n${scrapedContent.substring(0, 800)}` : ""}
+${productName ? `PRODUCT/SERVICE: ${productName}` : ""}
 
-    const userPrompt = `Génère 5 scripts différents pour ce projet :
-
-PROJET : ${projectName || "Non spécifié"}
-DESCRIPTION : ${projectDescription || "Non spécifiée"}
-${projectUrl ? `SITE WEB : ${projectUrl}` : ""}
-${scrapedContent ? `CONTENU DU SITE (extrait) :\n${scrapedContent.substring(0, 800)}` : ""}
-${productName ? `PRODUIT/SERVICE : ${productName}` : ""}
-
-Réponds UNIQUEMENT avec un JSON valide :
+Respond ONLY with valid JSON:
 {
   "scripts": [
     {
       "id": "1",
-      "title": "Titre court (max 40 caractères)",
-      "content": "Le script complet",
-      "angle": "probleme|benefice|emotion|preuve|urgence"
+      "title": "Short title (max 40 characters)",
+      "content": "The complete script",
+      "angle": "problem|benefit|emotion|proof|urgency"
     }
   ]
 }`;
@@ -355,33 +324,13 @@ Réponds UNIQUEMENT avec un JSON valide :
           const textWithoutTimestamps = text.replace(/\[\d+[–-]\d+s\]/g, "").trim();
           if (textWithoutTimestamps.length < 30 || textWithoutTimestamps.length > 800) return false;
           
-          // English words check (strict)
-          const englishWords = /\b(discover|our|solution|innovative|boost|game-changer|tips|hack|amazing|incredible|unique|transform|revolutionary)\b/gi;
-          if ((text.match(englishWords) || []).length > 0) return false;
-          
-          // Generic French marketing phrases check
-          const genericPhrases = [
-            "découvrez notre",
-            "n'attendez plus",
-            "solution innovante",
-            "révolutionnaire",
-            "unique en son genre",
-            "va changer votre vie",
-            "ne manquez pas",
-          ];
-          const lowerText = text.toLowerCase();
-          if (genericPhrases.some(phrase => lowerText.includes(phrase))) return false;
-          
           // For ADS: Check sentence length (max 7 words per sentence)
           if (scriptType === "ad") {
-            // Extract sentences (split by timestamp lines or punctuation)
             const lines = text.split(/\n/).filter(Boolean);
             for (const line of lines) {
-              // Remove timestamp prefix
               const cleanLine = line.replace(/^\[\d+[–-]\d+s\]\s*/, "").trim();
               if (cleanLine) {
                 const words = cleanLine.split(/\s+/).filter(Boolean);
-                // Allow up to 8 words (a bit of tolerance)
                 if (words.length > 8) {
                   console.log("ADS script rejected - line too long:", cleanLine, "words:", words.length);
                   return false;
@@ -396,16 +345,14 @@ Réponds UNIQUEMENT avec un JSON valide :
         // Ensure we have at least some scripts
         if (scripts.length === 0) {
           console.warn("All scripts filtered, using fallbacks");
-          scripts = scriptType === "ad" 
-            ? generateAdsFallbackScripts(projectName, productName)
-            : generateFallbackScripts(projectName, projectDescription);
+          scripts = generateFallbackScripts(projectName, productName, language);
         }
       } else {
         throw new Error("No JSON found in response");
       }
     } catch (parseError) {
       console.error("Parse error:", parseError);
-      scripts = generateFallbackScripts(projectName, projectDescription);
+      scripts = generateFallbackScripts(projectName, projectDescription, language);
     }
 
     console.log("Scripts generated successfully:", scripts.length);
@@ -414,7 +361,8 @@ Réponds UNIQUEMENT avec un JSON valide :
       JSON.stringify({ 
         scripts,
         model: "nanobanana-pro",
-        quality: "premium"
+        quality: "premium",
+        language: language,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -427,121 +375,35 @@ Réponds UNIQUEMENT avec un JSON valide :
   }
 });
 
-// Fallback scripts in perfect French
-function generateFallbackScripts(projectName?: string, description?: string): Array<{ id: string; title: string; content: string; angle: string }> {
-  const name = projectName || "notre solution";
-  return [
-    {
-      id: "1",
-      title: "Le problème que tu connais",
-      content: `Tu perds du temps sur des tâches qui ne rapportent rien ? ${name} automatise ce qui t'ennuie pour que tu puisses te concentrer sur l'essentiel.`,
-      angle: "probleme",
-    },
-    {
-      id: "2",
-      title: "Le résultat concret",
-      content: `Moins de stress. Plus de résultats. Voilà ce que nos clients constatent après 30 jours avec ${name}.`,
-      angle: "benefice",
-    },
-    {
-      id: "3",
-      title: "Le constat qui fait mal",
-      content: `80% des entreprises perdent des clients faute de réactivité. ${name} répond à ta place, 24h/24.`,
-      angle: "preuve",
-    },
-    {
-      id: "4",
-      title: "La question qui pique",
-      content: `Combien de clients as-tu perdus ce mois-ci sans le savoir ? ${name} te donne les réponses.`,
-      angle: "emotion",
-    },
-    {
-      id: "5",
-      title: "L'action immédiate",
-      content: `Une semaine. C'est tout ce qu'il te faut pour voir la différence avec ${name}. Prêt à essayer ?`,
-      angle: "urgence",
-    },
-  ];
-}
-
-// ADS-specific fallback scripts with timestamps
-function generateAdsFallbackScripts(projectName?: string, productName?: string): Array<{ id: string; title: string; content: string; angle: string }> {
-  const name = productName || projectName || "notre solution";
-  return [
-    {
-      id: "1",
-      title: "Choc direct",
-      content: `[0–1s] Tu perds de l'argent.
-[1–3s] Chaque jour.
-[3–5s] Sans le savoir.
-[5–7s] Clients ignorés.
-[7–9s] Avis sans réponse.
-[9–12s] ${name} agit pour toi.
-[12–14s] Réponses. Posts. Automatique.
-[14–16s] 30% de temps gagné.
-[16–18s] Zéro stress.
-[18–20s] ${name}. Maintenant.`,
-      angle: "probleme",
-    },
-    {
-      id: "2",
-      title: "Accusation brutale",
-      content: `[0–1s] Tu négliges tes clients.
-[1–3s] Pas exprès.
-[3–5s] Mais ils partent.
-[5–7s] Vers tes concurrents.
-[7–9s] Stop.
-[9–12s] ${name} répond à ta place.
-[12–14s] 24h/24. 7j/7.
-[14–16s] Clients fidélisés.
-[16–18s] CA en hausse.
-[18–20s] Teste ${name}.`,
-      angle: "urgence",
-    },
-    {
-      id: "3",
-      title: "Résultat chiffré",
-      content: `[0–1s] 3h par semaine.
-[1–3s] Perdues.
-[3–5s] À répondre aux avis.
-[5–7s] Pour rien.
-[7–9s] ${name} automatise tout.
-[9–12s] Avis. Posts. Questions.
-[12–14s] En 2 clics.
-[14–16s] 40% productivité.
-[16–18s] Résultats garantis.
-[18–20s] Essaie ${name}.`,
-      angle: "preuve",
-    },
-    {
-      id: "4",
-      title: "Émotion pure",
-      content: `[0–1s] Tu es épuisé.
-[1–3s] Trop de tâches.
-[3–5s] Pas assez de temps.
-[5–7s] Stress constant.
-[7–9s] Respire.
-[9–12s] ${name} gère pour toi.
-[12–14s] Automatique. Simple.
-[14–16s] Retrouve ton calme.
-[16–18s] Focus sur l'essentiel.
-[18–20s] ${name}. Libère-toi.`,
-      angle: "emotion",
-    },
-    {
-      id: "5",
-      title: "Ordre direct",
-      content: `[0–1s] Arrête.
-[1–3s] Tu fais ça mal.
-[3–5s] Google te pénalise.
-[5–7s] Avis ignorés.
-[7–9s] Visibilité en chute.
-[9–12s] ${name} corrige tout.
-[12–14s] IA intelligente.
-[14–16s] Résultats immédiats.
-[16–18s] Top Google Maps.
-[18–20s] Active ${name}.`,
-      angle: "benefice",
-    },
-  ];
+// Multilingual fallback scripts
+function generateFallbackScripts(projectName?: string, description?: string, language?: string): Array<{ id: string; title: string; content: string; angle: string }> {
+  const name = projectName || (language === "fr" ? "notre solution" : language === "es" ? "nuestra solución" : language === "de" ? "unsere Lösung" : "our solution");
+  
+  // Return language-appropriate fallbacks
+  if (language === "fr") {
+    return [
+      { id: "1", title: "Le problème que tu connais", content: `Tu perds du temps sur des tâches qui ne rapportent rien ? ${name} automatise ce qui t'ennuie pour que tu puisses te concentrer sur l'essentiel.`, angle: "probleme" },
+      { id: "2", title: "Le résultat concret", content: `Moins de stress. Plus de résultats. Voilà ce que nos clients constatent après 30 jours avec ${name}.`, angle: "benefice" },
+      { id: "3", title: "Le constat qui fait mal", content: `80% des entreprises perdent des clients faute de réactivité. ${name} répond à ta place, 24h/24.`, angle: "preuve" },
+    ];
+  } else if (language === "es") {
+    return [
+      { id: "1", title: "El problema que conoces", content: `¿Pierdes tiempo en tareas que no aportan nada? ${name} automatiza lo aburrido para que puedas concentrarte en lo esencial.`, angle: "problem" },
+      { id: "2", title: "El resultado concreto", content: `Menos estrés. Más resultados. Esto es lo que nuestros clientes ven después de 30 días con ${name}.`, angle: "benefit" },
+      { id: "3", title: "La realidad que duele", content: `El 80% de las empresas pierden clientes por falta de respuesta. ${name} responde por ti, 24/7.`, angle: "proof" },
+    ];
+  } else if (language === "de") {
+    return [
+      { id: "1", title: "Das Problem das du kennst", content: `Verlierst du Zeit mit Aufgaben die nichts bringen? ${name} automatisiert das Langweilige, damit du dich auf das Wesentliche konzentrieren kannst.`, angle: "problem" },
+      { id: "2", title: "Das konkrete Ergebnis", content: `Weniger Stress. Mehr Ergebnisse. Das sehen unsere Kunden nach 30 Tagen mit ${name}.`, angle: "benefit" },
+      { id: "3", title: "Die harte Realität", content: `80% der Unternehmen verlieren Kunden wegen mangelnder Reaktion. ${name} antwortet für dich, 24/7.`, angle: "proof" },
+    ];
+  } else {
+    // English default
+    return [
+      { id: "1", title: "The problem you know", content: `Wasting time on tasks that don't pay off? ${name} automates the boring stuff so you can focus on what matters.`, angle: "problem" },
+      { id: "2", title: "The concrete result", content: `Less stress. More results. That's what our clients see after 30 days with ${name}.`, angle: "benefit" },
+      { id: "3", title: "The hard truth", content: `80% of businesses lose clients due to slow response. ${name} responds for you, 24/7.`, angle: "proof" },
+    ];
+  }
 }
