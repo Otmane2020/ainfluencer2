@@ -108,7 +108,13 @@ serve(async (req) => {
       campaignId, 
       platforms: selectedPlatforms, 
       imageAsReel = false, 
-      audioCategory = "upbeat" 
+      audioCategory = "upbeat",
+      // Brand options
+      includeLogo = false,
+      includeUrl = false,
+      includeAvatar = false,
+      includeText = false,
+      overlayText = "",
     } = await req.json();
 
     if (!campaignId) {
@@ -124,6 +130,7 @@ serve(async (req) => {
       : ["instagram", "facebook"];
     
     console.log(`Image as Reel mode: ${imageAsReel}, Audio: ${audioCategory}`);
+    console.log(`Brand options: logo=${includeLogo}, url=${includeUrl}, avatar=${includeAvatar}, text=${includeText}`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -272,9 +279,22 @@ PROJECT CONTEXT:
 ${project.logo_url ? `- Logo URL: ${project.logo_url}` : ""}
 
 CAMPAIGN SETTINGS:
-- Tone: ${campaign.tone || "professional"}
+- Tone: ${campaign.tone || "professional"} (IMPORTANT: Adapt writing style to match this tone)
 - Format: ${campaign.format || "reel"}
 ${campaign.subject ? `- Focus topic: ${campaign.subject}` : ""}
+
+BRAND ELEMENTS TO INCLUDE:
+${includeLogo && project.logo_url ? `- Include logo placeholder: "[LOGO]" in intro/outro scenes` : ""}
+${includeUrl && project.url ? `- Include website URL: ${project.url} in final scene` : ""}
+${includeAvatar && project.avatar_url ? `- Include brand avatar/spokesperson in scenes` : ""}
+${includeText && overlayText ? `- Include text overlay: "${overlayText}"` : ""}
+
+TONE GUIDELINES (${campaign.tone || "professional"}):
+${campaign.tone === "casual" ? "- Use friendly, conversational language. Short punchy sentences. Emojis OK." : ""}
+${campaign.tone === "professional" ? "- Use polished, business-appropriate language. Clear and authoritative." : ""}
+${campaign.tone === "urgent" ? "- Create urgency. Use action words. Limited time messaging." : ""}
+${campaign.tone === "luxurious" ? "- Use elegant, refined language. Emphasize quality and exclusivity." : ""}
+${campaign.tone === "playful" ? "- Use fun, energetic language. Humor and creativity welcome." : ""}
 
 VIDEO SCRIPT RULES:
 - Write a compelling 15-30 second script with timestamped scenes
@@ -310,6 +330,18 @@ REQUIRED:
 - Style: Photography style (professional, editorial, lifestyle, product photography)
 - Text overlay: Any text in the image MUST be in ${languageName || "the project's language"}, never English
 - Quality: End with "Ultra high resolution, professional quality"
+
+BRAND ELEMENTS TO INCLUDE IN IMAGE:
+${includeLogo && project.logo_url ? `- Include brand logo in corner or watermark position` : ""}
+${includeUrl && project.url ? `- Include website URL "${project.url}" as text overlay` : ""}
+${includeText && overlayText ? `- Include text overlay: "${overlayText}"` : ""}
+
+TONE/STYLE (${campaign.tone || "professional"}):
+${campaign.tone === "casual" ? "- Relaxed, approachable visuals. Natural settings." : ""}
+${campaign.tone === "professional" ? "- Polished, corporate aesthetic. Clean lines." : ""}
+${campaign.tone === "urgent" ? "- Bold colors, dynamic composition. Call-to-action emphasis." : ""}
+${campaign.tone === "luxurious" ? "- Elegant, high-end aesthetic. Rich textures, premium feel." : ""}
+${campaign.tone === "playful" ? "- Vibrant, energetic visuals. Fun compositions." : ""}
 
 PROJECT CONTEXT:
 - Brand: ${project.name}

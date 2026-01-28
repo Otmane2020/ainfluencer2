@@ -19,6 +19,7 @@ import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { PWAInstallButton } from "@/components/PWAInstall";
+import { CreditsDisplay } from "@/components/CreditsDisplay";
 import {
   Sidebar,
   SidebarContent,
@@ -213,6 +214,14 @@ export function AppSidebar() {
 
       <SidebarFooter className="p-4 border-t border-border">
         <div className="flex flex-col gap-3">
+          {/* Credits Display */}
+          {!collapsed && <CreditsDisplay />}
+          {collapsed && (
+            <div className="flex justify-center">
+              <CreditsDisplay compact />
+            </div>
+          )}
+          
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full gradient-primary p-[2px]">
               <div className="flex h-full w-full items-center justify-center rounded-full bg-card">

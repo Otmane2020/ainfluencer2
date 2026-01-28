@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { NavLink } from "@/components/NavLink";
 import { PWAInstallButton } from "@/components/PWAInstall";
 import { Badge } from "@/components/ui/badge";
+import { CreditsDisplay } from "@/components/CreditsDisplay";
 import {
   LayoutDashboard,
   FolderKanban,
@@ -112,65 +113,68 @@ export function MobileHeader() {
         <span className="font-display text-lg font-bold text-gradient">ClipMotion</span>
       </div>
 
-      {/* Menu Trigger */}
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-10 w-10">
-            <Menu className="h-6 w-6" />
-            <span className="sr-only">Open menu</span>
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="right" className="w-[280px] p-0">
-          <SheetHeader className="p-4 border-b border-border">
-            <SheetTitle className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden">
-                <img src="/logo.png" alt="ClipMotion" className="h-full w-full object-contain scale-125" />
-              </div>
-              <div>
-                <span className="font-display text-lg font-bold text-gradient">ClipMotion</span>
-                <p className="text-xs text-muted-foreground">Pro Edition</p>
-              </div>
-            </SheetTitle>
-          </SheetHeader>
+      {/* Credits + Menu */}
+      <div className="flex items-center gap-2">
+        <CreditsDisplay compact />
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-10 w-10">
+              <Menu className="h-6 w-6" />
+              <span className="sr-only">Open menu</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-[280px] p-0">
+            <SheetHeader className="p-4 border-b border-border">
+              <SheetTitle className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden">
+                  <img src="/logo.png" alt="ClipMotion" className="h-full w-full object-contain scale-125" />
+                </div>
+                <div>
+                  <span className="font-display text-lg font-bold text-gradient">ClipMotion</span>
+                  <p className="text-xs text-muted-foreground">Pro Edition</p>
+                </div>
+              </SheetTitle>
+            </SheetHeader>
 
-          <div className="flex flex-col h-[calc(100%-80px)]">
-            <div className="flex-1 overflow-y-auto py-4 px-2 space-y-6">
-              <NavSection title="Navigation" items={mainNavItems} />
-              <NavSection title="Create" items={contentNavItems} />
-              <NavSection title="History" items={historyNavItems} />
-              <NavSection title="Account" items={accountNavItems} />
-            </div>
+            <div className="flex flex-col h-[calc(100%-80px)]">
+              <div className="flex-1 overflow-y-auto py-4 px-2 space-y-6">
+                <NavSection title="Navigation" items={mainNavItems} />
+                <NavSection title="Create" items={contentNavItems} />
+                <NavSection title="History" items={historyNavItems} />
+                <NavSection title="Account" items={accountNavItems} />
+              </div>
 
-            {/* Footer */}
-            <div className="p-4 border-t border-border space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full gradient-primary p-[2px]">
-                  <div className="flex h-full w-full items-center justify-center rounded-full bg-card">
-                    <span className="text-sm font-bold text-gradient">
-                      {profile?.display_name?.[0]?.toUpperCase() || "U"}
-                    </span>
+              {/* Footer */}
+              <div className="p-4 border-t border-border space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full gradient-primary p-[2px]">
+                    <div className="flex h-full w-full items-center justify-center rounded-full bg-card">
+                      <span className="text-sm font-bold text-gradient">
+                        {profile?.display_name?.[0]?.toUpperCase() || "U"}
+                      </span>
+                    </div>
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">
+                      {profile?.display_name || "User"}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">Pro Plan</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleSignOut}
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </Button>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">
-                    {profile?.display_name || "User"}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">Pro Plan</p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleSignOut}
-                  className="shrink-0 text-muted-foreground hover:text-destructive"
-                >
-                  <LogOut className="h-4 w-4" />
-                </Button>
+                <PWAInstallButton />
               </div>
-              <PWAInstallButton />
             </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+          </SheetContent>
+        </Sheet>
+      </div>
     </header>
   );
 }
