@@ -34,9 +34,9 @@ export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
     tier: "standard",
     salePrice: 1,
     salePriceUnit: "/image",
-    description: "Lovable AI powered by Gemini",
-    features: ["HD Quality", "Fast generation", "Gemini AI"],
-    internalModels: ["lovable-ai-gemini"], // Lovable AI Gateway
+    description: "Fast AI-powered image generation",
+    features: ["HD Quality", "Fast generation", "Smart AI"],
+    internalModels: ["lovable-ai-gemini"],
     needsVoice: false,
     badge: "AI Smart",
   },
