@@ -5,13 +5,30 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Map commercial product IDs to internal AI models
-const PRODUCT_MODEL_MAP: Record<string, string> = {
-  "ai-image-smart": "google/gemini-2.5-flash-image", // Lovable AI - Smart Images
-  "ai-image-standard": "google/gemini-2.5-flash-image",
-  "ai-image-pro": "google/gemini-3-pro-image-preview",
-  "ai-image-studio": "google/gemini-3-pro-image-preview",
+// ============================================================
+// QUALITY-BASED MODEL ROUTING
+// ============================================================
+
+interface ModelRouting {
+  provider: "lovable" | "cometapi";
+  model: string;
+}
+
+const QUALITY_MODEL_MAP: Record<string, ModelRouting> = {
+  // Quality Levels (Primary)
+  "smart-image": { provider: "cometapi", model: "flux-2-flex" },
+  "high-image": { provider: "cometapi", model: "nano-banana-pro" },
+  "studio-image": { provider: "cometapi", model: "flux-2-pro" },
+  
+  // Legacy product IDs (backwards compatibility)
+  "ai-image-smart": { provider: "lovable", model: "google/gemini-2.5-flash-image" },
+  "ai-image-standard": { provider: "cometapi", model: "flux-2-flex" },
+  "ai-image-pro": { provider: "cometapi", model: "nano-banana-pro" },
+  "ai-image-studio": { provider: "cometapi", model: "flux-2-pro" },
 };
+
+// Default to Smart Image via CometAPI
+const DEFAULT_MODEL_ROUTING: ModelRouting = { provider: "cometapi", model: "flux-2-flex" };
 
 // Scenario context builders
 const SECTOR_CONTEXT: Record<string, string> = {
@@ -43,6 +60,129 @@ const TONE_CONTEXT: Record<string, string> = {
   authentic: "natural, genuine, relatable, unfiltered",
 };
 
+// ============================================================
+// COMETAPI IMAGE GENERATION
+// ============================================================
+
+async function generateWithCometAPI(
+  prompt: string,
+  model: string,
+  aspectRatio?: string
+): Promise<{ imageData: string | null; error?: string }> {
+  const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
+  if (!COMETAPI_API_KEY) {
+    return { imageData: null, error: "COMETAPI_API_KEY not configured" };
+  }
+
+  try {
+    console.log(`[CometAPI] Generating image with model: ${model}`);
+
+    const response = await fetch("https://api.cometapi.com/v1/images/generations", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${COMETAPI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        prompt,
+        n: 1,
+        size: aspectRatio === "16:9" ? "1792x1024" : aspectRatio === "9:16" ? "1024x1792" : "1024x1024",
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[CometAPI] Error ${response.status}:`, errorText.slice(0, 200));
+      return { imageData: null, error: `CometAPI error: ${response.status}` };
+    }
+
+    const data = await response.json();
+    const imageUrl = data.data?.[0]?.url || data.data?.[0]?.b64_json;
+
+    if (!imageUrl) {
+      console.error("[CometAPI] No image in response");
+      return { imageData: null, error: "No image generated" };
+    }
+
+    // If it's a URL, fetch and convert to base64
+    if (imageUrl.startsWith("http")) {
+      const imgResponse = await fetch(imageUrl);
+      const imgBlob = await imgResponse.blob();
+      const arrayBuffer = await imgBlob.arrayBuffer();
+      const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+      return { imageData: `data:image/png;base64,${base64}` };
+    }
+
+    return { imageData: `data:image/png;base64,${imageUrl}` };
+  } catch (error) {
+    console.error("[CometAPI] Exception:", error);
+    return { imageData: null, error: String(error) };
+  }
+}
+
+// ============================================================
+// LOVABLE AI IMAGE GENERATION
+// ============================================================
+
+async function generateWithLovableAI(
+  prompt: string,
+  model: string
+): Promise<{ imageData: string | null; error?: string }> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) {
+    return { imageData: null, error: "LOVABLE_API_KEY not configured" };
+  }
+
+  try {
+    console.log(`[LovableAI] Generating image with model: ${model}`);
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: prompt }],
+        modalities: ["image", "text"],
+      }),
+    });
+
+    if (!response.ok) {
+      const status = response.status;
+      const errorText = await response.text();
+      console.error(`[LovableAI] Error ${status}:`, errorText.slice(0, 200));
+
+      if (status === 429) {
+        return { imageData: null, error: "Rate limit exceeded. Please try again later." };
+      }
+      if (status === 402) {
+        return { imageData: null, error: "Credits required. Please add credits to continue." };
+      }
+      return { imageData: null, error: "Image generation failed" };
+    }
+
+    const data = await response.json();
+    const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+
+    if (!imageData) {
+      console.error("[LovableAI] No image in response");
+      return { imageData: null, error: "No image generated" };
+    }
+
+    return { imageData };
+  } catch (error) {
+    console.error("[LovableAI] Exception:", error);
+    return { imageData: null, error: String(error) };
+  }
+}
+
+// ============================================================
+// MAIN HANDLER
+// ============================================================
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -50,8 +190,9 @@ Deno.serve(async (req) => {
 
   try {
     const { 
-      prompt, 
-      productId, 
+      prompt,
+      productId, // Legacy: "ai-image-smart", etc.
+      qualityId, // New: "smart-image", "high-image", "studio-image"
       format, 
       aspectRatio, 
       width, 
@@ -69,7 +210,7 @@ Deno.serve(async (req) => {
       overlayText,
       includeAvatar,
       avatarUrl,
-      aiContextSummary, // Pre-built context from project
+      aiContextSummary,
     } = await req.json();
 
     if (!prompt) {
@@ -79,16 +220,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY not configured");
-      return new Response(
-        JSON.stringify({ error: "AI service not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    // Determine model routing - prefer qualityId, fallback to productId
+    const modelKey = qualityId || productId || "smart-image";
+    const routing = QUALITY_MODEL_MAP[modelKey] || DEFAULT_MODEL_ROUTING;
 
-    // Determine output language for any text in the image
+    console.log(`=== Image Generation Request ===`);
+    console.log(`Quality/Product ID: ${modelKey}`);
+    console.log(`Provider: ${routing.provider}, Model: ${routing.model}`);
+
+    // Determine output language
     const outputLanguage = detectedLanguage || "en";
     const languageMap: Record<string, string> = {
       en: "English",
@@ -100,15 +240,10 @@ Deno.serve(async (req) => {
     };
     const languageName = languageMap[outputLanguage] || "English";
 
-    // Select model based on product tier
-    const model = PRODUCT_MODEL_MAP[productId] || "google/gemini-2.5-flash-image";
-    console.log(`Using model: ${model} for product: ${productId}, format: ${format || "default"}, language: ${outputLanguage}`);
-
-    // Build enhanced prompt with scenario context and format
+    // Build enhanced prompt with scenario context
     let enhancedPrompt = prompt;
     const contextParts: string[] = [];
 
-    // Add brand context if provided
     if (brandName) {
       contextParts.push(`for ${brandName} brand`);
     }
@@ -136,7 +271,7 @@ Deno.serve(async (req) => {
       enhancedPrompt = `${prompt}. Ultra high resolution, professional quality.`;
     }
 
-    // Add brand elements based on options
+    // Add brand elements
     if (includeLogo && brandName) {
       enhancedPrompt += ` Include a subtle, elegant brand logo for "${brandName}" in a corner of the image.`;
     }
@@ -147,77 +282,35 @@ Deno.serve(async (req) => {
       enhancedPrompt += ` Feature a professional spokesperson or avatar prominently in the image, representing the brand.`;
     }
     
-    // Add AI context summary if available for richer brand-aware generation
     if (aiContextSummary) {
       enhancedPrompt += ` Brand context: ${aiContextSummary.slice(0, 500)}.`;
     }
 
-    // SOCIAL MEDIA TEXT OVERLAY - Key for engagement
+    // Social media text overlay
     if (includeText) {
       const textToOverlay = overlayText || brandName || "";
       if (textToOverlay) {
-        enhancedPrompt += ` IMPORTANT: Include bold, eye-catching text overlay in ${languageName}: "${textToOverlay}". The text should be large, readable, placed prominently (top or center), with high contrast against the background. Use modern social media typography style - bold sans-serif font, possibly with subtle shadow or outline for readability. This is a social media post image that needs text to grab attention.`;
+        enhancedPrompt += ` IMPORTANT: Include bold, eye-catching text overlay in ${languageName}: "${textToOverlay}". The text should be large, readable, placed prominently (top or center), with high contrast against the background. Use modern social media typography style.`;
       } else {
-        enhancedPrompt += ` IMPORTANT: This is a social media image. Include a short, punchy headline or call-to-action text overlay in ${languageName}. Use bold, modern typography that pops against the image. Text should be large, centered or at top, highly readable.`;
+        enhancedPrompt += ` IMPORTANT: This is a social media image. Include a short, punchy headline or call-to-action text overlay in ${languageName}. Use bold, modern typography that pops against the image.`;
       }
     }
 
-    console.log("Enhanced prompt:", enhancedPrompt);
-    console.log("Brand options - Logo:", includeLogo, "URL:", includeUrl, "Text:", includeText);
+    console.log("Enhanced prompt:", enhancedPrompt.slice(0, 200) + "...");
 
-    // Call Lovable AI Gateway for image generation
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: "user",
-            content: enhancedPrompt,
-          },
-        ],
-        modalities: ["image", "text"],
-      }),
-    });
+    // Generate image based on provider
+    let result: { imageData: string | null; error?: string };
 
-    if (!response.ok) {
-      const status = response.status;
-      const errorText = await response.text();
-      console.error(`AI gateway error: ${status}`, errorText);
-
-      if (status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Credits required. Please add credits to continue." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      return new Response(
-        JSON.stringify({ error: "Image generation failed" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (routing.provider === "cometapi") {
+      result = await generateWithCometAPI(enhancedPrompt, routing.model, aspectRatio);
+    } else {
+      result = await generateWithLovableAI(enhancedPrompt, routing.model);
     }
 
-    const data = await response.json();
-    console.log("AI response received");
-
-    // Extract image from response
-    const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    
-    if (!imageData) {
-      console.error("No image in response:", JSON.stringify(data).slice(0, 500));
+    if (!result.imageData) {
+      console.error("Image generation failed:", result.error);
       return new Response(
-        JSON.stringify({ error: "No image generated" }),
+        JSON.stringify({ error: result.error || "Image generation failed" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -228,7 +321,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Convert base64 to blob
-    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
+    const base64Data = result.imageData.replace(/^data:image\/\w+;base64,/, "");
     const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
 
     const fileName = `images/${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
@@ -244,7 +337,7 @@ Deno.serve(async (req) => {
       console.error("Storage upload error:", uploadError);
       // Return base64 URL as fallback
       return new Response(
-        JSON.stringify({ imageUrl: imageData }),
+        JSON.stringify({ imageUrl: result.imageData }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -259,6 +352,9 @@ Deno.serve(async (req) => {
       JSON.stringify({ 
         imageUrl: publicUrlData.publicUrl,
         prompt: enhancedPrompt,
+        qualityId: modelKey,
+        provider: routing.provider,
+        model: routing.model,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
