@@ -127,6 +127,7 @@ const ImageHistoryPage = () => {
       ]);
 
       // Process regular images from storage (if not already in scheduled_posts)
+      // Note: Storage images are "generated" not "published" - they haven't been posted to social media
       if (imagesResult.data) {
         for (const file of imagesResult.data.filter(f => f.name.match(/\.(jpg|jpeg|png|gif|webp)$/i))) {
           const { data: urlData } = supabase.storage.from("media").getPublicUrl(`images/${file.name}`);
@@ -138,7 +139,7 @@ const ImageHistoryPage = () => {
               name: file.name,
               url: urlData.publicUrl,
               createdAt: new Date(file.created_at || Date.now()),
-              status: "published",
+              status: "generated", // Not published to social media
               projectId: null,
               projectName: null,
               campaignId: null,
@@ -148,6 +149,28 @@ const ImageHistoryPage = () => {
               source: "storage",
             });
           }
+        }
+      }
+
+      // Process product shots
+      if (productShotsResult.data) {
+        for (const file of productShotsResult.data.filter(f => f.name.match(/\.(jpg|jpeg|png|gif|webp)$/i))) {
+          const { data: urlData } = supabase.storage.from("media").getPublicUrl(`product-shots/${file.name}`);
+          
+          allImages.push({
+            id: file.id || `ps-${file.name}`,
+            name: file.name,
+            url: urlData.publicUrl,
+            createdAt: new Date(file.created_at || Date.now()),
+            status: "generated", // Not published to social media
+            projectId: null,
+            projectName: null,
+            campaignId: null,
+            campaignName: null,
+            platforms: [],
+            isProductShot: true,
+            source: "storage",
+          });
         }
       }
 
@@ -240,6 +263,8 @@ const ImageHistoryPage = () => {
     switch (status) {
       case "published":
         return <Badge variant="default" className="bg-green-500/20 text-green-400 border-green-500/30 text-[10px]"><Check className="h-3 w-3 mr-0.5" />Published</Badge>;
+      case "generated":
+        return <Badge variant="secondary" className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-[10px]">Generated</Badge>;
       case "scheduled":
         return <Badge variant="secondary" className="text-[10px]">Scheduled</Badge>;
       case "draft":
@@ -303,6 +328,7 @@ const ImageHistoryPage = () => {
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="published">Published</SelectItem>
+            <SelectItem value="generated">Generated</SelectItem>
             <SelectItem value="scheduled">Scheduled</SelectItem>
             <SelectItem value="draft">Draft</SelectItem>
             <SelectItem value="failed">Failed</SelectItem>

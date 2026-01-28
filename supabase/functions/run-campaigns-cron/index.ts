@@ -294,8 +294,19 @@ async function publishToInstagram(
       return { success: false, error: "No access token available" };
     }
 
-    const isVideo = post.content_type === "video";
-    console.log(`[Instagram] Publishing ${isVideo ? "video/reel" : "image"} to ${metaConnection.instagram_id}`);
+    // Check if this is an "Image as Reel" post:
+    // content_type is "video" but the ai_prompt doesn't have video markers
+    const isImageAsReel = post.content_type === "video" && 
+      post.ai_prompt && 
+      !post.ai_prompt.includes("[0-") && 
+      !post.ai_prompt.toLowerCase().includes("voiceover") &&
+      !post.ai_prompt.toLowerCase().includes("scene ");
+
+    // Determine if this is actually a video file or an image
+    const isVideoFile = post.media_url.match(/\.(mp4|mov|avi|webm)$/i);
+    const isVideo = post.content_type === "video" && isVideoFile && !isImageAsReel;
+    
+    console.log(`[Instagram] Publishing ${isVideo ? "video/reel" : isImageAsReel ? "image-as-reel" : "image"} to ${metaConnection.instagram_id}`);
 
     // Step 1: Create media container
     const containerBody: any = {
@@ -306,9 +317,9 @@ async function publishToInstagram(
     if (isVideo) {
       containerBody.media_type = "REELS";
       containerBody.video_url = post.media_url;
-      containerBody.share_to_feed = true; // Also share to feed
+      containerBody.share_to_feed = true;
     } else {
-      // For images, we don't set media_type (defaults to IMAGE/PHOTO)
+      // For images (including Image as Reel which posts as carousel/image)
       containerBody.image_url = post.media_url;
     }
 
@@ -444,11 +455,23 @@ Deno.serve(async (req) => {
 
       // STEP 1: Generate media if missing (using Smart quality)
       if (!post.media_url && post.ai_prompt) {
-        if (post.content_type === "image") {
-          console.log(`[cron] Generating Smart Image for post ${post.id}`);
+        // Check if this is an "Image as Reel" post:
+        // - content_type is "video" 
+        // - BUT the ai_prompt doesn't contain video markers (timestamps, voiceover)
+        const isImageAsReel = post.content_type === "video" && 
+          !post.ai_prompt.includes("[0-") && 
+          !post.ai_prompt.toLowerCase().includes("voiceover") &&
+          !post.ai_prompt.toLowerCase().includes("scene ");
+        
+        if (post.content_type === "image" || isImageAsReel) {
+          console.log(`[cron] Generating Smart Image for post ${post.id}${isImageAsReel ? " (Image as Reel)" : ""}`);
           const imageUrl = await generateImage(post.ai_prompt, supabase, brandName);
           if (imageUrl) {
-            await supabase.from("scheduled_posts").update({ media_url: imageUrl }).eq("id", post.id);
+            await supabase.from("scheduled_posts").update({ 
+              media_url: imageUrl,
+              // For Image as Reel, keep content_type as "video" for IG Reel publishing
+              // but mark that image was generated successfully
+            }).eq("id", post.id);
             post.media_url = imageUrl;
             totalGenerated++;
             console.log(`[cron] Smart Image generated: ${imageUrl.slice(0, 50)}...`);
