@@ -81,7 +81,15 @@ serve(async (req) => {
       const subscription = subscriptions.data[0];
       hasActiveSub = true;
       stripeSubscriptionId = subscription.id;
-      subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
+      
+      // Safely handle the subscription end date
+      const periodEnd = subscription.current_period_end;
+      if (periodEnd && typeof periodEnd === 'number') {
+        subscriptionEnd = new Date(periodEnd * 1000).toISOString();
+      } else if (periodEnd) {
+        // Already a date string or other format
+        subscriptionEnd = String(periodEnd);
+      }
       
       const productId = subscription.items.data[0].price.product as string;
       planId = PRODUCT_TO_PLAN[productId] || "starter";
