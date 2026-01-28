@@ -96,6 +96,7 @@ interface ScheduledPost {
   ai_prompt: string | null;
   published_at: string | null;
   error_message: string | null;
+  campaign_id?: string | null;
 }
 
 interface ScheduledPostModalProps {
@@ -192,6 +193,9 @@ export const ScheduledPostModal = ({
   // Share modal
   const [shareModalOpen, setShareModalOpen] = useState(false);
   
+  // Track if this is an "Image as Reel" post (image campaign with video content_type)
+  const [isImageAsReel, setIsImageAsReel] = useState(false);
+  
   const { toast } = useToast();
   const isMobile = useIsMobile();
   
@@ -225,6 +229,25 @@ export const ScheduledPostModal = ({
       }
     };
     fetchProjectContext();
+    
+    // Check if this is an "Image as Reel" post (image campaign but video content_type)
+    const checkImageAsReel = async () => {
+      if (!post?.campaign_id) {
+        setIsImageAsReel(false);
+        return;
+      }
+      
+      const { data: campaign } = await supabase
+        .from("campaigns")
+        .select("campaign_type")
+        .eq("id", post.campaign_id)
+        .maybeSingle();
+      
+      // If campaign is "image" type but post content_type is "video", it's Image as Reel
+      const isReel = campaign?.campaign_type === "image" && post.content_type === "video";
+      setIsImageAsReel(isReel);
+    };
+    checkImageAsReel();
   }, [post, selectedLanguage]);
 
   if (!post) return null;
@@ -821,10 +844,10 @@ export const ScheduledPostModal = ({
             )}
           </TabsContent>
 
-          {/* AI Settings Tab - Different for Video vs Image */}
+          {/* AI Settings Tab - Different for Video vs Image (Image as Reel shows image settings) */}
           <TabsContent value="ai-settings" className="space-y-4 m-0 px-1">
-            {(post.content_type === "video" || post.content_type === "reel") ? (
-              /* Video Settings */
+            {((post.content_type === "video" || post.content_type === "reel") && !isImageAsReel) ? (
+              /* Video Settings - Only for actual videos, not Image as Reel */
               <div className="rounded-xl border border-border p-3 sm:p-4">
                 <h4 className="mb-4 text-xs sm:text-sm font-medium flex items-center gap-2">
                   <Video className="h-4 w-4 text-primary" />
@@ -989,14 +1012,36 @@ export const ScheduledPostModal = ({
                 </div>
               </div>
             ) : (
-              /* Image Settings */
+              /* Image Settings (also used for Image as Reel) */
               <div className="rounded-xl border border-border p-3 sm:p-4">
                 <h4 className="mb-4 text-xs sm:text-sm font-medium flex items-center gap-2">
-                  <ImageIcon className="h-4 w-4 text-primary" />
-                  Image Generation Settings
+                  {isImageAsReel ? (
+                    <>
+                      <Music2 className="h-4 w-4 text-primary" />
+                      Image as Reel Settings
+                    </>
+                  ) : (
+                    <>
+                      <ImageIcon className="h-4 w-4 text-primary" />
+                      Image Generation Settings
+                    </>
+                  )}
                 </h4>
 
                 <div className="space-y-4">
+                  {/* Image as Reel info */}
+                  {isImageAsReel && (
+                    <div className="rounded-lg bg-primary/10 border border-primary/20 p-3 flex items-start gap-2">
+                      <Music2 className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                      <div className="text-xs">
+                        <p className="font-medium text-primary">Image as Reel</p>
+                        <p className="text-muted-foreground mt-1">
+                          This post will generate a static image with background music, published as a Reel on social platforms.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Image Format/Aspect Ratio */}
                   <div className="space-y-2">
                     <Label className="text-xs sm:text-sm flex items-center gap-2">
@@ -1004,11 +1049,15 @@ export const ScheduledPostModal = ({
                       Aspect Ratio
                     </Label>
                     <div className="grid grid-cols-3 gap-2">
-                      {[
+                      {(isImageAsReel ? [
+                        { id: "portrait", label: "Portrait", icon: "9:16" },
+                        { id: "square", label: "Square", icon: "1:1" },
+                        { id: "landscape", label: "Landscape", icon: "16:9" },
+                      ] : [
                         { id: "square", label: "Square", icon: "1:1" },
                         { id: "portrait", label: "Portrait", icon: "4:5" },
                         { id: "landscape", label: "Landscape", icon: "16:9" },
-                      ].map((fmt) => (
+                      ]).map((fmt) => (
                         <motion.button
                           key={fmt.id}
                           type="button"
@@ -1028,11 +1077,14 @@ export const ScheduledPostModal = ({
                     </div>
                   </div>
 
-                  {/* Image Style Hint */}
+                  {/* Style Hint */}
                   <div className="rounded-lg bg-muted/50 p-3 flex items-start gap-2">
                     <Lightbulb className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
                     <p className="text-xs text-muted-foreground">
-                      The AI will generate an image based on the prompt. Select an AI model in the "AI" tab for quality options.
+                      {isImageAsReel 
+                        ? "The AI will generate an image that will be converted to a Reel with background music. Select an AI model in the \"AI\" tab."
+                        : "The AI will generate an image based on the prompt. Select an AI model in the \"AI\" tab for quality options."
+                      }
                     </p>
                   </div>
 
@@ -1316,17 +1368,28 @@ export const ScheduledPostModal = ({
   );
 
   // Header content shared between Dialog and Drawer
-  const HeaderContent = () => (
-    <div className="flex items-center gap-3">
-      <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/60">
-        <ContentIcon className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
+  const HeaderContent = () => {
+    // For Image as Reel, show "Reel" label with music icon
+    const displayLabel = isImageAsReel ? "Reel" : contentType.label;
+    const DisplayIcon = isImageAsReel ? Music2 : ContentIcon;
+    
+    return (
+      <div className="flex items-center gap-3">
+        <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/60">
+          <DisplayIcon className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
+        </div>
+        <div>
+          <span className="font-display text-sm sm:text-base">{displayLabel}</span>
+          {isImageAsReel && (
+            <Badge variant="outline" className="ml-2 text-[10px] border-primary/30 text-primary">
+              Image as Reel
+            </Badge>
+          )}
+          <Badge className={`ml-2 sm:ml-3 text-xs ${status.color}`}>{status.label}</Badge>
+        </div>
       </div>
-      <div>
-        <span className="font-display text-sm sm:text-base">{contentType.label}</span>
-        <Badge className={`ml-2 sm:ml-3 text-xs ${status.color}`}>{status.label}</Badge>
-      </div>
-    </div>
-  );
+    );
+  };
 
   // Use Drawer on mobile, Dialog on desktop
   if (isMobile) {
