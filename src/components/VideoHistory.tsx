@@ -55,27 +55,51 @@ export const VideoHistory = ({ videos, generatingTasks = [], onDelete, onPlay, o
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { generateThumbnail } = useVideoThumbnail();
   const { toast } = useToast();
+  
+  // Track which videos we've already tried to generate thumbnails for
+  const processedVideosRef = useRef<Set<string>>(new Set());
 
-  // Auto-generate thumbnails for videos without one
+  // Auto-generate thumbnails for videos without one (only once per video)
   useEffect(() => {
-    videos.forEach(async (video) => {
-      if (video.videoUrl && !video.thumbnailUrl && !generatingThumbnails.has(video.id)) {
-        setGeneratingThumbnails((prev) => new Set(prev).add(video.id));
-        
-        const result = await generateThumbnail(video.videoUrl);
-        
-        if (result) {
-          onThumbnailGenerated?.(video.id, result.thumbnailUrl);
+    const processVideos = async () => {
+      for (const video of videos) {
+        // Skip if already processed, already has thumbnail, or no video URL
+        if (
+          processedVideosRef.current.has(video.id) ||
+          video.thumbnailUrl ||
+          !video.videoUrl ||
+          generatingThumbnails.has(video.id)
+        ) {
+          continue;
         }
         
-        setGeneratingThumbnails((prev) => {
-          const updated = new Set(prev);
-          updated.delete(video.id);
-          return updated;
-        });
+        // Skip external URLs silently (no spam logging)
+        if (!video.videoUrl.includes("supabase.co")) {
+          processedVideosRef.current.add(video.id);
+          continue;
+        }
+        
+        // Mark as being processed
+        processedVideosRef.current.add(video.id);
+        setGeneratingThumbnails((prev) => new Set(prev).add(video.id));
+        
+        try {
+          const result = await generateThumbnail(video.videoUrl);
+          if (result) {
+            onThumbnailGenerated?.(video.id, result.thumbnailUrl);
+          }
+        } finally {
+          setGeneratingThumbnails((prev) => {
+            const updated = new Set(prev);
+            updated.delete(video.id);
+            return updated;
+          });
+        }
       }
-    });
-  }, [videos, generateThumbnail, generatingThumbnails, onThumbnailGenerated]);
+    };
+    
+    processVideos();
+  }, [videos.length]); // Only re-run when videos array length changes
 
   const togglePlay = (video: VideoHistoryItem) => {
     if (playingId === video.id) {

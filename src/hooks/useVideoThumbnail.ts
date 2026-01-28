@@ -11,9 +11,7 @@ export const useVideoThumbnail = () => {
   const generateThumbnail = useCallback(
     async (videoUrl: string): Promise<ThumbnailResult | null> => {
       // Skip thumbnail generation for external URLs (CORS issues)
-      // CometAPI videos are hosted externally and will fail CORS
       if (!videoUrl.includes("supabase.co")) {
-        console.log("Skipping thumbnail for external URL:", videoUrl.substring(0, 50));
         return null;
       }
 
@@ -61,7 +59,6 @@ export const useVideoThumbnail = () => {
         };
 
         video.onerror = () => {
-          console.log("Video load failed, likely CORS issue for:", videoUrl.substring(0, 50));
           cleanup();
           resolve(null);
         };
