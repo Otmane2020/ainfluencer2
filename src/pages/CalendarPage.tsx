@@ -537,13 +537,18 @@ const CalendarPage = () => {
                     <p className="text-sm font-medium truncate">
                       {post.ai_prompt || post.text_content?.slice(0, 40) || "Untitled post"}
                     </p>
-                    <div className="flex items-center gap-2 mt-0.5">
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       <span className="text-xs text-muted-foreground">
                         {format(new Date(post.scheduled_for), "HH:mm")}
                       </span>
                       <Badge variant="secondary" className="text-[10px] h-4 px-1.5 capitalize">
                         {post.status || "draft"}
                       </Badge>
+                      {post.campaign_id && campaigns.find(c => c.id === post.campaign_id) && (
+                        <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                          {campaigns.find(c => c.id === post.campaign_id)?.name}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                   {getStatusIcon(post.status || "draft")}
