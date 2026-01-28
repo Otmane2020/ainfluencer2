@@ -134,23 +134,28 @@ export const ImageGenerator = ({ onImageGenerated }: ImageGeneratorProps) => {
   const generateAIPrompt = async (project: Project) => {
     setIsGeneratingPrompt(true);
     setProjectSelectorOpen(false);
-    setSelectedProject(project); // Track the selected project
+    setSelectedProject(project);
 
     try {
-      // First, scrape the project URL if available
       let scrapedContent: string | undefined;
+      let scrapedLanguage: string | undefined;
+      
       if (project.url) {
         try {
           const { data: scrapeData } = await supabase.functions.invoke("scrape-project-url", {
             body: { url: project.url },
           });
           scrapedContent = scrapeData?.markdown?.slice(0, 3000);
+          scrapedLanguage = scrapeData?.detectedLanguage;
         } catch (scrapeError) {
           console.log("Scraping skipped:", scrapeError);
         }
       }
 
-      // Use suggest-content for consistent prompt generation
+      // Priority: scraped language > project setting > default
+      const finalLanguage = scrapedLanguage || project.detected_language || "en";
+      console.log("[ImageGenerator] Using language:", finalLanguage);
+
       const { data, error } = await supabase.functions.invoke("suggest-content", {
         body: {
           projectId: project.id,
@@ -164,6 +169,8 @@ export const ImageGenerator = ({ onImageGenerated }: ImageGeneratorProps) => {
           sectorId: selectedSector?.id,
           styleId: selectedStyle?.id,
           toneId: selectedTone?.id,
+          detectedLanguage: finalLanguage,
+          logoUrl: project.avatar_url,
         },
       });
 
