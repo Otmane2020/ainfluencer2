@@ -171,6 +171,10 @@ serve(async (req) => {
     const totalImages = campaign.campaign_type === "video" ? 0 : (campaign.images_per_month || 12);
     const totalPosts = totalVideos + totalImages;
 
+    // Limit to max 10 posts per request to avoid timeout
+    const maxPostsPerBatch = 10;
+    const postsToGenerate = Math.min(totalPosts, maxPostsPerBatch);
+
     // Distribute posts over 30 days based on posts_per_week
     const postsPerWeek = campaign.posts_per_week || 3;
     const daysPerPost = Math.floor(7 / postsPerWeek);
@@ -182,7 +186,7 @@ serve(async (req) => {
     let videoCount = 0;
     let imageCount = 0;
     
-    for (let i = 0; i < totalPosts; i++) {
+    for (let i = 0; i < postsToGenerate; i++) {
       // Determine content type for this post
       let contentType: "video" | "image";
       
@@ -201,7 +205,7 @@ serve(async (req) => {
       if (contentType === "video") videoCount++;
       else imageCount++;
 
-      // Calculate scheduled date
+      // Calculate scheduled date - spread across the month
       const dayOffset = Math.floor(i * (30 / totalPosts));
       const scheduledDate = new Date(now);
       scheduledDate.setDate(scheduledDate.getDate() + dayOffset + 1); // Start tomorrow
@@ -235,8 +239,9 @@ serve(async (req) => {
     const langInstruction = languageInstructions[outputLanguage] || languageInstructions.en;
 
     const generatedPosts: any[] = [];
-    let imagesGenerated = 0;
+    let promptsGenerated = 0;
 
+    // Generate prompts for all posts (fast)
     for (const post of scheduledPosts) {
       try {
         const isVideo = post.contentType === "video";
@@ -283,27 +288,23 @@ Respond ONLY with valid JSON:
   "angle": "problem|benefit|emotion|proof|urgency"
 }` 
                   : 
-                  // IMAGE PROMPT - COMPLETELY SEPARATE AND EXPLICIT
+                  // IMAGE PROMPT
                   `You are an expert AI IMAGE prompt engineer. ${langInstruction}
 
-⚠️ CRITICAL: You are generating a prompt for STATIC IMAGE generation, NOT video.
-Your output will be used by an AI image generator (like DALL-E or Midjourney).
+CRITICAL: You are generating a prompt for STATIC IMAGE generation, NOT video.
 
-FORBIDDEN (will cause generation failure):
-❌ NO motion words: "moving", "walking", "talking", "animation", "video", "motion"
-❌ NO time references: "then", "next", "after", "scene 1", "0-3s"
-❌ NO sound references: "voiceover", "music", "speaking", "audio"
-❌ NO video terms: "clip", "footage", "reel", "story", "montage"
-❌ NO text overlays or UI elements in the image
+FORBIDDEN:
+- NO motion words: "moving", "walking", "talking", "animation", "video", "motion"
+- NO time references: "then", "next", "after", "scene 1", "0-3s"
 
-REQUIRED (for successful image generation):
-✅ Subject: What is the main focus (person, product, object)
-✅ Setting: Where is this taking place (studio, office, outdoors)
-✅ Lighting: Type of light (soft natural light, studio lighting, golden hour)
-✅ Composition: How is it framed (close-up, wide shot, flat lay)
-✅ Colors: Color palette aligned with brand (mention ${project.theme_color || "brand colors"})
-✅ Style: Photography style (professional, editorial, lifestyle, product photography)
-✅ Quality: End with "Ultra high resolution, professional quality"
+REQUIRED:
+- Subject: What is the main focus (person, product, object)
+- Setting: Where is this taking place (studio, office, outdoors)
+- Lighting: Type of light (soft natural light, studio lighting, golden hour)
+- Composition: How is it framed (close-up, wide shot, flat lay)
+- Colors: Color palette aligned with brand (mention ${project.theme_color || "brand colors"})
+- Style: Photography style (professional, editorial, lifestyle, product photography)
+- Quality: End with "Ultra high resolution, professional quality"
 
 PROJECT CONTEXT:
 - Brand: ${project.name}
@@ -313,13 +314,8 @@ PROJECT CONTEXT:
 
 CAMPAIGN SETTINGS:
 - Tone: ${campaign.tone || "professional"}
-- Format: ${campaign.format || "reel"} (this affects aspect ratio only, NOT motion)
+- Format: ${campaign.format || "reel"}
 ${campaign.subject ? `- Focus topic: ${campaign.subject}` : ""}
-
-EXAMPLE GOOD IMAGE PROMPTS:
-✅ "A professional flat lay composition on a clean white desk featuring a smartphone displaying the ClipMotion app interface, surrounded by creative tools like a stylus, notebook, and coffee cup. Soft natural lighting from a window, subtle shadows, brand purple (#6366F1) accent elements scattered around. Clean minimalist aesthetic, product photography style. Ultra high resolution, professional quality"
-
-✅ "A confident content creator sitting at a modern desk with dual monitors showing video editing software, warm ambient lighting, shallow depth of field focusing on their satisfied expression, modern office with plants and RGB lighting in brand purple tones. Lifestyle photography, authentic and aspirational mood. Ultra high resolution, professional quality"
 
 Respond ONLY with valid JSON:
 {
@@ -349,7 +345,6 @@ Respond ONLY with valid JSON:
         // Parse JSON response
         let parsed;
         try {
-          // Extract JSON from response
           const jsonMatch = content.match(/\{[\s\S]*\}/);
           parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
         } catch (e) {
@@ -359,19 +354,6 @@ Respond ONLY with valid JSON:
 
         if (!parsed) continue;
 
-        // For image posts, actually generate the image
-        let mediaUrl: string | null = null;
-        if (!isVideo && parsed.aiPrompt) {
-          console.log(`Generating image for post ${post.index + 1}...`);
-          mediaUrl = await generateImage(parsed.aiPrompt, campaign.format || "reel", LOVABLE_API_KEY, supabase);
-          if (mediaUrl) {
-            imagesGenerated++;
-            console.log(`Image ${imagesGenerated} generated successfully`);
-          }
-          // Add delay between image generations to avoid rate limiting
-          await new Promise(r => setTimeout(r, 2000));
-        }
-
         // When imageAsReel is enabled, mark image posts as "video" type for Reel posting
         const finalContentType = (imageAsReel && !isVideo) ? "video" : post.contentType;
 
@@ -379,19 +361,17 @@ Respond ONLY with valid JSON:
           user_id: campaign.user_id,
           project_id: campaign.project_id,
           campaign_id: campaign.id,
-          content_type: finalContentType, // "video" if imageAsReel, otherwise original type
+          content_type: finalContentType,
           scheduled_for: post.scheduledFor,
           ai_prompt: parsed.aiPrompt || parsed.title,
           text_content: parsed.textContent || "",
-          media_url: mediaUrl, // Image URL - will be converted to reel during publishing
+          media_url: null, // Media will be generated by cron job before publishing
           status: "scheduled",
           platforms: targetPlatforms,
         });
 
-        console.log(`Generated ${post.contentType} post ${post.index + 1}/${scheduledPosts.length}${mediaUrl ? " with image" : ""}`);
-        
-        // Small delay to avoid rate limiting
-        await new Promise(r => setTimeout(r, 500));
+        promptsGenerated++;
+        console.log(`Generated ${post.contentType} prompt ${post.index + 1}/${scheduledPosts.length}`);
         
       } catch (error) {
         console.error(`Error generating post ${post.index + 1}:`, error);
@@ -418,7 +398,7 @@ Respond ONLY with valid JSON:
         })
         .eq("id", campaignId);
 
-      console.log(`Successfully created ${generatedPosts.length} scheduled posts (${imagesGenerated} images generated)`);
+      console.log(`Successfully created ${generatedPosts.length} scheduled posts`);
     }
 
     return new Response(
@@ -427,7 +407,6 @@ Respond ONLY with valid JSON:
         generated: generatedPosts.length,
         videos: videoCount,
         images: imageCount,
-        imagesGenerated,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
