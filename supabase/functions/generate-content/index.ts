@@ -11,14 +11,27 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, type } = await req.json();
+    const { prompt, type, detectedLanguage } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Generating content for prompt:", prompt, "type:", type);
+    // Language-specific system prompts
+    const languageInstructions: Record<string, string> = {
+      en: "You are an expert social media content creator. Create engaging, viral, and authentic posts for Instagram and Facebook. Use emojis strategically. Include relevant hashtags at the end. The tone should be inspiring, motivating, and accessible. Limit text to 200 words maximum.",
+      fr: "Tu es un expert en création de contenu pour les réseaux sociaux. Crée des posts engageants, viraux et authentiques pour Instagram et Facebook. Utilise des emojis de manière stratégique. Inclus des hashtags pertinents à la fin. Le ton doit être inspirant, motivant et accessible. Limite le texte à 200 mots maximum.",
+      es: "Eres un experto en creación de contenido para redes sociales. Crea publicaciones atractivas, virales y auténticas para Instagram y Facebook. Usa emojis estratégicamente. Incluye hashtags relevantes al final. El tono debe ser inspirador, motivador y accesible. Limita el texto a 200 palabras máximo.",
+      de: "Du bist ein Experte für Social-Media-Content-Erstellung. Erstelle ansprechende, virale und authentische Posts für Instagram und Facebook. Verwende Emojis strategisch. Füge relevante Hashtags am Ende hinzu. Der Ton sollte inspirierend, motivierend und zugänglich sein. Begrenze den Text auf maximal 200 Wörter.",
+      it: "Sei un esperto di creazione di contenuti per i social media. Crea post coinvolgenti, virali e autentici per Instagram e Facebook. Usa emoji in modo strategico. Includi hashtag pertinenti alla fine. Il tono deve essere ispiratore, motivante e accessibile. Limita il testo a massimo 200 parole.",
+      pt: "Você é um especialista em criação de conteúdo para redes sociais. Crie posts envolventes, virais e autênticos para Instagram e Facebook. Use emojis estrategicamente. Inclua hashtags relevantes no final. O tom deve ser inspirador, motivador e acessível. Limite o texto a no máximo 200 palavras.",
+    };
+
+    const language = detectedLanguage || "en";
+    const systemPrompt = languageInstructions[language] || languageInstructions.en;
+
+    console.log("Generating content for prompt:", prompt, "type:", type, "language:", language);
 
     // Generate text content
     let generatedText = "";
@@ -34,16 +47,11 @@ serve(async (req) => {
           messages: [
             {
               role: "system",
-              content: `Tu es un expert en création de contenu pour les réseaux sociaux. 
-Crée des posts engageants, viraux et authentiques pour Instagram et Facebook.
-Utilise des emojis de manière stratégique.
-Inclus des hashtags pertinents à la fin.
-Le ton doit être inspirant, motivant et accessible.
-Limite le texte à 200 mots maximum.`,
+              content: systemPrompt,
             },
             {
               role: "user",
-              content: `Crée un post viral sur le thème suivant: ${prompt}`,
+              content: `Create a viral post about: ${prompt}`,
             },
           ],
         }),

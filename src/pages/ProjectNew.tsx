@@ -68,6 +68,16 @@ const themeColors = [
   { value: "#6366F1", name: "Indigo" },
 ];
 
+// Language options for project
+const LANGUAGE_OPTIONS = [
+  { value: "en", label: "English", flag: "🇺🇸" },
+  { value: "fr", label: "French", flag: "🇫🇷" },
+  { value: "es", label: "Spanish", flag: "🇪🇸" },
+  { value: "de", label: "German", flag: "🇩🇪" },
+  { value: "it", label: "Italian", flag: "🇮🇹" },
+  { value: "pt", label: "Portuguese", flag: "🇧🇷" },
+];
+
 const ProjectNew = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -136,6 +146,11 @@ const ProjectNew = () => {
           
           if (data.logo_url) {
             setLogoPreview(data.logo_url);
+          }
+          
+          // Set detected language from existing project
+          if (data.detected_language) {
+            setDetectedLanguage(data.detected_language);
           }
         }
       } catch (error) {
@@ -560,6 +575,29 @@ const ProjectNew = () => {
                       onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                       rows={4}
                     />
+                  </div>
+
+                  {/* Language Selection */}
+                  <div className="space-y-3">
+                    <Label>Content Language</Label>
+                    <p className="text-xs text-muted-foreground">
+                      AI-generated content will use this language
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {LANGUAGE_OPTIONS.map((lang) => (
+                        <Button
+                          key={lang.value}
+                          type="button"
+                          variant={detectedLanguage === lang.value ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setDetectedLanguage(lang.value)}
+                          className="min-w-[80px]"
+                        >
+                          <span className="mr-1">{lang.flag}</span>
+                          {lang.label}
+                        </Button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </WizardStepContainer>

@@ -62,6 +62,16 @@ const TikTokIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+// Language options for project
+const LANGUAGE_OPTIONS = [
+  { value: "en", label: "English", flag: "🇺🇸" },
+  { value: "fr", label: "French", flag: "🇫🇷" },
+  { value: "es", label: "Spanish", flag: "🇪🇸" },
+  { value: "de", label: "German", flag: "🇩🇪" },
+  { value: "it", label: "Italian", flag: "🇮🇹" },
+  { value: "pt", label: "Portuguese", flag: "🇧🇷" },
+];
+
 interface Project {
   id: string;
   name: string;
@@ -75,6 +85,7 @@ interface Project {
   tiktok_enabled: boolean;
   posts_per_week: number;
   automation_mode: string;
+  detected_language: string | null;
   created_at: string;
 }
 
@@ -130,6 +141,7 @@ const ProjectDetail = () => {
   const [editTiktok, setEditTiktok] = useState(false);
   const [editPostsPerWeek, setEditPostsPerWeek] = useState(3);
   const [editAutomationMode, setEditAutomationMode] = useState("semi_auto");
+  const [editLanguage, setEditLanguage] = useState("en");
   const [selectedPublishMode, setSelectedPublishMode] = useState<"auto" | "manual">("manual");
 
   const themeColors = [
@@ -157,6 +169,7 @@ const ProjectDetail = () => {
       setEditTiktok(project.tiktok_enabled);
       setEditPostsPerWeek(project.posts_per_week);
       setEditAutomationMode(project.automation_mode);
+      setEditLanguage(project.detected_language || "en");
     }
   }, [project]);
 
@@ -322,6 +335,7 @@ const ProjectDetail = () => {
           tiktok_enabled: editTiktok,
           posts_per_week: editPostsPerWeek,
           automation_mode: editAutomationMode,
+          detected_language: editLanguage,
         })
         .eq("id", project.id);
 
@@ -616,6 +630,27 @@ const ProjectDetail = () => {
                   value={editUrl}
                   onChange={(e) => setEditUrl(e.target.value)}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>Content Language</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  AI-generated content will use this language
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {LANGUAGE_OPTIONS.map((lang) => (
+                    <Button
+                      key={lang.value}
+                      type="button"
+                      variant={editLanguage === lang.value ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setEditLanguage(lang.value)}
+                      className="min-w-[80px]"
+                    >
+                      <span className="mr-1">{lang.flag}</span>
+                      {lang.label}
+                    </Button>
+                  ))}
+                </div>
               </div>
             </TabsContent>
 
