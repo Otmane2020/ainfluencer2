@@ -35,6 +35,8 @@ interface Project {
   theme_color: string | null;
   url: string | null;
   detected_language: string | null;
+  avatar_url: string | null;
+  ai_context_summary: string | null;
 }
 
 interface GeneratedImage {
@@ -94,7 +96,7 @@ export const ImageGenerator = ({ onImageGenerated }: ImageGeneratorProps) => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projectSelectorOpen, setProjectSelectorOpen] = useState(false);
   const [brandOptions, setBrandOptionsState] = useState<BrandOptionsState>(
-    storedPrefs.brandOptions || { includeLogo: false, includeUrl: false, includeText: false }
+    storedPrefs.brandOptions || { includeLogo: false, includeUrl: false, includeText: false, includeAvatar: false }
   );
   const { toast } = useToast();
 
@@ -122,9 +124,9 @@ export const ImageGenerator = ({ onImageGenerated }: ImageGeneratorProps) => {
     const fetchProjects = async () => {
       const { data } = await supabase
         .from("projects")
-        .select("id, name, description, theme_color, url, detected_language")
+        .select("id, name, description, theme_color, url, detected_language, avatar_url, ai_context_summary")
         .order("name");
-      if (data) setProjects(data);
+      if (data) setProjects(data as Project[]);
     };
     fetchProjects();
   }, []);
@@ -224,9 +226,12 @@ export const ImageGenerator = ({ onImageGenerated }: ImageGeneratorProps) => {
           includeLogo: brandOptions.includeLogo,
           includeUrl: brandOptions.includeUrl,
           includeText: brandOptions.includeText,
+          includeAvatar: brandOptions.includeAvatar,
           overlayText: brandOptions.overlayText,
           brandName: selectedProject?.name,
           projectUrl: selectedProject?.url,
+          avatarUrl: selectedProject?.avatar_url,
+          aiContextSummary: selectedProject?.ai_context_summary,
           detectedLanguage: selectedProject?.detected_language || "en",
         },
       });

@@ -123,6 +123,7 @@ export const CampaignWizardModal = ({
     includeLogo: false,
     includeUrl: false,
     includeText: false,
+    includeAvatar: false,
   });
   
   // Platform toggles
@@ -149,7 +150,7 @@ export const CampaignWizardModal = ({
       setSubject("");
       setPostingHour(10);
       setTimezone("Europe/Paris");
-      setBrandOptions({ includeLogo: false, includeUrl: false, includeText: false });
+      setBrandOptions({ includeLogo: false, includeUrl: false, includeText: false, includeAvatar: false });
       setPlatforms({ facebook: true, instagram: true, linkedin: false, tiktok: false });
     }
   }, [isOpen]);

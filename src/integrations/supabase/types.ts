@@ -174,7 +174,9 @@ export type Database = {
       }
       projects: {
         Row: {
+          ai_context_summary: string | null
           automation_mode: string | null
+          avatar_url: string | null
           created_at: string
           description: string | null
           detected_language: string | null
@@ -192,7 +194,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          ai_context_summary?: string | null
           automation_mode?: string | null
+          avatar_url?: string | null
           created_at?: string
           description?: string | null
           detected_language?: string | null
@@ -210,7 +214,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          ai_context_summary?: string | null
           automation_mode?: string | null
+          avatar_url?: string | null
           created_at?: string
           description?: string | null
           detected_language?: string | null
