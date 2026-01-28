@@ -65,7 +65,7 @@ interface CampaignWizardModalProps {
 
 const CAMPAIGN_TYPES = [
   { id: "video", label: "Video Campaign", icon: Video, description: "Generate AI videos and reels", gradient: "from-violet-500 to-purple-600" },
-  { id: "image", label: "Image Campaign", icon: ImageIcon, description: "Generate promotional images", gradient: "from-cyan-500 to-blue-600" },
+  { id: "image", label: "Image Campaign", icon: ImageIcon, description: "Generate promotional images and reels", gradient: "from-cyan-500 to-blue-600" },
   { id: "mixed", label: "Mixed Campaign", icon: Layers, description: "Combine videos and images", gradient: "from-pink-500 to-rose-600" },
 ];
 
