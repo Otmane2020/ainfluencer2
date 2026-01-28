@@ -1,8 +1,11 @@
 import { motion } from "framer-motion";
-import { Check, Award, Zap, Building2, Wand2, Image, Video } from "lucide-react";
+import { Check, Award, Zap, Building2, Wand2, Image, Video, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { PRICING_PLANS, PricingPlan } from "@/lib/commercialProducts";
+import { useSubscription } from "@/hooks/useSubscription";
+import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 interface PricingPacksProps {
   onSelectPack?: (plan: PricingPlan) => void;
@@ -41,6 +44,67 @@ export const PricingPacks = ({
   currentPlanId,
   compact = false,
 }: PricingPacksProps) => {
+  const { startCheckout, openCustomerPortal, subscription } = useSubscription();
+  const { toast } = useToast();
+  const [loadingPlanId, setLoadingPlanId] = useState<string | null>(null);
+
+  const effectiveCurrentPlanId = currentPlanId || subscription.planId;
+
+  const handleSelectPlan = async (plan: PricingPlan) => {
+    if (onSelectPack) {
+      onSelectPack(plan);
+      return;
+    }
+
+    const isCurrentPlan = effectiveCurrentPlanId === plan.id;
+    if (isCurrentPlan) return;
+
+    // If user has an active subscription, open customer portal to manage/upgrade
+    if (subscription.isSubscribed) {
+      setLoadingPlanId(plan.id);
+      try {
+        const result = await openCustomerPortal();
+        if (!result.success) {
+          toast({
+            title: "Error",
+            description: "Failed to open subscription management. Please try again.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingPlanId(null);
+      }
+      return;
+    }
+
+    // Start new checkout
+    setLoadingPlanId(plan.id);
+    try {
+      const result = await startCheckout("subscription", { planId: plan.id });
+      if (!result.success) {
+        toast({
+          title: "Error",
+          description: "Failed to start checkout. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingPlanId(null);
+    }
+  };
+
   return (
     <div className={cn(
       "grid gap-6",
@@ -48,8 +112,9 @@ export const PricingPacks = ({
     )}>
       {PRICING_PLANS.map((plan, index) => {
         const Icon = getPlanIcon(plan.id);
-        const isCurrentPlan = currentPlanId === plan.id;
+        const isCurrentPlan = effectiveCurrentPlanId === plan.id;
         const isPopular = plan.popular;
+        const isLoading = loadingPlanId === plan.id;
 
         return (
           <motion.div
@@ -141,8 +206,8 @@ export const PricingPacks = ({
 
             {/* CTA Button */}
             <Button
-              onClick={() => onSelectPack?.(plan)}
-              disabled={isCurrentPlan}
+              onClick={() => handleSelectPlan(plan)}
+              disabled={isCurrentPlan || isLoading}
               className={cn(
                 "w-full",
                 isPopular && "bg-gradient-to-r from-primary to-secondary hover:opacity-90"
@@ -150,7 +215,15 @@ export const PricingPacks = ({
               variant={isPopular ? "default" : "outline"}
               size="lg"
             >
-              {isCurrentPlan ? "Current Plan" : isPopular ? "Choose Pro" : `Choose ${plan.name}`}
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : isCurrentPlan ? (
+                "Current Plan"
+              ) : subscription.isSubscribed ? (
+                "Manage Subscription"
+              ) : (
+                `Choose ${plan.name}`
+              )}
             </Button>
 
             {/* Credit info */}
