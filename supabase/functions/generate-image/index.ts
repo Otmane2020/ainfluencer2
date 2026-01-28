@@ -244,6 +244,11 @@ Deno.serve(async (req) => {
     let enhancedPrompt = prompt;
     const contextParts: string[] = [];
 
+    // CRITICAL: Add explicit language instruction at the start
+    if (outputLanguage !== "en") {
+      enhancedPrompt = `[LANGUAGE: All text in this image MUST be in ${languageName}. NO English text allowed.] ${prompt}`;
+    }
+
     if (brandName) {
       contextParts.push(`for ${brandName} brand`);
     }
@@ -266,9 +271,9 @@ Deno.serve(async (req) => {
     }
 
     if (contextParts.length > 0) {
-      enhancedPrompt = `${prompt}. Style: ${contextParts.join(", ")}. Ultra high resolution, professional quality.`;
+      enhancedPrompt = `${enhancedPrompt}. Style: ${contextParts.join(", ")}. Ultra high resolution, professional quality.`;
     } else {
-      enhancedPrompt = `${prompt}. Ultra high resolution, professional quality.`;
+      enhancedPrompt = `${enhancedPrompt}. Ultra high resolution, professional quality.`;
     }
 
     // Add brand elements
@@ -286,14 +291,19 @@ Deno.serve(async (req) => {
       enhancedPrompt += ` Brand context: ${aiContextSummary.slice(0, 500)}.`;
     }
 
-    // Social media text overlay
+    // Social media text overlay - ALWAYS specify language
     if (includeText) {
       const textToOverlay = overlayText || brandName || "";
       if (textToOverlay) {
-        enhancedPrompt += ` IMPORTANT: Include bold, eye-catching text overlay in ${languageName}: "${textToOverlay}". The text should be large, readable, placed prominently (top or center), with high contrast against the background. Use modern social media typography style.`;
+        enhancedPrompt += ` CRITICAL: Include bold, eye-catching text overlay. The text MUST be in ${languageName}: "${textToOverlay}". NO English text. The text should be large, readable, placed prominently (top or center), with high contrast against the background. Use modern social media typography style.`;
       } else {
-        enhancedPrompt += ` IMPORTANT: This is a social media image. Include a short, punchy headline or call-to-action text overlay in ${languageName}. Use bold, modern typography that pops against the image.`;
+        enhancedPrompt += ` CRITICAL: This is a social media image. Include a short, punchy headline or call-to-action text overlay. ALL TEXT MUST BE IN ${languageName.toUpperCase()} ONLY. NO English. Use bold, modern typography that pops against the image.`;
       }
+    }
+
+    // Final language reminder
+    if (outputLanguage !== "en") {
+      enhancedPrompt += ` REMINDER: Any and all text visible in this image must be in ${languageName}, not English.`;
     }
 
     console.log("Enhanced prompt:", enhancedPrompt.slice(0, 200) + "...");
