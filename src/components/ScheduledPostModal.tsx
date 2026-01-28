@@ -1223,10 +1223,6 @@ export const ScheduledPostModal = ({
                       <p className="mb-2 text-[10px] sm:text-xs text-muted-foreground line-clamp-1">
                         {product.description}
                       </p>
-                      <div className="flex items-center gap-1 mt-auto">
-                        <span className="text-sm sm:text-lg font-bold text-primary">{product.salePrice}€</span>
-                        <span className="text-[10px] sm:text-xs text-muted-foreground">{product.salePriceUnit}</span>
-                      </div>
                     </motion.button>
                   );
                 })}
@@ -1236,7 +1232,7 @@ export const ScheduledPostModal = ({
                 <div className="mt-4 p-2.5 sm:p-3 rounded-lg bg-primary/10 border border-primary/20">
                   <p className="text-xs sm:text-sm">
                     <span className="font-medium">Selected:</span>{" "}
-                    {selectedProduct.name} - {selectedProduct.salePrice}€{selectedProduct.salePriceUnit}
+                    {selectedProduct.name}
                   </p>
                   <Button className="mt-3 w-full" size="sm">
                     <Wand2 className="h-4 w-4 mr-2" />

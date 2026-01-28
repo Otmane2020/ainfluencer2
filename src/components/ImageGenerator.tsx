@@ -341,9 +341,6 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
                 <span className="text-lg">🖼️</span>
                 {selectedProduct.name}
               </span>
-              <span className="text-xs text-muted-foreground">
-                {selectedProduct.salePrice}€{selectedProduct.salePriceUnit}
-              </span>
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-2xl max-h-[85vh]">

@@ -843,9 +843,6 @@ ${formattedHashtags}`;
   };
 
   const totalDuration = segments.reduce((acc, s) => acc + s.duration, 0);
-  const estimatedCost = selectedProduct.category === "video" || selectedProduct.category === "avatar"
-    ? (totalDuration * (selectedProduct.salePrice / 10)).toFixed(0)
-    : (segments.filter(s => s.script.trim()).length * selectedProduct.salePrice).toFixed(0);
 
   return (
     <motion.div
@@ -861,7 +858,6 @@ ${formattedHashtags}`;
           </div>
           <span className="font-medium text-sm">AI Generator</span>
         </div>
-        <p className="text-lg font-bold text-gradient">~{estimatedCost}€</p>
       </div>
 
       {/* Video Mode Toggle */}
@@ -1224,7 +1220,7 @@ ${formattedHashtags}`;
 
       {/* Generate Button */}
       <Button onClick={generateContent} disabled={isGenerating || segments.every((s) => !s.script.trim())} variant="gradient" className="w-full">
-        {isGenerating ? <><Loader2 className="h-4 w-4 animate-spin" />Generating...</> : <><Wand2 className="h-4 w-4" />Generate (~{estimatedCost}€)</>}
+        {isGenerating ? <><Loader2 className="h-4 w-4 animate-spin" />Generating...</> : <><Wand2 className="h-4 w-4" />Generate</>}
       </Button>
 
       {/* Generation Progress Modal */}

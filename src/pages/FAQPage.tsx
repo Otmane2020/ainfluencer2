@@ -51,7 +51,7 @@ const faqs = [
     questions: [
       {
         q: "Is there a free plan?",
-        a: "Yes, ClipMotion offers a free plan that lets you try the platform with limited video generations. Paid plans start at €49/month for the Starter plan with 10 images and 2 videos per month.",
+        a: "Yes, ClipMotion offers a free trial that lets you try the platform with limited generations. Check our pricing page for plan details.",
       },
       {
         q: "Can I cancel my subscription anytime?",
