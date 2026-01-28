@@ -101,6 +101,14 @@ export const CampaignDetailModal = ({
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
   const [isTogglingStatus, setIsTogglingStatus] = useState(false);
   const [shareModal, setShareModal] = useState<{ open: boolean; post?: ScheduledPost }>({ open: false });
+  const [localStatus, setLocalStatus] = useState(campaign?.status || "draft");
+
+  // Sync local status with campaign prop
+  useEffect(() => {
+    if (campaign) {
+      setLocalStatus(campaign.status);
+    }
+  }, [campaign]);
 
   useEffect(() => {
     if (campaign && isOpen) {
@@ -129,7 +137,7 @@ export const CampaignDetailModal = ({
     if (!campaign) return;
 
     setIsTogglingStatus(true);
-    const newStatus = campaign.status === "active" ? "paused" : "active";
+    const newStatus = localStatus === "active" ? "paused" : "active";
 
     const { error } = await supabase
       .from("campaigns")
@@ -139,6 +147,7 @@ export const CampaignDetailModal = ({
     if (error) {
       toast({ title: "Error", description: "Unable to update status", variant: "destructive" });
     } else {
+      setLocalStatus(newStatus); // Update local state immediately
       toast({
         title: newStatus === "active" ? "Campaign activated!" : "Campaign paused",
       });
@@ -150,7 +159,7 @@ export const CampaignDetailModal = ({
   if (!campaign) return null;
 
   const typeConfig = campaignTypeConfig[campaign.campaign_type as keyof typeof campaignTypeConfig] || campaignTypeConfig.mixed;
-  const status = statusConfig[campaign.status as keyof typeof statusConfig] || statusConfig.draft;
+  const status = statusConfig[localStatus as keyof typeof statusConfig] || statusConfig.draft;
   const TypeIcon = typeConfig.icon;
 
   return (
@@ -169,7 +178,7 @@ export const CampaignDetailModal = ({
               </div>
             </div>
             <Button
-              variant={campaign.status === "active" ? "outline" : "default"}
+              variant={localStatus === "active" ? "outline" : "default"}
               size="sm"
               onClick={handleToggleStatus}
               disabled={isTogglingStatus}
@@ -177,7 +186,7 @@ export const CampaignDetailModal = ({
             >
               {isTogglingStatus ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
-              ) : campaign.status === "active" ? (
+              ) : localStatus === "active" ? (
                 <>
                   <Pause className="h-4 w-4" />
                   Pause
