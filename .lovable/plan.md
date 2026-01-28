@@ -1,64 +1,91 @@
 
-# Fix: Image Generation + Progress Indicators
 
-## Issues Found
+## Fix: Image Prompt Language Detection for Starlinko
 
-### Root Cause 1: Edge Function Not Deployed
-The `generate-campaign-content` edge function is **NOT registered** in `supabase/config.toml`, so it was never deployed. This is why:
-- No logs appear for the function
-- All images have `media_url: null`
-- All posts are stuck with `status: draft`
+### Problem Identified
 
-### Root Cause 2: Progress Detection Logic
-The progress indicator logic in `ContentHistoryItem.tsx` is correct, but since the actual generation never happens (function not deployed), the items remain in "generating" state forever with the estimated progress stuck at 95%.
+When generating AI prompts for images, the `ImageGenerator.tsx` component is **not passing the `detectedLanguage` parameter** to the `suggest-content` edge function. This causes all image prompts to default to English, even for French websites like Starlinko.
 
----
+The database shows Starlinko is correctly configured with `detected_language: fr`, but this value is never sent to the AI.
 
-## Implementation Plan
+### Root Cause
 
-### Step 1: Register Edge Function in Config
-Add the missing `generate-campaign-content` function to `supabase/config.toml`:
+In `ImageGenerator.tsx`, the `generateAIPrompt` function:
+1. Fetches scraped content (which includes `detectedLanguage` from Firecrawl)
+2. Stores `project.detected_language` in the project object
+3. **But never passes either value** to the `suggest-content` call
 
-```toml
-[functions.generate-campaign-content]
-verify_jwt = false
-```
+### Solution
 
-### Step 2: Deploy and Test
-After adding to config, the function will be deployed automatically. This will:
-- Enable actual image generation via Lovable AI
-- Upload images to Supabase storage
-- Update posts with `media_url` and `status: scheduled`
+Apply the same fix that was done for `VideoGenerator.tsx`:
+1. Capture the scraped language from Firecrawl response
+2. Use priority: scraped language > project setting > default "en"
+3. Pass `detectedLanguage` and `logoUrl` to the `suggest-content` edge function
 
-### Step 3: Add Status Indicator for Stale Items
-Enhance `ContentHistoryItem.tsx` to detect items that have been "generating" for too long (>5 minutes) and show a "Failed" or "Retry" state instead of stuck progress.
+### Technical Changes
+
+**File: `src/components/ImageGenerator.tsx`**
+
+Update the `generateAIPrompt` function (lines 134-193):
 
 ```typescript
-const isStale = elapsed > 300000; // 5 minutes
-if (isStale && !item.media_url) {
-  // Show "Generation Failed - Retry" button
-}
+const generateAIPrompt = async (project: Project) => {
+  setIsGeneratingPrompt(true);
+  setProjectSelectorOpen(false);
+  setSelectedProject(project);
+
+  try {
+    let scrapedContent: string | undefined;
+    let scrapedLanguage: string | undefined;
+    
+    if (project.url) {
+      try {
+        const { data: scrapeData } = await supabase.functions.invoke("scrape-project-url", {
+          body: { url: project.url },
+        });
+        scrapedContent = scrapeData?.markdown?.slice(0, 3000);
+        scrapedLanguage = scrapeData?.detectedLanguage; // Capture scraped language
+      } catch (scrapeError) {
+        console.log("Scraping skipped:", scrapeError);
+      }
+    }
+
+    // Priority: scraped language > project setting > default
+    const finalLanguage = scrapedLanguage || project.detected_language || "en";
+    console.log("[ImageGenerator] Using language:", finalLanguage);
+
+    const { data, error } = await supabase.functions.invoke("suggest-content", {
+      body: {
+        projectId: project.id,
+        projectName: project.name,
+        projectDescription: project.description || project.name,
+        projectUrl: project.url,
+        scrapedContent,
+        contentType: "image_prompt",
+        productName: selectedProduct.name,
+        productCategory: selectedProduct.category,
+        sectorId: selectedSector?.id,
+        styleId: selectedStyle?.id,
+        toneId: selectedTone?.id,
+        detectedLanguage: finalLanguage,        // NEW: Pass language
+        logoUrl: project.avatar_url,             // NEW: Pass avatar/logo
+      },
+    });
+    // ... rest unchanged
+  }
+};
 ```
 
-### Step 4: Add Manual Regeneration
-Add a "Regenerate" button for posts that have `ai_prompt` but no `media_url`, allowing users to manually trigger image generation for failed items.
+### Expected Result
 
----
+After this fix:
+- Starlinko image prompts will be generated in **French**
+- All projects will respect their configured language
+- Fresh scraping will update the language if the website content changes
 
-## Files to Edit
+### Files to Modify
 
 | File | Change |
 |------|--------|
-| `supabase/config.toml` | Add `generate-campaign-content` function registration |
-| `src/components/ContentHistoryItem.tsx` | Add stale detection + retry button |
-| `supabase/functions/generate-campaign-content/index.ts` | (already exists, just needs deployment) |
+| `src/components/ImageGenerator.tsx` | Add `scrapedLanguage` capture, priority logic, and pass `detectedLanguage` + `logoUrl` to suggest-content |
 
----
-
-## Expected Results After Fix
-
-1. Creating a new campaign will actually generate images
-2. Posts will show real-time progress while generating
-3. Completed images will display in history with thumbnails
-4. Stale/failed items will show a "Retry" option
-5. Instagram publishing will work (media_url will be populated)
