@@ -49,6 +49,9 @@ interface Project {
   description: string | null;
   theme_color: string | null;
   url: string | null;
+  detected_language: string | null;
+  avatar_url: string | null;
+  ai_context_summary: string | null;
 }
 interface VideoSegment {
   id: string;
@@ -269,9 +272,9 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
     const fetchProjects = async () => {
       const { data } = await supabase
         .from("projects")
-        .select("id, name, description, theme_color, url")
+        .select("id, name, description, theme_color, url, detected_language, avatar_url, ai_context_summary")
         .order("name");
-      if (data) setProjects(data);
+      if (data) setProjects(data as Project[]);
     };
     fetchProjects();
   }, []);
@@ -344,6 +347,8 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
           toneId: selectedTone?.id,
           scriptType: selectedProduct.category === "avatar" ? "testimonial" : "reel",
           duration,
+          detectedLanguage: project.detected_language || "en",
+          logoUrl: project.avatar_url,
         },
       });
 
@@ -435,6 +440,8 @@ ${formattedHashtags}`;
           toneId: selectedTone?.id,
           scriptType: selectedProduct.category === "avatar" ? "testimonial" : "reel",
           duration,
+          detectedLanguage: project.detected_language || "en",
+          logoUrl: project.avatar_url,
         },
       });
 
