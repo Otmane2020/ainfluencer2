@@ -1,9 +1,44 @@
 project_id = "vgffjuvaedmxoxvzovoq"
 
-[functions.daily-rolling-schedule]
-verify_jwt = false
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+api_url = "http://localhost"
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://localhost:3000"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
 
 [functions.generate-content]
+verify_jwt = false
+
+[functions.generate-image]
+verify_jwt = false
+
+[functions.generate-video-sora]
+verify_jwt = false
+
+[functions.generate-video-scenario]
 verify_jwt = false
 
 [functions.generate-avatar]
@@ -12,35 +47,32 @@ verify_jwt = false
 [functions.text-to-speech]
 verify_jwt = false
 
-[functions.generate-video-sora]
-verify_jwt = false
-
-[functions.meta-oauth]
+[functions.suggest-content]
 verify_jwt = false
 
 [functions.scrape-project-url]
 verify_jwt = false
 
-[functions.suggest-content]
-verify_jwt = false
-
 [functions.generate-monthly-schedule]
 verify_jwt = false
 
-[functions.generate-script-nanobanana]
+[functions.daily-rolling-schedule]
 verify_jwt = false
 
-[functions.generate-image]
-verify_jwt = false
-
-[functions.generate-video-scenario]
-verify_jwt = false
-
-[functions.generate-campaign-content]
+[functions.meta-oauth]
 verify_jwt = false
 
 [functions.support-chat]
 verify_jwt = false
 
+[functions.generate-script-nanobanana]
+verify_jwt = false
+
+[functions.generate-campaign-content]
+verify_jwt = false
+
 [functions.run-campaigns-cron]
+verify_jwt = false
+
+[functions.delete-post]
 verify_jwt = false
