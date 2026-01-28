@@ -10,6 +10,7 @@ import { ProductSelector } from "@/components/ProductSelector";
 import { VoiceSelector } from "@/components/VoiceSelector";
 import { ScenarioSelector } from "@/components/ScenarioSelector";
 import { FormatSelector, ContentFormat, FORMAT_OPTIONS } from "@/components/FormatSelector";
+import { BrandOptions, BrandOptionsState } from "@/components/BrandOptions";
 import { AVAILABLE_VOICES, getDefaultVoice, type Voice } from "@/lib/voices";
 import {
   COMMERCIAL_PRODUCTS,
@@ -104,6 +105,7 @@ interface StoredPrefs {
   quality?: VideoQuality;
   startingFrameUrl?: string;
   format?: ContentFormat;
+  brandOptions?: BrandOptionsState;
 }
 
 const loadPrefs = (): StoredPrefs => {
@@ -169,6 +171,16 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
   const [generatedScenarios, setGeneratedScenarios] = useState<GeneratedScenario[]>([]);
   const [isRegeneratingScenarios, setIsRegeneratingScenarios] = useState(false);
   const [pendingScenarioSegmentId, setPendingScenarioSegmentId] = useState<string | null>(null);
+
+  // Brand options state
+  const [brandOptions, setBrandOptionsState] = useState<BrandOptionsState>(
+    storedPrefs.brandOptions || { includeLogo: false, includeUrl: false }
+  );
+
+  const setBrandOptions = (options: BrandOptionsState) => {
+    setBrandOptionsState(options);
+    savePrefs({ brandOptions: options });
+  };
 
   const setSelectedFormat = (format: ContentFormat) => {
     setSelectedFormatState(format);
@@ -982,6 +994,11 @@ ${formattedHashtags}`;
           </div>
         )}
 
+      </div>
+
+      {/* Brand Options */}
+      <div className="mb-3">
+        <BrandOptions options={brandOptions} onChange={setBrandOptions} compact />
       </div>
 
       {/* Segments - Direct display */}

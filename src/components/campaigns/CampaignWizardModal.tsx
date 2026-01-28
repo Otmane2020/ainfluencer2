@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { BrandOptions, BrandOptionsState } from "@/components/BrandOptions";
 import {
   Dialog,
   DialogContent,
@@ -118,6 +119,10 @@ export const CampaignWizardModal = ({
   const [subject, setSubject] = useState("");
   const [postingHour, setPostingHour] = useState(10);
   const [timezone, setTimezone] = useState("Europe/Paris");
+  const [brandOptions, setBrandOptions] = useState<BrandOptionsState>({
+    includeLogo: false,
+    includeUrl: false,
+  });
   
   // Platform toggles
   const [platforms, setPlatforms] = useState({
@@ -143,6 +148,7 @@ export const CampaignWizardModal = ({
       setSubject("");
       setPostingHour(10);
       setTimezone("Europe/Paris");
+      setBrandOptions({ includeLogo: false, includeUrl: false });
       setPlatforms({ facebook: true, instagram: true, linkedin: false, tiktok: false });
     }
   }, [isOpen]);
@@ -201,10 +207,17 @@ export const CampaignWizardModal = ({
       setProgressStatus("scheduling");
       setProgressValue(40);
 
-      // Trigger content generation with platforms
+      // Trigger content generation with platforms and brand options
       const { data: genResult, error: genError } = await supabase.functions.invoke(
         "generate-campaign-content",
-        { body: { campaignId: newCampaign.id, platforms: selectedPlatforms } }
+        { 
+          body: { 
+            campaignId: newCampaign.id, 
+            platforms: selectedPlatforms,
+            includeLogo: brandOptions.includeLogo,
+            includeUrl: brandOptions.includeUrl,
+          } 
+        }
       );
 
       if (genError) {
@@ -532,6 +545,9 @@ export const CampaignWizardModal = ({
                   rows={3}
                 />
               </div>
+
+              {/* Brand Options */}
+              <BrandOptions options={brandOptions} onChange={setBrandOptions} />
 
               {/* Posting Schedule */}
               <div className="rounded-xl border border-border p-4 space-y-4">

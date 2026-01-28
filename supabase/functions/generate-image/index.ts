@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { prompt, productId, format, aspectRatio, width, height, sectorId, styleId, toneId, logoUrl, brandName } = await req.json();
+    const { prompt, productId, format, aspectRatio, width, height, sectorId, styleId, toneId, logoUrl, brandName, includeLogo, includeUrl, projectUrl } = await req.json();
 
     if (!prompt) {
       return new Response(
@@ -103,9 +103,16 @@ Deno.serve(async (req) => {
       enhancedPrompt = `${prompt}. Ultra high resolution, professional quality.`;
     }
 
+    // Add brand elements based on options
+    if (includeLogo && brandName) {
+      enhancedPrompt += ` Include a subtle, elegant brand logo for "${brandName}" in a corner of the image.`;
+    }
+    if (includeUrl && projectUrl) {
+      enhancedPrompt += ` Include the website URL "${projectUrl}" as a subtle watermark or call-to-action element.`;
+    }
+
     console.log("Enhanced prompt:", enhancedPrompt);
-    if (brandName) console.log("Brand context:", brandName);
-    if (logoUrl) console.log("Logo URL provided:", logoUrl);
+    console.log("Brand options - Logo:", includeLogo, "URL:", includeUrl);
 
     // Call Lovable AI Gateway for image generation
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

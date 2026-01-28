@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ProductSelector } from "@/components/ProductSelector";
 import { ScenarioSelector } from "@/components/ScenarioSelector";
 import { FormatSelector, ContentFormat, FORMAT_OPTIONS } from "@/components/FormatSelector";
+import { BrandOptions, BrandOptionsState } from "@/components/BrandOptions";
 import {
   COMMERCIAL_PRODUCTS,
   CommercialProduct,
@@ -54,6 +55,7 @@ const PREFS_KEY = "image_generator_prefs";
 interface StoredPrefs {
   productId?: string;
   format?: ContentFormat;
+  brandOptions?: BrandOptionsState;
 }
 
 const loadPrefs = (): StoredPrefs => {
@@ -88,13 +90,22 @@ export const ImageGenerator = ({ onImageGenerated }: ImageGeneratorProps) => {
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
   const [showProductSelector, setShowProductSelector] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projectSelectorOpen, setProjectSelectorOpen] = useState(false);
+  const [brandOptions, setBrandOptionsState] = useState<BrandOptionsState>(
+    storedPrefs.brandOptions || { includeLogo: false, includeUrl: false }
+  );
   const { toast } = useToast();
 
   // Scenario state
   const [selectedSector, setSelectedSector] = useState<VideoScenario | undefined>();
   const [selectedStyle, setSelectedStyle] = useState<VideoScenario | undefined>();
   const [selectedTone, setSelectedTone] = useState<VideoScenario | undefined>();
+
+  const setBrandOptions = (options: BrandOptionsState) => {
+    setBrandOptionsState(options);
+    savePrefs({ brandOptions: options });
+  };
 
   const setSelectedFormat = (format: ContentFormat) => {
     setSelectedFormatState(format);
@@ -120,6 +131,7 @@ export const ImageGenerator = ({ onImageGenerated }: ImageGeneratorProps) => {
   const generateAIPrompt = async (project: Project) => {
     setIsGeneratingPrompt(true);
     setProjectSelectorOpen(false);
+    setSelectedProject(project); // Track the selected project
 
     try {
       // First, scrape the project URL if available
@@ -208,6 +220,10 @@ export const ImageGenerator = ({ onImageGenerated }: ImageGeneratorProps) => {
           sectorId: selectedSector?.id,
           styleId: selectedStyle?.id,
           toneId: selectedTone?.id,
+          includeLogo: brandOptions.includeLogo,
+          includeUrl: brandOptions.includeUrl,
+          brandName: selectedProject?.name,
+          projectUrl: selectedProject?.url,
         },
       });
 
@@ -288,8 +304,8 @@ export const ImageGenerator = ({ onImageGenerated }: ImageGeneratorProps) => {
         />
       </div>
 
-      {/* Format & Quality Selectors */}
-      <div className="flex gap-2 mb-4">
+      {/* Format, Quality & Brand Options */}
+      <div className="flex flex-wrap gap-2 mb-4">
         <FormatSelector
           selectedFormat={selectedFormat}
           onFormatChange={setSelectedFormat}
@@ -324,6 +340,11 @@ export const ImageGenerator = ({ onImageGenerated }: ImageGeneratorProps) => {
             </ScrollArea>
           </DialogContent>
         </Dialog>
+      </div>
+
+      {/* Brand Options */}
+      <div className="mb-4">
+        <BrandOptions options={brandOptions} onChange={setBrandOptions} compact />
       </div>
 
       {/* Prompt Workspace */}
