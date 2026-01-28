@@ -3,11 +3,12 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { PaywallGuard } from "@/components/PaywallGuard";
+import { PaywallModal } from "@/components/PaywallModal";
 import {
   Plus,
   Video,
@@ -68,11 +69,13 @@ const CampaignsPage = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { subscription, canAccessFeature } = useSubscription();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showWizard, setShowWizard] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
 
   useEffect(() => {
     fetchCampaigns();
@@ -93,7 +96,21 @@ const CampaignsPage = () => {
     setIsLoading(false);
   };
 
+  const handleNewCampaign = () => {
+    if (!subscription.isSubscribed) {
+      setShowPaywall(true);
+      return;
+    }
+    setShowWizard(true);
+  };
+
   const handleToggleStatus = async (campaign: Campaign) => {
+    // Check subscription when starting a campaign
+    if (campaign.status !== "active" && !subscription.isSubscribed) {
+      setShowPaywall(true);
+      return;
+    }
+
     const newStatus = campaign.status === "active" ? "paused" : "active";
     
     const { error } = await supabase
@@ -114,7 +131,6 @@ const CampaignsPage = () => {
   };
 
   const handleDelete = async (campaignId: string) => {
-    // Database CASCADE constraint automatically deletes associated scheduled_posts
     const { error } = await supabase
       .from("campaigns")
       .delete()
@@ -135,7 +151,7 @@ const CampaignsPage = () => {
   };
 
   return (
-    <PaywallGuard feature="campaigns" requiredPlan="starter">
+    <>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -143,7 +159,7 @@ const CampaignsPage = () => {
             <h1 className="font-display text-2xl font-bold">Campaigns</h1>
             <p className="text-sm text-muted-foreground">Automated content generation campaigns</p>
           </div>
-          <Button onClick={() => setShowWizard(true)} className="gap-2">
+          <Button onClick={handleNewCampaign} className="gap-2">
             <Plus className="h-4 w-4" />
             New Campaign
           </Button>
@@ -168,7 +184,7 @@ const CampaignsPage = () => {
               <p className="text-muted-foreground text-sm max-w-sm mb-4">
                 Create your first campaign to start generating content automatically
               </p>
-              <Button onClick={() => setShowWizard(true)} className="gap-2">
+              <Button onClick={handleNewCampaign} className="gap-2">
                 <Plus className="h-4 w-4" />
                 Create Campaign
               </Button>
@@ -176,10 +192,10 @@ const CampaignsPage = () => {
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {campaigns.map((campaign, index) => {
-                const typeConfig = campaignTypeConfig[campaign.campaign_type as keyof typeof campaignTypeConfig] || campaignTypeConfig.mixed;
-                const status = statusConfig[campaign.status as keyof typeof statusConfig] || statusConfig.draft;
-                const TypeIcon = typeConfig.icon;
+            {campaigns.map((campaign, index) => {
+              const typeConfig = campaignTypeConfig[campaign.campaign_type as keyof typeof campaignTypeConfig] || campaignTypeConfig.mixed;
+              const status = statusConfig[campaign.status as keyof typeof statusConfig] || statusConfig.draft;
+              const TypeIcon = typeConfig.icon;
 
               return (
                 <motion.div
@@ -317,7 +333,15 @@ const CampaignsPage = () => {
           onUpdate={fetchCampaigns}
         />
       </div>
-    </PaywallGuard>
+
+      {/* Paywall Modal */}
+      <PaywallModal
+        open={showPaywall}
+        onOpenChange={setShowPaywall}
+        feature="campaigns"
+        requiredPlan="starter"
+      />
+    </>
   );
 };
 

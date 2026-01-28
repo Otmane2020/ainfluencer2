@@ -48,6 +48,7 @@ interface GeneratedImage {
 
 interface ImageGeneratorProps {
   onImageGenerated: (image: GeneratedImage) => void;
+  onBeforeGenerate?: () => boolean;
 }
 
 // Filter commercial products for images only
@@ -79,7 +80,7 @@ const savePrefs = (prefs: Partial<StoredPrefs>) => {
   }
 };
 
-export const ImageGenerator = ({ onImageGenerated }: ImageGeneratorProps) => {
+export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGeneratorProps) => {
   const storedPrefs = loadPrefs();
   const defaultProduct =
     IMAGE_PRODUCTS.find((p) => p.id === storedPrefs.productId) ||
@@ -206,6 +207,11 @@ export const ImageGenerator = ({ onImageGenerated }: ImageGeneratorProps) => {
         description: "Please describe the image you want to generate",
         variant: "destructive",
       });
+      return;
+    }
+
+    // Check subscription before generating
+    if (onBeforeGenerate && !onBeforeGenerate()) {
       return;
     }
 

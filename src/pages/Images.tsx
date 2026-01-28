@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ImageGenerator } from "@/components/ImageGenerator";
 import { ImagePreview } from "@/components/ImagePreview";
-import { PaywallGuard } from "@/components/PaywallGuard";
+import { PaywallModal } from "@/components/PaywallModal";
+import { useSubscription } from "@/hooks/useSubscription";
 import {
   Select,
   SelectContent,
@@ -30,6 +31,9 @@ const Images = () => {
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [latestImage, setLatestImage] = useState<GeneratedImage | null>(null);
+  const [showPaywall, setShowPaywall] = useState(false);
+  
+  const { subscription, isLoading } = useSubscription();
 
   useEffect(() => {
     fetchProjects();
@@ -55,8 +59,17 @@ const Images = () => {
     }
   };
 
+  // Check if user can generate before proceeding
+  const handleBeforeGenerate = (): boolean => {
+    if (!subscription.isSubscribed) {
+      setShowPaywall(true);
+      return false;
+    }
+    return true;
+  };
+
   return (
-    <PaywallGuard feature="images" requiredPlan="starter">
+    <>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -95,7 +108,10 @@ const Images = () => {
         >
           {/* Left Column - Image Generator */}
           <div className="space-y-6 lg:col-span-2">
-            <ImageGenerator onImageGenerated={handleImageGenerated} />
+            <ImageGenerator 
+              onImageGenerated={handleImageGenerated}
+              onBeforeGenerate={handleBeforeGenerate}
+            />
           </div>
 
           {/* Right Column - Preview */}
@@ -108,7 +124,15 @@ const Images = () => {
           </div>
         </motion.div>
       </div>
-    </PaywallGuard>
+
+      {/* Paywall Modal */}
+      <PaywallModal
+        open={showPaywall}
+        onOpenChange={setShowPaywall}
+        feature="images"
+        requiredPlan="starter"
+      />
+    </>
   );
 };
 

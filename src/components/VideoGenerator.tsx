@@ -90,6 +90,7 @@ interface VideoGeneratorProps {
   initialStartingFrameUrl?: string;
   defaultVideoMode?: VideoMode;
   hideVideoModeSelector?: boolean;
+  onBeforeGenerate?: () => boolean;
 }
 
 // Filter commercial products for video and avatar only
@@ -134,7 +135,7 @@ const savePrefs = (prefs: Partial<StoredPrefs>) => {
   }
 };
 
-export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStartingFrameUrl, defaultVideoMode, hideVideoModeSelector }: VideoGeneratorProps) => {
+export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStartingFrameUrl, defaultVideoMode, hideVideoModeSelector, onBeforeGenerate }: VideoGeneratorProps) => {
   const storedPrefs = loadPrefs();
   const defaultProduct = VIDEO_AVATAR_PRODUCTS.find((p) => p.id === storedPrefs.productId) 
     || VIDEO_AVATAR_PRODUCTS.find((p) => p.id === "ai-reel-pro") 
@@ -562,6 +563,11 @@ ${formattedHashtags}`;
   }, [initialStartingFrameUrl]);
 
   const generateVideos = async () => {
+    // Check subscription before generating
+    if (onBeforeGenerate && !onBeforeGenerate()) {
+      return;
+    }
+    
     // Step 1: Generate audio with ElevenLabs TTS for voiceover
     const segmentsWithAudio = await Promise.all(
       segments.map(async (segment) => {

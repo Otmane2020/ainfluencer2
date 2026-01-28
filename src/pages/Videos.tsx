@@ -4,7 +4,8 @@ import { motion } from "framer-motion";
 import { VideoGenerator, GenerationTask } from "@/components/VideoGenerator";
 import { VideoPreview } from "@/components/VideoPreview";
 import { GenerationTracker } from "@/components/GenerationTracker";
-import { PaywallGuard } from "@/components/PaywallGuard";
+import { PaywallModal } from "@/components/PaywallModal";
+import { useSubscription } from "@/hooks/useSubscription";
 import {
   Select,
   SelectContent,
@@ -36,7 +37,9 @@ const Videos = () => {
   const [generationTasks, setGenerationTasks] = useState<GenerationTask[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("all");
+  const [showPaywall, setShowPaywall] = useState(false);
   const { toast } = useToast();
+  const { subscription, canAccessFeature } = useSubscription();
 
   // Get starting frame URL from search params (for video continuation)
   const startingFrameUrl = searchParams.get("continueFrom") || undefined;
@@ -78,8 +81,17 @@ const Videos = () => {
     setVideoSegments((prev) => prev.filter((s) => s.id !== id));
   };
 
+  // Check if user can generate before proceeding
+  const handleBeforeGenerate = (): boolean => {
+    if (!canAccessFeature("video")) {
+      setShowPaywall(true);
+      return false;
+    }
+    return true;
+  };
+
   return (
-    <PaywallGuard feature="video" requiredPlan="pro">
+    <>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -122,6 +134,7 @@ const Videos = () => {
               onVideosGenerated={handleVideosGenerated}
               onTasksUpdated={setGenerationTasks}
               initialStartingFrameUrl={startingFrameUrl}
+              onBeforeGenerate={handleBeforeGenerate}
             />
             {generationTasks.length > 0 && (
               <GenerationTracker tasks={generationTasks} />
@@ -138,7 +151,15 @@ const Videos = () => {
           </div>
         </motion.div>
       </div>
-    </PaywallGuard>
+
+      {/* Paywall Modal */}
+      <PaywallModal
+        open={showPaywall}
+        onOpenChange={setShowPaywall}
+        feature="video"
+        requiredPlan="pro"
+      />
+    </>
   );
 };
 

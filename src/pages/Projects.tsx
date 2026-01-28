@@ -3,10 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { PaywallGuard } from "@/components/PaywallGuard";
+import { PaywallModal } from "@/components/PaywallModal";
 import {
   Plus,
   Search,
@@ -46,9 +47,11 @@ const Projects = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { subscription } = useSubscription();
   const [projects, setProjects] = useState<Project[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [showPaywall, setShowPaywall] = useState(false);
 
   useEffect(() => {
     fetchProjects();
@@ -75,6 +78,14 @@ const Projects = () => {
     }
   };
 
+  const handleNewProject = () => {
+    if (!subscription.isSubscribed) {
+      setShowPaywall(true);
+      return;
+    }
+    navigate("/projects/new");
+  };
+
   const handleDelete = async (projectId: string) => {
     try {
       const { error } = await supabase
@@ -99,6 +110,15 @@ const Projects = () => {
     }
   };
 
+  const handleGenerateClick = (projectId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!subscription.isSubscribed) {
+      setShowPaywall(true);
+      return;
+    }
+    navigate(`/videos?project=${projectId}`);
+  };
+
   const filteredProjects = projects.filter(
     (project) =>
       project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -112,7 +132,7 @@ const Projects = () => {
   };
 
   return (
-    <PaywallGuard feature="projects" requiredPlan="starter">
+    <>
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
@@ -123,7 +143,7 @@ const Projects = () => {
             </p>
           </div>
           <Button 
-            onClick={() => navigate("/projects/new")} 
+            onClick={handleNewProject} 
             size="sm"
             className="gap-1.5 shrink-0"
           >
@@ -176,7 +196,7 @@ const Projects = () => {
                   : "Create your first project to start"}
               </p>
               {!searchQuery && (
-                <Button onClick={() => navigate("/projects/new")} size="sm" className="gap-1.5">
+                <Button onClick={handleNewProject} size="sm" className="gap-1.5">
                   <Plus className="h-4 w-4" />
                   Create Project
                 </Button>
@@ -278,10 +298,7 @@ const Projects = () => {
                       <Button
                         size="sm"
                         className="gradient-primary gap-1.5 h-7 px-2.5 text-xs"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/videos?project=${project.id}`);
-                        }}
+                        onClick={(e) => handleGenerateClick(project.id, e)}
                       >
                         <Sparkles className="h-3 w-3" />
                         AI Generate
@@ -294,7 +311,15 @@ const Projects = () => {
           </div>
         )}
       </div>
-    </PaywallGuard>
+
+      {/* Paywall Modal */}
+      <PaywallModal
+        open={showPaywall}
+        onOpenChange={setShowPaywall}
+        feature="projects"
+        requiredPlan="starter"
+      />
+    </>
   );
 };
 
