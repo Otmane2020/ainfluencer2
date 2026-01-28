@@ -48,8 +48,10 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
   const [items, setItems] = useState<ContentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "video" | "image" | "text">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "scheduled" | "published">("all");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [deleteItem, setDeleteItem] = useState<ContentItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -69,7 +71,7 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
     }, 10000); // Poll every 10 seconds
     
     return () => clearInterval(interval);
-  }, [projectId, campaignId, filter, items]);
+  }, [projectId, campaignId, filter, statusFilter, items]);
 
   const fetchHistory = async () => {
     setIsLoading(true);
@@ -91,13 +93,20 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
         query = query.eq("content_type", filter);
       }
 
+      if (statusFilter !== "all") {
+        query = query.eq("status", statusFilter);
+      }
+
       if (limit) {
         query = query.limit(limit);
+      } else {
+        query = query.limit(100); // Default limit to show more posts
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
+      console.log("[ContentHistory] Fetched posts:", data?.length || 0);
       const mappedData = (data || []).map((item: any) => ({
         ...item,
         campaign: item.campaigns ? { name: item.campaigns.name } : null,
@@ -105,6 +114,11 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
       setItems(mappedData as ContentItem[]);
     } catch (error) {
       console.error("Error fetching history:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load content history",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -179,28 +193,43 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
 
   const handleDelete = async () => {
     if (!deleteItem) return;
+    setIsDeleting(true);
 
     try {
-      const { error } = await supabase
-        .from("scheduled_posts")
-        .delete()
-        .eq("id", deleteItem.id);
+      // Use the delete-post API for better logging and consistency
+      const { data: session } = await supabase.auth.getSession();
+      
+      if (session?.session?.access_token) {
+        const { data, error } = await supabase.functions.invoke("delete-post", {
+          body: { postId: deleteItem.id },
+        });
 
-      if (error) throw error;
+        if (error) throw error;
+        console.log("[ContentHistory] Delete API response:", data);
+      } else {
+        // Fallback to direct delete if no session
+        const { error } = await supabase
+          .from("scheduled_posts")
+          .delete()
+          .eq("id", deleteItem.id);
+
+        if (error) throw error;
+      }
 
       setItems((prev) => prev.filter((i) => i.id !== deleteItem.id));
       toast({
         title: "Deleted",
-        description: "Content removed from history",
+        description: "Content removed successfully",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Delete error:", error);
       toast({
         title: "Error",
-        description: "Unable to delete content",
+        description: error.message || "Unable to delete content",
         variant: "destructive",
       });
     } finally {
+      setIsDeleting(false);
       setDeleteItem(null);
     }
   };
@@ -243,18 +272,32 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
             </div>
           </div>
 
-          <Select value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
-            <SelectTrigger className="w-full sm:w-[140px]">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="bg-card border border-border z-50">
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="video">Videos</SelectItem>
-              <SelectItem value="image">Images</SelectItem>
-              <SelectItem value="text">Text</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex gap-2">
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+              <SelectTrigger className="w-full sm:w-[130px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent className="bg-card border border-border z-50">
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="scheduled">Scheduled</SelectItem>
+                <SelectItem value="published">Published</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
+              <SelectTrigger className="w-full sm:w-[130px]">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-card border border-border z-50">
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="video">Videos</SelectItem>
+                <SelectItem value="image">Images</SelectItem>
+                <SelectItem value="text">Text</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Content List */}
@@ -297,9 +340,9 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>
-              Delete
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
