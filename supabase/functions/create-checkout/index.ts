@@ -60,22 +60,44 @@ serve(async (req) => {
     // Check if customer exists
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
     let customerId: string | undefined;
+    let hasOrphanSubscription = false;
+    
     if (customers.data.length > 0) {
       customerId = customers.data[0].id;
       logStep("Found existing Stripe customer", { customerId });
+      
+      // Check if they have a subscription that's NOT one of our products
+      const existingSubs = await stripe.subscriptions.list({ 
+        customer: customerId, 
+        status: "active", 
+        limit: 1 
+      });
+      
+      if (existingSubs.data.length > 0) {
+        const priceId = existingSubs.data[0].items.data[0].price.id;
+        // If their current subscription is not one of our recognized plans, it's orphan
+        if (!Object.values(PLAN_PRICES).includes(priceId)) {
+          hasOrphanSubscription = true;
+          logStep("Customer has orphan subscription, will create fresh checkout", { priceId });
+        }
+      }
     }
 
     const origin = req.headers.get("origin") || "https://ainfluencer2.lovable.app";
     let session: Stripe.Checkout.Session;
 
     if (type === "subscription") {
-      // Subscription checkout
+      // Subscription checkout - for orphan subscriptions, use email only (creates new sub)
       const priceId = PLAN_PRICES[planId];
       if (!priceId) throw new Error(`Invalid plan: ${planId}`);
 
+      // If customer has orphan subscription, don't link to existing customer
+      // This creates a fresh subscription checkout
+      const useCustomerId = hasOrphanSubscription ? undefined : customerId;
+      
       session = await stripe.checkout.sessions.create({
-        customer: customerId,
-        customer_email: customerId ? undefined : user.email,
+        customer: useCustomerId,
+        customer_email: useCustomerId ? undefined : user.email,
         line_items: [{ price: priceId, quantity: 1 }],
         mode: "subscription",
         success_url: `${origin}/settings?payment=success&plan=${planId}`,
@@ -85,8 +107,10 @@ serve(async (req) => {
           plan_id: planId,
           type: "subscription",
         },
+        // Allow promotion codes for marketing
+        allow_promotion_codes: true,
       });
-      logStep("Subscription checkout session created", { sessionId: session.id });
+      logStep("Subscription checkout session created", { sessionId: session.id, freshCheckout: hasOrphanSubscription });
 
     } else if (type === "credits") {
       // One-time credit pack purchase
