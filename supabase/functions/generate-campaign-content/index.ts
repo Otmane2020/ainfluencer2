@@ -229,7 +229,16 @@ serve(async (req) => {
       it: "OUTPUT ONLY IN ITALIAN. No English except brand names.",
       pt: "OUTPUT ONLY IN PORTUGUESE. No English except brand names.",
     };
+    const languageNames: Record<string, string> = {
+      en: "English",
+      fr: "French",
+      es: "Spanish",
+      de: "German",
+      it: "Italian",
+      pt: "Portuguese",
+    };
     const langInstruction = languageInstructions[outputLanguage] || languageInstructions.en;
+    const languageName = languageNames[outputLanguage] || "English";
 
     const generatedPosts: any[] = [];
     let promptsGenerated = 0;
@@ -285,10 +294,12 @@ Respond ONLY with valid JSON:
                   `You are an expert AI IMAGE prompt engineer. ${langInstruction}
 
 CRITICAL: You are generating a prompt for STATIC IMAGE generation, NOT video.
+ALL TEXT IN THE IMAGE MUST BE IN ${languageInstructions[outputLanguage]?.split(".")[0] || "the project language"}. NO ENGLISH TEXT.
 
 FORBIDDEN:
 - NO motion words: "moving", "walking", "talking", "animation", "video", "motion"
 - NO time references: "then", "next", "after", "scene 1", "0-3s"
+- NO English text in the image (unless brand name)
 
 REQUIRED:
 - Subject: What is the main focus (person, product, object)
@@ -297,6 +308,7 @@ REQUIRED:
 - Composition: How is it framed (close-up, wide shot, flat lay)
 - Colors: Color palette aligned with brand (mention ${project.theme_color || "brand colors"})
 - Style: Photography style (professional, editorial, lifestyle, product photography)
+- Text overlay: Any text in the image MUST be in ${languageName || "the project's language"}, never English
 - Quality: End with "Ultra high resolution, professional quality"
 
 PROJECT CONTEXT:
@@ -304,6 +316,7 @@ PROJECT CONTEXT:
 - Description: ${project.description || "Not specified"}
 - Website: ${project.url || "Not specified"}
 - Brand color: ${project.theme_color || "#6366F1"}
+- Language: ${outputLanguage.toUpperCase()} - All image text MUST be in this language
 
 CAMPAIGN SETTINGS:
 - Tone: ${campaign.tone || "professional"}
@@ -313,8 +326,8 @@ ${campaign.subject ? `- Focus topic: ${campaign.subject}` : ""}
 Respond ONLY with valid JSON:
 {
   "title": "Short descriptive title for this image concept",
-  "aiPrompt": "The detailed STATIC IMAGE prompt (no motion, no video, no animation)",
-  "textContent": "Social media caption with hashtags (8-12 relevant hashtags)",
+  "aiPrompt": "The detailed STATIC IMAGE prompt (no motion, no video, no animation). Include instruction that any text must be in ${languageName}",
+  "textContent": "Social media caption with hashtags (8-12 relevant hashtags) - MUST BE IN ${languageName.toUpperCase()}",
   "angle": "problem|benefit|emotion|proof|urgency"
 }`
               },
