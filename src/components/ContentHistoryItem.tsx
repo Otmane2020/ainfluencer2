@@ -17,6 +17,7 @@ interface ContentItem {
   platforms: string[] | null;
   campaign_id: string | null;
   campaign?: { name: string } | null;
+  error_message?: string | null;
 }
 
 interface ContentHistoryItemProps {
@@ -179,10 +180,10 @@ export const ContentHistoryItem = ({
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Calendar className="h-3 w-3" />
               <span className="hidden sm:inline">
-                {format(new Date(item.created_at), "MMM d, yyyy")}
+                {format(new Date(item.created_at), "MMM d, yyyy 'at' HH:mm")}
               </span>
               <span className="sm:hidden">
-                {format(new Date(item.created_at), "MM/dd")}
+                {format(new Date(item.created_at), "MM/dd HH:mm")}
               </span>
             </div>
           </div>
@@ -198,20 +199,29 @@ export const ContentHistoryItem = ({
           )}
 
           {/* Retry button for stale/failed items */}
-          {isGenerating && isStale && (
-            <div className="mt-2 flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRetry}
-                className="h-7 text-xs border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-              >
-                <RefreshCw className="h-3 w-3 mr-1" />
-                Retry Generation
-              </Button>
-              <span className="text-xs text-muted-foreground">Generation timed out</span>
+          {(isGenerating && isStale) || item.status === "failed" ? (
+            <div className="mt-2 flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRetry}
+                  className="h-7 text-xs border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                >
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  Retry Generation
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {isGenerating && isStale ? "Generation timed out" : "Failed"}
+                </span>
+              </div>
+              {item.error_message && (
+                <p className="text-xs text-destructive/80 line-clamp-2">
+                  {item.error_message}
+                </p>
+              )}
             </div>
-          )}
+          ) : null}
 
           {!isGenerating && item.text_content && (
             <p className="mt-2 text-sm line-clamp-2">{item.text_content}</p>
