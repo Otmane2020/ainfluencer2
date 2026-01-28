@@ -1,141 +1,281 @@
 
+# ClipMotion Feature Implementation Plan
 
-## Professional Icon & Emoji Overhaul
+## Overview
 
-Based on my analysis, I've identified several areas where the UI uses childish or unprofessional elements that should be replaced for a professional SaaS application.
-
----
-
-### Issues Identified
-
-**1. Emoji Usage in UI (Unprofessional)**
-Found in 17+ files:
-- `👋` in Dashboard welcome message
-- `🚀` in campaign launch toasts
-- `🎉` in success notifications
-- `🎬` `🖼️` `🎵` `👤` category labels in ModelSelector
-- `✨` `💡` `😕` `📅` in progress modals
-- `🔥` implied decorative usage
-
-**2. Icons That Can Feel "Playful"**
-- `Sparkles` - Used extensively (14+ locations) - can feel too playful
-- `Rocket` - Used for launch buttons
-- `Crown` and `Star` - Used for tier badges
-- `Zap` - Used for Pro plan icon
-
-**3. French Text Remnants**
-- ModelSelector category labels still in French with emojis
-- Some toast messages mixing languages
+ClipMotion is a specialized **video generation mode** for creating short, dynamic, highly-engaging videos optimized for social media platforms (TikTok, Instagram Reels, YouTube Shorts). It uses the **same existing APIs** (CometAPI, Kling, Veo, Sora) but applies a different prompt engineering approach to produce fast-paced, animated content.
 
 ---
 
-### Professional Replacements
+## What is ClipMotion?
 
-#### Emoji → Clean Text or Icons
+```text
++----------------------------------+     +----------------------------------+
+|        STANDARD VIDEO            |     |          CLIPMOTION              |
++----------------------------------+     +----------------------------------+
+| - Cinematic pacing               |     | - Fast cuts (1-2s per scene)     |
+| - Long shots                     |     | - Zoom & pan movements           |
+| - Smooth transitions             |     | - Dynamic text animations        |
+| - Professional narration         |     | - High energy rhythm             |
+| - 4-12 seconds typical           |     | - Social-first (5-15 seconds)    |
+| - Any aspect ratio               |     | - Always vertical 9:16           |
++----------------------------------+     +----------------------------------+
+```
 
-| Current | Replacement | Files |
-|---------|-------------|-------|
-| `👋` in "Hello, Creator 👋" | Remove emoji entirely | Dashboard.tsx, Index.tsx |
-| `🚀` in toasts | Remove or use text "Launch" | CampaignSuggestions.tsx, CampaignDetailModal.tsx |
-| `🎉` in toasts | Remove emoji | ProjectNew.tsx, CalendarPage.tsx |
-| `🎬 Vidéos` | "Videos" (no emoji) | ModelSelector.tsx |
-| `👤 Avatars Parlants` | "AI Avatars" | ModelSelector.tsx |
-| `🖼️ Images` | "Images" (no emoji) | ModelSelector.tsx |
-| `🎵 Audio & Voix` | "Audio & Voice" | ModelSelector.tsx |
-| `✨` in progress messages | Clean text only | CampaignProgressModal.tsx |
-| `💡` tips | Use `Lightbulb` icon | AvatarManager.tsx, ScheduledPostModal.tsx |
-| `🎤` voice indicator | Use `Mic` icon | ProductSelector.tsx |
-| `😕` error message | Remove | CampaignProgressModal.tsx |
-
-#### Icon Refinements
-
-| Current Icon | Context | Replacement | Reason |
-|--------------|---------|-------------|--------|
-| `Sparkles` | AI features, CTA buttons | `Wand2` or `BrainCircuit` | More professional AI indicator |
-| `Rocket` | Launch buttons | `Play` or `ArrowRight` | More subtle, enterprise feel |
-| `Crown` | Cinema tier | `Award` or `Diamond` | More sophisticated |
-| `Zap` | Pro plan | `Bolt` or `TrendingUp` | Less cartoonish |
+**Key Differentiators:**
+- Optimized for Reels / TikTok / Shorts
+- Vertical format (9:16) by default
+- Animated text overlays
+- Fast-paced editing rhythm
+- Designed to capture attention in the first 2 seconds
 
 ---
 
-### Files to Modify
+## Implementation Approach
 
-1. **`src/pages/Dashboard.tsx`**
-   - Line 154: Remove `👋` from welcome message
+### 1. Create ClipMotion Configuration
 
-2. **`src/pages/Index.tsx`**
-   - Line 204: Remove `👋` from welcome message
+**File:** `src/lib/clipMotionConfig.ts` (new)
 
-3. **`src/components/ModelSelector.tsx`**
-   - Lines 360-364: Replace emoji category labels with clean English text
+Define ClipMotion-specific parameters:
+- Default duration: 5-10 seconds
+- Format: Always 9:16 vertical
+- Prompt modifiers for dynamic editing
+- Scene pacing guidelines
+- Text animation instructions
 
-4. **`src/components/ProductSelector.tsx`**
-   - Line 178: Replace `🎤` with `Mic` icon component
+```typescript
+export interface ClipMotionConfig {
+  enabled: boolean;
+  scenePacing: "fast" | "medium";  // cuts per second
+  textAnimations: boolean;
+  cameraMovements: boolean;        // zoom, pan, tilt
+  hookIntensity: "high" | "ultra"; // first 2s attention grabber
+}
 
-5. **`src/components/PricingPacks.tsx`**
-   - Replace `Sparkles` with `Wand2` for Starter plan icon
-   - Keep `Zap` but could replace with `TrendingUp`
+export const CLIPMOTION_PROMPT_MODIFIERS = {
+  pacing: "Fast-paced editing with 1-2 second cuts. Dynamic rhythm.",
+  camera: "Frequent zoom effects, subtle pan movements, smooth parallax.",
+  hook: "Opening hook in first 2 seconds. Immediate visual impact.",
+  text: "Animated text overlays. Kinetic typography. Punchlines emphasized.",
+  style: "Social media optimized. TikTok/Reels aesthetic. Trendy and modern.",
+};
+```
 
-6. **`src/components/campaigns/CampaignSuggestions.tsx`**
-   - Line 157: Remove `🚀` from toast
-   - Line 268: Replace `Rocket` icon with `Play` or `Send`
+### 2. Add Video Mode Toggle in VideoGenerator
 
-7. **`src/components/campaigns/CampaignProgressModal.tsx`**
-   - Lines 28-31: Remove all emojis from status messages
-   - Line 170: Replace `💡` with `Lightbulb` icon
+**File:** `src/components/VideoGenerator.tsx`
 
-8. **`src/components/campaigns/CampaignDetailModal.tsx`**
-   - Line 143: Remove `🚀` from toast
+Add a mode selector in the Quick Settings Bar:
 
-9. **`src/pages/CampaignsPage.tsx`**
-   - Line 109: Remove `🚀` from toast
+```text
++----------------------------------------------+
+| [Format▼] [Avatar] [Voice] [Quality▼]        |
+| [Standard Video] [ClipMotion ✨]              | <-- New toggle
+| [Scenario] [Brand Options]                    |
++----------------------------------------------+
+```
 
-10. **`src/pages/ProjectNew.tsx`**
-    - Line 413: Remove `🎉` from toast
+Changes:
+- Add `videoMode` state: `"standard" | "clipmotion"`
+- Create toggle group or segmented control
+- When ClipMotion is selected:
+  - Force format to "reel" (9:16)
+  - Adjust duration options (5s, 10s recommended)
+  - Display ClipMotion-specific tips
 
-11. **`src/pages/CalendarPage.tsx`**
-    - Line 251: Remove `🎉` from toast
+### 3. Modify Prompt Engineering
 
-12. **`src/components/AvatarManager.tsx`**
-    - Line 225: Replace `💡` with proper Lucide icon
+**File:** `supabase/functions/generate-video-sora/index.ts`
 
-13. **`src/components/ScheduledPostModal.tsx`**
-    - Line 1033: Replace `💡` with proper Lucide icon
+Add ClipMotion prompt enhancement:
 
-14. **`src/components/VideoGenerator.tsx`**
-    - Lines 399, 415, 776, 800: Remove emojis from prompts and toasts
+```typescript
+if (videoMode === "clipmotion") {
+  fullPrompt = `[CLIPMOTION MODE] ${CLIPMOTION_PROMPT_MODIFIERS.hook}
+${CLIPMOTION_PROMPT_MODIFIERS.pacing}
+${CLIPMOTION_PROMPT_MODIFIERS.camera}
+${CLIPMOTION_PROMPT_MODIFIERS.text}
+${CLIPMOTION_PROMPT_MODIFIERS.style}
 
-15. **`src/pages/VideoHistoryPage.tsx`**
-    - Lines 101, 147: Remove `🎬` from toasts
+CONTENT: ${prompt}`;
+}
+```
 
-16. **`src/pages/LandingPage.tsx`**
-    - Replace `Sparkles` with `Wand2` for AI badge
-    - Replace `Zap` feature icon with `Bolt` or similar
+### 4. Update Scenario Generation
 
-17. **`src/pages/FeaturesPage.tsx`**
-    - Line 173: Replace `Sparkles` with `Wand2`
+**File:** `supabase/functions/generate-video-scenario/index.ts`
 
-18. **`src/components/campaigns/CampaignWizardModal.tsx`**
-    - Line 289: Replace `Sparkles` with `Wand2`
+Add ClipMotion-specific scenario templates:
+
+```typescript
+if (videoMode === "clipmotion") {
+  systemPrompt += `
+Generate SHORT, PUNCHY scenarios optimized for social media:
+- Hook in first 2 seconds (question, shocking stat, or bold statement)
+- Maximum 5 scenes, 1-2 seconds each
+- Include text overlay suggestions for each scene
+- End with a call-to-action or hook for engagement
+- Use trending formats: POV, storytelling, quick tips
+`;
+}
+```
+
+### 5. Add ClipMotion to Campaign Wizard
+
+**File:** `src/components/campaigns/CampaignWizardModal.tsx`
+
+In the Volume step (Step 3), add a ClipMotion toggle for video campaigns:
+
+```text
++--------------------------------------------------+
+| Video Settings                                    |
+| [x] Generate as ClipMotion                        |
+|     Create dynamic, social-first video content    |
++--------------------------------------------------+
+```
+
+When enabled:
+- Store `clipmotion: true` in campaign settings
+- Pass to `generate-campaign-content` edge function
+
+### 6. Update Campaign Content Generation
+
+**File:** `supabase/functions/generate-campaign-content/index.ts`
+
+Add ClipMotion handling:
+
+```typescript
+const isClipMotion = body.clipmotion || false;
+
+// When generating video prompts
+if (isClipMotion) {
+  promptInstructions += `
+Style: ClipMotion (social-first, fast-paced)
+- Create hook-heavy content
+- Short punchy scenes
+- Dynamic camera movements
+- Animated text suggestions
+`;
+}
+```
 
 ---
 
-### Summary of Changes
+## UI/UX Design
 
-| Change Type | Count |
-|-------------|-------|
-| Emoji removals | ~25 instances |
-| Emoji → Icon replacements | ~8 instances |
-| Icon replacements (Sparkles → Wand2) | ~15 instances |
-| Icon replacements (Rocket → Play/Send) | ~3 instances |
-| French → English labels | 4 category labels |
+### VideoGenerator Mode Selector
+
+```text
+┌─────────────────────────────────────────────────┐
+│  Video Type                                      │
+│  ┌──────────────┐  ┌──────────────────────────┐  │
+│  │  Standard    │  │  ✨ ClipMotion           │  │
+│  │  Video       │  │  Social & Dynamic        │  │
+│  └──────────────┘  └──────────────────────────┘  │
+└─────────────────────────────────────────────────┘
+```
+
+### Toggle Group Component
+
+Using existing `ToggleGroup` from `@radix-ui/react-toggle-group`:
+
+```tsx
+<ToggleGroup type="single" value={videoMode} onValueChange={setVideoMode}>
+  <ToggleGroupItem value="standard">
+    <Video className="h-4 w-4 mr-1" />
+    Standard
+  </ToggleGroupItem>
+  <ToggleGroupItem value="clipmotion" className="gap-1">
+    <Sparkles className="h-4 w-4 mr-1 text-primary" />
+    ClipMotion
+  </ToggleGroupItem>
+</ToggleGroup>
+```
 
 ---
 
-### Technical Notes
+## Files to Create/Modify
 
-- All replacements use existing Lucide React icons (no new dependencies)
-- `Wand2` is available in lucide-react and looks more professional for AI features
-- `BrainCircuit` is another option for AI but may be too technical
-- The `Lightbulb` icon is already imported in some files, just need to use it instead of emoji
+| File | Action | Description |
+|------|--------|-------------|
+| `src/lib/clipMotionConfig.ts` | **Create** | ClipMotion configuration & prompt modifiers |
+| `src/components/VideoGenerator.tsx` | **Modify** | Add video mode toggle, pass mode to API |
+| `src/components/VideoModeSelector.tsx` | **Create** | Reusable mode selector component |
+| `supabase/functions/generate-video-sora/index.ts` | **Modify** | Handle ClipMotion prompt enhancement |
+| `supabase/functions/generate-video-scenario/index.ts` | **Modify** | ClipMotion-specific scenario generation |
+| `supabase/functions/generate-campaign-content/index.ts` | **Modify** | Support ClipMotion flag in campaigns |
+| `src/components/campaigns/CampaignWizardModal.tsx` | **Modify** | Add ClipMotion toggle for video campaigns |
+| `src/lib/videoScenarios.ts` | **Modify** | Add ClipMotion-specific presets |
 
+---
+
+## Technical Details
+
+### VideoGenerator Changes
+
+```typescript
+// New state
+const [videoMode, setVideoMode] = useState<"standard" | "clipmotion">("standard");
+
+// Auto-adjust format when ClipMotion selected
+useEffect(() => {
+  if (videoMode === "clipmotion") {
+    setSelectedFormat("reel");
+  }
+}, [videoMode]);
+
+// Pass mode to API
+body: JSON.stringify({
+  prompt: ...,
+  videoMode, // "standard" or "clipmotion"
+  duration: segment.duration,
+  format: selectedFormat,
+  ...
+})
+```
+
+### Edge Function Enhancement
+
+```typescript
+// In generate-video-sora/index.ts
+const { videoMode = "standard" } = await req.json();
+
+let fullPrompt = prompt;
+
+if (videoMode === "clipmotion") {
+  const clipMotionPrefix = `
+[CLIPMOTION - Social Media Optimized Video]
+- Fast-paced editing with 1-2 second scene cuts
+- Dynamic camera movements (zoom, pan, parallax)
+- High energy opening hook in first 2 seconds
+- Animated text overlays and kinetic typography
+- Modern social media aesthetic (TikTok/Reels style)
+
+CONTENT TO VISUALIZE:
+`;
+  fullPrompt = clipMotionPrefix + prompt;
+}
+```
+
+---
+
+## Constraints Respected
+
+1. **No new APIs** - Uses existing CometAPI models (Kling, Veo, Sora)
+2. **No module recreation** - Extends existing VideoGenerator
+3. **Clean integration** - Just adds a mode toggle
+4. **Backwards compatible** - Default is "Standard" mode
+5. **English UI** - All labels and text in English
+
+---
+
+## Estimated Changes
+
+- **~150 lines** new configuration file
+- **~80 lines** new VideoModeSelector component
+- **~50 lines** modifications to VideoGenerator
+- **~30 lines** modifications per edge function (3 functions)
+- **~20 lines** modifications to CampaignWizardModal
+
+**Total: ~400-450 lines of new/modified code**
