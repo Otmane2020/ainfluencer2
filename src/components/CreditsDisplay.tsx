@@ -107,7 +107,7 @@ export const CreditsDisplay = ({ compact = false }: CreditsDisplayProps) => {
           </div>
 
           {/* Credit Packs */}
-          <CreditPacks compact onSelectPack={() => setOpen(false)} />
+          <CreditPacks compact onCheckoutStarted={() => setOpen(false)} />
         </div>
       </PopoverContent>
     </Popover>

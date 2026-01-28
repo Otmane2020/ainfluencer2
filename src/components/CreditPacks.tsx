@@ -7,25 +7,23 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { useState } from "react";
 
 interface CreditPacksProps {
-  onSelectPack?: (pack: CreditPack) => void;
+  onCheckoutStarted?: () => void;
   compact?: boolean;
 }
 
-export const CreditPacks = ({ onSelectPack, compact = false }: CreditPacksProps) => {
+export const CreditPacks = ({ onCheckoutStarted, compact = false }: CreditPacksProps) => {
   const { toast } = useToast();
   const { startCheckout } = useSubscription();
   const [loadingPackId, setLoadingPackId] = useState<string | null>(null);
 
   const handleSelect = async (pack: CreditPack) => {
-    if (onSelectPack) {
-      onSelectPack(pack);
-      return;
-    }
-
     setLoadingPackId(pack.id);
     try {
       const result = await startCheckout("credits", { packId: pack.id });
-      if (!result.success) {
+      if (result.success) {
+        // Close popover after checkout starts
+        onCheckoutStarted?.();
+      } else {
         toast({
           title: "Error",
           description: "Failed to start checkout. Please try again.",
