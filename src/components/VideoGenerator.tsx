@@ -22,7 +22,7 @@ import {
   VideoScenario,
   buildScenarioPrompt,
 } from "@/lib/videoScenarios";
-import { type VideoMode, CLIPMOTION_DURATIONS, CLIPMOTION_DEFAULT_FORMAT } from "@/lib/clipMotionConfig";
+import { type VideoMode, CLIPMOTION_DURATIONS, CLIPMOTION_DEFAULT_FORMAT, CLIPMOTION_FEATURES } from "@/lib/clipMotionConfig";
 import { ScenarioPickerModal, GeneratedScenario } from "@/components/ScenarioPickerModal";
 import {
   Dialog,
@@ -85,9 +85,11 @@ export interface GenerationTask {
 }
 
 interface VideoGeneratorProps {
-  onVideosGenerated: (videos: VideoSegment[]) => void;
+  onVideosGenerated?: (videos: VideoSegment[]) => void;
   onTasksUpdated?: (tasks: GenerationTask[]) => void;
   initialStartingFrameUrl?: string;
+  defaultVideoMode?: VideoMode;
+  hideVideoModeSelector?: boolean;
 }
 
 // Filter commercial products for video and avatar only
@@ -132,7 +134,7 @@ const savePrefs = (prefs: Partial<StoredPrefs>) => {
   }
 };
 
-export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStartingFrameUrl }: VideoGeneratorProps) => {
+export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStartingFrameUrl, defaultVideoMode, hideVideoModeSelector }: VideoGeneratorProps) => {
   const storedPrefs = loadPrefs();
   const defaultProduct = VIDEO_AVATAR_PRODUCTS.find((p) => p.id === storedPrefs.productId) 
     || VIDEO_AVATAR_PRODUCTS.find((p) => p.id === "ai-reel-pro") 
@@ -184,7 +186,7 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
   );
 
   // Video mode state (standard or clipmotion)
-  const [videoMode, setVideoModeState] = useState<VideoMode>(storedPrefs.videoMode || "standard");
+  const [videoMode, setVideoModeState] = useState<VideoMode>(defaultVideoMode || storedPrefs.videoMode || "standard");
 
   const setBrandOptions = (options: BrandOptionsState) => {
     setBrandOptionsState(options);

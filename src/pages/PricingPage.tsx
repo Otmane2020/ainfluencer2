@@ -6,8 +6,9 @@ import { CreditPacks } from "@/components/CreditPacks";
 import { seoPages, productSchema, organizationSchema } from "@/lib/seo-data";
 import { Separator } from "@/components/ui/separator";
 import { IMAGE_PACKS, VIDEO_PACKS } from "@/lib/commercialProducts";
+import { CLIPMOTION_PACKS } from "@/lib/clipMotionConfig";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Image, Film, Star, Coins } from "lucide-react";
+import { Image, Film, Star, Coins, Sparkles } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -90,8 +91,12 @@ const PricingPage = () => {
             </p>
           </div>
 
-          <Tabs defaultValue="images" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-8">
+          <Tabs defaultValue="clipmotion" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-8">
+              <TabsTrigger value="clipmotion" className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                ClipMotion
+              </TabsTrigger>
               <TabsTrigger value="images" className="flex items-center gap-2">
                 <Image className="h-4 w-4" />
                 Image Packs
@@ -101,6 +106,63 @@ const PricingPage = () => {
                 Video Packs
               </TabsTrigger>
             </TabsList>
+
+            {/* ClipMotion Packs Tab */}
+            <TabsContent value="clipmotion">
+              <div className="bg-card rounded-xl border overflow-hidden">
+                <div className="p-4 bg-gradient-to-r from-primary/10 to-accent/10 border-b">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-primary" />
+                    ClipMotion Packs
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Viral-ready videos for TikTok, Reels & Shorts
+                  </p>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="font-semibold">Pack</TableHead>
+                      <TableHead className="font-semibold">Content</TableHead>
+                      <TableHead className="text-right font-semibold">Price</TableHead>
+                      <TableHead className="text-right font-semibold w-32"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {CLIPMOTION_PACKS.map((pack) => (
+                      <TableRow key={pack.id} className="hover:bg-muted/30">
+                        <TableCell className="font-medium">
+                          {pack.name}
+                          {pack.popular && (
+                            <Star className="inline-block h-4 w-4 text-amber-500 ml-2" fill="currentColor" />
+                          )}
+                          {pack.badge && (
+                            <Badge variant="secondary" className="ml-2 text-[10px] bg-accent/20 text-accent border-0">
+                              {pack.badge}
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {pack.quantity} ClipMotion videos
+                        </TableCell>
+                        <TableCell className="text-right font-bold">
+                          {pack.price} €
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button 
+                            size="sm" 
+                            className="bg-primary hover:bg-primary/90"
+                            onClick={() => handleBuyPack(pack.name)}
+                          >
+                            Buy
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </TabsContent>
 
             {/* Image Packs Tab */}
             <TabsContent value="images">
