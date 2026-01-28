@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Image, Download, Trash2, ExternalLink, Loader2 } from "lucide-react";
+import { Image, Download, Trash2, ExternalLink, Loader2, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -12,6 +12,7 @@ interface StoredImage {
   url: string;
   createdAt: Date;
   size: number;
+  folder: "images" | "product-shots";
 }
 
 const ImageHistoryPage = () => {
@@ -26,17 +27,23 @@ const ImageHistoryPage = () => {
   const fetchImages = async () => {
     setIsLoading(true);
     try {
-      const { data: files, error } = await supabase.storage
-        .from("media")
-        .list("images", {
+      // Fetch from both images and product-shots folders in parallel
+      const [imagesResult, productShotsResult] = await Promise.all([
+        supabase.storage.from("media").list("images", {
           limit: 100,
           sortBy: { column: "created_at", order: "desc" },
-        });
+        }),
+        supabase.storage.from("media").list("product-shots", {
+          limit: 100,
+          sortBy: { column: "created_at", order: "desc" },
+        }),
+      ]);
 
-      if (error) throw error;
+      const allImages: StoredImage[] = [];
 
-      if (files && files.length > 0) {
-        const imageList: StoredImage[] = files
+      // Process regular images
+      if (imagesResult.data && imagesResult.data.length > 0) {
+        const regularImages = imagesResult.data
           .filter((file) => file.name.match(/\.(jpg|jpeg|png|gif|webp)$/i))
           .map((file) => {
             const { data: urlData } = supabase.storage
@@ -44,16 +51,41 @@ const ImageHistoryPage = () => {
               .getPublicUrl(`images/${file.name}`);
 
             return {
-              id: file.id || file.name,
+              id: file.id || `img-${file.name}`,
               name: file.name,
               url: urlData.publicUrl,
               createdAt: new Date(file.created_at || Date.now()),
               size: file.metadata?.size || 0,
+              folder: "images" as const,
             };
           });
-
-        setImages(imageList);
+        allImages.push(...regularImages);
       }
+
+      // Process product shots
+      if (productShotsResult.data && productShotsResult.data.length > 0) {
+        const productShots = productShotsResult.data
+          .filter((file) => file.name.match(/\.(jpg|jpeg|png|gif|webp)$/i))
+          .map((file) => {
+            const { data: urlData } = supabase.storage
+              .from("media")
+              .getPublicUrl(`product-shots/${file.name}`);
+
+            return {
+              id: file.id || `ps-${file.name}`,
+              name: file.name,
+              url: urlData.publicUrl,
+              createdAt: new Date(file.created_at || Date.now()),
+              size: file.metadata?.size || 0,
+              folder: "product-shots" as const,
+            };
+          });
+        allImages.push(...productShots);
+      }
+
+      // Sort all images by creation date
+      allImages.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      setImages(allImages);
     } catch (error) {
       console.error("Error fetching images:", error);
     } finally {
@@ -89,9 +121,10 @@ const ImageHistoryPage = () => {
 
   const handleDelete = async (image: StoredImage) => {
     try {
+      const filePath = `${image.folder}/${image.name}`;
       const { error } = await supabase.storage
         .from("media")
-        .remove([`images/${image.name}`]);
+        .remove([filePath]);
 
       if (error) throw error;
 
@@ -150,6 +183,14 @@ const ImageHistoryPage = () => {
                 alt={image.name}
                 className="h-full w-full object-cover"
               />
+              
+              {/* Product Shot Badge */}
+              {image.folder === "product-shots" && (
+                <Badge variant="secondary" className="absolute top-1 left-1 text-[10px] px-1.5 py-0.5 gap-1">
+                  <Camera className="h-3 w-3" />
+                  Shot
+                </Badge>
+              )}
               
               {/* Overlay - visible on touch/hover */}
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 active:opacity-100 transition-opacity flex items-center justify-center gap-2">
