@@ -34,11 +34,34 @@ const VideoHistoryPage = () => {
   // Get all in-progress tasks (queued or in_progress status)
   const activeTasks = getPendingTasks();
   
-  // Debug: log active tasks on mount and when they change
+  // Get completed tasks to merge into history
+  const completedTasks = tasks.filter(t => t.status === "completed" && t.videoUrl);
+
+  // Convert completed tasks to VideoHistoryItem format and merge with stored videos
   useEffect(() => {
-    console.log("[VideoHistory] All tasks:", tasks);
-    console.log("[VideoHistory] Active tasks:", activeTasks);
-  }, [tasks, activeTasks]);
+    const completedVideos: VideoHistoryItem[] = completedTasks.map(task => ({
+      id: task.taskId,
+      title: `AI Video - ${task.model}`,
+      script: task.script || "AI generated video",
+      duration: task.duration,
+      videoUrl: task.videoUrl,
+      createdAt: task.finishTime ? new Date(task.finishTime * 1000) : new Date(),
+      voice: task.model,
+      status: "ready" as const,
+    }));
+
+    if (completedVideos.length > 0) {
+      setVideoHistory(prev => {
+        // Merge: add completed tasks that don't exist in current history
+        const existingIds = new Set(prev.map(v => v.id));
+        const newVideos = completedVideos.filter(v => !existingIds.has(v.id));
+        if (newVideos.length > 0) {
+          return [...newVideos, ...prev];
+        }
+        return prev;
+      });
+    }
+  }, [completedTasks]);
 
   useEffect(() => {
     fetchProjects();
