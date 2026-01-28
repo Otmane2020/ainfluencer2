@@ -22,6 +22,7 @@ import VideoHistoryPage from "./pages/VideoHistoryPage";
 import ImageHistoryPage from "./pages/ImageHistoryPage";
 import PostHistoryPage from "./pages/PostHistoryPage";
 import NotFound from "./pages/NotFound";
+import ProductShotsPage from "./pages/ProductShotsPage";
 // SEO Pages
 import FeaturesPage from "./pages/FeaturesPage";
 import PricingPage from "./pages/PricingPage";
@@ -64,6 +65,7 @@ const App = () => (
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/videos" element={<Videos />} />
             <Route path="/images" element={<Images />} />
+            <Route path="/product-shots" element={<ProductShotsPage />} />
             <Route path="/posts" element={<Posts />} />
             <Route path="/history/videos" element={<VideoHistoryPage />} />
             <Route path="/history/images" element={<ImageHistoryPage />} />
