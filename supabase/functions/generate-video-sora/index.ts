@@ -306,17 +306,59 @@ serve(async (req) => {
         : rawProgress;
 
       // Extract timestamps
-      const submitTime = videoData.submit_time || innerData.submit_time;
-      const finishTime = videoData.finish_time || innerData.finish_time;
+      const submitTime = videoData.submit_time || innerData.submit_time || videoData.created_at;
+      const finishTime = videoData.finish_time || innerData.finish_time || videoData.completed_at;
 
-      // Extract video URL (CometAPI quirk: sometimes in fail_reason)
+      // Extract video URL - try multiple possible locations
       let videoUrl = undefined;
       if (taskStatus === "success" || taskStatus === "succeeded" || taskStatus === "completed" || taskStatus === "done") {
-        if (videoData.fail_reason && videoData.fail_reason.startsWith("http")) {
+        // Try various CometAPI response locations for video URL
+        videoUrl = 
+          videoData.video_url || 
+          videoData.url || 
+          videoData.output_video ||
+          videoData.output ||
+          videoData.result ||
+          videoData.download_url ||
+          innerData.output_video || 
+          innerData.video_url || 
+          innerData.url ||
+          innerData.output ||
+          innerData.result ||
+          innerData.download_url;
+        
+        // CometAPI quirk: sometimes video URL is in fail_reason field
+        if (!videoUrl && videoData.fail_reason && typeof videoData.fail_reason === "string" && videoData.fail_reason.startsWith("http")) {
           videoUrl = videoData.fail_reason;
-        } else {
-          videoUrl = innerData.output_video || videoData.output_video || 
-                     videoData.video_url || innerData.url || videoData.url;
+        }
+        
+        // If still no URL, try to fetch the video content endpoint
+        if (!videoUrl) {
+          console.log("No video URL in status response, trying content endpoint...");
+          try {
+            const contentResponse = await fetch(`https://api.cometapi.com/v1/videos/${taskId}/content`, {
+              method: "GET",
+              headers: {
+                "Authorization": `Bearer ${COMETAPI_API_KEY}`,
+              },
+            });
+            
+            if (contentResponse.ok) {
+              // Check if it returns a redirect or a direct URL
+              const contentType = contentResponse.headers.get("content-type");
+              if (contentType?.includes("application/json")) {
+                const contentData = await contentResponse.json();
+                videoUrl = contentData.url || contentData.video_url || contentData.download_url;
+                console.log("Got video URL from content endpoint:", videoUrl);
+              } else {
+                // It's returning the video directly, construct a download URL
+                videoUrl = `https://api.cometapi.com/v1/videos/${taskId}/content`;
+                console.log("Content endpoint returns video directly, using:", videoUrl);
+              }
+            }
+          } catch (contentError) {
+            console.error("Error fetching content endpoint:", contentError);
+          }
         }
       }
 
