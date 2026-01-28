@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PricingPacks } from "@/components/PricingPacks";
+import { TrustedByCarousel } from "@/components/TrustedByCarousel";
 import {
   Play,
   Wand2,
@@ -176,6 +177,9 @@ const LandingPage = () => {
           </motion.div>
         </div>
       </section>
+
+      {/* Trusted By Carousel */}
+      <TrustedByCarousel />
 
       {/* Features Section */}
       <section id="features" className="py-12 md:py-20 bg-muted/30">
