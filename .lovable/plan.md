@@ -1,310 +1,264 @@
 
 
-## New Pricing & Credits System for ClipMotion
+## Complete Model Restructure: Quality-Based System
 
-Based on your strategic discussion, I'll implement a complete **Subscription + Credits** system that separates Image and Video campaigns, with cost-controlled AutoPost.
-
----
-
-### Overview
-
-**Business Model:**
-- **Subscriptions** = Access + Features (monthly fee)
-- **Credits** = Consumption (1 credit = 1€)
-- **AutoPost** = Orchestration engine (consumes credits)
+Based on your detailed pricing tables, I'll restructure the entire model system to use **quality levels** (Smart, High, Studio, Cinema) instead of specific product names, and update all edge functions with the correct CometAPI model mappings.
 
 ---
 
-### 1. Database Schema
+### 1. New Quality System Overview
 
-#### New Tables
+**IMAGES:**
+| Quality (UI) | Internal Model | Unit Price | Available Plans |
+|-------------|----------------|------------|-----------------|
+| Smart Image | Flux 2 Flex | 1.50€ | All (Starter, Pro, Business) |
+| High Image | Nano Banana Pro / GPT Image | 2.50€ | Pro, Business |
+| Studio Image | Flux 2 Pro / GPT Image HQ | 4.00€ | Business only |
 
-**`subscriptions`** - Track user plans
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key |
-| user_id | uuid | FK to auth |
-| plan_id | text | starter/pro/business |
-| status | text | active/paused/cancelled |
-| started_at | timestamp | Plan start date |
-| renews_at | timestamp | Next billing date |
-| created_at | timestamp | Created |
-
-**`credits`** - Track user credit balance
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key |
-| user_id | uuid | FK to auth |
-| balance | integer | Current credits |
-| updated_at | timestamp | Last update |
-
-**`credit_transactions`** - Credit history
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key |
-| user_id | uuid | FK to auth |
-| amount | integer | +/- credits |
-| type | text | purchase/consumption/bonus |
-| description | text | "Image Pro generation" |
-| created_at | timestamp | Transaction time |
+**VIDEOS:**
+| Quality (UI) | Internal Model | Unit Price | Available Plans |
+|-------------|----------------|------------|-----------------|
+| Smart Video | Kling Std / Veo Fast | 9.90€ | Pro (1/day), Business (3/day) |
+| High Video | Veo 3.1 / Sora 2 | 12.90€ | Pro, Business (packs only) |
+| Cinema Video | Sora Pro / Veo Pro | 19.90€ | Business only (packs only) |
 
 ---
 
-### 2. Pricing Plans (Updated)
+### 2. Files to Modify
+
+#### A. `src/lib/commercialProducts.ts` - Complete Rewrite
+
+**Changes:**
+- Replace current products with quality-based system
+- Add `QUALITY_LEVELS` config for images and videos
+- Add `MODEL_ROUTING` mapping quality → CometAPI model
+- Update `PRICING_PLANS` with correct plan restrictions
+- Add helper functions for plan-based access control
 
 ```typescript
-// src/lib/commercialProducts.ts
+// NEW: Quality-based products
+export const QUALITY_LEVELS = {
+  image: [
+    { id: "smart-image", name: "Smart Image", internalModel: "flux-2-flex", price: 1.50 },
+    { id: "high-image", name: "High Image", internalModel: "nano-banana-pro", price: 2.50 },
+    { id: "studio-image", name: "Studio Image", internalModel: "flux-2-pro", price: 4.00 },
+  ],
+  video: [
+    { id: "smart-video", name: "Smart Video", internalModel: "kling-std", price: 9.90 },
+    { id: "high-video", name: "High Video", internalModel: "veo-3.1", price: 12.90 },
+    { id: "cinema-video", name: "Cinema Video", internalModel: "sora-2-pro", price: 19.90 },
+  ],
+};
 
-export const PRICING_PLANS = [
-  {
-    id: "starter",
-    name: "Starter",
-    price: 19,
-    priceUnit: "/month",
-    description: "Perfect for creators getting started",
-    features: [
-      "3 projects",
-      "AutoPost AI Images (up to 30/day)",
-      "Standard quality images",
-      "Email support",
-    ],
-    limits: {
-      projects: 3,
-      autopostImages: 30,    // per day
-      autopostVideos: 0,      // no videos in AutoPost
-      imageQuality: "standard",
-      videoQuality: null,
-    },
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    price: 49,
-    priceUnit: "/month",
-    description: "For brands and serious creators",
-    features: [
-      "10 projects",
-      "AutoPost AI Images (unlimited)",
-      "AutoPost AI Videos (1/day)",
-      "Pro & Ultra quality",
-      "Priority support",
-    ],
-    limits: {
-      projects: 10,
-      autopostImages: -1,     // unlimited
-      autopostVideos: 1,      // 1 per day
-      imageQuality: "pro",
-      videoQuality: "pro",
-    },
-    popular: true,
-    badge: "POPULAR",
-  },
-  {
-    id: "business",
-    name: "Business",
-    price: 99,
-    priceUnit: "/month",
-    description: "For agencies and power users",
-    features: [
-      "Unlimited projects",
-      "AutoPost AI Images (unlimited)",
-      "AutoPost AI Videos (3/day)",
-      "AI Cinema & Influencer",
-      "Priority queue",
-      "API access",
-    ],
-    limits: {
-      projects: -1,
-      autopostImages: -1,
-      autopostVideos: 3,
-      imageQuality: "studio",
-      videoQuality: "cinema",
-    },
-    badge: "PRO",
-  },
-];
-```
-
----
-
-### 3. Credit Pricing
-
-```typescript
-// Per-generation credit costs
-export const CREDIT_COSTS = {
+// Internal model → CometAPI model mapping
+export const COMETAPI_MODEL_ROUTING = {
   // Images
-  "ai-image-smart": 1,      // Lovable AI
-  "ai-image-standard": 2,   // Flux Flex
-  "ai-image-pro": 5,        // Nano Banana Pro
-  "ai-image-studio": 12,    // GPT Image 1.5
-  
+  "flux-2-flex": "flux-2-flex",
+  "nano-banana-pro": "nano-banana-pro",
+  "flux-2-pro": "flux-2-pro",
   // Videos
-  "ai-reel": 15,            // Kling
-  "ai-reel-pro": 29,        // Sora 2
-  "ai-cinema": 69,          // Veo 3.1
-  
-  // Avatars
-  "ai-influencer-standard": 39,
-  "ai-influencer-pro": 69,
+  "kling-std": "kling-video",
+  "veo-3.1": "veo-2",
+  "sora-2-pro": "sora-2",
 };
 
-// Credit packs for purchase
-export const CREDIT_PACKS = [
-  { id: "pack-50", credits: 50, price: 50, bonus: 0, label: "50 Credits" },
-  { id: "pack-100", credits: 100, price: 95, bonus: 5, label: "100 Credits (+5%)" },
-  { id: "pack-250", credits: 250, price: 225, bonus: 10, label: "250 Credits (+10%)" },
-  { id: "pack-500", credits: 500, price: 425, bonus: 15, label: "500 Credits (+15%)" },
-  { id: "pack-1000", credits: 1000, price: 800, bonus: 20, label: "1000 Credits (+20%)" },
-];
+// Plan access control
+export const PLAN_QUALITY_ACCESS = {
+  starter: {
+    image: ["smart-image"],
+    video: [], // NO video access
+  },
+  pro: {
+    image: ["smart-image", "high-image"],
+    video: ["smart-video", "high-video"],
+  },
+  business: {
+    image: ["smart-image", "high-image", "studio-image"],
+    video: ["smart-video", "high-video", "cinema-video"],
+  },
+};
 ```
 
 ---
 
-### 4. Campaign Types (Separated)
+#### B. `supabase/functions/generate-video-sora/index.ts` - CometAPI Model Update
 
-Update the wizard to have **Image Campaign** and **Video Campaign** as distinct types:
+**Current Issue:** Uses old model names that don't match the new quality system.
 
-**Image Campaign** (low cost, high volume)
-- Up to 30 images/day via AutoPost
-- Standard quality for Starter, Pro for Pro+
-- Each image consumes credits
-
-**Video Campaign** (premium, limited)
-- Limited by plan (0/1/3 per day)
-- Consumes higher credits
-- Optional add-on for Starter
+**Changes:**
+- Update `MODEL_CONFIGS` to use quality-based model IDs
+- Add correct CometAPI model mappings:
+  - `smart-video` → `kling-video` (Kling Std)
+  - `high-video` → `veo-2` (Veo 3.1)
+  - `cinema-video` → `sora-2` (Sora 2 Pro)
 
 ```typescript
-const CAMPAIGN_TYPES = [
-  { 
-    id: "image", 
-    label: "Image Campaign", 
-    icon: ImageIcon, 
-    description: "AutoPost up to 30 images/day",
-    availableFrom: "starter" 
+const MODEL_CONFIGS: Record<string, ModelConfig> = {
+  // Smart Video - Kling Standard (fast, affordable)
+  "smart-video": {
+    apiModel: "kling-video",
+    durations: [5, 10],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
   },
-  { 
-    id: "video", 
-    label: "Video Campaign", 
-    icon: Video, 
-    description: "Premium AI videos (plan limits apply)",
-    availableFrom: "pro"  // Not for Starter by default
+  "kling-std": {
+    apiModel: "kling-video",
+    durations: [5, 10],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
   },
-];
+  // High Video - Veo 3.1 / Sora 2
+  "high-video": {
+    apiModel: "veo-2",
+    durations: [5, 10],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
+  },
+  "veo-3.1": {
+    apiModel: "veo-2",
+    durations: [5, 10],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
+  },
+  "sora-2": {
+    apiModel: "sora-2",
+    durations: [4, 8, 12],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
+  },
+  // Cinema Video - Sora 2 Pro / Veo Pro
+  "cinema-video": {
+    apiModel: "sora-2",
+    durations: [4, 8, 12],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
+  },
+  "sora-2-pro": {
+    apiModel: "sora-2",
+    durations: [4, 8, 12],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
+  },
+  "veo-pro": {
+    apiModel: "veo-2",
+    durations: [10, 20, 30],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
+  },
+  // Legacy compatibility
+  "kling-v2-master": {
+    apiModel: "kling-video",
+    durations: [5, 10],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
+  },
+};
 ```
 
 ---
 
-### 5. AutoPost Credit Consumption Logic
+#### C. `supabase/functions/generate-image/index.ts` - CometAPI Image Models
+
+**Current Issue:** Uses Lovable AI only, but we need CometAPI integration for Flux 2 Flex/Pro and Nano Banana Pro.
+
+**Changes:**
+- Add CometAPI image generation for non-Lovable models
+- Route Smart Image → Lovable AI or Flux 2 Flex (CometAPI)
+- Route High Image → Nano Banana Pro (CometAPI)
+- Route Studio Image → Flux 2 Pro (CometAPI)
 
 ```typescript
-// In run-campaigns-cron edge function
-
-// Before generating, check:
-// 1. User has enough credits
-// 2. User hasn't exceeded daily limits based on plan
-
-const checkCanGenerate = async (userId: string, contentType: 'image' | 'video') => {
-  const { data: subscription } = await supabase
-    .from('subscriptions')
-    .select('plan_id')
-    .eq('user_id', userId)
-    .single();
-    
-  const { data: credits } = await supabase
-    .from('credits')
-    .select('balance')
-    .eq('user_id', userId)
-    .single();
-    
-  const plan = PRICING_PLANS.find(p => p.id === subscription.plan_id);
-  const cost = CREDIT_COSTS[productId];
-  
-  // Check credits
-  if (credits.balance < cost) {
-    return { allowed: false, reason: 'insufficient_credits' };
-  }
-  
-  // Check daily limits for videos
-  if (contentType === 'video') {
-    const todayCount = await getTodayVideoCount(userId);
-    if (plan.limits.autopostVideos !== -1 && todayCount >= plan.limits.autopostVideos) {
-      return { allowed: false, reason: 'daily_limit_reached' };
-    }
-  }
-  
-  return { allowed: true };
+// Model routing based on quality level
+const QUALITY_MODEL_MAP: Record<string, { provider: "lovable" | "cometapi"; model: string }> = {
+  "smart-image": { provider: "cometapi", model: "flux-2-flex" },
+  "high-image": { provider: "cometapi", model: "nano-banana-pro" },
+  "studio-image": { provider: "cometapi", model: "flux-2-pro" },
+  // Legacy IDs
+  "ai-image-smart": { provider: "lovable", model: "google/gemini-2.5-flash-image" },
+  "ai-image-standard": { provider: "cometapi", model: "flux-2-flex" },
+  "ai-image-pro": { provider: "cometapi", model: "nano-banana-pro" },
+  "ai-image-studio": { provider: "cometapi", model: "flux-2-pro" },
 };
+```
 
-// After generation, deduct credits
-const deductCredits = async (userId: string, amount: number, description: string) => {
-  // Update balance
-  await supabase.rpc('deduct_credits', { user_id: userId, amount });
-  
-  // Log transaction
-  await supabase.from('credit_transactions').insert({
-    user_id: userId,
-    amount: -amount,
-    type: 'consumption',
-    description,
+---
+
+#### D. `supabase/functions/run-campaigns-cron/index.ts` - AutoPost Model Selection
+
+**Changes:**
+- Use `smart-video` model (Kling Std) for AutoPost video generation
+- Use `smart-image` model (Flux 2 Flex) for AutoPost image generation
+- Add quality parameter to generation functions
+
+```typescript
+// AutoPost always uses Smart quality for cost control
+async function generateImage(prompt: string, supabase: any, brandName?: string): Promise<string | null> {
+  const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
+  // Use Flux 2 Flex via CometAPI for Smart Image
+  const response = await fetch("https://api.cometapi.com/v1/images", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${COMETAPI_API_KEY}` },
+    body: JSON.stringify({
+      model: "flux-2-flex",
+      prompt: enhancedPrompt,
+    }),
   });
-};
+}
+
+async function generateVideo(prompt: string, supabase: any): Promise<string | null> {
+  // Use Kling via CometAPI for Smart Video
+  const response = await fetch("https://api.cometapi.com/v1/videos", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${COMETAPI_API_KEY}` },
+    body: JSON.stringify({
+      model: "kling-video",
+      prompt: prompt,
+      duration: 5,
+    }),
+  });
+}
 ```
 
 ---
 
-### 6. UI Updates
+#### E. `src/components/ProductSelector.tsx` - Quality-Based UI
 
-#### Pricing Page (New Design)
-- Show 3 plans: Starter ($19), Pro ($49), Business ($99)
-- Clear feature comparison table
-- Credit pack purchase section
-- AutoPost limits clearly displayed
-
-#### Settings Page (Credit Display)
-- Current plan badge
-- Credit balance with "Buy Credits" button
-- Recent transactions
-- Usage statistics
-
-#### Campaign Wizard
-- Show "Video Campaign" as locked for Starter
-- Display credit cost estimate before creation
-- Warning if low credits
+**Changes:**
+- Display quality levels instead of product names
+- Add plan restriction badges ("Pro+", "Business only")
+- Show price per unit clearly
 
 ---
 
-### 7. Files to Create/Modify
+#### F. `src/components/ModelSelector.tsx` - Optional Legacy Support
 
-| File | Action |
-|------|--------|
-| `src/lib/commercialProducts.ts` | Update with new PRICING_PLANS, CREDIT_COSTS, CREDIT_PACKS |
-| `src/components/PricingPacks.tsx` | Redesign for new plan structure |
-| `src/pages/PricingPage.tsx` | Add credit packs section |
-| `src/pages/Settings.tsx` | Real credit balance display, transactions |
-| `src/components/campaigns/CampaignWizardModal.tsx` | Add plan limit checks, credit cost preview |
-| `supabase/migrations/` | Create subscriptions, credits, credit_transactions tables |
-| `supabase/functions/run-campaigns-cron/index.ts` | Add credit deduction logic |
-| `src/hooks/useCredits.ts` | NEW: Hook for credit balance + operations |
-| `src/components/CreditPacks.tsx` | NEW: Credit pack purchase UI |
+**Changes:**
+- Keep for advanced users who want model selection
+- Map quality levels to underlying models
+- Hide from normal UI flow
 
 ---
 
-### 8. Key Messages (Marketing)
+### 3. Summary of Model Mappings
 
-For the app UI:
-> "ClipMotion works with credits. Each generation consumes credits based on quality. Recharge anytime. No commitment."
-
-> "Images are automated, videos are premium."
-
-> "AutoPost automatically pauses when credits are depleted."
+| Quality Level | CometAPI Model | Price | Usage |
+|--------------|----------------|-------|-------|
+| **Smart Image** | `flux-2-flex` | 1.50€ | AutoPost + Manual |
+| **High Image** | `nano-banana-pro` | 2.50€ | Packs/Credits |
+| **Studio Image** | `flux-2-pro` | 4.00€ | Packs/Credits |
+| **Smart Video** | `kling-video` | 9.90€ | AutoPost (1-3/day) |
+| **High Video** | `veo-2` | 12.90€ | Packs only |
+| **Cinema Video** | `sora-2` | 19.90€ | Packs only |
 
 ---
 
-### Technical Notes
+### 4. Plan Restrictions Summary
 
-1. **RLS Policies**: All new tables need user-based RLS
-2. **Stripe Integration**: Credit pack purchases will use Stripe (enable later)
-3. **Default Credits**: New users get 10 free credits to try
-4. **AutoPost Pause**: Cron checks credits before each generation
+| Plan | Image Access | Video Access | AutoPost |
+|------|-------------|--------------|----------|
+| **Starter** | Smart only | ❌ None | 30 images/day |
+| **Pro** | Smart, High | Smart, High | Unlimited images, 1 video/day |
+| **Business** | All | All | Unlimited images, 3 videos/day |
+
+---
+
+### 5. Implementation Order
+
+1. **Update `src/lib/commercialProducts.ts`** - Core quality definitions
+2. **Update `supabase/functions/generate-video-sora/index.ts`** - Video model routing
+3. **Update `supabase/functions/generate-image/index.ts`** - Image model routing + CometAPI integration
+4. **Update `supabase/functions/run-campaigns-cron/index.ts`** - AutoPost uses Smart quality
+5. **Update `src/components/ProductSelector.tsx`** - Quality-based UI
+6. **Deploy edge functions**
 
