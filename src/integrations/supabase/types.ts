@@ -363,6 +363,8 @@ export type Database = {
           renews_at: string | null
           started_at: string
           status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
           updated_at: string
           user_id: string
         }
@@ -373,6 +375,8 @@ export type Database = {
           renews_at?: string | null
           started_at?: string
           status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -383,6 +387,8 @@ export type Database = {
           renews_at?: string | null
           started_at?: string
           status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           updated_at?: string
           user_id?: string
         }

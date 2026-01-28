@@ -1,9 +1,10 @@
 import { motion } from "framer-motion";
-import { Coins, Gift, Sparkles, Zap } from "lucide-react";
+import { Coins, Gift, Sparkles, Zap, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { CREDIT_PACKS, CreditPack } from "@/lib/commercialProducts";
 import { useToast } from "@/hooks/use-toast";
+import { useSubscription } from "@/hooks/useSubscription";
+import { useState } from "react";
 
 interface CreditPacksProps {
   onSelectPack?: (pack: CreditPack) => void;
@@ -12,16 +13,33 @@ interface CreditPacksProps {
 
 export const CreditPacks = ({ onSelectPack, compact = false }: CreditPacksProps) => {
   const { toast } = useToast();
+  const { startCheckout } = useSubscription();
+  const [loadingPackId, setLoadingPackId] = useState<string | null>(null);
 
-  const handleSelect = (pack: CreditPack) => {
+  const handleSelect = async (pack: CreditPack) => {
     if (onSelectPack) {
       onSelectPack(pack);
-    } else {
-      // Default: show coming soon
+      return;
+    }
+
+    setLoadingPackId(pack.id);
+    try {
+      const result = await startCheckout("credits", { packId: pack.id });
+      if (!result.success) {
+        toast({
+          title: "Error",
+          description: "Failed to start checkout. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
       toast({
-        title: "Coming Soon",
-        description: "Credit purchases will be available soon via Stripe.",
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
       });
+    } finally {
+      setLoadingPackId(null);
     }
   };
 
@@ -44,6 +62,7 @@ export const CreditPacks = ({ onSelectPack, compact = false }: CreditPacksProps)
         {CREDIT_PACKS.map((pack, index) => {
           const isPopular = pack.id === "pack-250";
           const isBestValue = pack.id === "pack-1000";
+          const isLoading = loadingPackId === pack.id;
 
           return (
             <motion.div
@@ -57,9 +76,10 @@ export const CreditPacks = ({ onSelectPack, compact = false }: CreditPacksProps)
                   ? "border-primary shadow-md shadow-primary/10"
                   : isBestValue
                   ? "border-accent shadow-md shadow-accent/10"
-                  : "border-border hover:border-primary/50"
+                  : "border-border hover:border-primary/50",
+                isLoading && "opacity-75 pointer-events-none"
               )}
-              onClick={() => handleSelect(pack)}
+              onClick={() => !isLoading && handleSelect(pack)}
             >
               {/* Badge */}
               {isPopular && (
@@ -76,10 +96,16 @@ export const CreditPacks = ({ onSelectPack, compact = false }: CreditPacksProps)
 
               {/* Content */}
               <div className="text-center">
-                <div className="text-2xl font-bold text-gradient mb-1">
-                  {pack.credits}
-                </div>
-                <div className="text-xs text-muted-foreground mb-2">credits</div>
+                {isLoading ? (
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold text-gradient mb-1">
+                      {pack.credits}
+                    </div>
+                    <div className="text-xs text-muted-foreground mb-2">credits</div>
+                  </>
+                )}
                 
                 {pack.bonus > 0 && (
                   <div className="inline-flex items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent mb-2">
