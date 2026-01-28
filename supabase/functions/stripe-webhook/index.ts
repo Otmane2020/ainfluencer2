@@ -50,9 +50,9 @@ serve(async (req) => {
 
     let event: Stripe.Event;
 
-    // Verify webhook signature if secret is set
+    // Verify webhook signature if secret is set - MUST use async version in Deno
     if (webhookSecret && signature) {
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+      event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
       logStep("Webhook signature verified");
     } else {
       event = JSON.parse(body);
