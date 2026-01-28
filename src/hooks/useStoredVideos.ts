@@ -22,10 +22,7 @@ export const useStoredVideos = () => {
       }
 
       if (!videoFiles || videoFiles.length === 0) {
-        toast({
-          title: "Aucune vidéo trouvée",
-          description: "Aucune vidéo n'a encore été générée",
-        });
+        // Don't show toast for empty - videos might be in generation tasks
         return [];
       }
 
@@ -44,27 +41,22 @@ export const useStoredVideos = () => {
 
           return {
             id: file.id || `stored-${index}`,
-            title: `Vidéo ${index + 1}`,
-            script: "Vidéo récupérée depuis le stockage",
+            title: `Video ${index + 1}`,
+            script: "Video retrieved from storage",
             duration: 0,
             videoUrl: urlData.publicUrl,
             createdAt,
-            voice: "Inconnu",
+            voice: "Unknown",
             status: "ready" as const,
           };
         });
-
-      toast({
-        title: `${videos.length} vidéo(s) récupérée(s)`,
-        description: "Les vidéos ont été chargées depuis le stockage",
-      });
 
       return videos;
     } catch (error) {
       console.error("Error fetching stored videos:", error);
       toast({
-        title: "Erreur",
-        description: "Impossible de récupérer les vidéos stockées",
+        title: "Error",
+        description: "Unable to retrieve stored videos",
         variant: "destructive",
       });
       return [];
