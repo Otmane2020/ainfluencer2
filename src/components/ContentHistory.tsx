@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { History, Filter } from "lucide-react";
+import { History, Filter, Trash2, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { format, isToday, isYesterday, isThisWeek, isThisMonth, startOfDay } from "date-fns";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -34,6 +36,7 @@ interface ContentItem {
   platforms: string[] | null;
   campaign_id: string | null;
   campaign?: { name: string } | null;
+  error_message?: string | null;
 }
 
 interface ContentHistoryProps {
@@ -44,14 +47,24 @@ interface ContentHistoryProps {
   limit?: number;
 }
 
+type TimeRange = "day" | "week" | "month" | "all";
+
+interface GroupedItems {
+  label: string;
+  items: ContentItem[];
+}
+
 export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limit }: ContentHistoryProps) => {
   const [items, setItems] = useState<ContentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "video" | "image" | "text">("all");
-  const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "scheduled" | "published">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "scheduled" | "published" | "failed">("all");
+  const [timeRange, setTimeRange] = useState<TimeRange>("all");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [deleteItem, setDeleteItem] = useState<ContentItem | null>(null);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showBulkDelete, setShowBulkDelete] = useState(false);
   const { toast } = useToast();
 
   // Track if we have generating items for polling
@@ -60,18 +73,67 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
   // Fetch on filter/project changes
   useEffect(() => {
     fetchHistory();
-  }, [projectId, campaignId, filter, statusFilter]);
+  }, [projectId, campaignId, filter, statusFilter, timeRange]);
 
-  // Separate polling effect that doesn't depend on items
+  // Separate polling effect - only runs when there are generating items
   useEffect(() => {
-    if (!hasGenerating) return;
+    if (!hasGenerating) {
+      console.log("[ContentHistory] No generating items, polling stopped");
+      return;
+    }
     
+    console.log("[ContentHistory] Generating items detected, starting polling");
     const interval = setInterval(() => {
       fetchHistory();
-    }, 10000); // Poll every 10 seconds
+    }, 10000);
     
     return () => clearInterval(interval);
-  }, [hasGenerating, projectId, campaignId, filter, statusFilter]);
+  }, [hasGenerating]);
+
+  // Group items by date
+  const groupedItems = useMemo(() => {
+    const groups: GroupedItems[] = [];
+    const dateMap = new Map<string, ContentItem[]>();
+
+    items.forEach(item => {
+      const date = startOfDay(new Date(item.created_at));
+      const dateKey = date.toISOString();
+      
+      if (!dateMap.has(dateKey)) {
+        dateMap.set(dateKey, []);
+      }
+      dateMap.get(dateKey)!.push(item);
+    });
+
+    // Sort by date descending
+    const sortedDates = Array.from(dateMap.keys()).sort((a, b) => 
+      new Date(b).getTime() - new Date(a).getTime()
+    );
+
+    sortedDates.forEach(dateKey => {
+      const date = new Date(dateKey);
+      let label: string;
+
+      if (isToday(date)) {
+        label = "Today";
+      } else if (isYesterday(date)) {
+        label = "Yesterday";
+      } else if (isThisWeek(date)) {
+        label = format(date, "EEEE"); // Day name
+      } else if (isThisMonth(date)) {
+        label = format(date, "MMMM d");
+      } else {
+        label = format(date, "MMMM d, yyyy");
+      }
+
+      groups.push({
+        label,
+        items: dateMap.get(dateKey)!
+      });
+    });
+
+    return groups;
+  }, [items]);
 
   const fetchHistory = async () => {
     setIsLoading(true);
@@ -97,16 +159,37 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
         query = query.eq("status", statusFilter);
       }
 
+      // Apply time range filter
+      if (timeRange !== "all") {
+        const now = new Date();
+        let startDate: Date;
+        
+        switch (timeRange) {
+          case "day":
+            startDate = new Date(now.setHours(0, 0, 0, 0));
+            break;
+          case "week":
+            startDate = new Date(now.setDate(now.getDate() - 7));
+            break;
+          case "month":
+            startDate = new Date(now.setMonth(now.getMonth() - 1));
+            break;
+          default:
+            startDate = new Date(0);
+        }
+        query = query.gte("created_at", startDate.toISOString());
+      }
+
       if (limit) {
         query = query.limit(limit);
       } else {
-        query = query.limit(100); // Default limit to show more posts
+        query = query.limit(100);
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
-      console.log("[ContentHistory] Fetched posts:", data?.length || 0);
+      
       const mappedData = (data || []).map((item: any) => ({
         ...item,
         campaign: item.campaigns ? { name: item.campaigns.name } : null,
@@ -114,12 +197,21 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
       setItems(mappedData as ContentItem[]);
       
       // Check if any items are still generating
-      const generating = mappedData.some((item: any) => 
-        (item.content_type === "image" || item.content_type === "video") 
-        && item.ai_prompt 
-        && !item.media_url 
-        && item.status === "draft"
-      );
+      const generating = mappedData.some((item: any) => {
+        const isGenerating = (item.content_type === "image" || item.content_type === "video") 
+          && item.ai_prompt 
+          && !item.media_url 
+          && item.status === "draft";
+        
+        // Also check if item is not stale (less than 5 minutes old)
+        if (isGenerating) {
+          const createdAt = new Date(item.created_at).getTime();
+          const elapsed = Date.now() - createdAt;
+          return elapsed < 300000; // 5 minutes
+        }
+        return false;
+      });
+      
       setHasGenerating(generating);
     } catch (error) {
       console.error("Error fetching history:", error);
@@ -162,7 +254,6 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
     toast({ title: "Generating...", description: "Image generation started" });
 
     try {
-      // Call the working generate-image function directly
       const { data, error } = await supabase.functions.invoke("generate-image", {
         body: { 
           prompt: item.ai_prompt,
@@ -174,19 +265,19 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
       if (error) throw error;
 
       if (data?.imageUrl) {
-        // Update the post with the generated image
         const { error: updateError } = await supabase
           .from("scheduled_posts")
           .update({ 
             media_url: data.imageUrl,
-            status: "scheduled"
+            status: "scheduled",
+            error_message: null
           })
           .eq("id", item.id);
 
         if (updateError) throw updateError;
 
         toast({ title: "Success!", description: "Image generated successfully" });
-        fetchHistory(); // Refresh the list
+        fetchHistory();
       } else {
         throw new Error("No image URL returned");
       }
@@ -205,23 +296,18 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
     setIsDeleting(true);
 
     try {
-      // Use the delete-post API for better logging and consistency
       const { data: session } = await supabase.auth.getSession();
       
       if (session?.session?.access_token) {
-        const { data, error } = await supabase.functions.invoke("delete-post", {
+        const { error } = await supabase.functions.invoke("delete-post", {
           body: { postId: deleteItem.id },
         });
-
         if (error) throw error;
-        console.log("[ContentHistory] Delete API response:", data);
       } else {
-        // Fallback to direct delete if no session
         const { error } = await supabase
           .from("scheduled_posts")
           .delete()
           .eq("id", deleteItem.id);
-
         if (error) throw error;
       }
 
@@ -240,6 +326,57 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
     } finally {
       setIsDeleting(false);
       setDeleteItem(null);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedItems.size === 0) return;
+    setIsDeleting(true);
+
+    try {
+      const { error } = await supabase
+        .from("scheduled_posts")
+        .delete()
+        .in("id", Array.from(selectedItems));
+
+      if (error) throw error;
+
+      setItems((prev) => prev.filter((i) => !selectedItems.has(i.id)));
+      setSelectedItems(new Set());
+      setShowBulkDelete(false);
+      toast({
+        title: "Deleted",
+        description: `${selectedItems.size} item(s) removed`,
+      });
+    } catch (error: any) {
+      console.error("Bulk delete error:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Unable to delete content",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const toggleSelectItem = (id: string) => {
+    setSelectedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    if (selectedItems.size === items.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(items.map(i => i.id)));
     }
   };
 
@@ -270,20 +407,49 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
         className="rounded-2xl bg-card p-4 md:p-6 shadow-card"
       >
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/20">
-              <History className="h-5 w-5 text-accent" />
+        <div className="flex flex-col gap-3 mb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/20">
+                <History className="h-5 w-5 text-accent" />
+              </div>
+              <div>
+                <h3 className="font-display text-lg font-semibold">Content History</h3>
+                <p className="text-sm text-muted-foreground">{items.length} item(s)</p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-display text-lg font-semibold">Content History</h3>
-              <p className="text-sm text-muted-foreground">{items.length} item(s)</p>
-            </div>
+
+            {/* Bulk actions */}
+            {selectedItems.size > 0 && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setShowBulkDelete(true)}
+                className="gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete ({selectedItems.size})
+              </Button>
+            )}
           </div>
 
-          <div className="flex gap-2">
+          {/* Filters */}
+          <div className="flex flex-wrap gap-2">
+            <Select value={timeRange} onValueChange={(v) => setTimeRange(v as TimeRange)}>
+              <SelectTrigger className="w-[120px]">
+                <Calendar className="h-4 w-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-card border border-border z-50">
+                <SelectItem value="all">All Time</SelectItem>
+                <SelectItem value="day">Today</SelectItem>
+                <SelectItem value="week">This Week</SelectItem>
+                <SelectItem value="month">This Month</SelectItem>
+              </SelectContent>
+            </Select>
+
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
-              <SelectTrigger className="w-full sm:w-[130px]">
+              <SelectTrigger className="w-[130px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent className="bg-card border border-border z-50">
@@ -291,11 +457,12 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
                 <SelectItem value="draft">Draft</SelectItem>
                 <SelectItem value="scheduled">Scheduled</SelectItem>
                 <SelectItem value="published">Published</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
               </SelectContent>
             </Select>
 
             <Select value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
-              <SelectTrigger className="w-full sm:w-[130px]">
+              <SelectTrigger className="w-[130px]">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue />
               </SelectTrigger>
@@ -306,10 +473,21 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
                 <SelectItem value="text">Text</SelectItem>
               </SelectContent>
             </Select>
+
+            {items.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={selectAll}
+                className="ml-auto"
+              >
+                {selectedItems.size === items.length ? "Deselect All" : "Select All"}
+              </Button>
+            )}
           </div>
         </div>
 
-        {/* Content List */}
+        {/* Content List grouped by day */}
         {items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
@@ -319,22 +497,40 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
             <p className="text-sm text-muted-foreground">Generate content to see your history</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            <AnimatePresence>
-              {items.map((item, index) => (
-                <ContentHistoryItem
-                  key={item.id}
-                  item={item}
-                  index={index}
-                  copiedId={copiedId}
-                  onCopy={handleCopy}
-                  onPreview={(item) => onPreview?.(item)}
-                  onShare={(item) => onShare?.(item)}
-                  onDelete={setDeleteItem}
-                  onRegenerate={handleRegenerate}
-                />
-              ))}
-            </AnimatePresence>
+          <div className="space-y-6">
+            {groupedItems.map((group) => (
+              <div key={group.label}>
+                <h4 className="text-sm font-medium text-muted-foreground mb-3 sticky top-0 bg-card py-2">
+                  {group.label}
+                </h4>
+                <div className="space-y-3">
+                  <AnimatePresence>
+                    {group.items.map((item, index) => (
+                      <div key={item.id} className="flex gap-2 items-start">
+                        <input
+                          type="checkbox"
+                          checked={selectedItems.has(item.id)}
+                          onChange={() => toggleSelectItem(item.id)}
+                          className="mt-4 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                        />
+                        <div className="flex-1">
+                          <ContentHistoryItem
+                            item={item}
+                            index={index}
+                            copiedId={copiedId}
+                            onCopy={handleCopy}
+                            onPreview={(item) => onPreview?.(item)}
+                            onShare={(item) => onShare?.(item)}
+                            onDelete={setDeleteItem}
+                            onRegenerate={handleRegenerate}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </motion.div>
@@ -352,6 +548,24 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
             <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
               {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Confirmation */}
+      <AlertDialog open={showBulkDelete} onOpenChange={setShowBulkDelete}>
+        <AlertDialogContent className="bg-card border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedItems.size} Items</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selectedItems.size} selected item(s)? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDelete} disabled={isDeleting}>
+              {isDeleting ? "Deleting..." : "Delete All"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
