@@ -154,16 +154,6 @@ export const ProductSelector = ({
                     ))}
                   </div>
 
-                  {/* Price */}
-                  <div className="mt-auto flex items-baseline gap-1">
-                    <span className="text-2xl font-bold text-gradient">
-                      {product.salePrice}€
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      {product.salePriceUnit}
-                    </span>
-                  </div>
-
                   {/* Avatar & Voice indicators */}
                   <div className="mt-2 flex items-center gap-2">
                     {product.needsAvatar && (
