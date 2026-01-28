@@ -184,7 +184,139 @@ export const getCommercialName = (internalModelId: string): string => {
 };
 
 // ============================================================
-// PRICING PACKS
+// SUBSCRIPTION PLANS (NEW)
+// ============================================================
+
+export interface PricingPlan {
+  id: string;
+  name: string;
+  price: number;
+  priceUnit: string;
+  description: string;
+  features: string[];
+  limits: {
+    projects: number;
+    autopostImages: number; // per day (-1 = unlimited)
+    autopostVideos: number; // per day (-1 = unlimited)
+    imageQuality: "standard" | "pro" | "studio" | null;
+    videoQuality: "standard" | "pro" | "cinema" | null;
+  };
+  popular?: boolean;
+  badge?: string;
+}
+
+export const PRICING_PLANS: PricingPlan[] = [
+  {
+    id: "starter",
+    name: "Starter",
+    price: 19,
+    priceUnit: "/month",
+    description: "Perfect for creators getting started",
+    features: [
+      "3 projects",
+      "AutoPost AI Images (up to 30/day)",
+      "Standard quality images",
+      "Email support",
+    ],
+    limits: {
+      projects: 3,
+      autopostImages: 30,
+      autopostVideos: 0,
+      imageQuality: "standard",
+      videoQuality: null,
+    },
+  },
+  {
+    id: "pro",
+    name: "Pro",
+    price: 49,
+    priceUnit: "/month",
+    description: "For brands and serious creators",
+    features: [
+      "10 projects",
+      "AutoPost AI Images (unlimited)",
+      "AutoPost AI Videos (1/day)",
+      "Pro & Ultra quality",
+      "Priority support",
+    ],
+    limits: {
+      projects: 10,
+      autopostImages: -1,
+      autopostVideos: 1,
+      imageQuality: "pro",
+      videoQuality: "pro",
+    },
+    popular: true,
+    badge: "POPULAR",
+  },
+  {
+    id: "business",
+    name: "Business",
+    price: 99,
+    priceUnit: "/month",
+    description: "For agencies and power users",
+    features: [
+      "Unlimited projects",
+      "AutoPost AI Images (unlimited)",
+      "AutoPost AI Videos (3/day)",
+      "AI Cinema & Influencer",
+      "Priority queue",
+      "API access",
+    ],
+    limits: {
+      projects: -1,
+      autopostImages: -1,
+      autopostVideos: 3,
+      imageQuality: "studio",
+      videoQuality: "cinema",
+    },
+    badge: "PRO",
+  },
+];
+
+// ============================================================
+// CREDIT COSTS (per generation)
+// ============================================================
+
+export const CREDIT_COSTS: Record<string, number> = {
+  // Images
+  "ai-image-smart": 1,
+  "ai-image-standard": 2,
+  "ai-image-pro": 5,
+  "ai-image-studio": 12,
+  
+  // Videos
+  "ai-reel": 15,
+  "ai-reel-pro": 29,
+  "ai-cinema": 69,
+  
+  // Avatars
+  "ai-influencer-standard": 39,
+  "ai-influencer-pro": 69,
+};
+
+// ============================================================
+// CREDIT PACKS (for purchase)
+// ============================================================
+
+export interface CreditPack {
+  id: string;
+  credits: number;
+  price: number;
+  bonus: number;
+  label: string;
+}
+
+export const CREDIT_PACKS: CreditPack[] = [
+  { id: "pack-50", credits: 50, price: 50, bonus: 0, label: "50 Credits" },
+  { id: "pack-100", credits: 100, price: 95, bonus: 5, label: "100 Credits (+5%)" },
+  { id: "pack-250", credits: 250, price: 225, bonus: 10, label: "250 Credits (+10%)" },
+  { id: "pack-500", credits: 500, price: 425, bonus: 15, label: "500 Credits (+15%)" },
+  { id: "pack-1000", credits: 1000, price: 800, bonus: 20, label: "1000 Credits (+20%)" },
+];
+
+// ============================================================
+// LEGACY PRICING PACKS (for backwards compatibility)
 // ============================================================
 
 export interface PricingPack {
@@ -203,70 +335,22 @@ export interface PricingPack {
   badge?: string;
 }
 
-export const PRICING_PACKS: PricingPack[] = [
-  {
-    id: "starter",
-    name: "Starter",
-    price: 49,
-    priceUnit: "/month",
-    description: "Perfect for creators getting started",
-    features: [
-      "10 AI images/month",
-      "2 short videos/month",
-      "AI voiceover included",
-      "Email support",
-    ],
-    included: {
-      images: 10,
-      videos: 2,
-      influencerVideos: 0,
-    },
+// Map PRICING_PLANS to PRICING_PACKS for backwards compatibility
+export const PRICING_PACKS: PricingPack[] = PRICING_PLANS.map(plan => ({
+  id: plan.id,
+  name: plan.name,
+  price: plan.price,
+  priceUnit: plan.priceUnit,
+  description: plan.description,
+  features: plan.features,
+  included: {
+    images: plan.limits.autopostImages,
+    videos: plan.limits.autopostVideos,
+    influencerVideos: plan.id === "business" ? 3 : plan.id === "pro" ? 1 : 0,
   },
-  {
-    id: "pro",
-    name: "Pro",
-    price: 149,
-    priceUnit: "/month",
-    description: "For brands and serious creators",
-    features: [
-      "30 AI images/month",
-      "6 videos/month",
-      "2 AI Influencer videos/month",
-      "Pro & Ultra quality",
-      "Priority support",
-      "Advanced analytics",
-    ],
-    included: {
-      images: 30,
-      videos: 6,
-      influencerVideos: 2,
-    },
-    popular: true,
-    badge: "POPULAR",
-  },
-  {
-    id: "agency",
-    name: "Agency",
-    price: 399,
-    priceUnit: "/month",
-    description: "Unlimited usage for agencies",
-    features: [
-      "Unlimited images (fair-use)",
-      "Unlimited videos (fair-use)",
-      "Unlimited AI Influencer",
-      "Quality level selection",
-      "API access",
-      "Dedicated 24/7 support",
-      "White-label available",
-    ],
-    included: {
-      images: -1,
-      videos: -1,
-      influencerVideos: -1,
-    },
-    badge: "ENTERPRISE",
-  },
-];
+  popular: plan.popular,
+  badge: plan.badge,
+}));
 
 // ============================================================
 // HELPER FUNCTIONS
@@ -302,4 +386,12 @@ export const getProductsByCategory = (category: CommercialProduct["category"]) =
 
 export const formatPrice = (price: number, unit: string) => {
   return `${price}€${unit}`;
+};
+
+export const getCreditCost = (productId: string): number => {
+  return CREDIT_COSTS[productId] || 0;
+};
+
+export const getPlanById = (planId: string): PricingPlan | undefined => {
+  return PRICING_PLANS.find(p => p.id === planId);
 };

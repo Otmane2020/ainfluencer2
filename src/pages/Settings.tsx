@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useCredits } from "@/hooks/useCredits";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,39 +10,58 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import {
   User,
   Bell,
   LogOut,
   Loader2,
   Crown,
-  Zap,
+  Coins,
   Image,
   Video,
   Sparkles,
+  TrendingUp,
+  TrendingDown,
+  Clock,
+  ChevronRight,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { PricingPacks } from "@/components/PricingPacks";
-import { PRICING_PACKS, PricingPack } from "@/lib/commercialProducts";
+import { CreditPacks } from "@/components/CreditPacks";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { format } from "date-fns";
 
 const Settings = () => {
   const { profile, signOut } = useAuth();
+  const { 
+    currentPlan, 
+    balance, 
+    transactions, 
+    isLoading: creditsLoading,
+    subscription,
+  } = useCredits();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [displayName, setDisplayName] = useState(profile?.display_name || "");
   const [isLoading, setIsLoading] = useState(false);
+  const [showCreditPacks, setShowCreditPacks] = useState(false);
   const [notifications, setNotifications] = useState({
     email: true,
     push: false,
     weekly: true,
   });
 
-  const [currentPack] = useState<PricingPack | null>(PRICING_PACKS.find(p => p.id === "starter") || null);
-  const [credits] = useState({
-    images: 8,
-    videos: 1,
-    influencerVideos: 0,
-  });
+  useEffect(() => {
+    if (profile?.display_name) {
+      setDisplayName(profile.display_name);
+    }
+  }, [profile]);
 
   const handleUpdateProfile = async () => {
     if (!profile) return;
@@ -76,54 +96,139 @@ const Settings = () => {
     navigate("/auth");
   };
 
+  const getPlanGradient = (planId: string) => {
+    switch (planId) {
+      case "starter": return "from-blue-500 to-cyan-500";
+      case "pro": return "from-primary to-secondary";
+      case "business": return "from-purple-500 to-pink-500";
+      default: return "from-gray-500 to-gray-600";
+    }
+  };
+
   return (
     <div className="max-w-lg mx-auto space-y-4">
       <h1 className="font-display text-xl font-bold">Settings</h1>
 
-      {/* Subscription - Compact */}
-      <Card className="border-primary/20">
-        <CardContent className="p-4 space-y-3">
+      {/* Subscription & Credits */}
+      <Card className="border-primary/20 overflow-hidden">
+        <div className={`h-2 bg-gradient-to-r ${getPlanGradient(currentPlan?.id || "starter")}`} />
+        <CardContent className="p-4 space-y-4">
+          {/* Plan Info */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary">
-                <Crown className="h-5 w-5 text-white" />
+              <div className={`flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${getPlanGradient(currentPlan?.id || "starter")}`}>
+                <Crown className="h-6 w-6 text-white" />
               </div>
               <div>
-                <p className="font-semibold text-sm">{currentPack?.name || "No plan"}</p>
-                <p className="text-xs text-muted-foreground">${currentPack?.price}{currentPack?.priceUnit}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold">{currentPlan?.name || "Starter"}</p>
+                  <Badge variant="outline" className="text-xs">
+                    {subscription?.status || "active"}
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {currentPlan?.price}€{currentPlan?.priceUnit}
+                </p>
               </div>
             </div>
-            <Button variant="outline" size="sm">Change</Button>
+            <Button variant="outline" size="sm" onClick={() => navigate("/pricing")}>
+              Upgrade
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
           </div>
 
-          {/* Credits - Compact */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-lg bg-muted/50 p-2 text-center">
-              <div className="flex items-center justify-center gap-1">
-                <Image className="h-3 w-3 text-primary" />
-                <span className="text-sm font-bold">{credits.images}</span>
+          <Separator />
+
+          {/* Credits Balance */}
+          <div className="rounded-xl bg-gradient-to-r from-primary/10 to-secondary/10 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20">
+                  <Coins className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Available Credits</p>
+                  <p className="text-2xl font-bold text-gradient">
+                    {creditsLoading ? "..." : balance}
+                  </p>
+                </div>
               </div>
-              <p className="text-[10px] text-muted-foreground">Images</p>
-            </div>
-            <div className="rounded-lg bg-muted/50 p-2 text-center">
-              <div className="flex items-center justify-center gap-1">
-                <Video className="h-3 w-3 text-secondary" />
-                <span className="text-sm font-bold">{credits.videos}</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground">Videos</p>
-            </div>
-            <div className="rounded-lg bg-muted/50 p-2 text-center">
-              <div className="flex items-center justify-center gap-1">
-                <Sparkles className="h-3 w-3 text-accent" />
-                <span className="text-sm font-bold">{credits.influencerVideos}</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground">AI Avatar</p>
+              <Dialog open={showCreditPacks} onOpenChange={setShowCreditPacks}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="bg-gradient-to-r from-primary to-secondary">
+                    Buy Credits
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Buy Credits</DialogTitle>
+                  </DialogHeader>
+                  <CreditPacks />
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
+
+          {/* AutoPost Limits */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-lg bg-muted/50 p-3 text-center">
+              <div className="flex items-center justify-center gap-1.5">
+                <Image className="h-4 w-4 text-primary" />
+                <span className="text-lg font-bold">
+                  {currentPlan?.limits.autopostImages === -1 ? "∞" : currentPlan?.limits.autopostImages || 30}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">Images/day</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 p-3 text-center">
+              <div className="flex items-center justify-center gap-1.5">
+                <Video className="h-4 w-4 text-secondary" />
+                <span className="text-lg font-bold">
+                  {currentPlan?.limits.autopostVideos === -1 ? "∞" : currentPlan?.limits.autopostVideos || 0}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">Videos/day</p>
+            </div>
+          </div>
+
+          {/* Recent Transactions */}
+          {transactions.length > 0 && (
+            <>
+              <Separator />
+              <div>
+                <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Recent Transactions
+                </h4>
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {transactions.slice(0, 5).map((tx) => (
+                    <div 
+                      key={tx.id} 
+                      className="flex items-center justify-between text-sm p-2 rounded-lg bg-muted/30"
+                    >
+                      <div className="flex items-center gap-2">
+                        {tx.amount > 0 ? (
+                          <TrendingUp className="h-4 w-4 text-accent" />
+                        ) : (
+                          <TrendingDown className="h-4 w-4 text-destructive" />
+                        )}
+                        <span className="text-muted-foreground text-xs">
+                          {tx.description || tx.type}
+                        </span>
+                      </div>
+                      <span className={tx.amount > 0 ? "text-accent font-medium" : "text-destructive font-medium"}>
+                        {tx.amount > 0 ? "+" : ""}{tx.amount}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
-      {/* Profile - Compact */}
+      {/* Profile */}
       <Card>
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center gap-3">
@@ -151,8 +256,7 @@ const Settings = () => {
         </CardContent>
       </Card>
 
-
-      {/* Notifications - Compact */}
+      {/* Notifications */}
       <Card>
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2 text-sm font-medium">
