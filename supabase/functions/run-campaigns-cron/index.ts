@@ -80,7 +80,10 @@ async function generateImage(prompt: string, supabase: any, brandName?: string):
 // Generate video using CometAPI
 async function generateVideo(prompt: string, supabase: any): Promise<string | null> {
   const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
-  if (!COMETAPI_API_KEY) return null;
+  if (!COMETAPI_API_KEY) {
+    console.error("[generateVideo] No API key configured");
+    return null;
+  }
 
   try {
     console.log("[generateVideo] Starting video generation...");
@@ -100,11 +103,18 @@ async function generateVideo(prompt: string, supabase: any): Promise<string | nu
       }),
     });
 
-    if (!createResponse.ok) return null;
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      console.error("[generateVideo] API error:", createResponse.status, errorText.slice(0, 200));
+      return null;
+    }
 
     const createData = await createResponse.json();
     const taskId = createData.data?.task_id;
-    if (!taskId) return null;
+    if (!taskId) {
+      console.error("[generateVideo] No task_id in response:", JSON.stringify(createData).slice(0, 200));
+      return null;
+    }
 
     // Poll for completion (max 5 minutes)
     const maxAttempts = 30;
@@ -294,11 +304,12 @@ Deno.serve(async (req) => {
     let totalGenerated = 0;
     let totalPublished = 0;
 
-    // STEP 1: Process ALL scheduled posts that are due (with or without campaign)
+    // STEP 1: Process ALL posts that are due (scheduled OR draft with past scheduled_for)
+    // This catches both properly scheduled posts AND draft posts that should have been published
     const { data: duePosts, error: postsError } = await supabase
       .from("scheduled_posts")
       .select("*, projects(name, detected_language, description, logo_url, url)")
-      .eq("status", "scheduled")
+      .in("status", ["scheduled", "draft"]) // Include draft posts that are overdue
       .lte("scheduled_for", now.toISOString())
       .order("scheduled_for", { ascending: true })
       .limit(20) as { data: (ScheduledPost & { projects: any })[] | null; error: any };
@@ -306,7 +317,7 @@ Deno.serve(async (req) => {
     if (postsError) throw postsError;
 
     if (!duePosts?.length) {
-      console.log("[cron] No scheduled posts due");
+      console.log("[cron] No posts due for processing");
       return new Response(JSON.stringify({ message: "No posts due", generated: 0, published: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
