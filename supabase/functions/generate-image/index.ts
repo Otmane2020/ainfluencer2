@@ -7,6 +7,7 @@ const corsHeaders = {
 
 // Map commercial product IDs to internal AI models
 const PRODUCT_MODEL_MAP: Record<string, string> = {
+  "ai-image-smart": "google/gemini-2.5-flash-image", // Lovable AI - Smart Images
   "ai-image-standard": "google/gemini-2.5-flash-image",
   "ai-image-pro": "google/gemini-3-pro-image-preview",
   "ai-image-studio": "google/gemini-3-pro-image-preview",

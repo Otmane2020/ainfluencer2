@@ -28,6 +28,19 @@ export interface CommercialProduct {
 export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
   // === IMAGES ===
   {
+    id: "ai-image-smart",
+    name: "Smart Images",
+    category: "image",
+    tier: "standard",
+    salePrice: 1,
+    salePriceUnit: "/image",
+    description: "Lovable AI powered by Gemini",
+    features: ["HD Quality", "Fast generation", "Gemini AI"],
+    internalModels: ["lovable-ai-gemini"], // Lovable AI Gateway
+    needsVoice: false,
+    badge: "AI Smart",
+  },
+  {
     id: "ai-image-standard",
     name: "AI Image Standard",
     category: "image",
