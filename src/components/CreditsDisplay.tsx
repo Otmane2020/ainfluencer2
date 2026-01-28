@@ -17,18 +17,18 @@ interface CreditsDisplayProps {
 
 export const CreditsDisplay = ({ compact = false }: CreditsDisplayProps) => {
   const { balance, currentPlan, isLoading } = useCredits();
-  const { startCheckout } = useSubscription();
+  const { startCheckout, isSubscribed, subscription } = useSubscription();
   const [open, setOpen] = useState(false);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
 
-  const planName = currentPlan?.name || "Starter";
-  const isStarterPlan = currentPlan?.id === "starter";
+  const planName = isSubscribed ? (currentPlan?.name || "Starter") : "No Plan";
+  const isStarterPlan = subscription.planId === "starter";
 
   const handleUpgrade = async () => {
     setUpgradeLoading(true);
     try {
-      // Get the next plan (Pro if on Starter)
-      const nextPlan = isStarterPlan ? "pro" : "business";
+      // If not subscribed at all, go to starter. Otherwise upgrade to next tier.
+      const nextPlan = !isSubscribed ? "starter" : (isStarterPlan ? "pro" : "business");
       await startCheckout("subscription", { planId: nextPlan });
     } catch (error) {
       console.error("Upgrade error:", error);
@@ -79,8 +79,8 @@ export const CreditsDisplay = ({ compact = false }: CreditsDisplayProps) => {
             </div>
           </div>
 
-          {/* Upgrade Button (if not on Business) */}
-          {currentPlan?.id !== "business" && (
+          {/* Upgrade Button */}
+          {(!isSubscribed || subscription.planId !== "business") && (
             <Button
               onClick={handleUpgrade}
               disabled={upgradeLoading}
@@ -92,7 +92,7 @@ export const CreditsDisplay = ({ compact = false }: CreditsDisplayProps) => {
               ) : (
                 <Sparkles className="h-4 w-4 mr-2" />
               )}
-              Upgrade to {isStarterPlan ? "Pro" : "Business"}
+              {!isSubscribed ? "Subscribe Now" : `Upgrade to ${isStarterPlan ? "Pro" : "Business"}`}
             </Button>
           )}
 

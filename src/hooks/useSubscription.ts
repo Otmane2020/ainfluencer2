@@ -9,22 +9,36 @@ interface SubscriptionState {
   subscriptionEnd: string | null;
   isSubscribed: boolean;
   stripeCustomerId: string | null;
+  requiresCheckout: boolean;
 }
 
 export const useSubscription = () => {
   const { user } = useAuth();
   const [subscription, setSubscription] = useState<SubscriptionState>({
     planId: "starter",
-    status: "active",
+    status: "inactive",
     subscriptionEnd: null,
     isSubscribed: false,
     stripeCustomerId: null,
+    requiresCheckout: true,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isCheckingStripe, setIsCheckingStripe] = useState(false);
 
-  const currentPlan: PricingPlan = PRICING_PLANS.find(p => p.id === subscription.planId) || PRICING_PLANS[0];
-  const planAccess = PLAN_QUALITY_ACCESS[subscription.planId] || PLAN_QUALITY_ACCESS.starter;
+  const currentPlan: PricingPlan = subscription.isSubscribed 
+    ? (PRICING_PLANS.find(p => p.id === subscription.planId) || PRICING_PLANS[0])
+    : PRICING_PLANS[0]; // Default to starter limits if not subscribed
+  
+  const planAccess = subscription.isSubscribed 
+    ? (PLAN_QUALITY_ACCESS[subscription.planId] || PLAN_QUALITY_ACCESS.starter)
+    : { 
+        image: [], 
+        video: [], 
+        maxProjects: 0, 
+        maxCampaigns: 0, 
+        autopostImagesPerDay: 0, 
+        autopostVideosPerDay: 0 
+      };
 
   // Check subscription status via Stripe
   const checkSubscription = useCallback(async () => {
@@ -52,12 +66,15 @@ export const useSubscription = () => {
         // Fall back to database
         await loadFromDatabase();
       } else if (data) {
+        const isValidSubscription = data.subscribed === true && data.plan_id !== null;
+        
         setSubscription({
           planId: data.plan_id || "starter",
-          status: data.status || "active",
+          status: data.status || "inactive",
           subscriptionEnd: data.subscription_end,
-          isSubscribed: data.subscribed || false,
-          stripeCustomerId: null, // Not returned from check-subscription
+          isSubscribed: isValidSubscription,
+          stripeCustomerId: null,
+          requiresCheckout: data.requires_checkout || !isValidSubscription,
         });
       }
     } catch (err) {
@@ -80,12 +97,27 @@ export const useSubscription = () => {
       .maybeSingle();
 
     if (data) {
+      // Only consider valid if status is "active" and plan is recognized
+      const validPlans = ["starter", "pro", "business"];
+      const isValidSubscription = data.status === "active" && validPlans.includes(data.plan_id);
+      
       setSubscription({
         planId: data.plan_id || "starter",
-        status: data.status || "active",
+        status: data.status || "inactive",
         subscriptionEnd: data.renews_at,
-        isSubscribed: data.plan_id !== "starter",
+        isSubscribed: isValidSubscription,
         stripeCustomerId: data.stripe_customer_id || null,
+        requiresCheckout: !isValidSubscription,
+      });
+    } else {
+      // No subscription record at all
+      setSubscription({
+        planId: "starter",
+        status: "inactive",
+        subscriptionEnd: null,
+        isSubscribed: false,
+        stripeCustomerId: null,
+        requiresCheckout: true,
       });
     }
   };
@@ -143,15 +175,20 @@ export const useSubscription = () => {
     }
   };
 
-  // Guard functions
+  // Guard functions - STRICT: No access if not subscribed
   const canAccessFeature = (feature: "video" | "campaigns" | "projects" | "studio"): boolean => {
+    // No valid subscription = no access
+    if (!subscription.isSubscribed) {
+      return false;
+    }
+    
     switch (feature) {
       case "video":
         return planAccess.video.length > 0;
       case "campaigns":
-        return subscription.planId !== "starter" || planAccess.maxCampaigns > 0;
+        return planAccess.maxCampaigns !== 0;
       case "projects":
-        return true; // All plans have at least some projects
+        return planAccess.maxProjects !== 0;
       case "studio":
         return planAccess.image.includes("studio-image");
       default:
@@ -160,19 +197,29 @@ export const useSubscription = () => {
   };
 
   const canAccessQuality = (qualityId: string): boolean => {
+    if (!subscription.isSubscribed) return false;
     return planAccess.image.includes(qualityId) || planAccess.video.includes(qualityId);
   };
 
   const getAutopostLimit = (contentType: "image" | "video"): number => {
+    if (!subscription.isSubscribed) return 0;
     return contentType === "image" 
       ? planAccess.autopostImagesPerDay 
       : planAccess.autopostVideosPerDay;
   };
 
   const getRemainingQuota = (contentType: "image" | "video"): { limit: number; used: number; remaining: number } => {
+    if (!subscription.isSubscribed) {
+      return { limit: 0, used: 0, remaining: 0 };
+    }
     const limit = getAutopostLimit(contentType);
     // In a real implementation, this would check actual usage from database
     return { limit, used: 0, remaining: limit === -1 ? Infinity : limit };
+  };
+
+  // Redirect to checkout for the appropriate plan
+  const redirectToCheckout = async (planId: string = "starter") => {
+    return startCheckout("subscription", { planId });
   };
 
   return {
@@ -185,14 +232,16 @@ export const useSubscription = () => {
     checkSubscription,
     startCheckout,
     openCustomerPortal,
+    redirectToCheckout,
     // Guards
     canAccessFeature,
     canAccessQuality,
     getAutopostLimit,
     getRemainingQuota,
     // Convenience
-    isPro: subscription.planId === "pro" || subscription.planId === "business",
-    isBusiness: subscription.planId === "business",
+    isPro: subscription.isSubscribed && (subscription.planId === "pro" || subscription.planId === "business"),
+    isBusiness: subscription.isSubscribed && subscription.planId === "business",
     isSubscribed: subscription.isSubscribed,
+    requiresCheckout: subscription.requiresCheckout,
   };
 };

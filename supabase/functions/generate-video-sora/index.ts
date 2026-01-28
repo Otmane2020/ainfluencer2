@@ -1,9 +1,90 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import Stripe from "https://esm.sh/stripe@18.5.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+// ============================================================
+// VALID STRIPE PRODUCTS - Only these grant video access
+// ============================================================
+
+const VALID_VIDEO_PRODUCTS = [
+  "prod_TsR9BN6zNpq8Rp", // Pro
+  "prod_TsR93v9Am93N8O", // Business
+];
+
+const VALID_VIDEO_PRICES = [
+  "price_1SugHGEfti9t9nN9luP2Qtj9", // Pro
+  "price_1SugHIEfti9t9nN9eJMHoewy", // Business
+];
+
+// Verify subscription before generation
+async function verifyVideoAccess(authHeader: string | null): Promise<{ valid: boolean; error?: string; userId?: string }> {
+  if (!authHeader) {
+    return { valid: false, error: "Authorization required" };
+  }
+
+  const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  
+  if (!stripeKey || !supabaseUrl || !supabaseServiceKey) {
+    console.error("Missing required environment variables for subscription check");
+    return { valid: false, error: "Server configuration error" };
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } });
+  
+  try {
+    const token = authHeader.replace("Bearer ", "");
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    
+    if (userError || !userData.user?.email) {
+      return { valid: false, error: "Invalid authentication" };
+    }
+
+    const user = userData.user;
+    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+    
+    // Find customer
+    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+    if (customers.data.length === 0) {
+      console.log(`[VIDEO-ACCESS] No Stripe customer for ${user.email}`);
+      return { valid: false, error: "Subscription required. Please subscribe to Pro or Business plan." };
+    }
+
+    // Check active subscription
+    const subscriptions = await stripe.subscriptions.list({
+      customer: customers.data[0].id,
+      status: "active",
+      limit: 1,
+    });
+
+    if (subscriptions.data.length === 0) {
+      console.log(`[VIDEO-ACCESS] No active subscription for ${user.email}`);
+      return { valid: false, error: "Subscription required. Please subscribe to Pro or Business plan." };
+    }
+
+    const subscription = subscriptions.data[0];
+    const productId = subscription.items.data[0].price.product as string;
+    const priceId = subscription.items.data[0].price.id;
+
+    // Check if product/price grants video access
+    if (!VALID_VIDEO_PRODUCTS.includes(productId) && !VALID_VIDEO_PRICES.includes(priceId)) {
+      console.log(`[VIDEO-ACCESS] Product ${productId} does not grant video access`);
+      return { valid: false, error: "Your plan does not include video generation. Please upgrade to Pro or Business." };
+    }
+
+    console.log(`[VIDEO-ACCESS] Access granted for ${user.email} (${productId})`);
+    return { valid: true, userId: user.id };
+  } catch (error) {
+    console.error("[VIDEO-ACCESS] Error:", error);
+    return { valid: false, error: "Subscription verification failed" };
+  }
+}
 
 // ============================================================
 // MODEL CONFIGURATION - Quality-based routing to CometAPI
@@ -153,7 +234,31 @@ serve(async (req) => {
     const action = url.searchParams.get("action") || "create";
 
     if (action === "create") {
-      const { 
+      // ============================================================
+      // SUBSCRIPTION VERIFICATION - Block unauthorized video generation
+      // ============================================================
+      const authHeader = req.headers.get("Authorization");
+      const accessCheck = await verifyVideoAccess(authHeader);
+      
+      if (!accessCheck.valid) {
+        console.log("[GENERATE-VIDEO] Access denied:", accessCheck.error);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: accessCheck.error,
+            requires_upgrade: true,
+          }),
+          {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+      
+      console.log("[GENERATE-VIDEO] Subscription verified, proceeding with generation");
+      // ============================================================
+
+      const {
         prompt, 
         avatarUrl, 
         duration: requestedDuration = 5, 

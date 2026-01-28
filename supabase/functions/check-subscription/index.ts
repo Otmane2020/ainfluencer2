@@ -7,11 +7,22 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Plan ID mappings from Stripe product IDs
+// ============================================================
+// STRICT PRODUCT/PRICE MAPPING - Only these grant valid subscriptions
+// ============================================================
+
+// Product IDs for ClipMotion subscription plans
 const PRODUCT_TO_PLAN: Record<string, string> = {
   "prod_TsR9Pr6RC1wKB9": "starter",
   "prod_TsR9BN6zNpq8Rp": "pro",
   "prod_TsR93v9Am93N8O": "business",
+};
+
+// Price IDs for ClipMotion subscription plans (fallback lookup)
+const PRICE_TO_PLAN: Record<string, string> = {
+  "price_1SugHFEfti9t9nN9b36Qye6L": "starter",
+  "price_1SugHGEfti9t9nN9luP2Qtj9": "pro",
+  "price_1SugHIEfti9t9nN9eJMHoewy": "business",
 };
 
 const logStep = (step: string, details?: unknown) => {
@@ -51,12 +62,25 @@ serve(async (req) => {
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
     
     if (customers.data.length === 0) {
-      logStep("No customer found, returning starter plan");
+      logStep("No Stripe customer found - user has no subscription");
+      
+      // Update database to reflect no subscription
+      await supabaseClient
+        .from("subscriptions")
+        .upsert({
+          user_id: user.id,
+          plan_id: "starter",
+          status: "inactive",
+          stripe_customer_id: null,
+          stripe_subscription_id: null,
+        }, { onConflict: "user_id" });
+
       return new Response(JSON.stringify({
         subscribed: false,
-        plan_id: "starter",
-        status: "active",
+        plan_id: null,
+        status: "no_subscription",
         subscription_end: null,
+        requires_checkout: true,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -72,42 +96,81 @@ serve(async (req) => {
       limit: 1,
     });
 
-    let planId = "starter";
-    let subscriptionEnd = null;
-    let hasActiveSub = false;
-    let stripeSubscriptionId = null;
+    let planId: string | null = null;
+    let subscriptionEnd: string | null = null;
+    let hasValidSubscription = false;
+    let stripeSubscriptionId: string | null = null;
 
     if (subscriptions.data.length > 0) {
       const subscription = subscriptions.data[0];
-      hasActiveSub = true;
       stripeSubscriptionId = subscription.id;
       
-      // Safely handle the subscription end date
-      const periodEnd = subscription.current_period_end;
-      if (periodEnd && typeof periodEnd === 'number') {
-        subscriptionEnd = new Date(periodEnd * 1000).toISOString();
-      } else if (periodEnd) {
-        // Already a date string or other format
-        subscriptionEnd = String(periodEnd);
-      }
-      
+      // Extract product and price IDs
+      const priceId = subscription.items.data[0].price.id;
       const productId = subscription.items.data[0].price.product as string;
-      planId = PRODUCT_TO_PLAN[productId] || "starter";
-      logStep("Active subscription found", { subscriptionId: subscription.id, planId, endDate: subscriptionEnd });
+      
+      logStep("Checking subscription validity", { subscriptionId: subscription.id, productId, priceId });
 
-      // Sync to database
-      await supabaseClient
-        .from("subscriptions")
-        .upsert({
-          user_id: user.id,
-          plan_id: planId,
-          status: "active",
-          stripe_customer_id: customerId,
-          stripe_subscription_id: stripeSubscriptionId,
-          renews_at: subscriptionEnd,
-        }, { onConflict: "user_id" });
+      // STRICT VALIDATION: Only recognize our ClipMotion products
+      planId = PRODUCT_TO_PLAN[productId] || PRICE_TO_PLAN[priceId] || null;
+
+      if (planId) {
+        // Valid ClipMotion subscription found
+        hasValidSubscription = true;
+        
+        // Safely handle the subscription end date
+        const periodEnd = subscription.current_period_end;
+        if (periodEnd && typeof periodEnd === 'number') {
+          subscriptionEnd = new Date(periodEnd * 1000).toISOString();
+        } else if (periodEnd) {
+          subscriptionEnd = String(periodEnd);
+        }
+        
+        logStep("Valid ClipMotion subscription found", { 
+          subscriptionId: subscription.id, 
+          planId, 
+          productId,
+          priceId,
+          endDate: subscriptionEnd 
+        });
+
+        // Sync to database
+        await supabaseClient
+          .from("subscriptions")
+          .upsert({
+            user_id: user.id,
+            plan_id: planId,
+            status: "active",
+            stripe_customer_id: customerId,
+            stripe_subscription_id: stripeSubscriptionId,
+            renews_at: subscriptionEnd,
+          }, { onConflict: "user_id" });
+      } else {
+        // Subscription exists but is NOT a recognized ClipMotion product
+        // This is an orphan subscription (e.g., from another product)
+        logStep("ORPHAN SUBSCRIPTION DETECTED - Not a ClipMotion product", { 
+          subscriptionId: subscription.id,
+          productId,
+          priceId,
+          recognizedProducts: Object.keys(PRODUCT_TO_PLAN),
+        });
+        
+        hasValidSubscription = false;
+        planId = null;
+        
+        // Mark as inactive in database
+        await supabaseClient
+          .from("subscriptions")
+          .upsert({
+            user_id: user.id,
+            plan_id: "starter",
+            status: "orphan",
+            stripe_customer_id: customerId,
+            stripe_subscription_id: stripeSubscriptionId,
+          }, { onConflict: "user_id" });
+      }
     } else {
-      logStep("No active subscription found");
+      logStep("No active Stripe subscription found");
       
       // Update database to reflect no active subscription
       await supabaseClient
@@ -115,16 +178,18 @@ serve(async (req) => {
         .upsert({
           user_id: user.id,
           plan_id: "starter",
-          status: "active",
+          status: "inactive",
           stripe_customer_id: customerId,
+          stripe_subscription_id: null,
         }, { onConflict: "user_id" });
     }
 
     return new Response(JSON.stringify({
-      subscribed: hasActiveSub,
+      subscribed: hasValidSubscription,
       plan_id: planId,
-      status: hasActiveSub ? "active" : "free",
+      status: hasValidSubscription ? "active" : "no_valid_subscription",
       subscription_end: subscriptionEnd,
+      requires_checkout: !hasValidSubscription,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
