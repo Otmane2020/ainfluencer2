@@ -288,148 +288,157 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log("[cron] Starting campaign processing...");
+    console.log("[cron] Starting scheduled posts processing...");
 
-    // Fetch active campaigns with project info
-    const { data: campaigns, error: campaignsError } = await supabase
-      .from("campaigns")
+    const now = new Date();
+    let totalGenerated = 0;
+    let totalPublished = 0;
+
+    // STEP 1: Process ALL scheduled posts that are due (with or without campaign)
+    const { data: duePosts, error: postsError } = await supabase
+      .from("scheduled_posts")
       .select("*, projects(name, detected_language, description, logo_url, url)")
-      .eq("status", "active") as { data: Campaign[] | null; error: any };
+      .eq("status", "scheduled")
+      .lte("scheduled_for", now.toISOString())
+      .order("scheduled_for", { ascending: true })
+      .limit(20) as { data: (ScheduledPost & { projects: any })[] | null; error: any };
 
-    if (campaignsError) throw campaignsError;
-    if (!campaigns?.length) {
-      console.log("[cron] No active campaigns");
-      return new Response(JSON.stringify({ message: "No active campaigns" }), {
+    if (postsError) throw postsError;
+
+    if (!duePosts?.length) {
+      console.log("[cron] No scheduled posts due");
+      return new Response(JSON.stringify({ message: "No posts due", generated: 0, published: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log(`[cron] Processing ${campaigns.length} campaigns`);
+    console.log(`[cron] Found ${duePosts.length} posts due for processing`);
 
-    const now = new Date();
-    const currentHour = now.getUTCHours();
-    let totalGenerated = 0;
-    let totalPublished = 0;
+    for (const post of duePosts) {
+      const brandName = post.projects?.name;
+      console.log(`[cron] Processing post ${post.id} (${post.content_type})`);
 
-    for (const campaign of campaigns) {
-      const postingHour = campaign.posting_hour ?? 10;
-      if (Math.abs(currentHour - postingHour) > 1) {
-        console.log(`[cron] Skipping ${campaign.name} - not posting time`);
+      // STEP 1: Generate media if missing
+      if (!post.media_url && post.ai_prompt) {
+        if (post.content_type === "image") {
+          console.log(`[cron] Generating image for post ${post.id}`);
+          const imageUrl = await generateImage(post.ai_prompt, supabase, brandName);
+          if (imageUrl) {
+            await supabase.from("scheduled_posts").update({ media_url: imageUrl }).eq("id", post.id);
+            post.media_url = imageUrl;
+            totalGenerated++;
+            console.log(`[cron] Image generated: ${imageUrl}`);
+          } else {
+            console.log(`[cron] Image generation failed for post ${post.id}`);
+          }
+        } else if (post.content_type === "video") {
+          console.log(`[cron] Generating video for post ${post.id}`);
+          const videoUrl = await generateVideo(post.ai_prompt, supabase);
+          if (videoUrl) {
+            await supabase.from("scheduled_posts").update({ media_url: videoUrl }).eq("id", post.id);
+            post.media_url = videoUrl;
+            totalGenerated++;
+            console.log(`[cron] Video generated: ${videoUrl}`);
+          } else {
+            console.log(`[cron] Video generation failed for post ${post.id}`);
+          }
+        }
+      }
+
+      // STEP 2: Publish to platforms
+      const { data: metaConnection } = await supabase
+        .from("meta_connections")
+        .select("*")
+        .eq("user_id", post.user_id)
+        .single();
+
+      if (!metaConnection) {
+        console.log(`[cron] No Meta connection for user ${post.user_id}`);
+        await supabase.from("scheduled_posts").update({
+          error_message: "No Meta connection - manual publish required",
+        }).eq("id", post.id);
         continue;
       }
 
-      // Get scheduled posts for this campaign
-      const { data: posts, error: postsError } = await supabase
-        .from("scheduled_posts")
-        .select("*")
-        .eq("campaign_id", campaign.id)
-        .eq("status", "scheduled")
-        .lte("scheduled_for", now.toISOString())
-        .order("scheduled_for", { ascending: true })
-        .limit(5) as { data: ScheduledPost[] | null; error: any };
+      // Check token expiry
+      if (new Date(metaConnection.expires_at) < now) {
+        console.log(`[cron] Meta token expired for user ${post.user_id}`);
+        await supabase.from("scheduled_posts").update({
+          error_message: "Meta token expired - reconnect required",
+        }).eq("id", post.id);
+        continue;
+      }
 
-      if (postsError || !posts?.length) continue;
+      const platforms = post.platforms || ["instagram", "facebook"];
+      const errors: string[] = [];
 
-      console.log(`[cron] ${campaign.name}: ${posts.length} posts to process`);
-
-      for (const post of posts) {
-        const brandName = campaign.projects?.name;
-
-        // STEP 1: Generate media if missing
-        if (!post.media_url && post.ai_prompt) {
-          if (post.content_type === "image") {
-            console.log(`[cron] Generating image for post ${post.id}`);
-            const imageUrl = await generateImage(post.ai_prompt, supabase, brandName);
-            if (imageUrl) {
-              await supabase.from("scheduled_posts").update({ media_url: imageUrl }).eq("id", post.id);
-              post.media_url = imageUrl;
-              totalGenerated++;
-              console.log(`[cron] Image generated for post ${post.id}`);
-            }
-          } else if (post.content_type === "video") {
-            console.log(`[cron] Generating video for post ${post.id}`);
-            const videoUrl = await generateVideo(post.ai_prompt, supabase);
-            if (videoUrl) {
-              await supabase.from("scheduled_posts").update({ media_url: videoUrl }).eq("id", post.id);
-              post.media_url = videoUrl;
-              totalGenerated++;
-              console.log(`[cron] Video generated for post ${post.id}`);
-            }
+      for (const platform of platforms) {
+        if (platform === "facebook") {
+          const result = await publishToFacebook(post, metaConnection);
+          if (!result.success) {
+            errors.push(`FB: ${result.error}`);
+            console.log(`[cron] Facebook publish failed: ${result.error}`);
+          } else {
+            console.log(`[cron] Published to Facebook successfully`);
           }
         }
 
-        // STEP 2: Publish to platforms
-        const { data: metaConnection } = await supabase
-          .from("meta_connections")
-          .select("*")
-          .eq("user_id", post.user_id)
-          .single();
-
-        if (!metaConnection) {
-          await supabase.from("scheduled_posts").update({
-            error_message: "No Meta connection - manual publish required",
-          }).eq("id", post.id);
-          continue;
-        }
-
-        // Check token expiry
-        if (new Date(metaConnection.expires_at) < now) {
-          await supabase.from("scheduled_posts").update({
-            error_message: "Meta token expired - reconnect required",
-          }).eq("id", post.id);
-          continue;
-        }
-
-        const platforms = post.platforms || ["instagram", "facebook"];
-        const errors: string[] = [];
-
-        for (const platform of platforms) {
-          if (platform === "facebook") {
-            const result = await publishToFacebook(post, metaConnection);
-            if (!result.success) errors.push(`FB: ${result.error}`);
-            else console.log(`[cron] Published to Facebook`);
+        if (platform === "instagram") {
+          const result = await publishToInstagram(post, metaConnection);
+          if (!result.success) {
+            errors.push(`IG: ${result.error}`);
+            console.log(`[cron] Instagram publish failed: ${result.error}`);
+          } else {
+            console.log(`[cron] Published to Instagram successfully`);
           }
-
-          if (platform === "instagram") {
-            const result = await publishToInstagram(post, metaConnection);
-            if (!result.success) errors.push(`IG: ${result.error}`);
-            else console.log(`[cron] Published to Instagram`);
-          }
-        }
-
-        // Update post status
-        if (errors.length === 0) {
-          await supabase.from("scheduled_posts").update({
-            status: "published",
-            published_at: now.toISOString(),
-            error_message: null,
-          }).eq("id", post.id);
-          totalPublished++;
-        } else if (errors.length < platforms.length) {
-          await supabase.from("scheduled_posts").update({
-            status: "published",
-            published_at: now.toISOString(),
-            error_message: `Partial: ${errors.join(", ")}`,
-          }).eq("id", post.id);
-          totalPublished++;
-        } else {
-          await supabase.from("scheduled_posts").update({
-            error_message: errors.join(", "),
-          }).eq("id", post.id);
         }
       }
 
-      // Update campaign stats
-      await supabase.from("campaigns").update({
-        total_published: (campaign.total_published || 0) + totalPublished,
-        total_generated: (campaign.total_generated || 0) + totalGenerated,
-      }).eq("id", campaign.id);
+      // Update post status
+      if (errors.length === 0) {
+        await supabase.from("scheduled_posts").update({
+          status: "published",
+          published_at: now.toISOString(),
+          error_message: null,
+        }).eq("id", post.id);
+        totalPublished++;
+        console.log(`[cron] Post ${post.id} published successfully`);
+      } else if (errors.length < platforms.length) {
+        await supabase.from("scheduled_posts").update({
+          status: "published",
+          published_at: now.toISOString(),
+          error_message: `Partial: ${errors.join(", ")}`,
+        }).eq("id", post.id);
+        totalPublished++;
+        console.log(`[cron] Post ${post.id} partially published`);
+      } else {
+        await supabase.from("scheduled_posts").update({
+          error_message: errors.join(", "),
+        }).eq("id", post.id);
+        console.log(`[cron] Post ${post.id} publish failed: ${errors.join(", ")}`);
+      }
+
+      // Update campaign stats if linked
+      if (post.campaign_id) {
+        const { data: campaign } = await supabase
+          .from("campaigns")
+          .select("total_published, total_generated")
+          .eq("id", post.campaign_id)
+          .single();
+
+        if (campaign) {
+          await supabase.from("campaigns").update({
+            total_published: (campaign.total_published || 0) + (errors.length < platforms.length ? 1 : 0),
+            total_generated: (campaign.total_generated || 0) + (post.media_url ? 1 : 0),
+          }).eq("id", post.campaign_id);
+        }
+      }
     }
 
     console.log(`[cron] Done. Generated: ${totalGenerated}, Published: ${totalPublished}`);
 
     return new Response(
-      JSON.stringify({ success: true, generated: totalGenerated, published: totalPublished }),
+      JSON.stringify({ success: true, processed: duePosts.length, generated: totalGenerated, published: totalPublished }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
