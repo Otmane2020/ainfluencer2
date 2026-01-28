@@ -5,6 +5,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// ============================================================
+// AUTOPOST ALWAYS USES SMART QUALITY FOR COST CONTROL
+// Smart Image: flux-2-flex (1.50€)
+// Smart Video: kling-video (9.90€)
+// ============================================================
+
 interface Campaign {
   id: string;
   name: string;
@@ -29,45 +35,84 @@ interface ScheduledPost {
   project_id: string;
 }
 
-// Generate image using Lovable AI
+// ============================================================
+// SMART IMAGE GENERATION (via CometAPI - Flux 2 Flex)
+// ============================================================
+
 async function generateImage(prompt: string, supabase: any, brandName?: string): Promise<string | null> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) return null;
+  const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
+  if (!COMETAPI_API_KEY) {
+    console.error("[generateImage] COMETAPI_API_KEY not configured");
+    return null;
+  }
 
   try {
     const enhancedPrompt = brandName 
       ? `${prompt} for ${brandName} brand. Ultra high resolution, professional quality.`
       : `${prompt}. Ultra high resolution, professional quality.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    console.log("[generateImage] Using Smart Image (flux-2-flex) via CometAPI");
+
+    const response = await fetch("https://api.cometapi.com/v1/images/generations", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${COMETAPI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image",
-        messages: [{ role: "user", content: enhancedPrompt }],
-        modalities: ["image", "text"],
+        model: "flux-2-flex", // Smart Image model
+        prompt: enhancedPrompt,
+        n: 1,
+        size: "1024x1024",
       }),
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[generateImage] CometAPI error:", response.status, errorText.slice(0, 200));
+      return null;
+    }
 
     const data = await response.json();
-    const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    if (!imageData) return null;
+    const imageUrl = data.data?.[0]?.url;
 
-    // Upload to storage
-    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
-    const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+    if (!imageUrl) {
+      // If we get base64, upload to storage
+      const base64 = data.data?.[0]?.b64_json;
+      if (base64) {
+        const imageBytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+        const fileName = `images/${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("media")
+          .upload(fileName, imageBytes, { contentType: "image/png", upsert: true });
+
+        if (uploadError) {
+          console.error("[generateImage] Upload error:", uploadError);
+          return null;
+        }
+
+        const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(fileName);
+        return publicUrlData.publicUrl;
+      }
+      return null;
+    }
+
+    // Download and re-upload to our storage for permanence
+    const imgResponse = await fetch(imageUrl);
+    const imgBlob = await imgResponse.blob();
+    const arrayBuffer = await imgBlob.arrayBuffer();
+    const imageBytes = new Uint8Array(arrayBuffer);
     const fileName = `images/${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
 
     const { error: uploadError } = await supabase.storage
       .from("media")
       .upload(fileName, imageBytes, { contentType: "image/png", upsert: true });
 
-    if (uploadError) return null;
+    if (uploadError) {
+      console.error("[generateImage] Upload error:", uploadError);
+      return imageUrl; // Return original URL as fallback
+    }
 
     const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(fileName);
     return publicUrlData.publicUrl;
@@ -77,61 +122,78 @@ async function generateImage(prompt: string, supabase: any, brandName?: string):
   }
 }
 
-// Generate video using CometAPI
+// ============================================================
+// SMART VIDEO GENERATION (via CometAPI - Kling)
+// ============================================================
+
 async function generateVideo(prompt: string, supabase: any): Promise<string | null> {
   const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
   if (!COMETAPI_API_KEY) {
-    console.error("[generateVideo] No API key configured");
+    console.error("[generateVideo] COMETAPI_API_KEY not configured");
     return null;
   }
 
   try {
-    console.log("[generateVideo] Starting video generation...");
+    console.log("[generateVideo] Using Smart Video (kling-video) via CometAPI...");
     
-    // Create video task
-    const createResponse = await fetch("https://api.cometapi.com/v1/video/create", {
+    // Create video task using FormData (CometAPI format)
+    const formData = new FormData();
+    formData.append("prompt", prompt);
+    formData.append("model", "kling-video"); // Smart Video model
+    formData.append("seconds", "5");
+    formData.append("size", "720x1280"); // Portrait for Reels
+
+    const createResponse = await fetch("https://api.cometapi.com/v1/videos", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${COMETAPI_API_KEY}`,
-        "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: "kling-video",
-        prompt: prompt,
-        duration: 5,
-        aspect_ratio: "9:16",
-      }),
+      body: formData,
     });
 
     if (!createResponse.ok) {
       const errorText = await createResponse.text();
-      console.error("[generateVideo] API error:", createResponse.status, errorText.slice(0, 200));
+      console.error("[generateVideo] Create error:", createResponse.status, errorText.slice(0, 200));
       return null;
     }
 
     const createData = await createResponse.json();
-    const taskId = createData.data?.task_id;
+    const taskId = createData.id;
     if (!taskId) {
-      console.error("[generateVideo] No task_id in response:", JSON.stringify(createData).slice(0, 200));
+      console.error("[generateVideo] No task ID in response");
       return null;
     }
+
+    console.log("[generateVideo] Task created:", taskId);
 
     // Poll for completion (max 5 minutes)
     const maxAttempts = 30;
     for (let i = 0; i < maxAttempts; i++) {
       await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10s
 
-      const statusResponse = await fetch(`https://api.cometapi.com/v1/video/status?task_id=${taskId}`, {
+      const statusResponse = await fetch(`https://api.cometapi.com/v1/videos/${taskId}`, {
         headers: { Authorization: `Bearer ${COMETAPI_API_KEY}` },
       });
 
       if (!statusResponse.ok) continue;
 
       const statusData = await statusResponse.json();
-      const status = statusData.data?.status?.toLowerCase();
+      const videoData = statusData.data || statusData;
+      const innerData = videoData.data || {};
+      const status = (videoData.status || innerData.status || "").toLowerCase();
 
-      if (status === "completed" || status === "success") {
-        const videoUrl = statusData.data?.video_url || statusData.data?.output?.video_url;
+      console.log(`[generateVideo] Poll ${i + 1}/${maxAttempts}: status=${status}`);
+
+      if (status === "completed" || status === "success" || status === "succeeded" || status === "done") {
+        // CometAPI quirk: video URL sometimes in fail_reason
+        let videoUrl = null;
+        if (videoData.fail_reason && videoData.fail_reason.startsWith("http")) {
+          videoUrl = videoData.fail_reason;
+        } else {
+          videoUrl = innerData.output_video || videoData.output_video || 
+                     videoData.video_url || innerData.url || videoData.url;
+        }
+
         if (videoUrl) {
           console.log("[generateVideo] Video ready:", videoUrl);
           return videoUrl;
@@ -150,7 +212,10 @@ async function generateVideo(prompt: string, supabase: any): Promise<string | nu
   }
 }
 
-// Publish to Facebook
+// ============================================================
+// PUBLISH TO FACEBOOK
+// ============================================================
+
 async function publishToFacebook(
   post: ScheduledPost,
   metaConnection: any
@@ -204,7 +269,10 @@ async function publishToFacebook(
   }
 }
 
-// Publish to Instagram
+// ============================================================
+// PUBLISH TO INSTAGRAM
+// ============================================================
+
 async function publishToInstagram(
   post: ScheduledPost,
   metaConnection: any
@@ -288,6 +356,10 @@ async function publishToInstagram(
   }
 }
 
+// ============================================================
+// MAIN CRON HANDLER
+// ============================================================
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -298,18 +370,17 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log("[cron] Starting scheduled posts processing...");
+    console.log("[cron] Starting AutoPost processing (Smart Quality)...");
 
     const now = new Date();
     let totalGenerated = 0;
     let totalPublished = 0;
 
-    // STEP 1: Process ALL posts that are due (scheduled OR draft with past scheduled_for)
-    // This catches both properly scheduled posts AND draft posts that should have been published
+    // Process all due posts (scheduled or draft with past scheduled_for)
     const { data: duePosts, error: postsError } = await supabase
       .from("scheduled_posts")
       .select("*, projects(name, detected_language, description, logo_url, url)")
-      .in("status", ["scheduled", "draft"]) // Include draft posts that are overdue
+      .in("status", ["scheduled", "draft"])
       .lte("scheduled_for", now.toISOString())
       .order("scheduled_for", { ascending: true })
       .limit(20) as { data: (ScheduledPost & { projects: any })[] | null; error: any };
@@ -329,27 +400,27 @@ Deno.serve(async (req) => {
       const brandName = post.projects?.name;
       console.log(`[cron] Processing post ${post.id} (${post.content_type})`);
 
-      // STEP 1: Generate media if missing
+      // STEP 1: Generate media if missing (using Smart quality)
       if (!post.media_url && post.ai_prompt) {
         if (post.content_type === "image") {
-          console.log(`[cron] Generating image for post ${post.id}`);
+          console.log(`[cron] Generating Smart Image for post ${post.id}`);
           const imageUrl = await generateImage(post.ai_prompt, supabase, brandName);
           if (imageUrl) {
             await supabase.from("scheduled_posts").update({ media_url: imageUrl }).eq("id", post.id);
             post.media_url = imageUrl;
             totalGenerated++;
-            console.log(`[cron] Image generated: ${imageUrl}`);
+            console.log(`[cron] Smart Image generated: ${imageUrl.slice(0, 50)}...`);
           } else {
             console.log(`[cron] Image generation failed for post ${post.id}`);
           }
         } else if (post.content_type === "video") {
-          console.log(`[cron] Generating video for post ${post.id}`);
+          console.log(`[cron] Generating Smart Video for post ${post.id}`);
           const videoUrl = await generateVideo(post.ai_prompt, supabase);
           if (videoUrl) {
             await supabase.from("scheduled_posts").update({ media_url: videoUrl }).eq("id", post.id);
             post.media_url = videoUrl;
             totalGenerated++;
-            console.log(`[cron] Video generated: ${videoUrl}`);
+            console.log(`[cron] Smart Video generated: ${videoUrl.slice(0, 50)}...`);
           } else {
             console.log(`[cron] Video generation failed for post ${post.id}`);
           }

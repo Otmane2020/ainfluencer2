@@ -1,190 +1,146 @@
 // ============================================================
 // COMMERCIAL PRODUCTS CONFIGURATION
-// This file contains all product definitions for client display
-// Internal model mapping is hidden from end users
+// Quality-based system - clients see quality levels, not AI model names
+// "ClipMotion uses quality levels instead of AI model names.
+//  We automatically select the best engine for performance, quality, and cost."
 // ============================================================
 
-export interface CommercialProduct {
+// ============================================================
+// QUALITY LEVELS (Client-Facing)
+// ============================================================
+
+export type ImageQuality = "smart" | "high" | "studio";
+export type VideoQuality = "smart" | "high" | "cinema";
+export type ContentType = "image" | "video";
+
+export interface QualityLevel {
   id: string;
   name: string;
-  category: "image" | "video" | "avatar";
-  tier: "standard" | "pro" | "ultra" | "cinema";
-  salePrice: number;
-  salePriceUnit: string;
+  internalModel: string;
+  price: number;
   description: string;
   features: string[];
-  internalModels: string[]; // API model IDs (NOT DISPLAYED)
-  needsVoice: boolean;
-  needsAvatar?: boolean;
-  supportedDurations?: number[];
-  badge?: string;
-  popular?: boolean;
 }
 
-// ============================================================
-// COMMERCIAL PRODUCTS - CLIENT FACING (ENGLISH)
-// ============================================================
-
-export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
-  // === IMAGES ===
+export const IMAGE_QUALITY_LEVELS: QualityLevel[] = [
   {
-    id: "ai-image-smart",
-    name: "Smart Images",
-    category: "image",
-    tier: "standard",
-    salePrice: 1,
-    salePriceUnit: "/image",
+    id: "smart-image",
+    name: "Smart Image",
+    internalModel: "flux-2-flex",
+    price: 1.50,
     description: "Fast AI-powered image generation",
-    features: ["HD Quality", "Fast generation", "Smart AI"],
-    internalModels: ["lovable-ai-gemini"],
-    needsVoice: false,
-    badge: "AI Smart",
-  },
-  {
-    id: "ai-image-standard",
-    name: "AI Image Standard",
-    category: "image",
-    tier: "standard",
-    salePrice: 2,
-    salePriceUnit: "/image",
-    description: "Quality images for your daily posts",
     features: ["HD Quality", "Fast generation", "All styles"],
-    internalModels: ["flux-2-flex"], // ONE model only
-    needsVoice: false,
   },
   {
-    id: "ai-image-pro",
-    name: "AI Image Pro",
-    category: "image",
-    tier: "pro",
-    salePrice: 5,
-    salePriceUnit: "/image",
+    id: "high-image",
+    name: "High Image",
+    internalModel: "nano-banana-pro",
+    price: 2.50,
     description: "Premium photorealistic images",
     features: ["Ultra HD 2K", "Photorealistic", "Premium styles"],
-    internalModels: ["nano-banana-pro"], // ONE model only
-    needsVoice: false,
-    popular: true,
   },
   {
-    id: "ai-image-studio",
-    name: "AI Image Studio",
-    category: "image",
-    tier: "ultra",
-    salePrice: 12,
-    salePriceUnit: "/image",
+    id: "studio-image",
+    name: "Studio Image",
+    internalModel: "flux-2-pro",
+    price: 4.00,
     description: "Professional studio quality",
     features: ["4K Ultra HD", "Perfect consistency", "Brand identity"],
-    internalModels: ["gpt-image-1.5"], // ONE model only
-    needsVoice: false,
-    badge: "PRO",
   },
+];
 
-  // === VIDEOS ===
+export const VIDEO_QUALITY_LEVELS: QualityLevel[] = [
   {
-    id: "ai-reel",
-    name: "AI Reel",
-    category: "video",
-    tier: "standard",
-    salePrice: 15,
-    salePriceUnit: "/video",
+    id: "smart-video",
+    name: "Smart Video",
+    internalModel: "kling-std",
+    price: 9.90,
     description: "Short videos for your social networks",
     features: ["HD 1080p", "5-10s", "AI Voice included"],
-    internalModels: ["kling-v2-master"], // ONE model: Kling
-    needsVoice: true,
-    supportedDurations: [5, 10],
   },
   {
-    id: "ai-reel-pro",
-    name: "AI Reel Pro",
-    category: "video",
-    tier: "pro",
-    salePrice: 29,
-    salePriceUnit: "/video",
+    id: "high-video",
+    name: "High Video",
+    internalModel: "veo-3.1",
+    price: 12.90,
     description: "Ultra-smooth premium videos",
     features: ["Full HD", "4-12s", "Natural voice", "Smooth motion"],
-    internalModels: ["sora-2"], // ONE model: Sora 2
-    needsVoice: true,
-    supportedDurations: [4, 8, 12],
-    popular: true,
   },
   {
-    id: "ai-cinema",
-    name: "AI Cinema",
-    category: "video",
-    tier: "cinema",
-    salePrice: 69,
-    salePriceUnit: "/video",
+    id: "cinema-video",
+    name: "Cinema Video",
+    internalModel: "sora-2-pro",
+    price: 19.90,
     description: "Professional cinema quality",
     features: ["4K HDR", "5-10s", "Cinematic rendering", "Premium audio"],
-    internalModels: ["veo-3.1"], // ONE model: Veo
-    needsVoice: true,
-    supportedDurations: [5, 10],
-    badge: "CINEMA",
-  },
-
-  // === TALKING AVATARS (AI INFLUENCER) ===
-  {
-    id: "ai-influencer-standard",
-    name: "AI Influencer",
-    category: "avatar",
-    tier: "pro",
-    salePrice: 39,
-    salePriceUnit: "/video",
-    description: "Realistic talking avatar for your content",
-    features: ["HD Lip-sync", "5-10s", "Natural voice", "Expressions"],
-    internalModels: ["kling-lip-sync"], // ONE model: Kling Lip-Sync
-    needsVoice: true,
-    needsAvatar: true,
-    supportedDurations: [5, 10],
-  },
-  {
-    id: "ai-influencer-pro",
-    name: "AI Influencer Pro",
-    category: "avatar",
-    tier: "ultra",
-    salePrice: 69,
-    salePriceUnit: "/video",
-    description: "Premium avatar with natural emotions",
-    features: ["Ultra HD", "5-60s", "Multi-expressions", "Storytelling"],
-    internalModels: ["hedra-avatar"], // ONE model: Hedra
-    needsVoice: true,
-    needsAvatar: true,
-    supportedDurations: [5, 10, 15, 30, 60],
-    badge: "PRO",
-    popular: true,
   },
 ];
 
 // ============================================================
-// INTERNAL MODEL MAPPING (NEVER EXPOSED TO CLIENT)
+// COMETAPI MODEL ROUTING (Internal - Never exposed to clients)
 // ============================================================
 
-import { AIModel, AI_MODELS } from "@/components/ModelSelector";
-
-export const getInternalModels = (productId: string): AIModel[] => {
-  const product = COMMERCIAL_PRODUCTS.find((p) => p.id === productId);
-  if (!product) return [];
-  
-  return product.internalModels
-    .map((modelId) => AI_MODELS.find((m) => m.id === modelId))
-    .filter((m): m is AIModel => m !== undefined);
-};
-
-export const getPrimaryInternalModel = (productId: string): AIModel | null => {
-  const models = getInternalModels(productId);
-  return models[0] || null;
-};
-
-// Get commercial name from internal model ID (for legacy displays)
-export const getCommercialName = (internalModelId: string): string => {
-  const product = COMMERCIAL_PRODUCTS.find((p) =>
-    p.internalModels.includes(internalModelId)
-  );
-  return product?.name || "AI Generation";
+export const COMETAPI_MODEL_ROUTING: Record<string, string> = {
+  // Images
+  "flux-2-flex": "flux-2-flex",
+  "nano-banana-pro": "nano-banana-pro",
+  "flux-2-pro": "flux-2-pro",
+  "gpt-image": "gpt-image-1",
+  "gpt-image-hq": "gpt-image-1",
+  // Videos
+  "kling-std": "kling-video",
+  "veo-fast": "veo-2",
+  "veo-3.1": "veo-2",
+  "sora-2": "sora-2",
+  "sora-2-pro": "sora-2",
+  "veo-pro": "veo-2",
+  // Legacy mappings
+  "kling-v2-master": "kling-video",
+  "minimax-hailuo": "minimax-video-01",
 };
 
 // ============================================================
-// SUBSCRIPTION PLANS (NEW)
+// PLAN ACCESS CONTROL
+// ============================================================
+
+export interface PlanQualityAccess {
+  image: string[];
+  video: string[];
+  maxProjects: number;
+  maxCampaigns: number;
+  autopostImagesPerDay: number;
+  autopostVideosPerDay: number;
+}
+
+export const PLAN_QUALITY_ACCESS: Record<string, PlanQualityAccess> = {
+  starter: {
+    image: ["smart-image"],
+    video: [], // NO video access
+    maxProjects: 3,
+    maxCampaigns: 1,
+    autopostImagesPerDay: 30,
+    autopostVideosPerDay: 0,
+  },
+  pro: {
+    image: ["smart-image", "high-image"],
+    video: ["smart-video", "high-video"],
+    maxProjects: 10,
+    maxCampaigns: -1, // Unlimited
+    autopostImagesPerDay: -1, // Unlimited
+    autopostVideosPerDay: 1,
+  },
+  business: {
+    image: ["smart-image", "high-image", "studio-image"],
+    video: ["smart-video", "high-video", "cinema-video"],
+    maxProjects: -1, // Unlimited
+    maxCampaigns: -1,
+    autopostImagesPerDay: -1,
+    autopostVideosPerDay: 3,
+  },
+};
+
+// ============================================================
+// SUBSCRIPTION PLANS
 // ============================================================
 
 export interface PricingPlan {
@@ -196,11 +152,12 @@ export interface PricingPlan {
   features: string[];
   limits: {
     projects: number;
+    campaigns: number;
     autopostImages: number; // per day (-1 = unlimited)
     autopostVideos: number; // per day (-1 = unlimited)
-    imageQuality: "standard" | "pro" | "studio" | null;
-    videoQuality: "standard" | "pro" | "cinema" | null;
   };
+  imageQualities: string[];
+  videoQualities: string[];
   popular?: boolean;
   badge?: string;
 }
@@ -214,17 +171,19 @@ export const PRICING_PLANS: PricingPlan[] = [
     description: "Perfect for creators getting started",
     features: [
       "3 projects",
+      "1 campaign max",
       "AutoPost AI Images (up to 30/day)",
-      "Standard quality images",
+      "Smart quality images",
       "Email support",
     ],
     limits: {
       projects: 3,
+      campaigns: 1,
       autopostImages: 30,
       autopostVideos: 0,
-      imageQuality: "standard",
-      videoQuality: null,
     },
+    imageQualities: ["smart-image"],
+    videoQualities: [],
   },
   {
     id: "pro",
@@ -234,18 +193,20 @@ export const PRICING_PLANS: PricingPlan[] = [
     description: "For brands and serious creators",
     features: [
       "10 projects",
+      "Unlimited campaigns",
       "AutoPost AI Images (unlimited)",
       "AutoPost AI Videos (1/day)",
-      "Pro & Ultra quality",
+      "Smart & High quality",
       "Priority support",
     ],
     limits: {
       projects: 10,
+      campaigns: -1,
       autopostImages: -1,
       autopostVideos: 1,
-      imageQuality: "pro",
-      videoQuality: "pro",
     },
+    imageQualities: ["smart-image", "high-image"],
+    videoQualities: ["smart-video", "high-video"],
     popular: true,
     badge: "POPULAR",
   },
@@ -257,46 +218,86 @@ export const PRICING_PLANS: PricingPlan[] = [
     description: "For agencies and power users",
     features: [
       "Unlimited projects",
+      "Unlimited campaigns",
       "AutoPost AI Images (unlimited)",
       "AutoPost AI Videos (3/day)",
-      "AI Cinema & Influencer",
+      "All quality levels",
       "Priority queue",
       "API access",
     ],
     limits: {
       projects: -1,
+      campaigns: -1,
       autopostImages: -1,
       autopostVideos: 3,
-      imageQuality: "studio",
-      videoQuality: "cinema",
     },
+    imageQualities: ["smart-image", "high-image", "studio-image"],
+    videoQualities: ["smart-video", "high-video", "cinema-video"],
     badge: "PRO",
   },
 ];
 
 // ============================================================
-// CREDIT COSTS (per generation)
+// PACKS CONFIGURATION
+// ============================================================
+
+export interface Pack {
+  id: string;
+  name: string;
+  packType: "image" | "video";
+  quality: string; // Quality ID (e.g., "smart-image", "high-video")
+  quantity: number;
+  price: number;
+  popular?: boolean;
+}
+
+export const IMAGE_PACKS: Pack[] = [
+  { id: "img-s-smart", name: "Pack S", packType: "image", quality: "smart-image", quantity: 10, price: 15 },
+  { id: "img-m-smart", name: "Pack M", packType: "image", quality: "smart-image", quantity: 50, price: 65 },
+  { id: "img-l-smart", name: "Pack L", packType: "image", quality: "smart-image", quantity: 200, price: 220 },
+  { id: "img-s-high", name: "Pack S High", packType: "image", quality: "high-image", quantity: 10, price: 25 },
+  { id: "img-m-high", name: "Pack M High", packType: "image", quality: "high-image", quantity: 50, price: 110 },
+  { id: "img-studio", name: "Pack Studio", packType: "image", quality: "studio-image", quantity: 50, price: 180 },
+];
+
+export const VIDEO_PACKS: Pack[] = [
+  { id: "vid-s-smart", name: "Pack Video S", packType: "video", quality: "smart-video", quantity: 10, price: 99 },
+  { id: "vid-m-mixed", name: "Pack Video M", packType: "video", quality: "high-video", quantity: 30, price: 249, popular: true },
+  { id: "vid-l-smart", name: "Pack Video L", packType: "video", quality: "smart-video", quantity: 100, price: 699 },
+  { id: "vid-cinema", name: "Pack Cinema", packType: "video", quality: "cinema-video", quantity: 20, price: 399 },
+];
+
+export const ALL_PACKS = [...IMAGE_PACKS, ...VIDEO_PACKS];
+
+// ============================================================
+// CREDIT COSTS (per generation - fallback system)
 // ============================================================
 
 export const CREDIT_COSTS: Record<string, number> = {
-  // Images
-  "ai-image-smart": 1,
-  "ai-image-standard": 2,
-  "ai-image-pro": 5,
-  "ai-image-studio": 12,
+  // Images (price in credits = price in euros)
+  "smart-image": 2,
+  "high-image": 3,
+  "studio-image": 4,
   
   // Videos
-  "ai-reel": 15,
-  "ai-reel-pro": 29,
-  "ai-cinema": 69,
+  "smart-video": 10,
+  "high-video": 13,
+  "cinema-video": 20,
   
-  // Avatars
+  // Legacy product IDs (backwards compatibility)
+  "ai-image-smart": 2,
+  "ai-image-standard": 2,
+  "ai-image-pro": 3,
+  "ai-image-studio": 4,
+  "ai-reel": 10,
+  "ai-reel-pro": 13,
+  "ai-cinema": 20,
   "ai-influencer-standard": 39,
   "ai-influencer-pro": 69,
 };
 
 // ============================================================
-// CREDIT PACKS (for purchase)
+// CREDIT PACKS (for purchase - fallback system)
 // ============================================================
 
 export interface CreditPack {
@@ -316,45 +317,102 @@ export const CREDIT_PACKS: CreditPack[] = [
 ];
 
 // ============================================================
-// LEGACY PRICING PACKS (for backwards compatibility)
+// LEGACY SUPPORT - CommercialProduct interface
 // ============================================================
 
-export interface PricingPack {
+export interface CommercialProduct {
   id: string;
   name: string;
-  price: number;
-  priceUnit: string;
+  category: "image" | "video" | "avatar";
+  tier: "standard" | "pro" | "ultra" | "cinema";
+  salePrice: number;
+  salePriceUnit: string;
   description: string;
   features: string[];
-  included: {
-    images: number;
-    videos: number;
-    influencerVideos: number;
-  };
-  popular?: boolean;
+  internalModels: string[];
+  needsVoice: boolean;
+  needsAvatar?: boolean;
+  supportedDurations?: number[];
   badge?: string;
+  popular?: boolean;
 }
 
-// Map PRICING_PLANS to PRICING_PACKS for backwards compatibility
-export const PRICING_PACKS: PricingPack[] = PRICING_PLANS.map(plan => ({
-  id: plan.id,
-  name: plan.name,
-  price: plan.price,
-  priceUnit: plan.priceUnit,
-  description: plan.description,
-  features: plan.features,
-  included: {
-    images: plan.limits.autopostImages,
-    videos: plan.limits.autopostVideos,
-    influencerVideos: plan.id === "business" ? 3 : plan.id === "pro" ? 1 : 0,
-  },
-  popular: plan.popular,
-  badge: plan.badge,
-}));
+// Map quality levels to legacy CommercialProduct format
+export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
+  // Images
+  ...IMAGE_QUALITY_LEVELS.map((q, i) => ({
+    id: q.id,
+    name: q.name,
+    category: "image" as const,
+    tier: (i === 0 ? "standard" : i === 1 ? "pro" : "ultra") as CommercialProduct["tier"],
+    salePrice: q.price,
+    salePriceUnit: "/image",
+    description: q.description,
+    features: q.features,
+    internalModels: [q.internalModel],
+    needsVoice: false,
+    badge: i === 2 ? "STUDIO" : undefined,
+    popular: i === 1,
+  })),
+  // Videos
+  ...VIDEO_QUALITY_LEVELS.map((q, i) => ({
+    id: q.id,
+    name: q.name,
+    category: "video" as const,
+    tier: (i === 0 ? "standard" : i === 1 ? "pro" : "cinema") as CommercialProduct["tier"],
+    salePrice: q.price,
+    salePriceUnit: "/video",
+    description: q.description,
+    features: q.features,
+    internalModels: [q.internalModel],
+    needsVoice: true,
+    supportedDurations: i === 0 ? [5, 10] : i === 1 ? [5, 10] : [4, 8, 12],
+    badge: i === 2 ? "CINEMA" : undefined,
+    popular: i === 1,
+  })),
+];
 
 // ============================================================
 // HELPER FUNCTIONS
 // ============================================================
+
+export const getQualityById = (qualityId: string): QualityLevel | undefined => {
+  return [...IMAGE_QUALITY_LEVELS, ...VIDEO_QUALITY_LEVELS].find(q => q.id === qualityId);
+};
+
+export const getInternalModel = (qualityId: string): string | undefined => {
+  const quality = getQualityById(qualityId);
+  return quality?.internalModel;
+};
+
+export const getCometApiModel = (internalModel: string): string => {
+  return COMETAPI_MODEL_ROUTING[internalModel] || internalModel;
+};
+
+export const canAccessQuality = (planId: string, qualityId: string): boolean => {
+  const access = PLAN_QUALITY_ACCESS[planId];
+  if (!access) return false;
+  return access.image.includes(qualityId) || access.video.includes(qualityId);
+};
+
+export const canAccessVideo = (planId: string): boolean => {
+  const access = PLAN_QUALITY_ACCESS[planId];
+  return access?.video.length > 0;
+};
+
+export const getAutopostLimit = (planId: string, contentType: "image" | "video"): number => {
+  const access = PLAN_QUALITY_ACCESS[planId];
+  if (!access) return 0;
+  return contentType === "image" ? access.autopostImagesPerDay : access.autopostVideosPerDay;
+};
+
+export const getPlanById = (planId: string): PricingPlan | undefined => {
+  return PRICING_PLANS.find(p => p.id === planId);
+};
+
+export const getCreditCost = (qualityId: string): number => {
+  return CREDIT_COSTS[qualityId] || 0;
+};
 
 export const getTierColor = (tier: CommercialProduct["tier"]) => {
   switch (tier) {
@@ -388,10 +446,59 @@ export const formatPrice = (price: number, unit: string) => {
   return `${price}€${unit}`;
 };
 
-export const getCreditCost = (productId: string): number => {
-  return CREDIT_COSTS[productId] || 0;
+// Legacy compatibility - Import AIModel type for backwards compat
+import { AI_MODELS, type AIModel } from "@/components/ModelSelector";
+
+export const getInternalModels = (productId: string): AIModel[] => {
+  const product = COMMERCIAL_PRODUCTS.find((p) => p.id === productId);
+  if (!product) return [];
+  
+  return product.internalModels
+    .map((modelId) => AI_MODELS.find((m) => m.id === modelId))
+    .filter((m): m is AIModel => m !== undefined);
 };
 
-export const getPlanById = (planId: string): PricingPlan | undefined => {
-  return PRICING_PLANS.find(p => p.id === planId);
+export const getPrimaryInternalModel = (productId: string): AIModel | null => {
+  const models = getInternalModels(productId);
+  return models[0] || null;
 };
+
+export const getCommercialName = (internalModelId: string): string => {
+  const product = COMMERCIAL_PRODUCTS.find((p) =>
+    p.internalModels.includes(internalModelId)
+  );
+  return product?.name || "AI Generation";
+};
+
+// Legacy pricing packs compatibility
+export interface PricingPack {
+  id: string;
+  name: string;
+  price: number;
+  priceUnit: string;
+  description: string;
+  features: string[];
+  included: {
+    images: number;
+    videos: number;
+    influencerVideos: number;
+  };
+  popular?: boolean;
+  badge?: string;
+}
+
+export const PRICING_PACKS: PricingPack[] = PRICING_PLANS.map(plan => ({
+  id: plan.id,
+  name: plan.name,
+  price: plan.price,
+  priceUnit: plan.priceUnit,
+  description: plan.description,
+  features: plan.features,
+  included: {
+    images: plan.limits.autopostImages,
+    videos: plan.limits.autopostVideos,
+    influencerVideos: plan.id === "business" ? 3 : plan.id === "pro" ? 1 : 0,
+  },
+  popular: plan.popular,
+  badge: plan.badge,
+}));

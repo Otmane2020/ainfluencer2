@@ -5,7 +5,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Model configuration for CometAPI - maps internal model IDs to API model names
+// ============================================================
+// MODEL CONFIGURATION - Quality-based routing to CometAPI
+// ============================================================
+
 interface ModelConfig {
   apiModel: string;
   durations: number[];
@@ -13,6 +16,70 @@ interface ModelConfig {
 }
 
 const MODEL_CONFIGS: Record<string, ModelConfig> = {
+  // ============================================================
+  // QUALITY LEVELS (Primary - used by frontend)
+  // ============================================================
+  
+  // Smart Video - Kling Standard (fast, affordable) - 9.90€
+  "smart-video": {
+    apiModel: "kling-video",
+    durations: [5, 10],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
+  },
+  
+  // High Video - Veo 3.1 / Sora 2 - 12.90€
+  "high-video": {
+    apiModel: "veo-2",
+    durations: [5, 10],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
+  },
+  
+  // Cinema Video - Sora 2 Pro / Veo Pro - 19.90€
+  "cinema-video": {
+    apiModel: "sora-2",
+    durations: [4, 8, 12],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
+  },
+
+  // ============================================================
+  // INTERNAL MODEL IDs (Secondary - mapped from quality levels)
+  // ============================================================
+  
+  // Kling variants
+  "kling-std": {
+    apiModel: "kling-video",
+    durations: [5, 10],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
+  },
+  "kling-v2-master": {
+    apiModel: "kling-video",
+    durations: [5, 10],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
+  },
+  
+  // Veo variants
+  "veo-3.1": {
+    apiModel: "veo-2",
+    durations: [5, 10],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
+  },
+  "veo-fast": {
+    apiModel: "veo-2",
+    durations: [5, 10],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
+  },
+  "veo-pro": {
+    apiModel: "veo-2",
+    durations: [10, 20, 30],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
+  },
+  "veo-3.1-pro": {
+    apiModel: "veo-2",
+    durations: [10, 20, 30],
+    maxSize: { portrait: "720x1280", landscape: "1280x720" },
+  },
+  
+  // Sora variants
   "sora-2": {
     apiModel: "sora-2",
     durations: [4, 8, 12],
@@ -23,29 +90,23 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
     durations: [4, 8, 12],
     maxSize: { portrait: "720x1280", landscape: "1280x720" },
   },
-  "kling-v2-master": {
-    apiModel: "kling-video",
-    durations: [5, 10],
-    maxSize: { portrait: "720x1280", landscape: "1280x720" },
-  },
+  
+  // MiniMax (legacy)
   "minimax-hailuo": {
     apiModel: "minimax-video-01",
     durations: [4, 6],
     maxSize: { portrait: "720x1280", landscape: "1280x720" },
   },
-  "veo-3.1": {
-    apiModel: "veo-2",
-    durations: [5, 10],
-    maxSize: { portrait: "720x1280", landscape: "1280x720" },
-  },
-  "veo-3.1-pro": {
-    apiModel: "veo-2",
-    durations: [10, 20, 30],
-    maxSize: { portrait: "720x1280", landscape: "1280x720" },
-  },
 };
 
-// Legacy quality sizes (fallback if model not found)
+// Default fallback
+const DEFAULT_MODEL_CONFIG: ModelConfig = {
+  apiModel: "kling-video",
+  durations: [5, 10],
+  maxSize: { portrait: "720x1280", landscape: "1280x720" },
+};
+
+// Legacy quality sizes (fallback)
 const QUALITY_SIZES: Record<string, { portrait: string; landscape: string }> = {
   "720p": { portrait: "720x1280", landscape: "1280x720" },
   "1080p": { portrait: "720x1280", landscape: "1280x720" },
@@ -56,24 +117,15 @@ interface VideoRequest {
   prompt: string;
   avatarUrl?: string;
   duration?: number;
-  size?: string; // Legacy: "720x1280" or "1280x720"
+  size?: string;
   quality?: "720p" | "1080p" | "4k";
   orientation?: "portrait" | "landscape";
-  format?: "reel" | "landscape" | "story"; // New: format option
+  format?: "reel" | "landscape" | "story";
   startingFrameUrl?: string;
-  model?: string; // Model ID from frontend (e.g., "kling-v2-master", "veo-3.1")
-}
-
-interface VideoStatusResponse {
-  id: string;
-  status: "queued" | "in_progress" | "completed" | "failed";
-  progress: number;
-  videoUrl?: string;
-  error?: string;
+  model?: string; // Quality ID (e.g., "smart-video") or internal model ID
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -88,34 +140,33 @@ serve(async (req) => {
     const action = url.searchParams.get("action") || "create";
 
     if (action === "create") {
-      // Create a new video generation task
       const { 
         prompt, 
         avatarUrl, 
-        duration: requestedDuration = 4, 
+        duration: requestedDuration = 5, 
         size: legacySize,
         quality = "1080p",
         orientation: requestedOrientation = "portrait",
         format,
         startingFrameUrl,
-        model: requestedModel = "sora-2",
+        model: requestedModel = "smart-video", // Default to Smart Video
       }: VideoRequest = await req.json();
 
       if (!prompt) {
         throw new Error("Prompt is required");
       }
 
-      // Determine orientation from format if provided, otherwise use requested orientation
+      // Determine orientation from format
       let orientation = requestedOrientation;
       if (format) {
         orientation = format === "landscape" ? "landscape" : "portrait";
       }
 
-      // Get model configuration (fallback to sora-2 if unknown model)
-      const modelConfig = MODEL_CONFIGS[requestedModel] || MODEL_CONFIGS["sora-2"];
+      // Get model configuration (fallback to Smart Video if unknown)
+      const modelConfig = MODEL_CONFIGS[requestedModel] || DEFAULT_MODEL_CONFIG;
       const apiModel = modelConfig.apiModel;
 
-      // Validate duration for this specific model
+      // Validate duration for this model
       const validDurations = modelConfig.durations;
       const duration = validDurations.includes(requestedDuration) 
         ? requestedDuration 
@@ -123,42 +174,43 @@ serve(async (req) => {
             Math.abs(curr - requestedDuration) < Math.abs(prev - requestedDuration) ? curr : prev
           );
 
-      // Determine size based on model config or legacy size
+      // Determine size
       const size = legacySize || modelConfig.maxSize[orientation];
 
-      // Build the video prompt with avatar context if provided
+      // Build enhanced prompt
       let fullPrompt = prompt;
       if (avatarUrl) {
         fullPrompt = `Cinematic ultra-realistic promotional video: ${prompt}. Style: professional, high quality, cinematic lighting, vibrant colors.`;
       }
       
-      // Add quality instructions based on resolution
+      // Add quality instructions
       if (quality === "4k") {
         fullPrompt = `${fullPrompt} Ultra high resolution 4K, maximum detail, professional cinema grade quality.`;
       } else if (quality === "1080p") {
         fullPrompt = `${fullPrompt} Full HD 1080p, sharp details, professional quality.`;
       }
 
-      console.log("Model routing - Requested:", requestedModel, "-> API:", apiModel);
-      console.log("Resolution:", size, "| Duration:", duration, "s (requested:", requestedDuration, "s)");
+      console.log("=== Video Generation Request ===");
+      console.log("Quality Level:", requestedModel);
+      console.log("API Model:", apiModel);
+      console.log("Resolution:", size);
+      console.log("Duration:", duration, "s (requested:", requestedDuration, "s)");
       if (startingFrameUrl) {
         console.log("Starting frame URL provided for video continuation");
       }
 
-      // Create FormData for the request
+      // Create FormData for CometAPI
       const formData = new FormData();
       formData.append("prompt", fullPrompt);
-      formData.append("model", apiModel); // Use dynamic model from config
+      formData.append("model", apiModel);
       formData.append("seconds", duration.toString());
       formData.append("size", size);
 
-      // Add starting frame for video continuation (image-to-video)
       if (startingFrameUrl) {
         formData.append("image_url", startingFrameUrl);
-        console.log("Added starting frame for video-to-video continuation");
+        console.log("Added starting frame for image-to-video");
       }
 
-      // Call CometAPI Sora 2 endpoint
       const response = await fetch("https://api.cometapi.com/v1/videos", {
         method: "POST",
         headers: {
@@ -174,7 +226,7 @@ serve(async (req) => {
       }
 
       const result = await response.json();
-      console.log("Video task created:", result.id, "| Model:", apiModel, "| Duration:", duration, "s");
+      console.log("Video task created:", result.id, "| API Model:", apiModel, "| Duration:", duration, "s");
 
       return new Response(
         JSON.stringify({
@@ -184,6 +236,7 @@ serve(async (req) => {
           progress: result.progress || 0,
           model: apiModel,
           requestedModel,
+          qualityLevel: requestedModel,
           size,
           duration,
         }),
@@ -193,7 +246,6 @@ serve(async (req) => {
       );
 
     } else if (action === "status") {
-      // Check status of a video generation task
       const taskId = url.searchParams.get("taskId");
       if (!taskId) {
         throw new Error("taskId is required for status check");
@@ -217,15 +269,15 @@ serve(async (req) => {
       const result = await response.json();
       console.log("Full API response:", JSON.stringify(result));
 
-      // Handle nested data structure from CometAPI
+      // Handle nested data structure
       const videoData = result.data || result;
       const innerData = videoData.data || {};
 
-      // Normalize status to lowercase for comparison
+      // Normalize status
       const rawStatus = videoData.status || innerData.status || videoData.state || "in_progress";
       const taskStatus = rawStatus.toLowerCase();
 
-      // Parse progress (can be "10%" string or number)
+      // Parse progress
       const rawProgress = innerData.progress || videoData.progress || videoData.percent || 0;
       const taskProgress = typeof rawProgress === "string" 
         ? parseInt(rawProgress.replace('%', '')) 
@@ -235,10 +287,9 @@ serve(async (req) => {
       const submitTime = videoData.submit_time || innerData.submit_time;
       const finishTime = videoData.finish_time || innerData.finish_time;
 
-      // IMPORTANT: CometAPI returns the video URL in fail_reason when status is SUCCESS
+      // Extract video URL (CometAPI quirk: sometimes in fail_reason)
       let videoUrl = undefined;
       if (taskStatus === "success" || taskStatus === "succeeded" || taskStatus === "completed" || taskStatus === "done") {
-        // Check fail_reason first (CometAPI quirk)
         if (videoData.fail_reason && videoData.fail_reason.startsWith("http")) {
           videoUrl = videoData.fail_reason;
         } else {
@@ -247,13 +298,12 @@ serve(async (req) => {
         }
       }
 
-      // Get model and seconds from response
-      const model = innerData.model || videoData.model || "sora-2";
-      const seconds = innerData.seconds || videoData.seconds || 12;
+      const model = innerData.model || videoData.model || "smart-video";
+      const seconds = innerData.seconds || videoData.seconds || 5;
 
-      console.log("Parsed - Status:", taskStatus, "Progress:", taskProgress, "VideoUrl:", videoUrl, "SubmitTime:", submitTime, "FinishTime:", finishTime);
+      console.log("Parsed - Status:", taskStatus, "Progress:", taskProgress, "VideoUrl:", videoUrl);
 
-      // Map CometAPI status to our status
+      // Map status
       let mappedStatus: "queued" | "in_progress" | "completed" | "failed" = "in_progress";
       if (taskStatus === "queued" || taskStatus === "pending" || taskStatus === "waiting") {
         mappedStatus = "queued";
@@ -263,25 +313,23 @@ serve(async (req) => {
         mappedStatus = "failed";
       }
 
-      const statusResponse = {
-        id: taskId,
-        status: mappedStatus,
-        progress: typeof taskProgress === "number" ? taskProgress : parseInt(taskProgress) || 0,
-        videoUrl,
-        submitTime,
-        finishTime,
-        model,
-        seconds,
-      };
-
       return new Response(
-        JSON.stringify(statusResponse),
+        JSON.stringify({
+          id: taskId,
+          status: mappedStatus,
+          progress: typeof taskProgress === "number" ? taskProgress : parseInt(taskProgress) || 0,
+          videoUrl,
+          submitTime,
+          finishTime,
+          model,
+          seconds,
+        }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
+
     } else if (action === "download") {
-      // Download the generated video content
       const taskId = url.searchParams.get("taskId");
       if (!taskId) {
         throw new Error("taskId is required for download");
@@ -302,7 +350,6 @@ serve(async (req) => {
         throw new Error(`Download failed: ${response.status}`);
       }
 
-      // Stream the video content back
       const videoBlob = await response.blob();
       
       return new Response(videoBlob, {
