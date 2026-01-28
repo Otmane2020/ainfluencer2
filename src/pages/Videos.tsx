@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { VideoGenerator, GenerationTask } from "@/components/VideoGenerator";
 import { VideoPreview } from "@/components/VideoPreview";
 import { GenerationTracker } from "@/components/GenerationTracker";
+import { PaywallGuard } from "@/components/PaywallGuard";
 import {
   Select,
   SelectContent,
@@ -78,64 +79,66 @@ const Videos = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-bold">Video Generator</h1>
-          <p className="text-muted-foreground">
-            Create AI videos for your social media
-          </p>
+    <PaywallGuard feature="video" requiredPlan="pro">
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="font-display text-2xl font-bold">Video Generator</h1>
+            <p className="text-muted-foreground">
+              Create AI videos for your social media
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Select value={selectedProject} onValueChange={setSelectedProject}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="All projects" />
+              </SelectTrigger>
+              <SelectContent className="bg-card border border-border z-50">
+                <SelectItem value="all">All projects</SelectItem>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-3 w-3 rounded-full"
+                        style={{ backgroundColor: project.theme_color }}
+                      />
+                      {project.name.slice(0, 30)}{project.name.length > 30 ? "..." : ""}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Select value={selectedProject} onValueChange={setSelectedProject}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="All projects" />
-            </SelectTrigger>
-            <SelectContent className="bg-card border border-border z-50">
-              <SelectItem value="all">All projects</SelectItem>
-              {projects.map((project) => (
-                <SelectItem key={project.id} value={project.id}>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="h-3 w-3 rounded-full"
-                      style={{ backgroundColor: project.theme_color }}
-                    />
-                    {project.name.slice(0, 30)}{project.name.length > 30 ? "..." : ""}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="grid grid-cols-1 gap-6 lg:grid-cols-3"
+        >
+          {/* Left Column - Video Generator */}
+          <div className="space-y-6 lg:col-span-2">
+            <VideoGenerator
+              onVideosGenerated={handleVideosGenerated}
+              onTasksUpdated={setGenerationTasks}
+              initialStartingFrameUrl={startingFrameUrl}
+            />
+            {generationTasks.length > 0 && (
+              <GenerationTracker tasks={generationTasks} />
+            )}
+          </div>
+
+          {/* Right Column */}
+          <div className="space-y-6">
+            <VideoPreview
+              segments={videoSegments}
+              onMerge={handleMergeVideos}
+              onDeleteSegment={handleDeleteVideoSegment}
+            />
+          </div>
+        </motion.div>
       </div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="grid grid-cols-1 gap-6 lg:grid-cols-3"
-      >
-        {/* Left Column - Video Generator */}
-        <div className="space-y-6 lg:col-span-2">
-          <VideoGenerator
-            onVideosGenerated={handleVideosGenerated}
-            onTasksUpdated={setGenerationTasks}
-            initialStartingFrameUrl={startingFrameUrl}
-          />
-          {generationTasks.length > 0 && (
-            <GenerationTracker tasks={generationTasks} />
-          )}
-        </div>
-
-        {/* Right Column */}
-        <div className="space-y-6">
-          <VideoPreview
-            segments={videoSegments}
-            onMerge={handleMergeVideos}
-            onDeleteSegment={handleDeleteVideoSegment}
-          />
-        </div>
-      </motion.div>
-    </div>
+    </PaywallGuard>
   );
 };
 
