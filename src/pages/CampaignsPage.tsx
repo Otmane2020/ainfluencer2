@@ -113,17 +113,7 @@ const CampaignsPage = () => {
   };
 
   const handleDelete = async (campaignId: string) => {
-    // First delete all scheduled posts linked to this campaign
-    const { error: postsError } = await supabase
-      .from("scheduled_posts")
-      .delete()
-      .eq("campaign_id", campaignId);
-
-    if (postsError) {
-      console.error("Error deleting campaign posts:", postsError);
-    }
-
-    // Then delete the campaign itself
+    // Database CASCADE constraint automatically deletes associated scheduled_posts
     const { error } = await supabase
       .from("campaigns")
       .delete()
