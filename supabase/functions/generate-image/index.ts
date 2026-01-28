@@ -64,9 +64,12 @@ Deno.serve(async (req) => {
       includeLogo, 
       includeUrl, 
       projectUrl,
-      detectedLanguage, // Language from project/website
-      includeText, // Add text overlay for social media
-      overlayText, // Custom text to include
+      detectedLanguage,
+      includeText,
+      overlayText,
+      includeAvatar,
+      avatarUrl,
+      aiContextSummary, // Pre-built context from project
     } = await req.json();
 
     if (!prompt) {
@@ -139,6 +142,14 @@ Deno.serve(async (req) => {
     }
     if (includeUrl && projectUrl) {
       enhancedPrompt += ` Include the website URL "${projectUrl}" as a subtle watermark or call-to-action element.`;
+    }
+    if (includeAvatar && avatarUrl) {
+      enhancedPrompt += ` Feature a professional spokesperson or avatar prominently in the image, representing the brand.`;
+    }
+    
+    // Add AI context summary if available for richer brand-aware generation
+    if (aiContextSummary) {
+      enhancedPrompt += ` Brand context: ${aiContextSummary.slice(0, 500)}.`;
     }
 
     // SOCIAL MEDIA TEXT OVERLAY - Key for engagement

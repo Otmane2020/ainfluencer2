@@ -78,6 +78,7 @@ interface Project {
   description: string | null;
   url: string | null;
   logo_url: string | null;
+  avatar_url: string | null;
   theme_color: string | null;
   instagram_enabled: boolean;
   facebook_enabled: boolean;
@@ -86,6 +87,7 @@ interface Project {
   posts_per_week: number;
   automation_mode: string;
   detected_language: string | null;
+  ai_context_summary: string | null;
   created_at: string;
 }
 
@@ -656,7 +658,7 @@ const ProjectDetail = () => {
 
             <TabsContent value="branding" className="space-y-4 mt-4">
               <div className="space-y-2">
-                <Label>Theme color</Label>
+                <Label>Theme Color</Label>
                 <div className="flex flex-wrap gap-2">
                   {themeColors.map((color) => (
                     <button
@@ -669,6 +671,47 @@ const ProjectDetail = () => {
                       style={{ backgroundColor: color }}
                     />
                   ))}
+                </div>
+              </div>
+              
+              {/* Avatar for AI Context */}
+              <div className="space-y-2">
+                <Label>Brand Avatar</Label>
+                <p className="text-xs text-muted-foreground">
+                  Optional spokesperson/avatar for AI-generated content
+                </p>
+                <div className="flex items-center gap-3">
+                  {project?.avatar_url ? (
+                    <div className="relative">
+                      <img 
+                        src={project.avatar_url} 
+                        alt="Brand avatar" 
+                        className="h-16 w-16 rounded-full object-cover border-2 border-border"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground"
+                        onClick={async () => {
+                          await supabase
+                            .from("projects")
+                            .update({ avatar_url: null })
+                            .eq("id", project.id);
+                          fetchProject();
+                        }}
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center text-muted-foreground border-2 border-dashed border-border">
+                      <Sparkles className="h-6 w-6" />
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Set avatar in Video Generator
+                  </p>
                 </div>
               </div>
             </TabsContent>
