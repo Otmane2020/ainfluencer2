@@ -115,6 +115,8 @@ serve(async (req) => {
       includeAvatar = false,
       includeText = false,
       overlayText = "",
+      // ClipMotion mode
+      clipmotion = false,
     } = await req.json();
 
     if (!campaignId) {
@@ -129,7 +131,7 @@ serve(async (req) => {
       ? selectedPlatforms 
       : ["instagram", "facebook"];
     
-    console.log(`Image as Reel mode: ${imageAsReel}, Audio: ${audioCategory}`);
+    console.log(`Image as Reel mode: ${imageAsReel}, Audio: ${audioCategory}, ClipMotion: ${clipmotion}`);
     console.log(`Brand options: logo=${includeLogo}, url=${includeUrl}, avatar=${includeAvatar}, text=${includeText}`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -282,6 +284,7 @@ CAMPAIGN SETTINGS:
 - Tone: ${campaign.tone || "professional"} (IMPORTANT: Adapt writing style to match this tone)
 - Format: ${campaign.format || "reel"}
 ${campaign.subject ? `- Focus topic: ${campaign.subject}` : ""}
+${clipmotion ? `- Mode: CLIPMOTION (social-optimized, fast-paced, viral potential)` : ""}
 
 BRAND ELEMENTS TO INCLUDE:
 ${includeLogo && project.logo_url ? `- Include logo placeholder: "[LOGO]" in intro/outro scenes` : ""}
@@ -296,6 +299,16 @@ ${campaign.tone === "urgent" ? "- Create urgency. Use action words. Limited time
 ${campaign.tone === "luxurious" ? "- Use elegant, refined language. Emphasize quality and exclusivity." : ""}
 ${campaign.tone === "playful" ? "- Use fun, energetic language. Humor and creativity welcome." : ""}
 
+${clipmotion ? `CLIPMOTION MODE - CRITICAL INSTRUCTIONS:
+- Fast-paced editing with 1-2 second scene cuts
+- Dynamic camera movements (zoom, pan, parallax)
+- High energy opening hook in first 2 seconds
+- Animated text overlay suggestions for each scene
+- TikTok/Reels native aesthetic
+- Maximum 5 scenes for punchy rhythm
+- End with engagement hook (comment, share, follow)
+` : ""}
+
 VIDEO SCRIPT RULES:
 - Write a compelling 15-30 second script with timestamped scenes
 - Include voiceover text for each scene
@@ -309,7 +322,7 @@ Respond ONLY with valid JSON:
   "textContent": "Social media caption with hashtags (8-12 relevant hashtags)",
   "angle": "problem|benefit|emotion|proof|urgency"
 }` 
-                  : 
+                  :
                   // IMAGE PROMPT
                   `You are an expert AI IMAGE prompt engineer. ${langInstruction}
 

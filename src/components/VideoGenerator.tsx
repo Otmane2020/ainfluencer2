@@ -11,6 +11,7 @@ import { VoiceSelector } from "@/components/VoiceSelector";
 import { ScenarioSelector } from "@/components/ScenarioSelector";
 import { FormatSelector, ContentFormat, FORMAT_OPTIONS } from "@/components/FormatSelector";
 import { BrandOptions, BrandOptionsState } from "@/components/BrandOptions";
+import { VideoModeSelector } from "@/components/VideoModeSelector";
 import { AVAILABLE_VOICES, getDefaultVoice, type Voice } from "@/lib/voices";
 import {
   COMMERCIAL_PRODUCTS,
@@ -21,6 +22,7 @@ import {
   VideoScenario,
   buildScenarioPrompt,
 } from "@/lib/videoScenarios";
+import { type VideoMode, CLIPMOTION_DURATIONS, CLIPMOTION_DEFAULT_FORMAT } from "@/lib/clipMotionConfig";
 import { ScenarioPickerModal, GeneratedScenario } from "@/components/ScenarioPickerModal";
 import {
   Dialog,
@@ -109,6 +111,7 @@ interface StoredPrefs {
   startingFrameUrl?: string;
   format?: ContentFormat;
   brandOptions?: BrandOptionsState;
+  videoMode?: VideoMode;
 }
 
 const loadPrefs = (): StoredPrefs => {
@@ -180,9 +183,22 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
     storedPrefs.brandOptions || { includeLogo: false, includeUrl: false, includeText: false, includeAvatar: false }
   );
 
+  // Video mode state (standard or clipmotion)
+  const [videoMode, setVideoModeState] = useState<VideoMode>(storedPrefs.videoMode || "standard");
+
   const setBrandOptions = (options: BrandOptionsState) => {
     setBrandOptionsState(options);
     savePrefs({ brandOptions: options });
+  };
+
+  const setVideoMode = (mode: VideoMode) => {
+    setVideoModeState(mode);
+    savePrefs({ videoMode: mode });
+    // Auto-set format to reel for ClipMotion
+    if (mode === "clipmotion") {
+      setSelectedFormatState(CLIPMOTION_DEFAULT_FORMAT as ContentFormat);
+      savePrefs({ format: CLIPMOTION_DEFAULT_FORMAT as ContentFormat });
+    }
   };
 
   const setSelectedFormat = (format: ContentFormat) => {
@@ -611,6 +627,7 @@ ${formattedHashtags}`;
                 orientation: selectedFormat === "landscape" ? "landscape" : "portrait",
                 startingFrameUrl: startingFrameUrl,
                 model: getInternalModel()?.id || "sora-2",
+                videoMode, // Pass ClipMotion mode to edge function
               }),
             }
           );
@@ -839,14 +856,35 @@ ${formattedHashtags}`;
         <p className="text-lg font-bold text-gradient">~{estimatedCost}€</p>
       </div>
 
+      {/* Video Mode Toggle */}
+      <div className="mb-3">
+        <VideoModeSelector mode={videoMode} onModeChange={setVideoMode} />
+      </div>
+
+      {/* ClipMotion Info Banner */}
+      {videoMode === "clipmotion" && (
+        <div className="mb-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+          <p className="text-xs text-primary">
+            <strong>ClipMotion Mode:</strong> Fast-paced, social-optimized videos with dynamic cuts, zoom effects, and animated text overlays. Perfect for TikTok, Reels, and Shorts.
+          </p>
+        </div>
+      )}
+
       {/* Quick Settings Bar - Popup buttons */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        {/* Format Selector */}
-        <FormatSelector
-          selectedFormat={selectedFormat}
-          onFormatChange={setSelectedFormat}
-          compact
-        />
+        {/* Format Selector - disabled in ClipMotion mode (always reel) */}
+        {videoMode === "standard" ? (
+          <FormatSelector
+            selectedFormat={selectedFormat}
+            onFormatChange={setSelectedFormat}
+            compact
+          />
+        ) : (
+          <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs">
+            <span>📱</span>
+            <span className="text-primary font-medium">Reel (9:16)</span>
+          </div>
+        )}
         
         {/* Avatar Button */}
         <Dialog>
