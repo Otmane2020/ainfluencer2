@@ -140,9 +140,9 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
   // QUALITY LEVELS (Primary - used by frontend)
   // ============================================================
   
-  // Smart Video - Kling Standard (fast, affordable) - 9.90€
+  // Smart Video - Using Veo-2 as fallback (kling-video temporarily unavailable)
   "smart-video": {
-    apiModel: "kling-video",
+    apiModel: "veo-2",
     durations: [5, 10],
     maxSize: { portrait: "720x1280", landscape: "1280x720" },
   },
