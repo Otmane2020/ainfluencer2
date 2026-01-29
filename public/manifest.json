@@ -1,7 +1,7 @@
 {
   "name": "ClipMotion",
   "short_name": "ClipMotion",
-  "description": "Plateforme AI pour automatiser votre influence sur les réseaux sociaux",
+  "description": "AI platform to automate your social media influence",
   "theme_color": "#0B1118",
   "background_color": "#0B1118",
   "display": "standalone",
@@ -10,15 +10,15 @@
   "start_url": "/",
   "icons": [
     {
+      "src": "/favicon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
       "src": "/logo.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
-    },
-    {
-      "src": "/logo-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
     }
   ],
   "categories": ["social", "productivity", "business"],
