@@ -15,20 +15,20 @@ interface ModelRouting {
 }
 
 const QUALITY_MODEL_MAP: Record<string, ModelRouting> = {
-  // Quality Levels (Primary)
-  "smart-image": { provider: "cometapi", model: "flux-2-flex" },
-  "high-image": { provider: "cometapi", model: "nano-banana-pro" },
-  "studio-image": { provider: "cometapi", model: "flux-2-pro" },
+  // Quality Levels - Use Lovable AI (Gemini) as primary for reliability
+  "smart-image": { provider: "lovable", model: "google/gemini-2.5-flash-image" },
+  "high-image": { provider: "lovable", model: "google/gemini-2.5-flash-image" },
+  "studio-image": { provider: "lovable", model: "google/gemini-2.5-flash-image" },
   
   // Legacy product IDs (backwards compatibility)
   "ai-image-smart": { provider: "lovable", model: "google/gemini-2.5-flash-image" },
-  "ai-image-standard": { provider: "cometapi", model: "flux-2-flex" },
-  "ai-image-pro": { provider: "cometapi", model: "nano-banana-pro" },
-  "ai-image-studio": { provider: "cometapi", model: "flux-2-pro" },
+  "ai-image-standard": { provider: "lovable", model: "google/gemini-2.5-flash-image" },
+  "ai-image-pro": { provider: "lovable", model: "google/gemini-2.5-flash-image" },
+  "ai-image-studio": { provider: "lovable", model: "google/gemini-2.5-flash-image" },
 };
 
-// Default to Smart Image via CometAPI
-const DEFAULT_MODEL_ROUTING: ModelRouting = { provider: "cometapi", model: "flux-2-flex" };
+// Default to Lovable AI for stability
+const DEFAULT_MODEL_ROUTING: ModelRouting = { provider: "lovable", model: "google/gemini-2.5-flash-image" };
 
 // Scenario context builders
 const SECTOR_CONTEXT: Record<string, string> = {
