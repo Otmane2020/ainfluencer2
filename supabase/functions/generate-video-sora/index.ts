@@ -36,21 +36,30 @@ async function verifyVideoAccess(authHeader: string | null): Promise<{ valid: bo
     return { valid: false, error: "Server configuration error" };
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } });
+  // Use service role client for DB queries
+  const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } });
+  
+  // Create a user-context client to validate the user's JWT
+  const supabaseUser = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    global: { headers: { Authorization: authHeader } },
+    auth: { persistSession: false },
+  });
   
   try {
     const token = authHeader.replace("Bearer ", "");
     
-    // Use getClaims for reliable JWT validation
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-    
     let userId: string;
     let userEmail: string;
     
+    // Use getClaims for JWT validation with the user-context client
+    const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
+    
     if (claimsError || !claimsData?.claims) {
-      // Fallback to getUser
-      const { data: userData, error: userError } = await supabase.auth.getUser(token);
+      console.log("[VIDEO-ACCESS] getClaims failed, trying getUser:", claimsError?.message);
+      // Fallback to getUser with the user-context client
+      const { data: userData, error: userError } = await supabaseUser.auth.getUser(token);
       if (userError || !userData.user?.email) {
+        console.error("[VIDEO-ACCESS] getUser also failed:", userError?.message);
         return { valid: false, error: "Invalid authentication" };
       }
       userId = userData.user.id;
@@ -68,12 +77,18 @@ async function verifyVideoAccess(authHeader: string | null): Promise<{ valid: bo
     // CHECK DATABASE FIRST for lifetime/manual grants
     // Lifetime users get FULL access regardless of plan_id
     // ============================================================
-    const { data: lifetimeGrant } = await supabase
+    const { data: lifetimeGrant } = await supabaseAdmin
       .from("subscriptions")
       .select("*")
       .eq("user_id", userId)
       .eq("stripe_customer_id", "lifetime_grant")
       .maybeSingle();
+
+    if (lifetimeGrant) {
+      console.log(`[VIDEO-ACCESS] LIFETIME GRANT - Full access granted for ${userEmail}`);
+      return { valid: true, userId };
+    }
+    // ============================================================
 
     if (lifetimeGrant) {
       console.log(`[VIDEO-ACCESS] LIFETIME GRANT - Full access granted for ${userEmail}`);
