@@ -202,14 +202,10 @@ export const CampaignDetailModal = ({
         </DialogHeader>
 
         <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="overview">
               <BarChart3 className="h-4 w-4 mr-1.5" />
               Overview
-            </TabsTrigger>
-            <TabsTrigger value="schedule">
-              <Calendar className="h-4 w-4 mr-1.5" />
-              Schedule
             </TabsTrigger>
             <TabsTrigger value="settings">
               <Edit className="h-4 w-4 mr-1.5" />
@@ -281,108 +277,6 @@ export const CampaignDetailModal = ({
               </div>
             </TabsContent>
 
-            <TabsContent value="schedule" className="m-0">
-              {isLoadingPosts ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : posts.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No scheduled content yet</p>
-                  <p className="text-xs">Content will appear here once generated</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {posts.map((post) => (
-                    <motion.div
-                      key={post.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
-                    >
-                      {/* Thumbnail */}
-                      <div className="h-12 w-12 rounded-lg bg-muted overflow-hidden flex items-center justify-center">
-                        {post.thumbnail_url || post.media_url ? (
-                          <img
-                            src={post.thumbnail_url || post.media_url || ""}
-                            alt=""
-                            className="h-full w-full object-cover"
-                          />
-                        ) : post.content_type === "video" ? (
-                          <Video className="h-5 w-5 text-muted-foreground" />
-                        ) : (
-                          <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                        )}
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm truncate">
-                          {post.text_content?.slice(0, 50) || "Pending generation..."}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {format(new Date(post.scheduled_for), "MMM d, yyyy 'at' h:mm a")}
-                        </p>
-                      </div>
-
-                      {/* Share Button */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                            <Share2 className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => setShareModal({ open: true, post })}
-                          >
-                            <Facebook className="h-4 w-4 mr-2" />
-                            Share to Facebook
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              const text = post.text_content || "";
-                              navigator.clipboard.writeText(text);
-                              toast({ title: "Copied!", description: "Content copied to clipboard" });
-                            }}
-                          >
-                            <Copy className="h-4 w-4 mr-2" />
-                            Copy Text
-                          </DropdownMenuItem>
-                          {post.media_url && (
-                            <DropdownMenuItem
-                              onClick={() => {
-                                navigator.clipboard.writeText(post.media_url || "");
-                                toast({ title: "Copied!", description: "Image link copied" });
-                              }}
-                            >
-                              <Link className="h-4 w-4 mr-2" />
-                              Copy Image Link
-                            </DropdownMenuItem>
-                          )}
-                          {post.media_url && (
-                            <DropdownMenuItem
-                              onClick={() => window.open(post.media_url || "", "_blank")}
-                            >
-                              <ExternalLink className="h-4 w-4 mr-2" />
-                              Open Image
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-
-                      {/* Status */}
-                      {post.status === "published" ? (
-                        <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
-                      ) : (
-                        <Badge variant="outline" className="shrink-0">{post.status}</Badge>
-                      )}
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
 
             <TabsContent value="settings" className="m-0 space-y-4">
               <div className="rounded-xl border border-border p-4 space-y-4">
