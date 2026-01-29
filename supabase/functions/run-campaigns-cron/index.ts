@@ -218,17 +218,14 @@ async function generateVideo(prompt: string, supabase: any): Promise<string | nu
 }
 
 // ============================================================
-// REEL GENERATION (Image + Background Music via Lovable AI)
-// Uses Gemini for image + royalty-free music - NO video conversion
+// REEL GENERATION (Real MP4 via Kling/CometAPI)
+// ~$0.006-0.02 per second - Low cost video for automation
 // ============================================================
 
-async function generateReel(prompt: string, supabase: any, brandName?: string, language?: string): Promise<{ imageUrl: string; musicUrl: string } | null> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-  if (!LOVABLE_API_KEY) {
-    console.error("[generateReel] LOVABLE_API_KEY not configured");
+async function generateReel(prompt: string, supabase: any, brandName?: string, language?: string): Promise<string | null> {
+  const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
+  if (!COMETAPI_API_KEY) {
+    console.error("[generateReel] COMETAPI_API_KEY not configured");
     return null;
   }
 
@@ -236,7 +233,7 @@ async function generateReel(prompt: string, supabase: any, brandName?: string, l
     // Build enhanced prompt for vertical reel format
     let enhancedPrompt = prompt;
     if (brandName) {
-      enhancedPrompt = `${prompt} for ${brandName} brand`;
+      enhancedPrompt = `${prompt} for ${brandName} brand.`;
     }
     
     // Add language constraint
@@ -248,67 +245,101 @@ async function generateReel(prompt: string, supabase: any, brandName?: string, l
       enhancedPrompt = `[All text MUST be in ${langName}] ${enhancedPrompt}`;
     }
     
-    enhancedPrompt += ". Vertical portrait format 9:16, perfect for Instagram Reels, eye-catching, professional quality, vibrant colors, social media optimized, ultra high resolution.";
+    enhancedPrompt += " Vertical 9:16 portrait format, perfect for Instagram Reels and TikTok, eye-catching motion, professional quality, vibrant colors, social media optimized.";
 
-    console.log("[generateReel] Generating image with Lovable AI (Gemini)...");
-    
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    console.log("[generateReel] Using Kling Video via CometAPI...");
+
+    // Create video task with Kling
+    const formData = new FormData();
+    formData.append("prompt", enhancedPrompt);
+    formData.append("model", "kling-video");
+    formData.append("seconds", "5");
+    formData.append("size", "720x1280"); // Portrait for Reels
+
+    const createResponse = await fetch("https://api.cometapi.com/v1/videos", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image",
-        messages: [{ role: "user", content: enhancedPrompt }],
-        modalities: ["image", "text"],
-      }),
+      headers: { Authorization: `Bearer ${COMETAPI_API_KEY}` },
+      body: formData,
     });
 
-    if (!response.ok) {
-      const status = response.status;
-      const errorText = await response.text();
-      console.error("[generateReel] Lovable AI error:", status, errorText.slice(0, 200));
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      console.error("[generateReel] CometAPI create error:", createResponse.status, errorText.slice(0, 200));
       return null;
     }
 
-    const data = await response.json();
-    const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-
-    if (!imageData) {
-      console.error("[generateReel] No image in response");
+    const createData = await createResponse.json();
+    const taskId = createData.id;
+    if (!taskId) {
+      console.error("[generateReel] No task ID in response");
       return null;
     }
 
-    // Upload to Supabase storage
-    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
-    const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
-    const fileName = `images/reel-${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
-    
-    const { error: uploadError } = await supabase.storage
-      .from("media")
-      .upload(fileName, imageBytes, { contentType: "image/png", upsert: true });
+    console.log("[generateReel] Task created:", taskId);
 
-    let finalImageUrl: string;
-    if (uploadError) {
-      console.error("[generateReel] Upload error, using base64:", uploadError);
-      finalImageUrl = imageData; // Fallback to base64
-    } else {
-      const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(fileName);
-      finalImageUrl = publicUrlData.publicUrl;
+    // Poll for completion (max 5 minutes)
+    const maxAttempts = 30;
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10s
+
+      const statusResponse = await fetch(`https://api.cometapi.com/v1/videos/${taskId}`, {
+        headers: { Authorization: `Bearer ${COMETAPI_API_KEY}` },
+      });
+
+      if (!statusResponse.ok) continue;
+
+      const statusData = await statusResponse.json();
+      const videoData = statusData.data || statusData;
+      const innerData = videoData.data || {};
+      const status = (videoData.status || innerData.status || "").toLowerCase();
+
+      console.log(`[generateReel] Poll ${i + 1}/${maxAttempts}: status=${status}`);
+
+      if (status === "completed" || status === "success" || status === "succeeded" || status === "done") {
+        // CometAPI quirk: video URL sometimes in fail_reason
+        let videoUrl: string | null = null;
+        if (videoData.fail_reason && typeof videoData.fail_reason === "string" && videoData.fail_reason.startsWith("http")) {
+          videoUrl = videoData.fail_reason;
+        } else {
+          videoUrl = innerData.output_video || videoData.output_video || 
+                     videoData.video_url || innerData.url || videoData.url;
+        }
+
+        if (videoUrl) {
+          console.log("[generateReel] Video ready:", videoUrl.slice(0, 60));
+          
+          // Download and upload to Supabase storage
+          const videoResponse = await fetch(videoUrl);
+          if (!videoResponse.ok) {
+            console.log("[generateReel] Download failed, using original URL");
+            return videoUrl;
+          }
+
+          const videoBuffer = await videoResponse.arrayBuffer();
+          const videoBytes = new Uint8Array(videoBuffer);
+          const videoPath = `reels/reel-${Date.now()}-${Math.random().toString(36).slice(2)}.mp4`;
+
+          const { error: uploadError } = await supabase.storage
+            .from("media")
+            .upload(videoPath, videoBytes, { contentType: "video/mp4", upsert: true });
+
+          if (uploadError) {
+            console.error("[generateReel] Upload error:", uploadError);
+            return videoUrl; // Return original URL as fallback
+          }
+
+          const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(videoPath);
+          console.log("[generateReel] ✅ MP4 uploaded:", publicUrlData.publicUrl);
+          return publicUrlData.publicUrl;
+        }
+      } else if (status === "failed" || status === "error") {
+        console.error("[generateReel] Task failed");
+        return null;
+      }
     }
 
-    // Select random background music track
-    const musicTracks = [
-      "https://assets.mixkit.co/music/preview/mixkit-tech-house-vibes-130.mp3",
-      "https://assets.mixkit.co/music/preview/mixkit-hip-hop-02-738.mp3",
-      "https://assets.mixkit.co/music/preview/mixkit-sleepy-cat-135.mp3",
-      "https://assets.mixkit.co/music/preview/mixkit-spirit-of-the-explorer-723.mp3",
-    ];
-    const musicUrl = musicTracks[Math.floor(Math.random() * musicTracks.length)];
-
-    console.log("[generateReel] Success! Image:", finalImageUrl.slice(0, 50), "Music:", musicUrl);
-    return { imageUrl: finalImageUrl, musicUrl };
+    console.log("[generateReel] Timeout waiting for video");
+    return null;
   } catch (error) {
     console.error("[generateReel] Error:", error);
     return null;
@@ -564,21 +595,18 @@ Deno.serve(async (req) => {
           !post.ai_prompt.toLowerCase().includes("scene ");
         
         if (isImageAsReel) {
-          // Image as Reel: Use Lovable AI Gemini for image + background music
-          // NO CometAPI video conversion - just static image posted as Instagram photo
-          console.log(`[cron] Generating Reel (Gemini image + music) for post ${post.id} in ${projectLanguage}`);
+          // Reel: Use Kling Video via CometAPI for real MP4
+          console.log(`[cron] Generating Reel (Kling Video) for post ${post.id} in ${projectLanguage}`);
           
-          const reelResult = await generateReel(post.ai_prompt, supabase, brandName, projectLanguage);
-          if (reelResult) {
-            // Store the image URL - Instagram will display as photo/carousel
-            // Music URL is available for client-side playback if needed
+          const videoUrl = await generateReel(post.ai_prompt, supabase, brandName, projectLanguage);
+          if (videoUrl) {
             await supabase.from("scheduled_posts").update({ 
-              media_url: reelResult.imageUrl,
-              thumbnail_url: reelResult.imageUrl,
+              media_url: videoUrl,
+              thumbnail_url: videoUrl,
             }).eq("id", post.id);
-            post.media_url = reelResult.imageUrl;
+            post.media_url = videoUrl;
             totalGenerated++;
-            console.log(`[cron] Reel image generated: ${reelResult.imageUrl.slice(0, 50)}...`);
+            console.log(`[cron] Reel MP4 generated: ${videoUrl.slice(0, 50)}...`);
           } else {
             console.log(`[cron] Reel generation failed for post ${post.id}`);
           }
