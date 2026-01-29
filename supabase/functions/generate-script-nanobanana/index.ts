@@ -190,7 +190,7 @@ function generateFallbackScripts(projectName?: string, description?: string, lan
   ];
 }
 
-// Main handler - Now using Lovable AI (Gemini) instead of CometAPI
+// Main handler - Now using Lovable AI (Gemini) instead of Replicate
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -253,11 +253,11 @@ serve(async (req) => {
     const scenarioContext = buildScenarioContext();
 
     // ============================================
-    // USE COMETAPI - NANOBANANA-PRO (CHEAP MODEL)
+    // USE REPLICATE - NANOBANANA-PRO (CHEAP MODEL)
     // ============================================
-    const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
-    if (!COMETAPI_API_KEY) {
-      throw new Error("COMETAPI_API_KEY is not configured");
+    const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
+    if (!REPLICATE_API_KEY) {
+      throw new Error("REPLICATE_API_KEY is not configured");
     }
 
     // Calculate optimal word count based on duration (~2.5 words/second)
@@ -320,12 +320,12 @@ Respond ONLY with valid JSON:
   ]
 }`;
 
-    // Call CometAPI with nanobanana-pro (cheap & stable for scripts)
-    const response = await fetch("https://api.cometapi.com/v1/chat/completions", {
+    // Call Replicate with nanobanana-pro (cheap & stable for scripts)
+    const response = await fetch("https://api.replicate.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${COMETAPI_API_KEY}`,
+        Authorization: `Bearer ${REPLICATE_API_KEY}`,
       },
       body: JSON.stringify({
         model: "nanobanana-pro", // ✅ CHEAP MODEL
@@ -341,7 +341,7 @@ Respond ONLY with valid JSON:
     if (!response.ok) {
       const status = response.status;
       const errorText = await response.text();
-      console.error("[generate-script] CometAPI error:", status, errorText.slice(0, 200));
+      console.error("[generate-script] Replicate error:", status, errorText.slice(0, 200));
       
       if (status === 429) {
         return new Response(
@@ -356,7 +356,7 @@ Respond ONLY with valid JSON:
         );
       }
       
-      throw new Error(`CometAPI error: ${status}`);
+      throw new Error(`Replicate error: ${status}`);
     }
 
     const aiResponse = await response.json();

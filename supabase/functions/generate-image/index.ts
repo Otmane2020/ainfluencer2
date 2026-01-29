@@ -11,7 +11,7 @@ const corsHeaders = {
 
 interface ModelOption {
   id: string;
-  provider: "lovable" | "cometapi";
+  provider: "lovable" | "replicate";
   weight: number;
   apiModel: string;
 }
@@ -20,18 +20,18 @@ const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
   // Smart Image - ~$0.01/image avg
   "smart-image": [
     { id: "gemini-flash-image", provider: "lovable", weight: 60, apiModel: "google/gemini-2.5-flash-image" },
-    { id: "flux-2-flex", provider: "cometapi", weight: 40, apiModel: "flux-2-flex" },
+    { id: "flux-2-flex", provider: "replicate", weight: 40, apiModel: "flux-2-flex" },
   ],
   
   // High Image - ~$0.05/image avg
   "high-image": [
-    { id: "nano-banana-pro", provider: "cometapi", weight: 50, apiModel: "nano-banana-pro" },
-    { id: "flux-2-pro", provider: "cometapi", weight: 50, apiModel: "flux-2-pro" },
+    { id: "nano-banana-pro", provider: "replicate", weight: 50, apiModel: "nano-banana-pro" },
+    { id: "flux-2-pro", provider: "replicate", weight: 50, apiModel: "flux-2-pro" },
   ],
   
   // Studio Image - ~$0.08/image avg
   "studio-image": [
-    { id: "flux-2-pro", provider: "cometapi", weight: 60, apiModel: "flux-2-pro" },
+    { id: "flux-2-pro", provider: "replicate", weight: 60, apiModel: "flux-2-pro" },
     { id: "gemini-pro-image", provider: "lovable", weight: 40, apiModel: "google/gemini-3-pro-image-preview" },
   ],
 };
@@ -175,26 +175,26 @@ const TONE_CONTEXT: Record<string, string> = {
 };
 
 // ============================================================
-// COMETAPI IMAGE GENERATION
+// REPLICATE IMAGE GENERATION
 // ============================================================
 
-async function generateWithCometAPI(
+async function generateWithReplicate(
   prompt: string,
   model: string,
   aspectRatio?: string
 ): Promise<{ imageData: string | null; error?: string }> {
-  const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
-  if (!COMETAPI_API_KEY) {
-    return { imageData: null, error: "COMETAPI_API_KEY not configured" };
+  const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
+  if (!REPLICATE_API_KEY) {
+    return { imageData: null, error: "REPLICATE_API_KEY not configured" };
   }
 
   try {
-    console.log(`[CometAPI] Generating image with model: ${model}`);
+    console.log(`[Replicate] Generating image with model: ${model}`);
 
-    const response = await fetch("https://api.cometapi.com/v1/images/generations", {
+    const response = await fetch("https://api.replicate.com/v1/images/generations", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${COMETAPI_API_KEY}`,
+        Authorization: `Bearer ${REPLICATE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -207,15 +207,15 @@ async function generateWithCometAPI(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[CometAPI] Error ${response.status}:`, errorText.slice(0, 200));
-      return { imageData: null, error: `CometAPI error: ${response.status}` };
+      console.error(`[Replicate] Error ${response.status}:`, errorText.slice(0, 200));
+      return { imageData: null, error: `Replicate error: ${response.status}` };
     }
 
     const data = await response.json();
     const imageUrl = data.data?.[0]?.url || data.data?.[0]?.b64_json;
 
     if (!imageUrl) {
-      console.error("[CometAPI] No image in response");
+      console.error("[Replicate] No image in response");
       return { imageData: null, error: "No image generated" };
     }
 
@@ -230,7 +230,7 @@ async function generateWithCometAPI(
 
     return { imageData: `data:image/png;base64,${imageUrl}` };
   } catch (error) {
-    console.error("[CometAPI] Exception:", error);
+    console.error("[Replicate] Exception:", error);
     return { imageData: null, error: String(error) };
   }
 }
@@ -306,8 +306,8 @@ async function generateWithFallback(
   // Try primary model
   let result: { imageData: string | null; error?: string };
   
-  if (selectedModel.provider === "cometapi") {
-    result = await generateWithCometAPI(prompt, selectedModel.apiModel, aspectRatio);
+  if (selectedModel.provider === "replicate") {
+    result = await generateWithReplicate(prompt, selectedModel.apiModel, aspectRatio);
   } else {
     result = await generateWithLovableAI(prompt, selectedModel.apiModel);
   }
@@ -324,8 +324,8 @@ async function generateWithFallback(
   for (const fallbackModel of fallbackModels) {
     console.log(`[Fallback] Trying ${fallbackModel.id}...`);
     
-    if (fallbackModel.provider === "cometapi") {
-      result = await generateWithCometAPI(prompt, fallbackModel.apiModel, aspectRatio);
+    if (fallbackModel.provider === "replicate") {
+      result = await generateWithReplicate(prompt, fallbackModel.apiModel, aspectRatio);
     } else {
       result = await generateWithLovableAI(prompt, fallbackModel.apiModel);
     }

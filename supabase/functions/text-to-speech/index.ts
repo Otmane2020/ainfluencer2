@@ -11,7 +11,7 @@ const corsHeaders = {
 
 interface TTSModelOption {
   id: string;
-  provider: "elevenlabs" | "cometapi" | "openai";
+  provider: "elevenlabs" | "replicate" | "openai";
   weight: number;
   costEstimate: number;
 }
@@ -35,7 +35,7 @@ const TTS_MODEL_POOLS: Record<string, TTSModelOption[]> = {
 };
 
 // Fallback order when primary provider fails
-const FALLBACK_ORDER: TTSModelOption["provider"][] = ["openai", "elevenlabs", "cometapi"];
+const FALLBACK_ORDER: TTSModelOption["provider"][] = ["openai", "elevenlabs", "replicate"];
 
 // Default to standard for reliability
 const DEFAULT_QUALITY = "standard-voice";
@@ -108,27 +108,27 @@ async function generateWithElevenLabs(
 }
 
 // ============================================================
-// KLING TTS (via CometAPI) - Low cost option
+// KLING TTS (via Replicate) - Low cost option
 // ============================================================
 
 async function generateWithKlingTTS(
   text: string,
   voiceId?: string
 ): Promise<{ audioBuffer: ArrayBuffer | null; error?: string }> {
-  const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
+  const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
   
-  if (!COMETAPI_API_KEY) {
-    console.error("COMETAPI_API_KEY not configured");
-    return { audioBuffer: null, error: "CometAPI key not configured" };
+  if (!REPLICATE_API_KEY) {
+    console.error("REPLICATE_API_KEY not configured");
+    return { audioBuffer: null, error: "Replicate key not configured" };
   }
 
   try {
     console.log("[KlingTTS] Generating TTS for:", text.substring(0, 50) + "...");
 
-    const response = await fetch("https://api.cometapi.com/v1/audio/speech", {
+    const response = await fetch("https://api.replicate.com/v1/audio/speech", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${COMETAPI_API_KEY}`,
+        Authorization: `Bearer ${REPLICATE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -161,21 +161,21 @@ async function generateWithOpenAITTS(
   text: string,
   voiceId?: string
 ): Promise<{ audioBuffer: ArrayBuffer | null; error?: string }> {
-  const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
+  const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
   
-  if (!COMETAPI_API_KEY) {
-    console.error("COMETAPI_API_KEY not configured");
+  if (!REPLICATE_API_KEY) {
+    console.error("REPLICATE_API_KEY not configured");
     return { audioBuffer: null, error: "API key not configured" };
   }
 
   try {
     console.log("[OpenAI TTS] Generating TTS for:", text.substring(0, 50) + "...");
 
-    // Use CometAPI's OpenAI-compatible endpoint
-    const response = await fetch("https://api.cometapi.com/v1/audio/speech", {
+    // Use Replicate's OpenAI-compatible endpoint
+    const response = await fetch("https://api.replicate.com/v1/audio/speech", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${COMETAPI_API_KEY}`,
+        Authorization: `Bearer ${REPLICATE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -237,7 +237,7 @@ serve(async (req) => {
       case "openai":
         result = await generateWithOpenAITTS(text, voiceId);
         break;
-      case "cometapi":
+      case "replicate":
       default:
         result = await generateWithKlingTTS(text, voiceId);
         break;
@@ -259,7 +259,7 @@ serve(async (req) => {
           case "elevenlabs":
             result = await generateWithElevenLabs(text, voiceId || "JBFqnCBsd6RMkjVDRZzb");
             break;
-          case "cometapi":
+          case "replicate":
             result = await generateWithKlingTTS(text, voiceId);
             break;
         }

@@ -35,7 +35,7 @@ function selectReelModel(): ModelOption {
 }
 
 // ============================================================
-// REEL VIDEO via CometAPI - Low cost video generation
+// REEL VIDEO via Replicate - Low cost video generation
 // ============================================================
 
 interface ReelRequest {
@@ -56,7 +56,7 @@ async function pollForVideo(
     await new Promise((resolve) => setTimeout(resolve, 5000));
 
     try {
-      const response = await fetch(`https://api.cometapi.com/v1/videos/${taskId}`, {
+      const response = await fetch(`https://api.replicate.com/v1/videos/${taskId}`, {
         headers: { Authorization: `Bearer ${apiKey}` },
       });
 
@@ -95,7 +95,7 @@ async function pollForVideo(
 
         // Try content endpoint as fallback
         try {
-          const contentResponse = await fetch(`https://api.cometapi.com/v1/videos/${taskId}/content`, {
+          const contentResponse = await fetch(`https://api.replicate.com/v1/videos/${taskId}/content`, {
             headers: { Authorization: `Bearer ${apiKey}` },
           });
           if (contentResponse.ok) {
@@ -132,9 +132,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
-    if (!COMETAPI_API_KEY) {
-      throw new Error("COMETAPI_API_KEY is not configured");
+    const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
+    if (!REPLICATE_API_KEY) {
+      throw new Error("REPLICATE_API_KEY is not configured");
     }
 
     const url = new URL(req.url);
@@ -149,8 +149,8 @@ Deno.serve(async (req) => {
         throw new Error("taskId is required for status check");
       }
 
-      const response = await fetch(`https://api.cometapi.com/v1/videos/${taskId}`, {
-        headers: { Authorization: `Bearer ${COMETAPI_API_KEY}` },
+      const response = await fetch(`https://api.replicate.com/v1/videos/${taskId}`, {
+        headers: { Authorization: `Bearer ${REPLICATE_API_KEY}` },
       });
 
       if (!response.ok) {
@@ -248,23 +248,23 @@ Deno.serve(async (req) => {
       console.log("[REEL] Using image-to-video mode");
     }
 
-    const createResponse = await fetch("https://api.cometapi.com/v1/videos", {
+    const createResponse = await fetch("https://api.replicate.com/v1/videos", {
       method: "POST",
-      headers: { Authorization: `Bearer ${COMETAPI_API_KEY}` },
+      headers: { Authorization: `Bearer ${REPLICATE_API_KEY}` },
       body: formData,
     });
 
     if (!createResponse.ok) {
       const errorText = await createResponse.text();
-      console.error("[REEL] CometAPI error:", createResponse.status, errorText.slice(0, 200));
-      throw new Error(`CometAPI error: ${createResponse.status}`);
+      console.error("[REEL] Replicate error:", createResponse.status, errorText.slice(0, 200));
+      throw new Error(`Replicate error: ${createResponse.status}`);
     }
 
     const createData = await createResponse.json();
     const taskId = createData.id;
 
     if (!taskId) {
-      throw new Error("No task ID returned from CometAPI");
+      throw new Error("No task ID returned from Replicate");
     }
 
     console.log("[REEL] Task created:", taskId, "| Model:", selectedModel.id);
@@ -272,7 +272,7 @@ Deno.serve(async (req) => {
     const waitForCompletion = url.searchParams.get("wait") === "true";
 
     if (waitForCompletion) {
-      const videoUrl = await pollForVideo(taskId, COMETAPI_API_KEY, 60);
+      const videoUrl = await pollForVideo(taskId, REPLICATE_API_KEY, 60);
 
       if (!videoUrl) {
         return new Response(

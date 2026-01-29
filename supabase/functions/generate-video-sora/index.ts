@@ -156,7 +156,7 @@ interface ModelOption {
   maxSize: { portrait: string; landscape: string };
 }
 
-// FIX: CometAPI Sora-2 uses standard video size formats (720p, 1080p strings or WxH with 16:9/9:16)
+// FIX: Replicate Sora-2 uses standard video size formats (720p, 1080p strings or WxH with 16:9/9:16)
 // Valid sizes for Sora-2: "480p", "720p", "1080p" OR pixel dimensions like "1280x720", "720x1280"
 const VIDEO_MODEL_POOLS: Record<string, ModelOption[]> = {
   // Smart Video - 720p for fast generation
@@ -232,9 +232,9 @@ serve(async (req) => {
   }
 
   try {
-    const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
-    if (!COMETAPI_API_KEY) {
-      throw new Error("COMETAPI_API_KEY is not configured");
+    const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
+    if (!REPLICATE_API_KEY) {
+      throw new Error("REPLICATE_API_KEY is not configured");
     }
 
     const url = new URL(req.url);
@@ -413,7 +413,7 @@ serve(async (req) => {
         status: "generating",
       }).eq("id", generation.id);
 
-      // FIX 5: Clean FormData for CometAPI - conditional image_url
+      // FIX 5: Clean FormData for Replicate - conditional image_url
       const formData = new FormData();
       formData.append("model", apiModel);
       formData.append("prompt", fullPrompt);
@@ -427,27 +427,27 @@ serve(async (req) => {
 
       let result;
       try {
-        const response = await fetch("https://api.cometapi.com/v1/videos", {
+        const response = await fetch("https://api.replicate.com/v1/videos", {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${COMETAPI_API_KEY}`,
+            "Authorization": `Bearer ${REPLICATE_API_KEY}`,
           },
           body: formData,
         });
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error("CometAPI error:", errorText);
+          console.error("Replicate error:", errorText);
           
           // Update generation as failed
           await supabaseAdmin.from("generations").update({
             status: "failed",
             progress: 0,
-            error_message: `CometAPI error: ${response.status} - ${errorText}`,
+            error_message: `Replicate error: ${response.status} - ${errorText}`,
             completed_at: new Date().toISOString(),
           }).eq("id", generation.id);
           
-          throw new Error(`CometAPI error: ${response.status} - ${errorText}`);
+          throw new Error(`Replicate error: ${response.status} - ${errorText}`);
         }
 
         result = await response.json();
@@ -505,10 +505,10 @@ serve(async (req) => {
 
       console.log("Checking status for task:", taskId, "generationId:", generationId);
 
-      const response = await fetch(`https://api.cometapi.com/v1/videos/${taskId}`, {
+      const response = await fetch(`https://api.replicate.com/v1/videos/${taskId}`, {
         method: "GET",
         headers: {
-          "Authorization": `Bearer ${COMETAPI_API_KEY}`,
+          "Authorization": `Bearer ${REPLICATE_API_KEY}`,
         },
       });
 
@@ -567,14 +567,14 @@ serve(async (req) => {
           innerData.url ||
           undefined;
         
-        // If still no URL, download video from CometAPI and upload to Supabase storage
+        // If still no URL, download video from Replicate and upload to Supabase storage
         if (!videoUrl) {
-          console.log("No video URL in status response, downloading from CometAPI and uploading to storage...");
+          console.log("No video URL in status response, downloading from Replicate and uploading to storage...");
           try {
-            const contentResponse = await fetch(`https://api.cometapi.com/v1/videos/${taskId}/content`, {
+            const contentResponse = await fetch(`https://api.replicate.com/v1/videos/${taskId}/content`, {
               method: "GET",
               headers: {
-                "Authorization": `Bearer ${COMETAPI_API_KEY}`,
+                "Authorization": `Bearer ${REPLICATE_API_KEY}`,
               },
             });
             
