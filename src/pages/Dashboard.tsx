@@ -6,17 +6,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { NotificationSettings } from "@/components/NotificationSettings";
+import { FeatureShowcase } from "@/components/dashboard/FeatureShowcase";
 import {
   FolderKanban,
-  Calendar,
-  Video,
-  ImageIcon,
   Plus,
   TrendingUp,
   Clock,
   CheckCircle2,
   ArrowRight,
-  Bell,
 } from "lucide-react";
 
 interface Project {
@@ -114,36 +111,6 @@ const Dashboard = () => {
     },
   ];
 
-  const quickActions = [
-    {
-      title: "New Project",
-      description: "Create a project with automation",
-      icon: FolderKanban,
-      action: () => navigate("/projects/new"),
-      gradient: "from-primary to-secondary",
-    },
-    {
-      title: "Schedule Post",
-      description: "Plan your content",
-      icon: Calendar,
-      action: () => navigate("/calendar"),
-      gradient: "from-secondary to-accent",
-    },
-    {
-      title: "Generate Video",
-      description: "Create AI video content",
-      icon: Video,
-      action: () => navigate("/videos"),
-      gradient: "from-accent to-primary",
-    },
-    {
-      title: "Create Post",
-      description: "Generate text/image content",
-      icon: ImageIcon,
-      action: () => navigate("/posts"),
-      gradient: "from-primary to-accent",
-    },
-  ];
 
   return (
     <div className="space-y-6 md:space-y-8">
@@ -186,33 +153,13 @@ const Dashboard = () => {
         ))}
       </div>
 
-      {/* Quick Actions */}
+      {/* AI Creation Studio - Feature Showcase */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
       >
-        <h2 className="font-display text-lg md:text-xl font-semibold mb-3 md:mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-          {quickActions.map((action, index) => (
-            <motion.button
-              key={action.title}
-              onClick={action.action}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.5 + index * 0.1 }}
-              className="group relative overflow-hidden rounded-xl md:rounded-2xl p-4 md:p-6 text-left transition-all hover:scale-[1.02] hover:shadow-xl"
-            >
-              <div className={`absolute inset-0 bg-gradient-to-br ${action.gradient} opacity-90`} />
-              <div className="relative z-10 text-white">
-                <action.icon className="h-6 w-6 md:h-8 md:w-8 mb-2 md:mb-4" />
-                <h3 className="font-display font-semibold text-sm md:text-lg">{action.title}</h3>
-                <p className="text-xs md:text-sm text-white/80 mt-0.5 md:mt-1 hidden sm:block">{action.description}</p>
-                <ArrowRight className="h-4 w-4 md:h-5 md:w-5 mt-2 md:mt-4 transform transition-transform group-hover:translate-x-1" />
-              </div>
-            </motion.button>
-          ))}
-        </div>
+        <FeatureShowcase />
       </motion.div>
 
       {/* Recent Projects */}
