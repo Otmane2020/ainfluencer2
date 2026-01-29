@@ -156,22 +156,22 @@ interface ModelOption {
   maxSize: { portrait: string; landscape: string };
 }
 
-// FIX: Improved quality - 1080p resolution and better prompt adherence
-// Using sora-2 as the primary stable model with high resolution
+// FIX: CometAPI Sora-2 uses standard video size formats (720p, 1080p strings or WxH with 16:9/9:16)
+// Valid sizes for Sora-2: "480p", "720p", "1080p" OR pixel dimensions like "1280x720", "720x1280"
 const VIDEO_MODEL_POOLS: Record<string, ModelOption[]> = {
-  // Smart Video - 1080p for better quality
+  // Smart Video - 720p for fast generation
   "smart-video": [
-    { id: "sora-2-lite", apiModel: "sora-2", weight: 100, durations: [4, 8], maxSize: { portrait: "1080x1920", landscape: "1920x1080" } },
+    { id: "sora-2-lite", apiModel: "sora-2", weight: 100, durations: [4, 8], maxSize: { portrait: "720p", landscape: "720p" } },
   ],
   
-  // High Video - sora-2 with 1080p
+  // High Video - 1080p quality
   "high-video": [
-    { id: "sora-2", apiModel: "sora-2", weight: 100, durations: [4, 8, 12], maxSize: { portrait: "1080x1920", landscape: "1920x1080" } },
+    { id: "sora-2", apiModel: "sora-2", weight: 100, durations: [4, 8, 12], maxSize: { portrait: "1080p", landscape: "1080p" } },
   ],
   
-  // Cinema Video - sora-2 with longer durations and max quality
+  // Cinema Video - 1080p with longer durations
   "cinema-video": [
-    { id: "sora-2-pro", apiModel: "sora-2", weight: 100, durations: [8, 12, 20], maxSize: { portrait: "1080x1920", landscape: "1920x1080" } },
+    { id: "sora-2-pro", apiModel: "sora-2", weight: 100, durations: [8, 12, 20], maxSize: { portrait: "1080p", landscape: "1080p" } },
   ],
 };
 
@@ -221,7 +221,7 @@ interface VideoRequest {
 // CRITICAL: Keep prompt SHORT and SPECIFIC to respect user input
 const CLIPMOTION_PREFIX = `[ClipMotion Social Video - FOLLOW THE PROMPT EXACTLY]
 Style: Fast-paced, dynamic transitions, 1-2s cuts, constant motion, TikTok/Reels aesthetic.
-Resolution: 1080x1920 vertical portrait.
+Format: Vertical 9:16 portrait video.
 
 USER PROMPT TO VISUALIZE:
 `;
