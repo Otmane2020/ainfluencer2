@@ -7,20 +7,20 @@ const corsHeaders = {
 };
 
 // ============================================================
-// GENERATE REEL: Image + Background Music (NO video generation)
-// Uses Lovable AI Gemini for image + royalty-free music tracks
-// Output: Static image with 10s background music = Instagram Reel
+// GENERATE REEL: Mobile-First Image + Music → Social Reel
+// Starlinko is a MOBILE APPLICATION for social media content
+// Output: 9:16 vertical image with bold text + royalty-free music
 // ============================================================
 
 interface ReelRequest {
-  prompt: string;           // Image description prompt
+  prompt: string;
   format?: "reel" | "story" | "landscape";
   brandName?: string;
   musicCategory?: "upbeat" | "chill" | "dramatic" | "corporate" | "inspiring";
-  duration?: number;        // 10 seconds default for reels
+  duration?: number;
 }
 
-// Audio bank - royalty-free 30-second tracks (trimmed to 10s on client)
+// Audio bank - royalty-free tracks
 const AUDIO_TRACKS = {
   upbeat: [
     "https://assets.mixkit.co/music/preview/mixkit-tech-house-vibes-130.mp3",
@@ -63,39 +63,65 @@ async function generateImage(
   }
 
   try {
-    // Build PREMIUM enhanced prompt for attractive social media visuals
+    // MOBILE-FIRST PROMPT ENGINEERING FOR STARLINKO APP
+    // Starlinko is a mobile application - all content must be mobile-optimized
     const brandContext = brandName ? `for ${brandName} (mobile application), ` : "";
     
-    // Core visual style for high-impact social media content
+    // Ultra-premium mobile-first visual style
     const visualStyle = `
-STYLE: Ultra-premium advertising photography, magazine-quality, award-winning commercial design.
-COMPOSITION: Bold dynamic layout with strong focal point, rule of thirds, leading lines.
-LIGHTING: Professional studio lighting with dramatic highlights and soft shadows, golden hour warmth.
-COLORS: Rich vibrant colors, high contrast, eye-catching gradients, premium color grading.
-QUALITY: 8K ultra-sharp, photorealistic, crisp details, professional retouching.
-TEXT OVERLAY: Include bold motivational keywords or call-to-action text directly on the image in modern sans-serif font (white or contrasting color with subtle shadow for readability). Add engaging text like "Download Now", "Try Free", "Join Us" or key feature benefits.
-MOBILE APP CONTEXT: Show mobile app interface mockups, smartphone screens, app icons, or people using mobile devices when relevant.
+CRITICAL REQUIREMENTS:
+- FORMAT: Strictly 9:16 vertical portrait (1080×1920)
+- This is for Starlinko, a MOBILE APPLICATION for social media content management
+- Design must be optimized for MOBILE VIEWING on Instagram, TikTok, Facebook Reels
+
+VISUAL STYLE:
+- Ultra-premium advertising photography, magazine-quality, award-winning commercial design
+- Bold dynamic layout with strong focal point, mobile-safe zones respected
+- Professional studio lighting with dramatic highlights and soft shadows
+- Rich vibrant colors, high contrast, eye-catching gradients
+- 8K ultra-sharp, photorealistic, crisp details, professional retouching
+
+MANDATORY TEXT OVERLAY:
+- Include BOLD, LARGE text overlay directly on the image
+- Use modern sans-serif font (white or contrasting color with shadow)
+- Text must be READABLE on mobile screens (large typography)
+- Include motivational hook or CTA: "Download Now", "Try Free", "Join Today", "Get Started", etc.
+- Add 1-2 key benefit keywords as text overlay
+
+MOBILE APP CONTEXT:
+- Show mobile app interface mockups when relevant
+- Smartphone screens, app icons, people using mobile devices
+- Modern tech aesthetic with clean mobile UI elements
+
+DO NOT:
+- Use small text that's unreadable on mobile
+- Create landscape or square formats
+- Add complex details that get lost on small screens
+- Use dull colors or low contrast
 `;
 
-    let enhancedPrompt = `Create a stunning, scroll-stopping social media visual: ${prompt}. ${brandContext}${visualStyle}`;
+    let enhancedPrompt = `Create a stunning, scroll-stopping mobile social media Reel image: ${prompt}. ${brandContext}${visualStyle}`;
     
-    // Add format context for social media
+    // Add format-specific constraints
     if (format === "reel" || format === "story") {
       enhancedPrompt += `
-FORMAT: Vertical portrait 9:16 aspect ratio, optimized for Instagram Reels and Stories.
-LAYOUT: Full bleed design, content centered for mobile viewing, text in safe zones.
-IMPACT: Maximum visual impact for 3-second attention grab, bold and unmissable.
-MOBILE-FIRST: Show smartphone mockups or mobile UI when showcasing app features.`;
+REEL FORMAT (9:16):
+- Full bleed vertical design, 1080×1920 resolution
+- Content centered for mobile viewing
+- Strong hook visual in center for first 2-second attention grab
+- Text overlays in safe zones (avoid top 150px and bottom 200px)
+- Maximum visual impact for social media feed scrolling`;
     } else {
       enhancedPrompt += `
-FORMAT: Horizontal landscape 16:9 aspect ratio, optimized for YouTube and Facebook.
-LAYOUT: Cinematic widescreen composition, professional advertising look.`;
+LANDSCAPE FORMAT (16:9):
+- Horizontal widescreen composition
+- Cinematic look for YouTube/Facebook`;
     }
 
-    console.log("[REEL] Generating image with Lovable AI (Gemini)...");
-    console.log("[REEL] Prompt:", enhancedPrompt.slice(0, 150));
+    console.log("[REEL] Generating mobile-first image with Lovable AI...");
+    console.log("[REEL] Brand:", brandName || "none");
     
-    // Use Gemini Pro Image for higher quality output
+    // Use Gemini Pro Image for highest quality
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -115,10 +141,10 @@ LAYOUT: Cinematic widescreen composition, professional advertising look.`;
       console.error("[REEL] Lovable AI error:", status, errorText.slice(0, 200));
       
       if (status === 429) {
-        return { imageUrl: null, error: "Rate limit exceeded. Please try again later." };
+        return { imageUrl: null, error: "Rate limit exceeded. Please try again in a moment." };
       }
       if (status === 402) {
-        return { imageUrl: null, error: "Credits required. Please add credits." };
+        return { imageUrl: null, error: "Credits required. Please add credits to continue." };
       }
       return { imageUrl: null, error: `Image generation failed: ${status}` };
     }
@@ -127,8 +153,8 @@ LAYOUT: Cinematic widescreen composition, professional advertising look.`;
     const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
     if (!imageData) {
-      console.error("[REEL] No image in Lovable AI response");
-      return { imageUrl: null, error: "No image generated" };
+      console.error("[REEL] No image in response:", JSON.stringify(data).slice(0, 300));
+      return { imageUrl: null, error: "No image generated by AI" };
     }
 
     // Upload to Supabase storage
@@ -187,11 +213,12 @@ serve(async (req) => {
       );
     }
 
-    console.log("=== GENERATE REEL (Image + Music) ===");
+    console.log("=== GENERATE REEL (Mobile-First Image + Music) ===");
     console.log("Prompt:", prompt.slice(0, 100));
     console.log("Format:", format, "| Music:", musicCategory, "| Duration:", duration, "s");
+    console.log("Brand:", brandName || "none");
 
-    // Step 1: Generate image with Lovable AI (Gemini - cheap/free)
+    // Step 1: Generate image with Lovable AI (Gemini Pro)
     const imageResult = await generateImage(prompt, format, brandName);
     if (!imageResult.imageUrl) {
       return new Response(
@@ -200,7 +227,7 @@ serve(async (req) => {
       );
     }
 
-    // Step 2: Get background music from audio bank (royalty-free)
+    // Step 2: Get background music from audio bank
     const musicUrl = getRandomTrack(musicCategory as keyof typeof AUDIO_TRACKS);
 
     console.log("[REEL] Pipeline complete!");
@@ -208,7 +235,7 @@ serve(async (req) => {
     console.log("  Music:", musicUrl);
     console.log("  Duration:", duration, "s");
 
-    // Return image + music URLs - client will combine them for posting
+    // Return image + music URLs for client-side reel composition
     return new Response(
       JSON.stringify({
         success: true,
@@ -217,7 +244,7 @@ serve(async (req) => {
         duration,
         format,
         musicCategory,
-        message: `Reel assets ready! Static image with ${musicCategory} background music (${duration}s). Upload as Instagram Reel.`,
+        message: `Reel ready! Mobile-optimized 9:16 image with ${musicCategory} background music (${duration}s).`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
