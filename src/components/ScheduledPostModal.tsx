@@ -166,6 +166,12 @@ export const ScheduledPostModal = ({
   const [expandPrompt, setExpandPrompt] = useState(false);
   const [expandContent, setExpandContent] = useState(false);
   
+  // Edit states for prompt and content
+  const [isEditingPrompt, setIsEditingPrompt] = useState(false);
+  const [isEditingContent, setIsEditingContent] = useState(false);
+  const [editedPrompt, setEditedPrompt] = useState("");
+  const [editedContent, setEditedContent] = useState("");
+  
   // Local state to track generated media (updates immediately after generation)
   const [localMediaUrl, setLocalMediaUrl] = useState<string | null>(null);
   
@@ -303,6 +309,66 @@ export const ScheduledPostModal = ({
       toast({
         title: "Error",
         description: "Unable to update platforms",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Save edited prompt
+  const handleSavePrompt = async () => {
+    if (!editedPrompt.trim()) return;
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from("scheduled_posts")
+        .update({ ai_prompt: editedPrompt })
+        .eq("id", post.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Prompt updated ✓",
+        description: "AI prompt has been saved",
+      });
+      setIsEditingPrompt(false);
+      onUpdate?.();
+    } catch (error) {
+      console.error("Update prompt error:", error);
+      toast({
+        title: "Error",
+        description: "Unable to update prompt",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Save edited content
+  const handleSaveContent = async () => {
+    if (!editedContent.trim()) return;
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from("scheduled_posts")
+        .update({ text_content: editedContent })
+        .eq("id", post.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Content updated ✓",
+        description: "Post content has been saved",
+      });
+      setIsEditingContent(false);
+      onUpdate?.();
+    } catch (error) {
+      console.error("Update content error:", error);
+      toast({
+        title: "Error",
+        description: "Unable to update content",
         variant: "destructive",
       });
     } finally {
@@ -923,13 +989,21 @@ export const ScheduledPostModal = ({
                 className="relative overflow-hidden rounded-xl bg-muted border border-border"
               >
                 {post.content_type === "video" || post.content_type === "reel" ? (
-                  <div className="aspect-video">
-                    <video
-                      src={localMediaUrl || post.media_url || undefined}
-                      poster={post.thumbnail_url || undefined}
-                      controls
-                      className="h-full w-full object-cover"
-                    />
+                  <div className="aspect-[9/16] max-h-[400px] mx-auto">
+                    {(localMediaUrl || post.media_url)?.includes('.mp4') || (localMediaUrl || post.media_url)?.includes('video') ? (
+                      <video
+                        src={localMediaUrl || post.media_url || undefined}
+                        poster={post.thumbnail_url || undefined}
+                        controls
+                        className="h-full w-full object-cover rounded-lg"
+                      />
+                    ) : (
+                      <img
+                        src={localMediaUrl || post.media_url || post.thumbnail_url || undefined}
+                        alt="Reel preview"
+                        className="h-full w-full object-cover rounded-lg"
+                      />
+                    )}
                   </div>
                 ) : (
                   <div className="aspect-square max-h-64 sm:max-h-80">
@@ -943,57 +1017,147 @@ export const ScheduledPostModal = ({
               </motion.div>
             )}
 
-            {/* AI Prompt / Subject - Collapsible */}
-            {post.ai_prompt && (
+            {/* AI Prompt / Subject - Editable */}
+            {(post.ai_prompt || isEditingPrompt) && (
               <div className="rounded-xl bg-muted/50 p-3 sm:p-4">
-                <h4 className="mb-2 text-xs sm:text-sm font-medium text-muted-foreground">
-                  Subject / AI Prompt
-                </h4>
-                {(() => {
-                  const { text, truncated } = truncateText(post.ai_prompt, 150);
-                  return (
-                    <>
-                      <p className="text-xs sm:text-sm">
-                        {expandPrompt ? post.ai_prompt : text}
-                      </p>
-                      {truncated && (
-                        <button
-                          onClick={() => setExpandPrompt(!expandPrompt)}
-                          className="mt-2 text-xs font-medium text-primary hover:underline"
-                        >
-                          {expandPrompt ? "Show less" : "Read more"}
-                        </button>
-                      )}
-                    </>
-                  );
-                })()}
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs sm:text-sm font-medium text-muted-foreground">
+                    Subject / AI Prompt
+                  </h4>
+                  {!isEditingPrompt && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 gap-1"
+                      onClick={() => {
+                        setEditedPrompt(post.ai_prompt || "");
+                        setIsEditingPrompt(true);
+                      }}
+                    >
+                      <Edit className="h-3 w-3" />
+                      <span className="text-xs">Edit</span>
+                    </Button>
+                  )}
+                </div>
+                {isEditingPrompt ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={editedPrompt}
+                      onChange={(e) => setEditedPrompt(e.target.value)}
+                      className="w-full min-h-[100px] p-2 text-xs sm:text-sm rounded-lg bg-background border border-border resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="Enter your prompt..."
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsEditingPrompt(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleSavePrompt}
+                        disabled={isSaving}
+                      >
+                        {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {(() => {
+                      const { text, truncated } = truncateText(post.ai_prompt || "", 150);
+                      return (
+                        <>
+                          <p className="text-xs sm:text-sm">
+                            {expandPrompt ? post.ai_prompt : text}
+                          </p>
+                          {truncated && (
+                            <button
+                              onClick={() => setExpandPrompt(!expandPrompt)}
+                              className="mt-2 text-xs font-medium text-primary hover:underline"
+                            >
+                              {expandPrompt ? "Show less" : "Read more"}
+                            </button>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </>
+                )}
               </div>
             )}
 
-            {/* Text Content - Collapsible */}
-            {post.text_content && (
+            {/* Text Content - Editable */}
+            {(post.text_content || isEditingContent) && (
               <div className="rounded-xl border border-border p-3 sm:p-4">
-                <h4 className="mb-2 text-xs sm:text-sm font-medium text-muted-foreground">
-                  Content
-                </h4>
-                {(() => {
-                  const { text, truncated } = truncateText(post.text_content, 200);
-                  return (
-                    <>
-                      <p className="whitespace-pre-wrap text-xs sm:text-sm">
-                        {expandContent ? post.text_content : text}
-                      </p>
-                      {truncated && (
-                        <button
-                          onClick={() => setExpandContent(!expandContent)}
-                          className="mt-2 text-xs font-medium text-primary hover:underline"
-                        >
-                          {expandContent ? "Show less" : "Read more"}
-                        </button>
-                      )}
-                    </>
-                  );
-                })()}
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs sm:text-sm font-medium text-muted-foreground">
+                    Content
+                  </h4>
+                  {!isEditingContent && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 gap-1"
+                      onClick={() => {
+                        setEditedContent(post.text_content || "");
+                        setIsEditingContent(true);
+                      }}
+                    >
+                      <Edit className="h-3 w-3" />
+                      <span className="text-xs">Edit</span>
+                    </Button>
+                  )}
+                </div>
+                {isEditingContent ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={editedContent}
+                      onChange={(e) => setEditedContent(e.target.value)}
+                      className="w-full min-h-[120px] p-2 text-xs sm:text-sm rounded-lg bg-background border border-border resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="Enter your content..."
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsEditingContent(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleSaveContent}
+                        disabled={isSaving}
+                      >
+                        {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {(() => {
+                      const { text, truncated } = truncateText(post.text_content || "", 200);
+                      return (
+                        <>
+                          <p className="whitespace-pre-wrap text-xs sm:text-sm">
+                            {expandContent ? post.text_content : text}
+                          </p>
+                          {truncated && (
+                            <button
+                              onClick={() => setExpandContent(!expandContent)}
+                              className="mt-2 text-xs font-medium text-primary hover:underline"
+                            >
+                              {expandContent ? "Show less" : "Read more"}
+                            </button>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </>
+                )}
               </div>
             )}
 

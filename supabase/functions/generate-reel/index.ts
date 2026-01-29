@@ -64,7 +64,7 @@ async function generateImage(
 
   try {
     // Build PREMIUM enhanced prompt for attractive social media visuals
-    const brandContext = brandName ? `for ${brandName} brand, ` : "";
+    const brandContext = brandName ? `for ${brandName} (mobile application), ` : "";
     
     // Core visual style for high-impact social media content
     const visualStyle = `
@@ -73,7 +73,8 @@ COMPOSITION: Bold dynamic layout with strong focal point, rule of thirds, leadin
 LIGHTING: Professional studio lighting with dramatic highlights and soft shadows, golden hour warmth.
 COLORS: Rich vibrant colors, high contrast, eye-catching gradients, premium color grading.
 QUALITY: 8K ultra-sharp, photorealistic, crisp details, professional retouching.
-TEXT OVERLAY: Include bold motivational keywords or call-to-action text directly on the image in modern sans-serif font (white or contrasting color with subtle shadow for readability).
+TEXT OVERLAY: Include bold motivational keywords or call-to-action text directly on the image in modern sans-serif font (white or contrasting color with subtle shadow for readability). Add engaging text like "Download Now", "Try Free", "Join Us" or key feature benefits.
+MOBILE APP CONTEXT: Show mobile app interface mockups, smartphone screens, app icons, or people using mobile devices when relevant.
 `;
 
     let enhancedPrompt = `Create a stunning, scroll-stopping social media visual: ${prompt}. ${brandContext}${visualStyle}`;
@@ -83,7 +84,8 @@ TEXT OVERLAY: Include bold motivational keywords or call-to-action text directly
       enhancedPrompt += `
 FORMAT: Vertical portrait 9:16 aspect ratio, optimized for Instagram Reels and Stories.
 LAYOUT: Full bleed design, content centered for mobile viewing, text in safe zones.
-IMPACT: Maximum visual impact for 3-second attention grab, bold and unmissable.`;
+IMPACT: Maximum visual impact for 3-second attention grab, bold and unmissable.
+MOBILE-FIRST: Show smartphone mockups or mobile UI when showcasing app features.`;
     } else {
       enhancedPrompt += `
 FORMAT: Horizontal landscape 16:9 aspect ratio, optimized for YouTube and Facebook.
