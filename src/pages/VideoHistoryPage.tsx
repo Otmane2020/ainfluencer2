@@ -196,12 +196,45 @@ const VideoHistoryPage = () => {
     });
   };
 
-  const handleDeleteHistoryItem = (id: string) => {
-    setVideoHistory((prev) => prev.filter((v) => v.id !== id));
-    toast({
-      title: "Video deleted",
-      description: "Video has been removed from history",
-    });
+  const handleDeleteHistoryItem = async (id: string) => {
+    try {
+      // Delete from database (generations table)
+      const { error: dbError } = await supabase
+        .from("generations")
+        .delete()
+        .eq("id", id);
+
+      if (dbError) {
+        console.error("DB delete error:", dbError);
+      }
+
+      // Also try to delete from storage if it's a stored video
+      const video = videoHistory.find(v => v.id === id);
+      if (video?.videoUrl?.includes("supabase.co/storage")) {
+        try {
+          const urlParts = video.videoUrl.split("/media/");
+          if (urlParts[1]) {
+            await supabase.storage.from("media").remove([urlParts[1]]);
+          }
+        } catch (storageErr) {
+          console.error("Storage delete error:", storageErr);
+        }
+      }
+
+      // Remove from local state
+      setVideoHistory((prev) => prev.filter((v) => v.id !== id));
+      toast({
+        title: "Video deleted",
+        description: "Video has been removed from history",
+      });
+    } catch (error) {
+      console.error("Delete error:", error);
+      toast({
+        title: "Delete error",
+        description: "Failed to delete video",
+        variant: "destructive",
+      });
+    }
   };
 
   const handlePlayHistoryItem = (video: VideoHistoryItem) => {
