@@ -2,9 +2,9 @@ import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  Globe, FileText, Palette, Calendar, Share2, 
+  Globe, FileText, Palette, Share2, 
   ArrowRight, ArrowLeft, Loader2, Sparkles, 
-  Instagram, Facebook, Linkedin, Upload, Zap, Clock,
+  Instagram, Facebook, Linkedin, Upload,
   Check
 } from "lucide-react";
 
@@ -48,12 +48,11 @@ const projectSchema = z.object({
 
 type ProjectFormData = z.infer<typeof projectSchema>;
 
-// Step configuration
+// Step configuration - removed Content step since campaigns handle volume
 const wizardSteps: WizardStepType[] = [
   { id: "site", title: "Website", icon: Globe },
   { id: "info", title: "Information", icon: FileText },
   { id: "branding", title: "Branding", icon: Palette },
-  { id: "content", title: "Content", icon: Calendar },
   { id: "platforms", title: "Platforms", icon: Share2 },
 ];
 
@@ -111,8 +110,6 @@ const ProjectNew = () => {
   const [isScraping, setIsScraping] = useState(false);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const [videosPerMonth, setVideosPerMonth] = useState(4);
-  const [imagesPerMonth, setImagesPerMonth] = useState(12);
   const [detectedLanguage, setDetectedLanguage] = useState("en");
 
   // Fetch existing project data in edit mode
@@ -206,9 +203,7 @@ const ProjectNew = () => {
         return true;
       case 2: // Branding - always valid (default color)
         return true;
-      case 3: // Content - always valid (default values)
-        return true;
-      case 4: // Platforms
+      case 3: // Platforms
         if (!formData.instagram_enabled && !formData.facebook_enabled && !formData.linkedin_enabled && !formData.tiktok_enabled) {
           toast({
             title: "Platform required",
@@ -411,34 +406,8 @@ const ProjectNew = () => {
         
         toast({
           title: "Project created!",
-          description: "Generating monthly schedule...",
+          description: "You can now create campaigns to generate content",
         });
-
-        // Generate monthly schedule automatically after creation
-        try {
-          const { data: scheduleData, error: scheduleError } = await supabase.functions.invoke(
-            "generate-monthly-schedule",
-            {
-              body: {
-                projectId: data.id,
-                videosPerMonth: videosPerMonth,
-                imagesPerMonth: imagesPerMonth,
-              },
-            }
-          );
-
-          if (scheduleError) {
-            console.error("Schedule generation error:", scheduleError);
-          } else {
-            console.log("Monthly schedule generated:", scheduleData);
-            toast({
-              title: "Schedule generated! 📅",
-              description: scheduleData?.message || "Your posts are scheduled",
-            });
-          }
-        } catch (scheduleErr) {
-          console.error("Failed to generate schedule:", scheduleErr);
-        }
 
         navigate(`/projects/${data.id}`);
       }
@@ -676,93 +645,12 @@ const ProjectNew = () => {
             </WizardStep>
           )}
 
-          {/* Step 4: Content */}
+          {/* Step 4: Platforms (was step 5) */}
           {currentStep === 3 && (
             <WizardStep isActive={true} direction={direction}>
               <WizardStepContainer
-                title="Content Generation"
-                description="Define how much content to generate each month"
-              >
-                <div className="space-y-8">
-                  {/* Videos per month */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Label className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <Zap className="w-4 h-4 text-primary" />
-                        </div>
-                        Videos / Reels per month
-                      </Label>
-                      <span className="text-2xl font-bold text-primary">{videosPerMonth}</span>
-                    </div>
-                    <Slider
-                      value={[videosPerMonth]}
-                      onValueChange={([v]) => setVideosPerMonth(v)}
-                      min={0}
-                      max={20}
-                      step={1}
-                      className="w-full"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Recommended: 4-8 videos per month for good engagement
-                    </p>
-                  </div>
-
-                  {/* Images per month */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Label className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
-                          <Palette className="w-4 h-4 text-accent" />
-                        </div>
-                        Image posts per month
-                      </Label>
-                      <span className="text-2xl font-bold text-accent">{imagesPerMonth}</span>
-                    </div>
-                    <Slider
-                      value={[imagesPerMonth]}
-                      onValueChange={([v]) => setImagesPerMonth(v)}
-                      min={0}
-                      max={30}
-                      step={1}
-                      className="w-full"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Recommended: 12-16 images per month for regular presence
-                    </p>
-                  </div>
-
-                  {/* Publishing frequency */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Label className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center">
-                          <Clock className="w-4 h-4 text-foreground" />
-                        </div>
-                        Posts per week
-                      </Label>
-                      <span className="text-2xl font-bold">{formData.posts_per_week}</span>
-                    </div>
-                    <Slider
-                      value={[formData.posts_per_week]}
-                      onValueChange={([v]) => setFormData(prev => ({ ...prev, posts_per_week: v }))}
-                      min={1}
-                      max={14}
-                      step={1}
-                      className="w-full"
-                    />
-                  </div>
-                </div>
-              </WizardStepContainer>
-            </WizardStep>
-          )}
-
-          {/* Step 5: Platforms */}
-          {currentStep === 4 && (
-            <WizardStep isActive={true} direction={direction}>
-              <WizardStepContainer
-                title="Platforms & Automation"
-                description="Choose where to publish and how to automate"
+                title="Platforms"
+                description="Choose where to publish your content"
               >
                 <div className="space-y-8">
                   {/* Platforms */}
@@ -879,61 +767,6 @@ const ProjectNew = () => {
                     </div>
                   </div>
 
-                  {/* Automation mode */}
-                  <div className="space-y-4">
-                    <Label>Automation mode</Label>
-                    <div className="space-y-3">
-                      {[
-                        { 
-                          value: "manual", 
-                          label: "Manual", 
-                          desc: "Manual approval for each post" 
-                        },
-                        { 
-                          value: "semi_auto", 
-                          label: "Semi-auto", 
-                          desc: "Auto generation, manual publishing" 
-                        },
-                        { 
-                          value: "full_auto", 
-                          label: "100% Auto", 
-                          desc: "Everything is automated" 
-                        },
-                      ].map((mode) => (
-                        <motion.div
-                          key={mode.value}
-                          className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                            formData.automation_mode === mode.value 
-                              ? "border-primary bg-primary/5" 
-                              : "border-border bg-muted/50 hover:border-primary/30"
-                          }`}
-                          onClick={() => setFormData(prev => ({ 
-                            ...prev, 
-                            automation_mode: mode.value as ProjectFormData["automation_mode"]
-                          }))}
-                          whileHover={{ scale: 1.01 }}
-                          whileTap={{ scale: 0.99 }}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-semibold">{mode.label}</p>
-                              <p className="text-sm text-muted-foreground">{mode.desc}</p>
-                            </div>
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                              formData.automation_mode === mode.value 
-                                ? "border-primary bg-primary" 
-                                : "border-muted-foreground"
-                            }`}>
-                              {formData.automation_mode === mode.value && (
-                                <Check className="w-3 h-3 text-white" />
-                              )}
-                            </div>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* Summary */}
                   <motion.div 
                     className="p-4 rounded-xl bg-muted/30 border border-border"
@@ -951,18 +784,24 @@ const ProjectNew = () => {
                         <p className="font-medium">{formData.name || "—"}</p>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Videos/month:</span>
-                        <p className="font-medium">{videosPerMonth}</p>
+                        <span className="text-muted-foreground">Language:</span>
+                        <p className="font-medium">{LANGUAGE_OPTIONS.find(l => l.value === detectedLanguage)?.label || "English"}</p>
                       </div>
-                      <div>
-                        <span className="text-muted-foreground">Images/month:</span>
-                        <p className="font-medium">{imagesPerMonth}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Posts/week:</span>
-                        <p className="font-medium">{formData.posts_per_week}</p>
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground">Platforms:</span>
+                        <p className="font-medium">
+                          {[
+                            formData.instagram_enabled && "Instagram",
+                            formData.facebook_enabled && "Facebook",
+                            formData.linkedin_enabled && "LinkedIn",
+                            formData.tiktok_enabled && "TikTok",
+                          ].filter(Boolean).join(", ") || "None selected"}
+                        </p>
                       </div>
                     </div>
+                    <p className="text-xs text-muted-foreground mt-3">
+                      Content volume is configured per campaign
+                    </p>
                   </motion.div>
                 </div>
               </WizardStepContainer>

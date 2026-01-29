@@ -26,7 +26,6 @@ import {
   Loader2,
   Palette,
   Share2,
-  Zap,
   ChevronDown,
   Pencil,
   Sparkles,
@@ -141,8 +140,6 @@ const ProjectDetail = () => {
   const [editFacebook, setEditFacebook] = useState(true);
   const [editLinkedin, setEditLinkedin] = useState(false);
   const [editTiktok, setEditTiktok] = useState(false);
-  const [editPostsPerWeek, setEditPostsPerWeek] = useState(3);
-  const [editAutomationMode, setEditAutomationMode] = useState("semi_auto");
   const [editLanguage, setEditLanguage] = useState("en");
   const [selectedPublishMode, setSelectedPublishMode] = useState<"auto" | "manual">("manual");
 
@@ -169,8 +166,6 @@ const ProjectDetail = () => {
       setEditFacebook(project.facebook_enabled);
       setEditLinkedin(project.linkedin_enabled);
       setEditTiktok(project.tiktok_enabled);
-      setEditPostsPerWeek(project.posts_per_week);
-      setEditAutomationMode(project.automation_mode);
       setEditLanguage(project.detected_language || "en");
     }
   }, [project]);
@@ -335,8 +330,6 @@ const ProjectDetail = () => {
           facebook_enabled: editFacebook,
           linkedin_enabled: editLinkedin,
           tiktok_enabled: editTiktok,
-          posts_per_week: editPostsPerWeek,
-          automation_mode: editAutomationMode,
           detected_language: editLanguage,
         })
         .eq("id", project.id);
@@ -431,10 +424,6 @@ const ProjectDetail = () => {
             <DropdownMenuItem onClick={() => openEditModal("platforms")}>
               <Share2 className="h-4 w-4 mr-2" />
               Platforms
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openEditModal("automation")}>
-              <Zap className="h-4 w-4 mr-2" />
-              Automation
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => navigate(`/projects/new?edit=${id}`)}>
@@ -600,11 +589,10 @@ const ProjectDetail = () => {
           </DialogHeader>
           
           <Tabs value={editTab} onValueChange={setEditTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="info">Info</TabsTrigger>
               <TabsTrigger value="branding">Style</TabsTrigger>
               <TabsTrigger value="platforms">Platforms</TabsTrigger>
-              <TabsTrigger value="automation">Auto</TabsTrigger>
             </TabsList>
 
             <TabsContent value="info" className="space-y-4 mt-4">
@@ -888,40 +876,6 @@ const ProjectDetail = () => {
                     </div>
                     <Switch checked={editTiktok} onCheckedChange={setEditTiktok} />
                   </div>
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="automation" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-posts">Posts per week</Label>
-                <Input
-                  id="edit-posts"
-                  type="number"
-                  min={1}
-                  max={14}
-                  value={editPostsPerWeek}
-                  onChange={(e) => setEditPostsPerWeek(parseInt(e.target.value) || 3)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Automation mode</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { value: "manual", label: "Manual" },
-                    { value: "semi_auto", label: "Semi-auto" },
-                    { value: "full_auto", label: "Full auto" },
-                  ].map((mode) => (
-                    <Button
-                      key={mode.value}
-                      type="button"
-                      variant={editAutomationMode === mode.value ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setEditAutomationMode(mode.value)}
-                    >
-                      {mode.label}
-                    </Button>
-                  ))}
                 </div>
               </div>
             </TabsContent>
