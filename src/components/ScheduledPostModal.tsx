@@ -516,7 +516,7 @@ export const ScheduledPostModal = ({
             description: "Creating image with background music",
           });
 
-          const { data: reelData, error: reelError } = await supabase.functions.invoke("generate-reel", {
+          const { data: reelData, error: reelError } = await supabase.functions.invoke("generate-reel-video", {
             body: {
               prompt: post.ai_prompt || "Create an eye-catching social media reel",
               format: videoFormat === "landscape" ? "landscape" : "reel",
