@@ -177,26 +177,54 @@ export function getQualityModels(qualityId: string): ModelOption[] {
 }
 
 // ============================================================
-// DURATION CONFIGS PER MODEL
+// DURATION CONFIGS PER MODEL (API limits)
 // ============================================================
 
-export const VIDEO_DURATION_CONFIGS: Record<string, number[]> = {
-  // CometAPI models
-  "veo-2": [5, 10],
-  "kling-video": [5, 10],
-  "minimax-video-01": [4, 6],
-  "sora-2": [4, 8, 12],
+export const VIDEO_DURATION_CONFIGS: Record<string, { min: number; max: number; step: number }> = {
+  // CometAPI models with actual API limits
+  "veo-2": { min: 5, max: 10, step: 5 },         // Veo 3.1: 5s or 10s
+  "kling-video": { min: 5, max: 10, step: 5 },   // Kling v2: 5s or 10s
+  "minimax-video-01": { min: 4, max: 6, step: 2 }, // MiniMax: 4s or 6s
+  "sora-2": { min: 4, max: 20, step: 1 },        // Sora 2: 4-20s flexible
 };
 
 export function getValidDurations(apiModel: string): number[] {
-  return VIDEO_DURATION_CONFIGS[apiModel] || [5, 10];
+  const config = VIDEO_DURATION_CONFIGS[apiModel];
+  if (!config) return [5, 10];
+  
+  const durations: number[] = [];
+  for (let d = config.min; d <= config.max; d += config.step) {
+    durations.push(d);
+  }
+  return durations;
 }
 
 export function clampDuration(requestedDuration: number, apiModel: string): number {
-  const validDurations = getValidDurations(apiModel);
+  const config = VIDEO_DURATION_CONFIGS[apiModel];
+  if (!config) return requestedDuration;
   
-  // Find closest valid duration
-  return validDurations.reduce((prev, curr) =>
-    Math.abs(curr - requestedDuration) < Math.abs(prev - requestedDuration) ? curr : prev
-  );
+  // Clamp to model's min/max
+  const clamped = Math.max(config.min, Math.min(config.max, requestedDuration));
+  
+  // Round to nearest step
+  return Math.round(clamped / config.step) * config.step;
+}
+
+// Get quality-level durations (union of all models in pool)
+export function getQualityDurations(qualityId: string): number[] {
+  const pool = VIDEO_MODEL_POOLS[qualityId];
+  if (!pool) return [5, 10];
+  
+  // Get all possible durations from all models in pool
+  const allDurations = new Set<number>();
+  pool.forEach(model => {
+    const config = VIDEO_DURATION_CONFIGS[model.apiModel];
+    if (config) {
+      for (let d = config.min; d <= config.max; d += config.step) {
+        allDurations.add(d);
+      }
+    }
+  });
+  
+  return Array.from(allDurations).sort((a, b) => a - b);
 }
