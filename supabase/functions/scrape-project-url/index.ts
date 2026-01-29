@@ -5,48 +5,95 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Detect language from text content
-function detectLanguage(content: string): string {
-  if (!content) return "en";
+// ============================================================
+// LANGUAGE DETECTION - Improved with contextual hints & TLD fallback
+// ============================================================
+
+// Contextual hints for more accurate detection (avoid FR/ES/PT confusion)
+const LANG_HINTS: Record<string, string[]> = {
+  fr: ["nous", "notre", "clients", "entreprise", "équipe", "bienvenue", "accueil", "société"],
+  en: ["we", "our", "customers", "business", "team", "welcome", "company", "about us"],
+  es: ["nuestro", "nuestra", "clientes", "empresa", "equipo", "bienvenido", "nosotros"],
+  de: ["wir", "unsere", "kunden", "unternehmen", "willkommen", "über uns"],
+  it: ["nostro", "nostra", "clienti", "azienda", "benvenuto", "chi siamo"],
+  pt: ["nosso", "nossa", "clientes", "empresa", "equipe", "bem-vindo", "sobre nós"],
+};
+
+// TLD to language mapping for fallback
+const TLD_LANG_MAP: Record<string, string> = {
+  ".fr": "fr",
+  ".es": "es",
+  ".de": "de",
+  ".it": "it",
+  ".pt": "pt",
+  ".br": "pt",
+  ".mx": "es",
+  ".ar": "es",
+  ".be": "fr",
+  ".ch": "de",
+  ".at": "de",
+};
+
+function detectLanguage(content: string, url?: string): string {
+  if (!content) {
+    // If no content, try TLD fallback
+    if (url) {
+      for (const [tld, lang] of Object.entries(TLD_LANG_MAP)) {
+        if (url.toLowerCase().includes(tld)) return lang;
+      }
+    }
+    return "en";
+  }
   
-  // Common French words/patterns
+  // Common patterns for each language
   const frenchPatterns = /\b(le|la|les|de|du|des|un|une|et|est|que|pour|avec|dans|sur|par|pas|plus|nous|vous|ils|elles|ce|cette|sont|ont|fait|peut|tout|bien|très|même|aussi|comme)\b/gi;
-  // Common English words/patterns
   const englishPatterns = /\b(the|is|are|was|were|have|has|had|will|would|could|should|been|being|their|there|they|this|that|with|from|about|which|when|what|your|more|also|just|like|into|some|than)\b/gi;
-  // Common Spanish words/patterns
   const spanishPatterns = /\b(el|la|los|las|de|del|un|una|que|en|es|por|con|para|su|sus|son|han|este|esta|como|más|pero|muy|también|todos|puede|hay|sin|sobre)\b/gi;
-  // Common German words/patterns
   const germanPatterns = /\b(der|die|das|und|ist|von|mit|für|auf|sich|nicht|auch|als|ein|eine|dem|den|werden|nach|bei|haben|kann|sind|wird|aus|oder)\b/gi;
-  // Common Italian words/patterns
   const italianPatterns = /\b(il|lo|la|le|di|del|un|una|che|in|è|per|con|sono|questa|questo|come|più|ma|anche|tutto|può|essere|fare|non|solo)\b/gi;
-  // Common Portuguese words/patterns
   const portuguesePatterns = /\b(o|a|os|as|de|do|da|um|uma|que|em|é|para|com|são|esta|este|como|mais|mas|também|pode|ter|fazer|não|só)\b/gi;
 
   const text = content.toLowerCase();
   
-  const frenchMatches = (text.match(frenchPatterns) || []).length;
-  const englishMatches = (text.match(englishPatterns) || []).length;
-  const spanishMatches = (text.match(spanishPatterns) || []).length;
-  const germanMatches = (text.match(germanPatterns) || []).length;
-  const italianMatches = (text.match(italianPatterns) || []).length;
-  const portugueseMatches = (text.match(portuguesePatterns) || []).length;
-
   const scores = [
-    { lang: "fr", score: frenchMatches },
-    { lang: "en", score: englishMatches },
-    { lang: "es", score: spanishMatches },
-    { lang: "de", score: germanMatches },
-    { lang: "it", score: italianMatches },
-    { lang: "pt", score: portugueseMatches },
+    { lang: "fr", score: (text.match(frenchPatterns) || []).length },
+    { lang: "en", score: (text.match(englishPatterns) || []).length },
+    { lang: "es", score: (text.match(spanishPatterns) || []).length },
+    { lang: "de", score: (text.match(germanPatterns) || []).length },
+    { lang: "it", score: (text.match(italianPatterns) || []).length },
+    { lang: "pt", score: (text.match(portuguesePatterns) || []).length },
   ];
+
+  // Apply contextual hints bonus (avoids FR/ES/PT confusion)
+  for (const langScore of scores) {
+    const hints = LANG_HINTS[langScore.lang] || [];
+    for (const hint of hints) {
+      if (text.includes(hint)) {
+        langScore.score += 3; // Strong contextual bonus
+      }
+    }
+  }
 
   scores.sort((a, b) => b.score - a.score);
   
-  console.log("Language detection scores:", scores);
+  // Debug logging only when enabled
+  if (Deno.env.get("DEBUG_LANG") === "true") {
+    console.log("[LANG] Detection scores:", scores);
+  }
   
   // Return detected language if confident (at least 5 matches)
   if (scores[0].score >= 5) {
     return scores[0].lang;
+  }
+  
+  // TLD fallback for short/empty content
+  if (url) {
+    for (const [tld, lang] of Object.entries(TLD_LANG_MAP)) {
+      if (url.toLowerCase().includes(tld)) {
+        console.log(`[LANG] Low confidence, using TLD fallback: ${lang}`);
+        return lang;
+      }
+    }
   }
   
   return "en"; // Default to English
@@ -119,8 +166,8 @@ serve(async (req) => {
       data.data?.markdown?.substring(0, 2000) || "",
     ].join(" ");
 
-    const detectedLanguage = detectLanguage(textForDetection);
-    console.log("Detected language:", detectedLanguage);
+    const detectedLanguage = detectLanguage(textForDetection, formattedUrl);
+    console.log("[SCRAPE] Detected language:", detectedLanguage);
 
     // Extract relevant info for project context
     const scrapedData = {
