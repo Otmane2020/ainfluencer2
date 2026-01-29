@@ -6,6 +6,91 @@ const corsHeaders = {
 };
 
 // ============================================================
+// LOGO OVERLAY UTILITY
+// ============================================================
+
+async function overlayLogoOnImage(
+  baseImageData: string,
+  logoUrl: string,
+  position: "bottom-right" | "top-left" | "bottom-left" | "top-right" = "bottom-right"
+): Promise<string> {
+  try {
+    console.log("[LogoOverlay] Fetching logo from:", logoUrl);
+    
+    // Fetch the logo image
+    const logoResponse = await fetch(logoUrl);
+    if (!logoResponse.ok) {
+      console.error("[LogoOverlay] Failed to fetch logo:", logoResponse.status);
+      return baseImageData; // Return original if logo fetch fails
+    }
+    
+    const logoBlob = await logoResponse.blob();
+    const logoArrayBuffer = await logoBlob.arrayBuffer();
+    const logoBase64 = btoa(String.fromCharCode(...new Uint8Array(logoArrayBuffer)));
+    const logoDataUrl = `data:${logoBlob.type || "image/png"};base64,${logoBase64}`;
+    
+    // Use Lovable AI to composite the images
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      console.error("[LogoOverlay] No LOVABLE_API_KEY");
+      return baseImageData;
+    }
+    
+    // Create a compositing prompt
+    const compositePrompt = `Take this base image and add the provided logo to the ${position.replace("-", " ")} corner. 
+The logo should be:
+- Small (about 10-15% of the image width)
+- Semi-transparent or with subtle shadow for integration
+- Positioned in the ${position.replace("-", " ")} corner with appropriate padding
+- Preserve the original image quality and composition
+Keep the base image exactly as is, only add the logo overlay.`;
+
+    console.log("[LogoOverlay] Requesting composite via AI...");
+    
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: compositePrompt },
+              { type: "image_url", image_url: { url: baseImageData } },
+              { type: "image_url", image_url: { url: logoDataUrl } },
+            ],
+          },
+        ],
+        modalities: ["image", "text"],
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("[LogoOverlay] AI composite failed:", response.status);
+      return baseImageData;
+    }
+
+    const data = await response.json();
+    const compositedImage = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    
+    if (compositedImage) {
+      console.log("[LogoOverlay] Logo successfully added!");
+      return compositedImage;
+    }
+    
+    console.log("[LogoOverlay] No composited image returned, using original");
+    return baseImageData;
+  } catch (error) {
+    console.error("[LogoOverlay] Error:", error);
+    return baseImageData; // Return original on any error
+  }
+}
+
+// ============================================================
 // QUALITY-BASED MODEL ROUTING
 // ============================================================
 
@@ -283,7 +368,9 @@ Deno.serve(async (req) => {
     }
 
     // BRAND ELEMENTS: Describe what the AI should generate (not actual files)
-    if (includeLogo && brandName) {
+    // Note: Real logo will be composited after generation if logoUrl is provided
+    if (includeLogo && brandName && !logoUrl) {
+      // No logo file - ask AI to generate text-based branding
       enhancedPrompt += ` IMPORTANT: Include a stylized brand logo area or badge in the bottom-right or top-left corner with the text "${brandName}" in elegant, professional typography that matches the image style.`;
     }
     
@@ -342,13 +429,21 @@ Deno.serve(async (req) => {
       );
     }
 
+    // POST-PROCESSING: Overlay real logo if provided
+    let finalImageData = result.imageData;
+    
+    if (includeLogo && logoUrl) {
+      console.log("[PostProcess] Overlaying real logo onto generated image...");
+      finalImageData = await overlayLogoOnImage(result.imageData, logoUrl, "bottom-right");
+    }
+
     // Upload to Supabase storage
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Convert base64 to blob
-    const base64Data = result.imageData.replace(/^data:image\/\w+;base64,/, "");
+    // Convert base64 to blob (use finalImageData which may have logo overlay)
+    const base64Data = finalImageData.replace(/^data:image\/\w+;base64,/, "");
     const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
 
     const fileName = `images/${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
@@ -364,7 +459,7 @@ Deno.serve(async (req) => {
       console.error("Storage upload error:", uploadError);
       // Return base64 URL as fallback
       return new Response(
-        JSON.stringify({ imageUrl: result.imageData }),
+        JSON.stringify({ imageUrl: finalImageData }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
