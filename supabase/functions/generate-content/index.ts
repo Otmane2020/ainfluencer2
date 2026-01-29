@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -149,16 +150,57 @@ FORMAT:
         if (images && images.length > 0) {
           const rawUrl = images[0].image_url?.url || "";
           
-          // FIX 5: Don't return base64 directly - it can break frontend
+          // Handle both URL and base64 images
           if (rawUrl && !rawUrl.startsWith("data:image")) {
             imageUrl = rawUrl;
+            console.log("Image URL received directly");
           } else if (rawUrl.startsWith("data:image")) {
-            // Base64 returned - for now we skip, cron can handle upload later
-            console.log("Image returned as base64, skipping direct return");
-            imageUrl = "";
+            // Upload base64 to Supabase storage
+            try {
+              const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+              const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+              const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } });
+              
+              // Extract base64 data and mime type
+              const matches = rawUrl.match(/^data:([^;]+);base64,(.+)$/);
+              if (matches) {
+                const mimeType = matches[1];
+                const base64Data = matches[2];
+                const extension = mimeType.split("/")[1] || "png";
+                
+                // Decode base64 to binary
+                const binaryString = atob(base64Data);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                  bytes[i] = binaryString.charCodeAt(i);
+                }
+                
+                // Generate unique filename
+                const filename = `generated/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+                
+                // Upload to storage
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                  .from("media")
+                  .upload(filename, bytes, {
+                    contentType: mimeType,
+                    upsert: false,
+                  });
+                
+                if (uploadError) {
+                  console.error("Failed to upload image to storage:", uploadError);
+                } else {
+                  // Get public URL
+                  const { data: publicUrlData } = supabase.storage
+                    .from("media")
+                    .getPublicUrl(filename);
+                  imageUrl = publicUrlData.publicUrl;
+                  console.log("Image uploaded to storage:", imageUrl);
+                }
+              }
+            } catch (uploadErr) {
+              console.error("Error processing base64 image:", uploadErr);
+            }
           }
-          
-          console.log("Image generated successfully");
         }
       }
     }
