@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Shield, Plug, Instagram, Facebook, Linkedin, Check, AlertCircle, LogOut, Loader2, Clock, ChevronRight, Building2 } from "lucide-react";
+import { Shield, Plug, Instagram, Facebook, Linkedin, Check, AlertCircle, LogOut, Loader2, Clock, ChevronRight, Building2, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,13 @@ import { enUS } from "date-fns/locale";
 const TikTokIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
     <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+  </svg>
+);
+
+// YouTube icon component
+const YouTubeIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
   </svg>
 );
 
@@ -35,11 +42,24 @@ interface Project {
   facebook_enabled: boolean;
 }
 
+// Placeholder connection states for other platforms
+interface OtherConnections {
+  youtube: { connected: boolean; channelName?: string };
+  linkedin: { connected: boolean; profileName?: string };
+  tiktok: { connected: boolean; username?: string };
+}
+
 const Integrations = () => {
   const { toast } = useToast();
   const { connection, isConnecting, connect, disconnect, isConnected, isLoading } = useMetaOAuth();
   const [metaConnectionData, setMetaConnectionData] = useState<MetaConnectionData | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [otherConnections, setOtherConnections] = useState<OtherConnections>({
+    youtube: { connected: false },
+    linkedin: { connected: false },
+    tiktok: { connected: false },
+  });
+  const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMetaConnection();
@@ -80,6 +100,37 @@ const Integrations = () => {
     }
   };
 
+  // Placeholder connect functions for other platforms
+  const handleConnectYouTube = async () => {
+    setConnectingPlatform("youtube");
+    // Simulate OAuth flow - in production, this would redirect to Google OAuth
+    toast({
+      title: "YouTube Integration",
+      description: "YouTube OAuth integration coming soon. Stay tuned!",
+    });
+    setTimeout(() => setConnectingPlatform(null), 1500);
+  };
+
+  const handleConnectLinkedIn = async () => {
+    setConnectingPlatform("linkedin");
+    // Simulate OAuth flow - in production, this would redirect to LinkedIn OAuth
+    toast({
+      title: "LinkedIn Integration",
+      description: "LinkedIn OAuth integration coming soon. Stay tuned!",
+    });
+    setTimeout(() => setConnectingPlatform(null), 1500);
+  };
+
+  const handleConnectTikTok = async () => {
+    setConnectingPlatform("tiktok");
+    // Simulate OAuth flow - in production, this would redirect to TikTok OAuth
+    toast({
+      title: "TikTok Integration",
+      description: "TikTok OAuth integration coming soon. Stay tuned!",
+    });
+    setTimeout(() => setConnectingPlatform(null), 1500);
+  };
+
   const platformConfig = {
     facebook: {
       icon: Facebook,
@@ -91,15 +142,23 @@ const Integrations = () => {
       name: "Instagram",
       gradient: "from-[#833AB4] via-[#E1306C] to-[#F77737]",
     },
+    youtube: {
+      icon: YouTubeIcon,
+      name: "YouTube",
+      gradient: "from-[#FF0000] to-[#CC0000]",
+      description: "Upload Shorts & Videos",
+    },
     linkedin: {
       icon: Linkedin,
       name: "LinkedIn",
       gradient: "from-[#0A66C2] to-[#004182]",
+      description: "Share posts & articles",
     },
     tiktok: {
       icon: TikTokIcon,
       name: "TikTok",
       gradient: "from-[#000000] via-[#25F4EE] to-[#FE2C55]",
+      description: "Auto-publish videos",
     },
   };
 
@@ -371,50 +430,162 @@ const Integrations = () => {
         </Card>
       )}
 
-      {/* Other Platforms */}
+      {/* YouTube Integration */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Other Platforms</CardTitle>
-          <CardDescription>Manual share options</CardDescription>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 to-red-600">
+              <YouTubeIcon className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-base">YouTube</CardTitle>
+              <CardDescription>Upload Shorts & Videos automatically</CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {/* LinkedIn */}
-          <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-            <div className="flex items-center gap-3">
-              <div className={`flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br ${platformConfig.linkedin.gradient}`}>
-                <Linkedin className="h-4 w-4 text-white" />
+        <CardContent>
+          {otherConnections.youtube.connected ? (
+            <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
+              <div className="flex items-center gap-3">
+                <Check className="h-4 w-4 text-green-500" />
+                <span className="text-sm">{otherConnections.youtube.channelName}</span>
               </div>
-              <div>
-                <p className="font-medium text-sm">LinkedIn</p>
-                <p className="text-xs text-muted-foreground">Manual share</p>
-              </div>
+              <Button variant="outline" size="sm" onClick={() => setOtherConnections(prev => ({ ...prev, youtube: { connected: false } }))}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Disconnect
+              </Button>
             </div>
-            <Badge variant="secondary" className="text-xs">Coming soon</Badge>
-          </div>
-
-          {/* TikTok */}
-          <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-            <div className="flex items-center gap-3">
-              <div className={`flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br ${platformConfig.tiktok.gradient}`}>
-                <TikTokIcon className="h-4 w-4 text-white" />
-              </div>
-              <div>
-                <p className="font-medium text-sm">TikTok</p>
-                <p className="text-xs text-muted-foreground">Download & share</p>
-              </div>
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-sm text-muted-foreground mb-4">
+                Connect your YouTube channel to auto-publish Shorts and videos
+              </p>
+              <Button 
+                onClick={handleConnectYouTube} 
+                disabled={connectingPlatform === "youtube"}
+                className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
+              >
+                {connectingPlatform === "youtube" ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <YouTubeIcon className="h-4 w-4 mr-2" />
+                )}
+                Connect YouTube
+              </Button>
             </div>
-            <Badge variant="secondary" className="text-xs">Coming soon</Badge>
-          </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Coming Soon */}
+      {/* LinkedIn Integration */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${platformConfig.linkedin.gradient}`}>
+              <Linkedin className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-base">LinkedIn</CardTitle>
+              <CardDescription>Share posts & articles to your network</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {otherConnections.linkedin.connected ? (
+            <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
+              <div className="flex items-center gap-3">
+                <Check className="h-4 w-4 text-green-500" />
+                <span className="text-sm">{otherConnections.linkedin.profileName}</span>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setOtherConnections(prev => ({ ...prev, linkedin: { connected: false } }))}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Disconnect
+              </Button>
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-sm text-muted-foreground mb-4">
+                Connect your LinkedIn profile to share content with your professional network
+              </p>
+              <Button 
+                onClick={handleConnectLinkedIn} 
+                disabled={connectingPlatform === "linkedin"}
+                className="bg-[#0A66C2] hover:bg-[#004182]"
+              >
+                {connectingPlatform === "linkedin" ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Linkedin className="h-4 w-4 mr-2" />
+                )}
+                Connect LinkedIn
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* TikTok Integration */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${platformConfig.tiktok.gradient}`}>
+              <TikTokIcon className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-base">TikTok</CardTitle>
+              <CardDescription>Auto-publish videos to your TikTok account</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {otherConnections.tiktok.connected ? (
+            <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
+              <div className="flex items-center gap-3">
+                <Check className="h-4 w-4 text-green-500" />
+                <span className="text-sm">@{otherConnections.tiktok.username}</span>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setOtherConnections(prev => ({ ...prev, tiktok: { connected: false } }))}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Disconnect
+              </Button>
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-sm text-muted-foreground mb-4">
+                Connect your TikTok account to auto-publish viral video content
+              </p>
+              <Button 
+                onClick={handleConnectTikTok} 
+                disabled={connectingPlatform === "tiktok"}
+                className="bg-gradient-to-r from-pink-500 to-cyan-400 hover:from-pink-600 hover:to-cyan-500"
+              >
+                {connectingPlatform === "tiktok" ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <TikTokIcon className="h-4 w-4 mr-2" />
+                )}
+                Connect TikTok
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* More Integrations Coming */}
       <Card className="border-dashed">
         <CardContent className="p-4 flex items-center gap-3">
           <Plug className="h-5 w-5 text-muted-foreground shrink-0" />
-          <p className="text-sm text-muted-foreground">
-            YouTube, Pinterest, X coming soon
-          </p>
+          <div>
+            <p className="text-sm text-muted-foreground">
+              More integrations coming soon: Twitter/X, Pinterest, Snapchat...
+            </p>
+            <a 
+              href="mailto:support@clipmotion.ai" 
+              className="text-xs text-primary hover:underline inline-flex items-center gap-1 mt-1"
+            >
+              Request an integration <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
         </CardContent>
       </Card>
     </div>
