@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SupportWidget } from "@/components/SupportWidget";
+import { PWAInstallBanner } from "@/components/PWAInstall";
 
 export function AppLayout() {
   const { user, isLoading } = useAuth();
@@ -39,10 +40,11 @@ export function AppLayout() {
     return (
       <div className="min-h-screen flex flex-col w-full">
         <MobileHeader />
-        <main className="flex-1 p-3 overflow-x-hidden">
+      <main className="flex-1 p-3 overflow-x-hidden">
           <Outlet />
         </main>
         <SupportWidget />
+        <PWAInstallBanner />
       </div>
     );
   }
@@ -58,6 +60,7 @@ export function AppLayout() {
           </main>
         </SidebarInset>
         <SupportWidget />
+        <PWAInstallBanner />
       </div>
     </SidebarProvider>
   );
