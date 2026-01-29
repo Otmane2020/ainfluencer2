@@ -1,9 +1,87 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import Stripe from "https://esm.sh/stripe@18.5.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Valid plans for AutoPost access
+const AUTOPOST_VALID_PLANS = ["pro", "business"];
+const AUTOPOST_VALID_PRODUCTS = [
+  "prod_TsR9BN6zNpq8Rp", // Pro
+  "prod_TsR93v9Am93N8O", // Business
+];
+
+// ============================================================
+// SUBSCRIPTION VERIFICATION FOR AUTOPOST
+// ============================================================
+async function verifyAutoPostAccess(
+  userId: string,
+  userEmail: string | null,
+  supabase: any
+): Promise<{ valid: boolean; error?: string }> {
+  try {
+    // Check for lifetime grant first
+    const { data: subscription } = await supabase
+      .from("subscriptions")
+      .select("plan_id, stripe_customer_id, status")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (subscription?.stripe_customer_id === "lifetime_grant") {
+      console.log(`[AUTOPOST-ACCESS] Lifetime grant for ${userId}`);
+      return { valid: true };
+    }
+
+    // Check local subscription record
+    if (subscription && AUTOPOST_VALID_PLANS.includes(subscription.plan_id) && subscription.status === "active") {
+      console.log(`[AUTOPOST-ACCESS] Local subscription valid: ${subscription.plan_id}`);
+      return { valid: true };
+    }
+
+    // Fallback: Verify with Stripe if email available
+    if (userEmail) {
+      const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+      if (stripeKey) {
+        try {
+          const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
+          const customers = await stripe.customers.list({ email: userEmail, limit: 1 });
+          
+          if (customers.data.length > 0) {
+            const subscriptions = await stripe.subscriptions.list({
+              customer: customers.data[0].id,
+              status: "active",
+              limit: 1,
+            });
+
+            if (subscriptions.data.length > 0) {
+              const sub = subscriptions.data[0];
+              const hasValidProduct = sub.items.data.some((item: any) => {
+                const productId = typeof item.price.product === "string" 
+                  ? item.price.product 
+                  : item.price.product.id;
+                return AUTOPOST_VALID_PRODUCTS.includes(productId);
+              });
+
+              if (hasValidProduct) {
+                console.log(`[AUTOPOST-ACCESS] Stripe verified for ${userEmail}`);
+                return { valid: true };
+              }
+            }
+          }
+        } catch (stripeError) {
+          console.error("[AUTOPOST-ACCESS] Stripe check failed:", stripeError);
+        }
+      }
+    }
+
+    return { valid: false, error: "AutoPost requires Pro or Business plan" };
+  } catch (error) {
+    console.error("[AUTOPOST-ACCESS] Error:", error);
+    return { valid: false, error: "Subscription check failed" };
+  }
+}
 
 // ============================================================
 // AUTOPOST ALWAYS USES SMART QUALITY FOR COST CONTROL
@@ -584,6 +662,23 @@ Deno.serve(async (req) => {
       const projectLanguage = post.projects?.detected_language || "en";
       console.log(`[cron] Processing post ${post.id} (${post.content_type}) - language: ${projectLanguage}`);
 
+      // ============================================================
+      // SUBSCRIPTION CHECK: Only Pro/Business can use AutoPost
+      // ============================================================
+      const { data: userData } = await supabase.auth.admin.getUserById(post.user_id);
+      const userEmail = userData?.user?.email || null;
+      
+      const accessCheck = await verifyAutoPostAccess(post.user_id, userEmail, supabase);
+      
+      if (!accessCheck.valid) {
+        console.log(`[cron] User ${post.user_id} denied: ${accessCheck.error}`);
+        await supabase.from("scheduled_posts").update({
+          error_message: accessCheck.error || "AutoPost requires Pro or Business plan",
+          status: "draft", // Reset to draft so user sees it
+        }).eq("id", post.id);
+        continue;
+      }
+
       // STEP 1: Generate media if missing (using Smart quality)
       if (!post.media_url && post.ai_prompt) {
         // Check if this is an "Image as Reel" post:
@@ -661,10 +756,17 @@ Deno.serve(async (req) => {
 
       const platforms = post.platforms || ["instagram", "facebook"];
       const errors: string[] = [];
+      const publishResults: { platform: string; success: boolean; postId?: string }[] = [];
 
       for (const platform of platforms) {
+        // ============================================================
+        // RATE LIMIT: 1.5s delay between Meta API calls
+        // ============================================================
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
         if (platform === "facebook") {
           const result = await publishToFacebook(post, metaConnection);
+          publishResults.push({ platform: "facebook", success: result.success });
           if (!result.success) {
             errors.push(`FB: ${result.error}`);
             console.log(`[cron] Facebook publish failed: ${result.error}`);
@@ -675,6 +777,7 @@ Deno.serve(async (req) => {
 
         if (platform === "instagram") {
           const result = await publishToInstagram(post, metaConnection);
+          publishResults.push({ platform: "instagram", success: result.success });
           if (!result.success) {
             errors.push(`IG: ${result.error}`);
             console.log(`[cron] Instagram publish failed: ${result.error}`);
