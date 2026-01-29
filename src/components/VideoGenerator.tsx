@@ -754,37 +754,8 @@ ${formattedHashtags}`;
             });
 
             if (status.status === "completed" && status.videoUrl) {
-              const videoResponse = await fetch(
-                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-sora?action=download&taskId=${segment.taskId}`,
-                {
-                  method: "GET",
-                  headers: {
-                    apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                    Authorization: `Bearer ${accessToken}`,
-                  },
-                }
-              );
-
-              if (videoResponse.ok) {
-                const videoBlob = await videoResponse.blob();
-                const videoFileName = `videos/${Date.now()}-${segment.id}.mp4`;
-                
-                await supabase.storage.from("media").upload(videoFileName, videoBlob, {
-                  contentType: "video/mp4",
-                  upsert: true,
-                });
-
-                const { data: videoUrlData } = supabase.storage.from("media").getPublicUrl(videoFileName);
-
-                return {
-                  ...segment,
-                  status: "ready" as const,
-                  videoUrl: videoUrlData.publicUrl,
-                  progress: 100,
-                  finishTime: status.finishTime,
-                };
-              }
-
+              // Video is already uploaded to Supabase storage by the edge function
+              // Just use the URL directly
               return {
                 ...segment,
                 status: "ready" as const,
