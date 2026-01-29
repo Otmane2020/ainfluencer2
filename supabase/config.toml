@@ -103,3 +103,6 @@ verify_jwt = false
 
 [functions.start-generation]
 verify_jwt = false
+
+[functions.generate-ai-video]
+verify_jwt = false
