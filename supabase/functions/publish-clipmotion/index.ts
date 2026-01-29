@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import Stripe from "https://esm.sh/stripe@18.5.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,6 +12,12 @@ const corsHeaders = {
 // Supports: Instagram Reels, Facebook Reels, YouTube Shorts, TikTok
 // Uses per-user tokens from database (not static secrets)
 // ============================================================
+
+// Valid Stripe products for publishing access (Pro & Business only)
+const VALID_PUBLISH_PRODUCTS = [
+  "prod_TsR9BN6zNpq8Rp", // Pro
+  "prod_TsR93v9Am93N8O", // Business
+];
 
 interface PublishRequest {
   videoUrl: string;
@@ -26,9 +33,9 @@ interface PublishResult {
   error?: string;
 }
 
-// Get user ID from JWT
-async function getUserId(authHeader: string | null, supabase: any): Promise<string | null> {
-  if (!authHeader) return null;
+// Get user info from JWT
+async function getUserInfo(authHeader: string | null, supabase: any): Promise<{ userId: string | null; email: string | null }> {
+  if (!authHeader) return { userId: null, email: null };
   
   try {
     const token = authHeader.replace("Bearer ", "");
@@ -37,13 +44,113 @@ async function getUserId(authHeader: string | null, supabase: any): Promise<stri
     if (error || !data?.claims?.sub) {
       // Fallback to getUser
       const { data: userData, error: userError } = await supabase.auth.getUser(token);
-      if (userError || !userData.user) return null;
-      return userData.user.id;
+      if (userError || !userData.user) return { userId: null, email: null };
+      return { userId: userData.user.id, email: userData.user.email };
     }
     
-    return data.claims.sub as string;
+    return { userId: data.claims.sub as string, email: data.claims.email as string };
   } catch {
-    return null;
+    return { userId: null, email: null };
+  }
+}
+
+// ============================================================
+// SUBSCRIPTION VERIFICATION (Pro/Business only)
+// ============================================================
+async function verifyPublishAccess(email: string | null, userId: string, supabase: any): Promise<{ valid: boolean; error?: string }> {
+  if (!email) {
+    return { valid: false, error: "User email not available" };
+  }
+
+  const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+  if (!stripeKey) {
+    console.error("[PUBLISH-ACCESS] STRIPE_SECRET_KEY not configured");
+    return { valid: false, error: "Payment system not configured" };
+  }
+
+  try {
+    // Check for lifetime grant first
+    const { data: lifetimeGrant } = await supabase
+      .from("subscriptions")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("stripe_customer_id", "lifetime_grant")
+      .maybeSingle();
+
+    if (lifetimeGrant) {
+      console.log(`[PUBLISH-ACCESS] LIFETIME GRANT - Full access for ${email}`);
+      return { valid: true };
+    }
+
+    // Check Stripe subscription
+    const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
+    const customers = await stripe.customers.list({ email, limit: 1 });
+    
+    if (customers.data.length === 0) {
+      return { valid: false, error: "Publishing requires Pro or Business plan. Please upgrade." };
+    }
+
+    const subscriptions = await stripe.subscriptions.list({
+      customer: customers.data[0].id,
+      status: "active",
+      limit: 1,
+    });
+
+    if (subscriptions.data.length === 0) {
+      return { valid: false, error: "Publishing requires Pro or Business plan. Please upgrade." };
+    }
+
+    // Check if subscription includes valid product
+    const subscription = subscriptions.data[0];
+    const hasValidProduct = subscription.items.data.some((item: { price: { product: string | { id: string } } }) => {
+      const productId = typeof item.price.product === "string" 
+        ? item.price.product 
+        : item.price.product.id;
+      return VALID_PUBLISH_PRODUCTS.includes(productId);
+    });
+
+    if (!hasValidProduct) {
+      return { valid: false, error: "Publishing requires Pro or Business plan. Please upgrade." };
+    }
+
+    console.log(`[PUBLISH-ACCESS] Access granted for ${email}`);
+    return { valid: true };
+  } catch (error) {
+    console.error("[PUBLISH-ACCESS] Error:", error);
+    return { valid: false, error: "Subscription verification failed" };
+  }
+}
+
+// ============================================================
+// LOG PUBLISHED POST TO DATABASE
+// ============================================================
+async function logPublishedPost(
+  supabase: any,
+  userId: string,
+  platform: string,
+  postId: string | undefined,
+  videoUrl: string,
+  caption: string,
+  success: boolean,
+  errorMessage?: string
+): Promise<void> {
+  try {
+    // Log to scheduled_posts with published status
+    await supabase.from("scheduled_posts").insert({
+      user_id: userId,
+      project_id: userId, // Use userId as fallback project
+      content_type: "video",
+      media_url: videoUrl,
+      text_content: caption,
+      platforms: [platform],
+      status: success ? "published" : "failed",
+      error_message: errorMessage,
+      published_at: success ? new Date().toISOString() : null,
+      scheduled_for: new Date().toISOString(),
+    });
+    console.log(`[LOG] Post logged: ${platform} - ${success ? "published" : "failed"}`);
+  } catch (err) {
+    console.error("[LOG] Failed to log post:", err);
   }
 }
 
@@ -64,6 +171,9 @@ async function publishToInstagram(
     const igUserId = metaConnection.instagram_id;
 
     console.log("[IG] Creating REELS container...");
+
+    // Rate limit protection: small delay before API calls
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
     // Step 1: Create media container for Reels
     const containerRes = await fetch(
@@ -116,6 +226,9 @@ async function publishToInstagram(
     if (status !== "FINISHED") {
       return { platform: "instagram", success: false, error: "Video processing timeout" };
     }
+
+    // Rate limit protection: delay before publish
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
     // Step 3: Publish the container
     console.log("[IG] Publishing Reel...");
@@ -367,14 +480,32 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get user ID from auth header
+    // Get user info from auth header
     const authHeader = req.headers.get("authorization");
-    const userId = await getUserId(authHeader, supabase);
+    const { userId, email } = await getUserInfo(authHeader, supabase);
 
     if (!userId) {
       return new Response(
         JSON.stringify({ error: "Authentication required" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ============================================================
+    // SUBSCRIPTION VERIFICATION: Pro/Business only can publish
+    // ============================================================
+    const accessCheck = await verifyPublishAccess(email, userId, supabase);
+    
+    if (!accessCheck.valid) {
+      console.log("[PUBLISH] Access denied:", accessCheck.error);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: accessCheck.error,
+          requires_upgrade: true,
+          upgrade_plan: "pro",
+        }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -392,16 +523,16 @@ serve(async (req) => {
     console.log("Video:", videoUrl.slice(0, 50));
     console.log("Platforms:", platforms.join(", "));
 
-    // Fetch user's platform connections
-    const { data: metaConnection } = await supabase
-      .from("meta_connections")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle();
+    // Fetch user's platform connections in parallel
+    const [metaResult, youtubeResult, tiktokResult] = await Promise.all([
+      supabase.from("meta_connections").select("*").eq("user_id", userId).maybeSingle(),
+      supabase.from("youtube_connections").select("*").eq("user_id", userId).maybeSingle(),
+      supabase.from("tiktok_connections").select("*").eq("user_id", userId).maybeSingle(),
+    ]);
 
-    // TODO: Add youtube_connections and tiktok_connections tables
-    const youtubeConnection = null; // await supabase.from("youtube_connections")...
-    const tiktokConnection = null; // await supabase.from("tiktok_connections")...
+    const metaConnection = metaResult.data;
+    const youtubeConnection = youtubeResult.data;
+    const tiktokConnection = tiktokResult.data;
 
     const results: PublishResult[] = [];
 
@@ -423,6 +554,23 @@ serve(async (req) => {
 
     const publishResults = await Promise.all(publishPromises);
     results.push(...publishResults);
+
+    // ============================================================
+    // LOG ALL PUBLISHED POSTS TO DATABASE
+    // ============================================================
+    const logPromises = results.map(result => 
+      logPublishedPost(
+        supabase,
+        userId,
+        result.platform,
+        result.postId,
+        videoUrl,
+        caption,
+        result.success,
+        result.error
+      )
+    );
+    await Promise.all(logPromises);
 
     // Calculate success metrics
     const successCount = results.filter(r => r.success).length;
