@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Video, Play, Pause, Download, Trash2, Clock, Calendar, Loader2, Maximize2, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useState, useRef, useEffect } from "react";
 import { format } from "date-fns";
 import { enUS } from "date-fns/locale";
@@ -188,140 +189,167 @@ export const VideoHistory = ({ videos, generatingTasks = [], onDelete, onPlay, o
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* In-progress generations */}
-      {activeGenerations.map((task, index) => (
-        <motion.div
-          key={task.taskId}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: index * 0.03 }}
-          className="group relative rounded-xl bg-card border border-primary/30 p-3 overflow-hidden"
-        >
-          {/* Animated gradient background */}
-          <div className="absolute inset-0 opacity-10">
+      {activeGenerations.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+          {activeGenerations.map((task) => (
             <motion.div
-              className="absolute inset-0 gradient-primary"
-              animate={{
-                x: ["-100%", "100%"],
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                ease: "linear",
-              }}
-            />
-          </div>
-          
-          <div className="relative flex gap-3">
-            {/* Generating indicator */}
-            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-muted flex items-center justify-center">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="h-10 w-10 rounded-full gradient-primary flex items-center justify-center"
-              >
-                <Sparkles className="h-5 w-5 text-primary-foreground" />
-              </motion.div>
-            </div>
-
-            {/* Info */}
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium gradient-primary bg-clip-text text-transparent">Made with AI</span>
-                <span className="text-xs text-muted-foreground">• {task.model}</span>
-              </div>
-              <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
-                {task.script || `Generating ${task.duration}s video...`}
-              </p>
-              
-              {/* Progress bar */}
-              <div className="flex items-center gap-2 mt-2">
-                <Progress value={task.progress} className="h-1.5 flex-1" />
-                <span className="text-xs font-medium text-primary">{task.progress}%</span>
+              key={task.taskId}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="group relative aspect-video rounded-lg overflow-hidden border border-primary/30 bg-card"
+            >
+              {/* Animated gradient background */}
+              <div className="absolute inset-0 opacity-20">
+                <motion.div
+                  className="absolute inset-0 gradient-primary"
+                  animate={{ x: ["-100%", "100%"] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                />
               </div>
               
-              <p className="text-xs text-muted-foreground mt-1">
-                {task.status === "queued" ? "In queue..." : "Generating..."}
-              </p>
-            </div>
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-2">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                  className="h-10 w-10 rounded-full gradient-primary flex items-center justify-center mb-2"
+                >
+                  <Sparkles className="h-5 w-5 text-primary-foreground" />
+                </motion.div>
+                <p className="text-xs text-center text-muted-foreground line-clamp-1">{task.model}</p>
+                <div className="flex items-center gap-2 mt-2 w-full px-2">
+                  <Progress value={task.progress} className="h-1.5 flex-1" />
+                  <span className="text-xs font-medium text-primary">{task.progress}%</span>
+                </div>
+              </div>
 
-            {/* Status indicator */}
-            <div className="flex items-center">
-              <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            </div>
-          </div>
-        </motion.div>
-      ))}
-      {videos.map((video, index) => (
-        <motion.div
-          key={video.id}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: index * 0.03 }}
-          className="group relative rounded-xl bg-card border border-border p-3 active:bg-muted/50"
-        >
-          <div className="flex gap-3">
-            {/* Thumbnail */}
+              {/* Status badge */}
+              <div className="absolute top-1 left-1">
+                <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30 text-[10px]">
+                  <Loader2 className="h-3 w-3 mr-0.5 animate-spin" />
+                  {task.status === "queued" ? "Queued" : "Generating"}
+                </Badge>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      {/* Video Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+        {videos.map((video) => (
+          <motion.div
+            key={video.id}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="group relative aspect-video rounded-lg overflow-hidden border border-border bg-card"
+          >
+            {/* Thumbnail or placeholder */}
+            {generatingThumbnails.has(video.id) ? (
+              <div className="h-full w-full flex items-center justify-center bg-muted">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : video.thumbnailUrl ? (
+              <img
+                src={video.thumbnailUrl}
+                alt={video.title}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="h-full w-full flex items-center justify-center bg-muted">
+                <Video className="h-8 w-8 text-muted-foreground" />
+              </div>
+            )}
+
+            {/* Play button overlay */}
             <button
               onClick={() => setSelectedVideo(video)}
-              className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-muted"
+              className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 active:opacity-100 transition-opacity"
             >
-              {generatingThumbnails.has(video.id) ? (
-                <div className="flex h-full w-full items-center justify-center">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : video.thumbnailUrl ? (
-                <img
-                  src={video.thumbnailUrl}
-                  alt={video.title}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center">
-                  <Video className="h-6 w-6 text-muted-foreground" />
-                </div>
-              )}
-              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+              <div className="h-12 w-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
                 <Play className="h-6 w-6 text-white" />
               </div>
             </button>
 
-            {/* Info */}
-            <div className="min-w-0 flex-1">
-              <h4 className="text-sm font-medium truncate">{video.title}</h4>
-              <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
-                {video.script}
-              </p>
-              <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
-                <span>{format(video.createdAt, "MMM d", { locale: enUS })}</span>
-                <span>•</span>
-                <span>{video.duration}s</span>
-              </div>
+            {/* Duration badge */}
+            <div className="absolute top-1 left-1">
+              <Badge variant="secondary" className="bg-black/60 text-white border-0 text-[10px]">
+                <Clock className="h-3 w-3 mr-0.5" />
+                {video.duration}s
+              </Badge>
             </div>
 
-            {/* Actions - Always visible on mobile */}
-            <div className="flex items-center gap-1">
-              {onContinueVideo && video.videoUrl && (
+            {/* Date */}
+            <div className="absolute top-1 right-1">
+              <Badge variant="secondary" className="bg-black/60 text-white border-0 text-[10px]">
+                {format(video.createdAt, "MMM d", { locale: enUS })}
+              </Badge>
+            </div>
+
+            {/* Title at bottom */}
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 pt-4">
+              <p className="text-[10px] text-white/90 truncate">{video.title}</p>
+            </div>
+
+            {/* Hover overlay with actions */}
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 active:opacity-100 transition-opacity flex items-center justify-center gap-2">
+              <Button
+                variant="secondary"
+                size="icon"
+                className="h-8 w-8"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedVideo(video);
+                }}
+              >
+                <Play className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="secondary"
+                size="icon"
+                className="h-8 w-8"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDownload(video);
+                }}
+                disabled={downloadingId === video.id || !video.videoUrl}
+              >
+                {downloadingId === video.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+              </Button>
+              {video.videoUrl && (
                 <Button
-                  variant="ghost"
+                  variant="secondary"
                   size="icon"
-                  className="h-8 w-8 text-primary"
-                  onClick={() => onContinueVideo(video.videoUrl!)}
+                  className="h-8 w-8"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(video.videoUrl, "_blank");
+                  }}
                 >
-                  <RefreshCw className="h-4 w-4" />
+                  <Maximize2 className="h-4 w-4" />
                 </Button>
               )}
-              <ShareButton
-                videoUrl={video.videoUrl}
-                thumbnailUrl={video.thumbnailUrl}
-                title={video.title}
-                description={video.script.substring(0, 100)}
-              />
+              <Button
+                variant="destructive"
+                size="icon"
+                className="h-8 w-8"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(video.id);
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
-          </div>
-        </motion.div>
-      ))}
+          </motion.div>
+        ))}
+      </div>
+
       {/* Video Player Modal */}
       <VideoPlayerModal
         isOpen={!!selectedVideo}
