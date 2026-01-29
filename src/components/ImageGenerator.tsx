@@ -36,6 +36,7 @@ interface Project {
   url: string | null;
   detected_language: string | null;
   avatar_url: string | null;
+  logo_url: string | null;
   ai_context_summary: string | null;
 }
 
@@ -125,7 +126,7 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
     const fetchProjects = async () => {
       const { data } = await supabase
         .from("projects")
-        .select("id, name, description, theme_color, url, detected_language, avatar_url, ai_context_summary")
+        .select("id, name, description, theme_color, url, detected_language, avatar_url, logo_url, ai_context_summary")
         .order("name");
       if (data) setProjects(data as Project[]);
     };
@@ -243,7 +244,9 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
           overlayText: brandOptions.overlayText,
           brandName: selectedProject?.name,
           projectUrl: selectedProject?.url,
+          logoUrl: selectedProject?.logo_url,
           avatarUrl: selectedProject?.avatar_url,
+          themeColor: selectedProject?.theme_color,
           aiContextSummary: selectedProject?.ai_context_summary,
           detectedLanguage: selectedProject?.detected_language || "en",
         },

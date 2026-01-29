@@ -205,6 +205,7 @@ Deno.serve(async (req) => {
       includeLogo, 
       includeUrl, 
       projectUrl,
+      themeColor,
       detectedLanguage,
       includeText,
       overlayText,
@@ -315,7 +316,11 @@ Deno.serve(async (req) => {
     // Log what brand options are being applied
     console.log("Brand options applied:", { 
       includeLogo, includeUrl, includeAvatar, includeText,
-      brandName, hasAvatarUrl: !!avatarUrl, hasProjectUrl: !!projectUrl 
+      brandName, 
+      hasLogoUrl: !!logoUrl, 
+      hasAvatarUrl: !!avatarUrl, 
+      hasProjectUrl: !!projectUrl,
+      themeColor 
     });
 
     console.log("Enhanced prompt:", enhancedPrompt.slice(0, 200) + "...");
