@@ -76,23 +76,24 @@ async function generateWithCometAPI(
   resolution: string,
   apiKey: string
 ): Promise<{ taskId: string; videoUrl?: string }> {
-  // Sora-2 uses "1080p" or "720p", Kling uses WxH format
+  // Sora-2 uses specific resolution formats
+  // Based on CometAPI docs: "1920x1080" for landscape, "1080x1920" for portrait
   let size: string;
   if (model === "sora-2") {
-    // CometAPI Sora-2 accepts: "480p", "720p", "1080p"
-    size = resolution === "1080p" ? "1080p" : "720p";
+    // Sora-2 accepts: "1920x1080", "1280x720", "1080x1920", "720x1280"
+    size = resolution === "1080p" ? "1920x1080" : "1280x720";
   } else {
-    // Kling uses WxH format (portrait orientation)
+    // Kling uses portrait format
     size = resolution === "1080p" ? "1080x1920" : "720x1280";
   }
 
   console.log(`[AI-VIDEO] CometAPI: model=${model}, duration=${duration}s, size=${size}`);
 
-  // Use JSON body - duration must be integer, not string
+  // Use JSON body - CometAPI expects "seconds" not "duration" for some models
   const requestBody = {
     prompt: prompt,
     model: model,
-    duration: duration, // Keep as number, not string
+    seconds: duration, // Use "seconds" parameter
     size: size,
   };
 
