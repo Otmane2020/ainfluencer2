@@ -14,6 +14,7 @@ import {
   Image,
   Camera,
   Sparkles,
+  Film,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { NavLink } from "@/components/NavLink";
@@ -51,6 +52,7 @@ const contentNavItems = [
 ];
 
 const historyNavItems = [
+  { title: "Reel History", url: "/history/reels", icon: Film },
   { title: "Video History", url: "/history/videos", icon: Clock },
   { title: "Image History", url: "/history/images", icon: Image },
   { title: "Post History", url: "/history/posts", icon: FileText },

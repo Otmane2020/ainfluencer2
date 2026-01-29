@@ -20,6 +20,7 @@ import Integrations from "./pages/Integrations";
 import VideoHistoryPage from "./pages/VideoHistoryPage";
 import ImageHistoryPage from "./pages/ImageHistoryPage";
 import PostHistoryPage from "./pages/PostHistoryPage";
+import ReelHistoryPage from "./pages/ReelHistoryPage";
 import NotFound from "./pages/NotFound";
 import ProductShotsPage from "./pages/ProductShotsPage";
 import ClipMotionPage from "./pages/ClipMotionPage";
@@ -72,6 +73,7 @@ const App = () => (
             <Route path="/images" element={<Images />} />
             <Route path="/product-shots" element={<ProductShotsPage />} />
             <Route path="/posts" element={<Posts />} />
+            <Route path="/history/reels" element={<ReelHistoryPage />} />
             <Route path="/history/videos" element={<VideoHistoryPage />} />
             <Route path="/history/images" element={<ImageHistoryPage />} />
             <Route path="/history/posts" element={<PostHistoryPage />} />
