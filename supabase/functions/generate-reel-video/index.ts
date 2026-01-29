@@ -37,14 +37,13 @@ function getRandomTrack(category: string): string {
 }
 
 // ============================================================
-// IMAGE GENERATION - Lovable AI (Gemini - Stable)
+// IMAGE GENERATION - Lovable AI (Gemini)
 // ============================================================
 
 async function generateReelImage(prompt: string, brandName?: string): Promise<string> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-  // Build optimized prompt for high-quality reel visuals
   const finalPrompt = `
 Create a stunning, scroll-stopping VERTICAL social media reel image (9:16 aspect ratio):
 
@@ -90,17 +89,12 @@ OUTPUT: Single static image optimized for Reels/Shorts/TikTok
   }
 
   const data = await response.json();
-  console.log("[REEL] Lovable AI response received");
-
-  // Extract image from response
   const message = data?.choices?.[0]?.message;
   
-  // Try images array first (standard format)
   if (message?.images?.[0]?.image_url?.url) {
     return message.images[0].image_url.url;
   }
   
-  // Try content array format
   if (Array.isArray(message?.content)) {
     const imagePart = message.content.find(
       (c: any) => c.type === "image" && c.image_base64
@@ -109,7 +103,6 @@ OUTPUT: Single static image optimized for Reels/Shorts/TikTok
       return `data:image/png;base64,${imagePart.image_base64}`;
     }
     
-    // Try image_url in content
     const urlPart = message.content.find(
       (c: any) => c.type === "image_url" && c.image_url?.url
     );
@@ -120,6 +113,59 @@ OUTPUT: Single static image optimized for Reels/Shorts/TikTok
 
   console.error("[REEL] Unexpected response structure:", JSON.stringify(data).slice(0, 300));
   throw new Error("No image returned by AI");
+}
+
+// ============================================================
+// VIDEO RENDERING - Railway FFmpeg Service
+// ============================================================
+
+async function renderVideoWithRailway(
+  imageUrl: string,
+  audioUrl: string,
+  duration: number
+): Promise<{ success: boolean; videoBase64?: string; error?: string }> {
+  const RAILWAY_URL = Deno.env.get("RAILWAY_VIDEO_SERVICE_URL");
+  const RAILWAY_SECRET = Deno.env.get("RAILWAY_VIDEO_SERVICE_SECRET");
+
+  if (!RAILWAY_URL || !RAILWAY_SECRET) {
+    console.log("[REEL] Railway service not configured, using preview mode");
+    return { success: false, error: "Railway service not configured" };
+  }
+
+  console.log("[REEL] Calling Railway FFmpeg service...");
+
+  try {
+    const response = await fetch(`${RAILWAY_URL}/render`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${RAILWAY_SECRET}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        imageUrl,
+        audioUrl,
+        duration,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[REEL] Railway error:", response.status, errorText);
+      return { success: false, error: `Railway service error: ${response.status}` };
+    }
+
+    const result = await response.json();
+    
+    if (result.success && result.video?.base64) {
+      console.log("[REEL] Railway rendered video successfully:", result.video.size, "bytes");
+      return { success: true, videoBase64: result.video.base64 };
+    }
+
+    return { success: false, error: result.error || "Unknown Railway error" };
+  } catch (error) {
+    console.error("[REEL] Railway fetch error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
 }
 
 // ============================================================
@@ -151,14 +197,13 @@ Deno.serve(async (req) => {
     console.log("Brand:", brandName || "N/A");
     console.log("Duration:", duration, "s | Music:", musicCategory);
 
-    // Step 1: Generate high-quality image
+    // Step 1: Generate image
     const imageData = await generateReelImage(prompt, brandName);
     
     // Step 2: Upload image to storage
     let imagePublicUrl: string;
     
     if (imageData.startsWith("data:")) {
-      // Handle base64
       const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
       const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
       
@@ -167,20 +212,15 @@ Deno.serve(async (req) => {
         .from("media")
         .upload(imagePath, imageBytes, { contentType: "image/png", upsert: true });
 
-      if (uploadError) {
-        console.error("[REEL] Upload error:", uploadError);
-        throw new Error("Image upload failed");
-      }
+      if (uploadError) throw new Error("Image upload failed");
 
       const { data: urlData } = supabase.storage.from("media").getPublicUrl(imagePath);
       imagePublicUrl = urlData.publicUrl;
     } else {
-      // Already a URL - download and re-upload
       console.log("[REEL] Downloading image from URL...");
       const imgResponse = await fetch(imageData);
-      if (!imgResponse.ok) {
-        throw new Error(`Failed to download image: ${imgResponse.status}`);
-      }
+      if (!imgResponse.ok) throw new Error(`Failed to download image: ${imgResponse.status}`);
+      
       const imgBuffer = await imgResponse.arrayBuffer();
       const imageBytes = new Uint8Array(imgBuffer);
       
@@ -189,10 +229,7 @@ Deno.serve(async (req) => {
         .from("media")
         .upload(imagePath, imageBytes, { contentType: "image/png", upsert: true });
 
-      if (uploadError) {
-        console.error("[REEL] Upload error:", uploadError);
-        throw new Error("Image upload failed");
-      }
+      if (uploadError) throw new Error("Image upload failed");
 
       const { data: urlData } = supabase.storage.from("media").getPublicUrl(imagePath);
       imagePublicUrl = urlData.publicUrl;
@@ -201,24 +238,61 @@ Deno.serve(async (req) => {
     // Step 3: Get music track
     const musicUrl = getRandomTrack(musicCategory);
 
-    console.log("[REEL] Success!");
+    // Step 4: Try to render real MP4 with Railway
+    const railwayResult = await renderVideoWithRailway(imagePublicUrl, musicUrl, duration);
+
+    if (railwayResult.success && railwayResult.videoBase64) {
+      // Upload real MP4 to Supabase
+      const videoBytes = Uint8Array.from(atob(railwayResult.videoBase64), (c) => c.charCodeAt(0));
+      const videoPath = `reels/reel-${Date.now()}-${Math.random().toString(36).slice(2)}.mp4`;
+      
+      const { error: videoUploadError } = await supabase.storage
+        .from("media")
+        .upload(videoPath, videoBytes, { contentType: "video/mp4", upsert: true });
+
+      if (videoUploadError) {
+        console.error("[REEL] Video upload error:", videoUploadError);
+        throw new Error("Video upload failed");
+      }
+
+      const { data: videoUrlData } = supabase.storage.from("media").getPublicUrl(videoPath);
+
+      console.log("[REEL] ✅ REAL MP4 generated and uploaded!");
+      console.log("  Video:", videoUrlData.publicUrl);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          videoUrl: videoUrlData.publicUrl,
+          imageUrl: imagePublicUrl,
+          musicUrl: musicUrl,
+          duration: Math.min(Math.max(duration, 5), 15),
+          musicCategory,
+          format: "video",
+          aspectRatio: "9:16",
+          status: "READY",
+          message: "Real MP4 video generated with FFmpeg",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Fallback: Return image + audio for preview mode
+    console.log("[REEL] Fallback to preview mode (image + audio)");
     console.log("  Image:", imagePublicUrl);
     console.log("  Music:", musicUrl);
 
     return new Response(
       JSON.stringify({
         success: true,
-        // Image + Audio for player component
         imageUrl: imagePublicUrl,
         musicUrl: musicUrl,
-        // Duration for playback
         duration: Math.min(Math.max(duration, 5), 15),
         musicCategory,
-        // Format info
         format: "reel",
         aspectRatio: "9:16",
         status: "READY",
-        message: "Reel generated with image and music",
+        message: "Reel preview generated (configure Railway for real MP4)",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
