@@ -100,3 +100,6 @@ verify_jwt = false
 
 [functions.generate-music]
 verify_jwt = false
+
+[functions.start-generation]
+verify_jwt = false

@@ -145,6 +145,111 @@ export type Database = {
         }
         Relationships: []
       }
+      generations: {
+        Row: {
+          actual_cost: number | null
+          audio_url: string | null
+          campaign_id: string | null
+          completed_at: string | null
+          created_at: string
+          duration: number | null
+          error_message: string | null
+          estimated_cost: number | null
+          external_task_id: string | null
+          format: string | null
+          id: string
+          media_url: string | null
+          model: string | null
+          progress: number
+          project_id: string | null
+          prompt: string | null
+          quality: string | null
+          retry_count: number | null
+          script: string | null
+          started_at: string | null
+          status: string
+          step: string | null
+          thumbnail_url: string | null
+          type: string
+          updated_at: string
+          user_id: string
+          video_mode: string | null
+        }
+        Insert: {
+          actual_cost?: number | null
+          audio_url?: string | null
+          campaign_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          duration?: number | null
+          error_message?: string | null
+          estimated_cost?: number | null
+          external_task_id?: string | null
+          format?: string | null
+          id?: string
+          media_url?: string | null
+          model?: string | null
+          progress?: number
+          project_id?: string | null
+          prompt?: string | null
+          quality?: string | null
+          retry_count?: number | null
+          script?: string | null
+          started_at?: string | null
+          status?: string
+          step?: string | null
+          thumbnail_url?: string | null
+          type?: string
+          updated_at?: string
+          user_id: string
+          video_mode?: string | null
+        }
+        Update: {
+          actual_cost?: number | null
+          audio_url?: string | null
+          campaign_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          duration?: number | null
+          error_message?: string | null
+          estimated_cost?: number | null
+          external_task_id?: string | null
+          format?: string | null
+          id?: string
+          media_url?: string | null
+          model?: string | null
+          progress?: number
+          project_id?: string | null
+          prompt?: string | null
+          quality?: string | null
+          retry_count?: number | null
+          script?: string | null
+          started_at?: string | null
+          status?: string
+          step?: string | null
+          thumbnail_url?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string
+          video_mode?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generations_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meta_connections: {
         Row: {
           access_token: string
