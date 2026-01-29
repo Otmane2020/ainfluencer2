@@ -321,7 +321,7 @@ Respond ONLY with valid JSON:
 }`;
 
     // Call Replicate with nanobanana-pro (cheap & stable for scripts)
-    const response = await fetch("https://api.replicate.com/v1/chat/completions", {
+    const response = await fetch("https://api.cometapi.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

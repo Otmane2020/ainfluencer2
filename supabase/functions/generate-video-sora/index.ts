@@ -427,7 +427,7 @@ serve(async (req) => {
 
       let result;
       try {
-        const response = await fetch("https://api.replicate.com/v1/videos", {
+        const response = await fetch("https://api.cometapi.com/v1/videos", {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${REPLICATE_API_KEY}`,
@@ -505,7 +505,7 @@ serve(async (req) => {
 
       console.log("Checking status for task:", taskId, "generationId:", generationId);
 
-      const response = await fetch(`https://api.replicate.com/v1/videos/${taskId}`, {
+      const response = await fetch(`https://api.cometapi.com/v1/videos/${taskId}`, {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${REPLICATE_API_KEY}`,
@@ -571,7 +571,7 @@ serve(async (req) => {
         if (!videoUrl) {
           console.log("No video URL in status response, downloading from Replicate and uploading to storage...");
           try {
-            const contentResponse = await fetch(`https://api.replicate.com/v1/videos/${taskId}/content`, {
+            const contentResponse = await fetch(`https://api.cometapi.com/v1/videos/${taskId}/content`, {
               method: "GET",
               headers: {
                 "Authorization": `Bearer ${REPLICATE_API_KEY}`,
