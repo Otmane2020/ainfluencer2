@@ -159,10 +159,10 @@ interface ModelOption {
 // FIX 4: Coherent model routing - clear mapping for pricing
 const VIDEO_MODEL_POOLS: Record<string, ModelOption[]> = {
   // Smart Video - ~$0.40/video avg (veo-2 primary)
+  // NOTE: minimax-video-01 removed - unavailable on CometAPI (503 model_not_found)
   "smart-video": [
-    { id: "veo-2", apiModel: "veo-2", weight: 60, durations: [5, 10], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
-    { id: "kling-v2", apiModel: "kling-video", weight: 25, durations: [5, 10], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
-    { id: "minimax-02", apiModel: "minimax-video-01", weight: 15, durations: [4, 6], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
+    { id: "veo-2", apiModel: "veo-2", weight: 70, durations: [5, 10], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
+    { id: "kling-v2", apiModel: "kling-video", weight: 30, durations: [5, 10], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
   ],
   
   // High Video - ~$1.20/video avg (sora-2 primary)
