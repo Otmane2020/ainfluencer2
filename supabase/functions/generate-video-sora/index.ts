@@ -88,15 +88,9 @@ async function verifyVideoAccess(authHeader: string | null): Promise<{ valid: bo
       console.log(`[VIDEO-ACCESS] LIFETIME GRANT - Full access granted for ${userEmail}`);
       return { valid: true, userId };
     }
-    // ============================================================
 
-    if (lifetimeGrant) {
-      console.log(`[VIDEO-ACCESS] LIFETIME GRANT - Full access granted for ${userEmail}`);
-      return { valid: true, userId };
-    }
-    // ============================================================
-
-    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+    // FIX 1: Use valid Stripe API version
+    const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
     
     // Find customer
     const customers = await stripe.customers.list({ email: userEmail, limit: 1 });
@@ -117,17 +111,32 @@ async function verifyVideoAccess(authHeader: string | null): Promise<{ valid: bo
       return { valid: false, error: "Subscription required. Please subscribe to Pro or Business plan." };
     }
 
+    // FIX 2 & 3: Check ALL subscription items, handle product as string or object
     const subscription = subscriptions.data[0];
-    const productId = subscription.items.data[0].price.product as string;
-    const priceId = subscription.items.data[0].price.id;
+    
+    const hasValidItem = subscription.items.data.some((item: { price: { product: string | { id: string }; id: string } }) => {
+      const product = typeof item.price.product === "string"
+        ? item.price.product
+        : item.price.product.id;
+      
+      return (
+        VALID_VIDEO_PRODUCTS.includes(product) ||
+        VALID_VIDEO_PRICES.includes(item.price.id)
+      );
+    });
 
-    // Check if product/price grants video access
-    if (!VALID_VIDEO_PRODUCTS.includes(productId) && !VALID_VIDEO_PRICES.includes(priceId)) {
-      console.log(`[VIDEO-ACCESS] Product ${productId} does not grant video access`);
-      return { valid: false, error: "Your plan does not include video generation. Please upgrade to Pro or Business." };
+    if (!hasValidItem) {
+      const firstProductId = typeof subscription.items.data[0].price.product === "string"
+        ? subscription.items.data[0].price.product
+        : (subscription.items.data[0].price.product as { id: string }).id;
+      console.log(`[VIDEO-ACCESS] No valid video item found. First product: ${firstProductId}`);
+      return { 
+        valid: false, 
+        error: "Your plan does not include video generation. Please upgrade to Pro or Business.",
+      };
     }
 
-    console.log(`[VIDEO-ACCESS] Access granted for ${userEmail} (${productId})`);
+    console.log(`[VIDEO-ACCESS] Access granted for ${userEmail}`);
     return { valid: true, userId };
   } catch (error) {
     console.error("[VIDEO-ACCESS] Error:", error);
@@ -147,24 +156,25 @@ interface ModelOption {
   maxSize: { portrait: string; landscape: string };
 }
 
+// FIX 4: Coherent model routing - clear mapping for pricing
 const VIDEO_MODEL_POOLS: Record<string, ModelOption[]> = {
-  // Smart Video - ~$0.40/video avg
+  // Smart Video - ~$0.40/video avg (veo-2 primary)
   "smart-video": [
-    { id: "veo-3.1", apiModel: "veo-2", weight: 50, durations: [5, 10], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
-    { id: "kling-v2", apiModel: "kling-video", weight: 35, durations: [5, 10], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
+    { id: "veo-2", apiModel: "veo-2", weight: 60, durations: [5, 10], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
+    { id: "kling-v2", apiModel: "kling-video", weight: 25, durations: [5, 10], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
     { id: "minimax-02", apiModel: "minimax-video-01", weight: 15, durations: [4, 6], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
   ],
   
-  // High Video - ~$1.20/video avg
+  // High Video - ~$1.20/video avg (sora-2 primary)
   "high-video": [
-    { id: "sora-2", apiModel: "sora-2", weight: 60, durations: [4, 8, 12], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
-    { id: "veo-3.1-pro", apiModel: "veo-2", weight: 40, durations: [5, 10, 20], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
+    { id: "sora-2", apiModel: "sora-2", weight: 70, durations: [4, 8, 12], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
+    { id: "veo-2-pro", apiModel: "veo-2", weight: 30, durations: [5, 10, 20], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
   ],
   
-  // Cinema Video - ~$2.40/video avg
+  // Cinema Video - ~$2.40/video avg (sora-2-pro primary)
   "cinema-video": [
-    { id: "sora-2-pro", apiModel: "sora-2", weight: 70, durations: [4, 8, 12], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
-    { id: "veo-3.1-ultra", apiModel: "veo-2", weight: 30, durations: [10, 20, 30], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
+    { id: "sora-2-pro", apiModel: "sora-2", weight: 80, durations: [8, 12, 20], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
+    { id: "veo-2-ultra", apiModel: "veo-2", weight: 20, durations: [10, 20, 30], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
   ],
 };
 
@@ -250,6 +260,7 @@ serve(async (req) => {
             success: false,
             error: accessCheck.error,
             requires_upgrade: true,
+            upgrade_plan: "pro",
           }),
           {
             status: 403,
@@ -333,14 +344,14 @@ serve(async (req) => {
         console.log("Starting frame URL provided for video continuation");
       }
 
-      // Create FormData for CometAPI
+      // FIX 5: Clean FormData for CometAPI - conditional image_url
       const formData = new FormData();
-      formData.append("prompt", fullPrompt);
       formData.append("model", apiModel);
-      formData.append("seconds", duration.toString());
+      formData.append("prompt", fullPrompt);
+      formData.append("seconds", String(duration));
       formData.append("size", size);
 
-      if (startingFrameUrl) {
+      if (startingFrameUrl && startingFrameUrl.startsWith("http")) {
         formData.append("image_url", startingFrameUrl);
         console.log("Added starting frame for image-to-video");
       }
@@ -422,27 +433,22 @@ serve(async (req) => {
       const submitTime = videoData.submit_time || innerData.submit_time || videoData.created_at;
       const finishTime = videoData.finish_time || innerData.finish_time || videoData.completed_at;
 
-      // Extract video URL
-      let videoUrl = undefined;
-      if (taskStatus === "success" || taskStatus === "succeeded" || taskStatus === "completed" || taskStatus === "done") {
+      // FIX 6: Safe status parsing - only assign URL on completed
+      let videoUrl: string | undefined = undefined;
+      const isCompleted = taskStatus === "success" || taskStatus === "succeeded" || taskStatus === "completed" || taskStatus === "done";
+      
+      if (isCompleted) {
+        // Priority order for video URL extraction
         videoUrl = 
+          innerData.video_url ||
+          innerData.output_video ||
+          innerData.download_url ||
           videoData.video_url || 
-          videoData.url || 
           videoData.output_video ||
-          videoData.output ||
-          videoData.result ||
           videoData.download_url ||
-          innerData.output_video || 
-          innerData.video_url || 
+          videoData.url ||
           innerData.url ||
-          innerData.output ||
-          innerData.result ||
-          innerData.download_url;
-        
-        // CometAPI quirk: sometimes video URL is in fail_reason field
-        if (!videoUrl && videoData.fail_reason && typeof videoData.fail_reason === "string" && videoData.fail_reason.startsWith("http")) {
-          videoUrl = videoData.fail_reason;
-        }
+          undefined;
         
         // If still no URL, try to fetch the video content endpoint
         if (!videoUrl) {
