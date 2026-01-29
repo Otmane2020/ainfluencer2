@@ -322,17 +322,27 @@ export const VideoHistory = ({ videos, generatingTasks = [], onDelete, onPlay, o
                 )}
               </Button>
               {video.videoUrl && (
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    window.open(video.videoUrl, "_blank");
-                  }}
-                >
-                  <Maximize2 className="h-4 w-4" />
-                </Button>
+                <>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.open(video.videoUrl, "_blank");
+                    }}
+                  >
+                    <Maximize2 className="h-4 w-4" />
+                  </Button>
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <ShareButton
+                      videoUrl={video.videoUrl}
+                      thumbnailUrl={video.thumbnailUrl}
+                      title={video.title}
+                      description={video.script}
+                    />
+                  </div>
+                </>
               )}
               <Button
                 variant="destructive"
