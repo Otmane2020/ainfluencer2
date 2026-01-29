@@ -787,35 +787,29 @@ export const ScheduledPostModal = ({
           : "Creating reel image with music",
       });
 
-      // Use the generate-reel-video edge function (Gemini + music + MP4 export)
-      const { data, error } = await supabase.functions.invoke("generate-reel-video", {
+      // Use generate-image for reliable reel image generation
+      const { data, error } = await supabase.functions.invoke("generate-image", {
         body: {
           prompt: enhancedPrompt,
           brandName: projectContext?.name || undefined,
-          musicCategory: "upbeat", // Default to upbeat for reels
-          duration: 10,
+          format: "reel",
+          aspectRatio: "9:16",
+          qualityId: "smart-image",
         },
       });
 
       if (error) throw error;
 
-      if (data?.success) {
-        // Use videoUrl if available (full MP4), otherwise fall back to imageUrl
-        const mediaUrl = data.videoUrl || data.imageUrl;
-        
-        if (!mediaUrl) {
-          throw new Error(data?.error || "No media URL returned");
-        }
-        
+      if (data?.imageUrl) {
         // Update local state immediately for instant preview
-        setLocalMediaUrl(mediaUrl);
+        setLocalMediaUrl(data.imageUrl);
         
-        // Update post with generated reel (video or image)
+        // Update post with generated reel image
         const { error: updateError } = await supabase
           .from("scheduled_posts")
           .update({ 
-            media_url: mediaUrl,
-            thumbnail_url: data.imageUrl || mediaUrl,
+            media_url: data.imageUrl,
+            thumbnail_url: data.imageUrl,
             status: "scheduled",
           })
           .eq("id", post.id);
@@ -824,9 +818,7 @@ export const ScheduledPostModal = ({
 
         toast({
           title: "Reel generated ✓",
-          description: data.videoUrl 
-            ? `MP4 exported (${data.duration}s)` 
-            : "Reel image ready",
+          description: "Image ready for reel",
         });
         
         onUpdate?.();
