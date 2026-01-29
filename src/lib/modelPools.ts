@@ -18,48 +18,45 @@ export interface ModelOption {
 // VIDEO MODEL POOLS (via Replicate)
 // ============================================================
 
+// ============================================================
+// VIDEO MODEL POOLS - Unified Sora-2 for all tiers
+// ============================================================
+
 export const VIDEO_MODEL_POOLS: Record<string, ModelOption[]> = {
-  // Smart Video - ~$0.40/video avg
+  // Pro Video - Sora-2 (4-20s)
+  "pro-video": [
+    { id: "sora-2", provider: "replicate", weight: 100, apiModel: "sora-2", maxDuration: 20, costEstimate: 0.96 },
+  ],
+  // Legacy support
   "smart-video": [
-    { id: "veo-3.1", provider: "replicate", weight: 50, apiModel: "veo-2", maxDuration: 10, costEstimate: 0.40 },
-    { id: "kling-v2", provider: "replicate", weight: 35, apiModel: "kling-video", maxDuration: 10, costEstimate: 0.30 },
-    { id: "minimax-02", provider: "replicate", weight: 15, apiModel: "minimax-video-01", maxDuration: 6, costEstimate: 0.20 },
+    { id: "sora-2", provider: "replicate", weight: 100, apiModel: "sora-2", maxDuration: 20, costEstimate: 0.96 },
   ],
-  
-  // High Video - ~$1.20/video avg
   "high-video": [
-    { id: "sora-2", provider: "replicate", weight: 60, apiModel: "sora-2", maxDuration: 12, costEstimate: 0.96 },
-    { id: "veo-3.1-pro", provider: "replicate", weight: 40, apiModel: "veo-2", maxDuration: 20, costEstimate: 2.00 },
+    { id: "sora-2", provider: "replicate", weight: 100, apiModel: "sora-2", maxDuration: 20, costEstimate: 0.96 },
   ],
-  
-  // Cinema Video - ~$2.40/video avg
   "cinema-video": [
-    { id: "sora-2-pro", provider: "replicate", weight: 70, apiModel: "sora-2", maxDuration: 20, costEstimate: 2.40 },
-    { id: "veo-3.1-ultra", provider: "replicate", weight: 30, apiModel: "veo-2", maxDuration: 30, costEstimate: 4.00 },
+    { id: "sora-2", provider: "replicate", weight: 100, apiModel: "sora-2", maxDuration: 20, costEstimate: 0.96 },
   ],
 };
 
 // ============================================================
-// IMAGE MODEL POOLS (Replicate + Lovable AI)
+// IMAGE MODEL POOLS - Unified Gemini Flash
 // ============================================================
 
 export const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
-  // Smart Image - ~$0.01/image avg
+  // Pro Image - Gemini 2.5 Flash
+  "pro-image": [
+    { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", costEstimate: 0.01 },
+  ],
+  // Legacy support
   "smart-image": [
-    { id: "gemini-flash-image", provider: "lovable", weight: 60, apiModel: "google/gemini-2.5-flash-image", costEstimate: 0.008 },
-    { id: "flux-2-flex", provider: "replicate", weight: 40, apiModel: "flux-2-flex", costEstimate: 0.008 },
+    { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", costEstimate: 0.01 },
   ],
-  
-  // High Image - ~$0.05/image avg
   "high-image": [
-    { id: "nano-banana-pro", provider: "replicate", weight: 50, apiModel: "nano-banana-pro", costEstimate: 0.03 },
-    { id: "flux-2-pro", provider: "replicate", weight: 50, apiModel: "flux-2-pro", costEstimate: 0.08 },
+    { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", costEstimate: 0.01 },
   ],
-  
-  // Studio Image - ~$0.08/image avg
   "studio-image": [
-    { id: "flux-2-pro", provider: "replicate", weight: 60, apiModel: "flux-2-pro", costEstimate: 0.08 },
-    { id: "gemini-pro-image", provider: "lovable", weight: 40, apiModel: "google/gemini-3-pro-image-preview", costEstimate: 0.06 },
+    { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", costEstimate: 0.01 },
   ],
 };
 
