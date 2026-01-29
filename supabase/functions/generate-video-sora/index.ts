@@ -67,22 +67,21 @@ async function verifyVideoAccess(authHeader: string | null): Promise<{ valid: bo
     // ============================================================
     // CHECK DATABASE FIRST for lifetime/manual grants (Pro or Business)
     // ============================================================
-    const { data: dbSubscription } = await supabase
+    const { data: lifetimeGrant } = await supabase
       .from("subscriptions")
       .select("*")
       .eq("user_id", userId)
-      .eq("status", "active")
+      .eq("stripe_customer_id", "lifetime_grant")
       .maybeSingle();
 
-    if (dbSubscription) {
-      const planId = dbSubscription.plan_id;
+    if (lifetimeGrant) {
+      const planId = lifetimeGrant.plan_id;
       // Video access requires Pro or Business
       if (planId === "pro" || planId === "business") {
-        // Check if it's a lifetime grant or direct DB subscription
-        if (dbSubscription.stripe_customer_id === "lifetime_grant" || !dbSubscription.stripe_subscription_id) {
-          console.log(`[VIDEO-ACCESS] LIFETIME GRANT - Access granted for ${userEmail} (${planId})`);
-          return { valid: true, userId };
-        }
+        console.log(`[VIDEO-ACCESS] LIFETIME GRANT - Access granted for ${userEmail} (${planId})`);
+        return { valid: true, userId };
+      } else {
+        console.log(`[VIDEO-ACCESS] LIFETIME GRANT exists but plan ${planId} doesn't include video`);
       }
     }
     // ============================================================
