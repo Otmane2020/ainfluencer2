@@ -1369,19 +1369,36 @@ export const ScheduledPostModal = ({
     const displayLabel = isImageAsReel ? "Reel" : contentType.label;
     const DisplayIcon = isImageAsReel ? Music2 : ContentIcon;
     
+    // Determine status badges
+    const isGenerated = !!(localMediaUrl || post.media_url);
+    const isPublished = post.status === "published";
+    
     return (
       <div className="flex items-center gap-3">
         <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/60">
           <DisplayIcon className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
         </div>
-        <div>
+        <div className="flex items-center flex-wrap gap-1.5 sm:gap-2">
+          {/* Content type label */}
           <span className="font-display text-sm sm:text-base">{displayLabel}</span>
+          
+          {/* Image as Reel badge */}
           {isImageAsReel && (
-            <Badge variant="outline" className="ml-2 text-[10px] border-primary/30 text-primary">
+            <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
               Image as Reel
             </Badge>
           )}
-          <Badge className={`ml-2 sm:ml-3 text-xs ${status.color}`}>{status.label}</Badge>
+          
+          {/* Generated badge - shown when media exists */}
+          {isGenerated && !isPublished && (
+            <Badge className="text-[10px] sm:text-xs bg-emerald-500/20 text-emerald-600 border-emerald-500/30">
+              <Check className="h-2.5 w-2.5 mr-0.5" />
+              Generated
+            </Badge>
+          )}
+          
+          {/* Status badge */}
+          <Badge className={`text-[10px] sm:text-xs ${status.color}`}>{status.label}</Badge>
         </div>
       </div>
     );
