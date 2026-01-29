@@ -76,32 +76,41 @@ async function generateWithCometAPI(
   resolution: string,
   apiKey: string
 ): Promise<{ taskId: string; videoUrl?: string }> {
-  console.log(`[AI-VIDEO] CometAPI: model=${model}, duration=${duration}s, resolution=${resolution}`);
-
-  const formData = new FormData();
-  formData.append("prompt", prompt);
-  formData.append("model", model);
-  formData.append("seconds", duration.toString());
-  
-  // Sora uses quality strings, Kling uses dimensions
+  // Sora-2 uses "1080p" or "720p", Kling uses WxH format
+  let size: string;
   if (model === "sora-2") {
-    formData.append("size", resolution); // "1080p", "720p"
+    // CometAPI Sora-2 accepts: "480p", "720p", "1080p"
+    size = resolution === "1080p" ? "1080p" : "720p";
   } else {
-    // Kling uses WxH format
-    const size = resolution === "1080p" ? "1080x1920" : "720x1280";
-    formData.append("size", size);
+    // Kling uses WxH format (portrait orientation)
+    size = resolution === "1080p" ? "1080x1920" : "720x1280";
   }
+
+  console.log(`[AI-VIDEO] CometAPI: model=${model}, duration=${duration}s, size=${size}`);
+
+  // Use JSON body instead of FormData for better compatibility
+  const requestBody = {
+    prompt: prompt,
+    model: model,
+    duration: duration.toString(),
+    size: size,
+  };
+
+  console.log("[AI-VIDEO] Request payload:", JSON.stringify(requestBody));
 
   const response = await fetch("https://api.cometapi.com/v1/videos", {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}` },
-    body: formData,
+    headers: { 
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("[AI-VIDEO] CometAPI error:", response.status, errorText.slice(0, 200));
-    throw new Error(`CometAPI error: ${response.status}`);
+    console.error("[AI-VIDEO] CometAPI error:", response.status, errorText);
+    throw new Error(`CometAPI error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
