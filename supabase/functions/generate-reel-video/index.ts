@@ -7,6 +7,7 @@ const corsHeaders = {
 
 // ============================================================
 // MODEL POOL CONFIGURATION - Weighted Random Selection for Reels
+// Using sora-2 as stable model with 1080p quality
 // ============================================================
 
 interface ModelOption {
@@ -16,10 +17,9 @@ interface ModelOption {
   durations: number[];
 }
 
+// FIX: Using sora-2 with 1080p for better quality and stability
 const REEL_MODEL_POOL: ModelOption[] = [
-  { id: "veo-3.1", apiModel: "veo-2", weight: 50, durations: [5, 10] },
-  { id: "kling-v2", apiModel: "kling-video", weight: 35, durations: [5, 10] },
-  { id: "minimax-02", apiModel: "minimax-video-01", weight: 15, durations: [4, 6] },
+  { id: "sora-2", apiModel: "sora-2", weight: 100, durations: [5, 10] },
 ];
 
 function selectReelModel(): ModelOption {
@@ -228,19 +228,20 @@ Deno.serve(async (req) => {
     console.log("Duration:", clampedDuration, "s (requested:", duration, "s)");
     console.log("Starting frame:", imageUrl ? "Yes" : "No");
 
-    // Build enhanced prompt for social reels
+    // Build enhanced prompt - RESPECT USER PROMPT, keep additions minimal
     let enhancedPrompt = prompt;
     if (brandName) {
-      enhancedPrompt = `${prompt} for ${brandName} brand.`;
+      enhancedPrompt = `${prompt} (for ${brandName})`;
     }
-    enhancedPrompt += " Vertical 9:16 portrait format, perfect for Instagram Reels and TikTok, eye-catching motion, professional quality, vibrant colors, social media optimized.";
+    // Keep style hints concise to not dilute the user's actual request
+    enhancedPrompt += " | Vertical 9:16, 1080x1920, professional quality.";
 
     // Create video task
     const formData = new FormData();
     formData.append("prompt", enhancedPrompt);
     formData.append("model", apiModel);
     formData.append("seconds", clampedDuration.toString());
-    formData.append("size", "720x1280");
+    formData.append("size", "1080x1920"); // UPGRADED from 720x1280 to 1080p
 
     if (imageUrl) {
       formData.append("image_url", imageUrl);

@@ -156,23 +156,22 @@ interface ModelOption {
   maxSize: { portrait: string; landscape: string };
 }
 
-// FIX 4: Coherent model routing - clear mapping for pricing
-// NOTE: veo-2 and kling-video are currently unavailable on CometAPI (503 model_not_found)
-// Using sora-2 as the only stable model across all tiers
+// FIX: Improved quality - 1080p resolution and better prompt adherence
+// Using sora-2 as the primary stable model with high resolution
 const VIDEO_MODEL_POOLS: Record<string, ModelOption[]> = {
-  // Smart Video - Using sora-2 (only stable model available)
+  // Smart Video - 1080p for better quality
   "smart-video": [
-    { id: "sora-2-lite", apiModel: "sora-2", weight: 100, durations: [4, 8], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
+    { id: "sora-2-lite", apiModel: "sora-2", weight: 100, durations: [4, 8], maxSize: { portrait: "1080x1920", landscape: "1920x1080" } },
   ],
   
-  // High Video - sora-2 primary
+  // High Video - sora-2 with 1080p
   "high-video": [
-    { id: "sora-2", apiModel: "sora-2", weight: 100, durations: [4, 8, 12], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
+    { id: "sora-2", apiModel: "sora-2", weight: 100, durations: [4, 8, 12], maxSize: { portrait: "1080x1920", landscape: "1920x1080" } },
   ],
   
-  // Cinema Video - sora-2 with longer durations
+  // Cinema Video - sora-2 with longer durations and max quality
   "cinema-video": [
-    { id: "sora-2-pro", apiModel: "sora-2", weight: 100, durations: [8, 12, 20], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
+    { id: "sora-2-pro", apiModel: "sora-2", weight: 100, durations: [8, 12, 20], maxSize: { portrait: "1080x1920", landscape: "1920x1080" } },
   ],
 };
 
@@ -219,15 +218,12 @@ interface VideoRequest {
 }
 
 // ClipMotion prompt modifiers for social-optimized videos
-const CLIPMOTION_PREFIX = `[CLIPMOTION - Social Media Optimized Video]
-- Fast-paced editing with 1-2 second scene cuts. Dynamic rhythm. Quick transitions.
-- Frequent zoom effects, subtle pan movements, smooth parallax. Camera always moving.
-- High energy opening hook in first 2 seconds. Immediate visual impact.
-- Animated text overlays. Kinetic typography. Punchlines emphasized with motion.
-- Modern social media aesthetic. TikTok/Reels style. Trendy and viral potential.
-- High energy throughout. Never static. Constant visual interest.
+// CRITICAL: Keep prompt SHORT and SPECIFIC to respect user input
+const CLIPMOTION_PREFIX = `[ClipMotion Social Video - FOLLOW THE PROMPT EXACTLY]
+Style: Fast-paced, dynamic transitions, 1-2s cuts, constant motion, TikTok/Reels aesthetic.
+Resolution: 1080x1920 vertical portrait.
 
-CONTENT TO VISUALIZE:
+USER PROMPT TO VISUALIZE:
 `;
 
 serve(async (req) => {
@@ -375,24 +371,24 @@ serve(async (req) => {
       // Determine size
       const size = legacySize || selectedModel.maxSize[orientation];
 
-      // Build enhanced prompt
+      // Build enhanced prompt - PRIORITIZE USER PROMPT
+      // Keep modifications minimal to respect the actual request
       let fullPrompt = prompt;
       
       // Apply ClipMotion prefix if mode is enabled
       if (videoMode === "clipmotion") {
         fullPrompt = CLIPMOTION_PREFIX + prompt;
-        console.log("ClipMotion mode enabled - applying social-optimized prompt");
+        console.log("ClipMotion mode - simplified prefix applied");
       }
       
+      // Add avatar context only if relevant
       if (avatarUrl) {
-        fullPrompt = `Cinematic ultra-realistic promotional video: ${fullPrompt}. Style: professional, high quality, cinematic lighting, vibrant colors.`;
+        fullPrompt = `${fullPrompt} | Professional cinematography, high quality.`;
       }
       
-      // Add quality instructions
-      if (quality === "4k") {
-        fullPrompt = `${fullPrompt} Ultra high resolution 4K, maximum detail, professional cinema grade quality.`;
-      } else if (quality === "1080p") {
-        fullPrompt = `${fullPrompt} Full HD 1080p, sharp details, professional quality.`;
+      // Add quality suffix - CONCISE to not dilute the prompt
+      if (quality === "4k" || quality === "1080p") {
+        fullPrompt = `${fullPrompt} | Ultra HD, sharp details, professional quality.`;
       }
 
       console.log("=== Video Generation Request ===");
