@@ -19,6 +19,7 @@ interface ContentItem {
   campaign_id: string | null;
   campaign?: { name: string } | null;
   error_message?: string | null;
+  external_post_id?: string | null;
 }
 
 interface ContentHistoryItemProps {
@@ -292,15 +293,15 @@ export const ContentHistoryItem = ({
               View
             </Button>
           )}
-          {item.status === "published" && item.platforms?.includes("facebook") && (
+          {item.status === "published" && item.platforms?.includes("facebook") && item.external_post_id && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => window.open("https://www.facebook.com", "_blank")}
+              onClick={() => window.open(`https://www.facebook.com/${item.external_post_id}`, "_blank")}
               className="h-8 text-xs text-primary hover:text-primary/80"
             >
               <ExternalLink className="h-3 w-3 mr-1" />
-              Facebook
+              View on Facebook
             </Button>
           )}
           <Button
