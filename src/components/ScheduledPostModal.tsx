@@ -64,6 +64,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { SocialShareModal } from "@/components/SocialShareModal";
 import { PaywallModal } from "@/components/PaywallModal";
+import { ReelVideoPlayer } from "@/components/ReelVideoPlayer";
 
 // TikTok icon component
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -174,6 +175,8 @@ export const ScheduledPostModal = ({
   
   // Local state to track generated media (updates immediately after generation)
   const [localMediaUrl, setLocalMediaUrl] = useState<string | null>(null);
+  const [localMusicUrl, setLocalMusicUrl] = useState<string | null>(null);
+  const [reelDuration, setReelDuration] = useState<number>(10);
   
   // Project context for brand-aware generation
   const [projectContext, setProjectContext] = useState<{
@@ -767,7 +770,7 @@ export const ScheduledPostModal = ({
     }
   };
 
-  // Generate Reel using Gemini image + music (NOT CometAPI video)
+  // Generate Reel using Lovable AI image + music
   const handleGenerateReel = async () => {
     setIsGenerating(true);
     try {
@@ -781,30 +784,31 @@ export const ScheduledPostModal = ({
       }
 
       toast({
-        title: "Generating reel...",
+        title: "Creating reel...",
         description: projectContext?.name 
-          ? `Creating reel visual for ${projectContext.name}` 
-          : "Creating reel image with music",
+          ? `Generating video content for ${projectContext.name}` 
+          : "Generating reel with image and music",
       });
 
-      // Use generate-image for reliable reel image generation
-      const { data, error } = await supabase.functions.invoke("generate-image", {
+      // Use generate-reel-video for proper reel with image + music
+      const { data, error } = await supabase.functions.invoke("generate-reel-video", {
         body: {
           prompt: enhancedPrompt,
           brandName: projectContext?.name || undefined,
-          format: "reel",
-          aspectRatio: "9:16",
-          qualityId: "smart-image",
+          duration: 10,
+          musicCategory: "upbeat",
         },
       });
 
       if (error) throw error;
 
-      if (data?.imageUrl) {
+      if (data?.success && data?.imageUrl) {
         // Update local state immediately for instant preview
         setLocalMediaUrl(data.imageUrl);
+        setLocalMusicUrl(data.musicUrl || null);
+        setReelDuration(data.duration || 10);
         
-        // Update post with generated reel image
+        // Update post with generated reel
         const { error: updateError } = await supabase
           .from("scheduled_posts")
           .update({ 
@@ -817,8 +821,8 @@ export const ScheduledPostModal = ({
         if (updateError) throw updateError;
 
         toast({
-          title: "Reel generated ✓",
-          description: "Image ready for reel",
+          title: "Reel ready! ✓",
+          description: "Play to preview with music",
         });
         
         onUpdate?.();
@@ -988,8 +992,9 @@ export const ScheduledPostModal = ({
                 animate={{ opacity: 1, y: 0 }}
                 className="relative overflow-hidden rounded-xl bg-muted border border-border"
               >
-                {post.content_type === "video" || post.content_type === "reel" ? (
+                {(post.content_type === "video" || post.content_type === "reel") ? (
                   <div className="aspect-[9/16] max-h-[400px] mx-auto">
+                    {/* Check if we have a real MP4 video */}
                     {(localMediaUrl || post.media_url)?.includes('.mp4') || (localMediaUrl || post.media_url)?.includes('video') ? (
                       <video
                         src={localMediaUrl || post.media_url || undefined}
@@ -998,10 +1003,12 @@ export const ScheduledPostModal = ({
                         className="h-full w-full object-cover rounded-lg"
                       />
                     ) : (
-                      <img
-                        src={localMediaUrl || post.media_url || post.thumbnail_url || undefined}
-                        alt="Reel preview"
-                        className="h-full w-full object-cover rounded-lg"
+                      /* Use ReelVideoPlayer for image + music reel experience */
+                      <ReelVideoPlayer
+                        imageUrl={localMediaUrl || post.media_url || post.thumbnail_url || ""}
+                        audioUrl={localMusicUrl || undefined}
+                        duration={reelDuration}
+                        className="h-full w-full"
                       />
                     )}
                   </div>
