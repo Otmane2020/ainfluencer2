@@ -56,7 +56,7 @@ async function pollForVideo(
     await new Promise((resolve) => setTimeout(resolve, 5000));
 
     try {
-      const response = await fetch(`https://api.replicate.com/v1/videos/${taskId}`, {
+      const response = await fetch(`https://api.cometapi.com/v1/videos/${taskId}`, {
         headers: { Authorization: `Bearer ${apiKey}` },
       });
 
@@ -95,7 +95,7 @@ async function pollForVideo(
 
         // Try content endpoint as fallback
         try {
-          const contentResponse = await fetch(`https://api.replicate.com/v1/videos/${taskId}/content`, {
+          const contentResponse = await fetch(`https://api.cometapi.com/v1/videos/${taskId}/content`, {
             headers: { Authorization: `Bearer ${apiKey}` },
           });
           if (contentResponse.ok) {
@@ -149,7 +149,7 @@ Deno.serve(async (req) => {
         throw new Error("taskId is required for status check");
       }
 
-      const response = await fetch(`https://api.replicate.com/v1/videos/${taskId}`, {
+      const response = await fetch(`https://api.cometapi.com/v1/videos/${taskId}`, {
         headers: { Authorization: `Bearer ${REPLICATE_API_KEY}` },
       });
 
@@ -248,7 +248,7 @@ Deno.serve(async (req) => {
       console.log("[REEL] Using image-to-video mode");
     }
 
-    const createResponse = await fetch("https://api.replicate.com/v1/videos", {
+    const createResponse = await fetch("https://api.cometapi.com/v1/videos", {
       method: "POST",
       headers: { Authorization: `Bearer ${REPLICATE_API_KEY}` },
       body: formData,

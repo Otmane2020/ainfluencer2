@@ -125,7 +125,7 @@ async function generateWithKlingTTS(
   try {
     console.log("[KlingTTS] Generating TTS for:", text.substring(0, 50) + "...");
 
-    const response = await fetch("https://api.replicate.com/v1/audio/speech", {
+    const response = await fetch("https://api.cometapi.com/v1/audio/speech", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${REPLICATE_API_KEY}`,
@@ -172,7 +172,7 @@ async function generateWithOpenAITTS(
     console.log("[OpenAI TTS] Generating TTS for:", text.substring(0, 50) + "...");
 
     // Use Replicate's OpenAI-compatible endpoint
-    const response = await fetch("https://api.replicate.com/v1/audio/speech", {
+    const response = await fetch("https://api.cometapi.com/v1/audio/speech", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${REPLICATE_API_KEY}`,

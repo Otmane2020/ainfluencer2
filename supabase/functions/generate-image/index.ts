@@ -191,7 +191,7 @@ async function generateWithReplicate(
   try {
     console.log(`[Replicate] Generating image with model: ${model}`);
 
-    const response = await fetch("https://api.replicate.com/v1/images/generations", {
+    const response = await fetch("https://api.cometapi.com/v1/images/generations", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${REPLICATE_API_KEY}`,
