@@ -48,7 +48,7 @@ function getRandomTrack(category: keyof typeof AUDIO_TRACKS): string {
   return tracks[Math.floor(Math.random() * tracks.length)];
 }
 
-// Generate image using Lovable AI (Gemini - free/cheap)
+// Generate image using Lovable AI (Gemini Pro for high quality)
 async function generateImage(
   prompt: string, 
   format: string,
@@ -63,22 +63,37 @@ async function generateImage(
   }
 
   try {
-    // Build enhanced prompt
-    let enhancedPrompt = prompt;
-    if (brandName) {
-      enhancedPrompt = `${prompt} for ${brandName} brand`;
-    }
+    // Build PREMIUM enhanced prompt for attractive social media visuals
+    const brandContext = brandName ? `for ${brandName} brand, ` : "";
+    
+    // Core visual style for high-impact social media content
+    const visualStyle = `
+STYLE: Ultra-premium advertising photography, magazine-quality, award-winning commercial design.
+COMPOSITION: Bold dynamic layout with strong focal point, rule of thirds, leading lines.
+LIGHTING: Professional studio lighting with dramatic highlights and soft shadows, golden hour warmth.
+COLORS: Rich vibrant colors, high contrast, eye-catching gradients, premium color grading.
+QUALITY: 8K ultra-sharp, photorealistic, crisp details, professional retouching.
+TEXT OVERLAY: Include bold motivational keywords or call-to-action text directly on the image in modern sans-serif font (white or contrasting color with subtle shadow for readability).
+`;
+
+    let enhancedPrompt = `Create a stunning, scroll-stopping social media visual: ${prompt}. ${brandContext}${visualStyle}`;
     
     // Add format context for social media
     if (format === "reel" || format === "story") {
-      enhancedPrompt += ". Vertical portrait format 9:16, perfect for Instagram Reels, eye-catching, professional quality, vibrant colors, social media optimized, ultra high resolution.";
+      enhancedPrompt += `
+FORMAT: Vertical portrait 9:16 aspect ratio, optimized for Instagram Reels and Stories.
+LAYOUT: Full bleed design, content centered for mobile viewing, text in safe zones.
+IMPACT: Maximum visual impact for 3-second attention grab, bold and unmissable.`;
     } else {
-      enhancedPrompt += ". Horizontal landscape format 16:9, professional quality, ultra high resolution.";
+      enhancedPrompt += `
+FORMAT: Horizontal landscape 16:9 aspect ratio, optimized for YouTube and Facebook.
+LAYOUT: Cinematic widescreen composition, professional advertising look.`;
     }
 
     console.log("[REEL] Generating image with Lovable AI (Gemini)...");
     console.log("[REEL] Prompt:", enhancedPrompt.slice(0, 150));
     
+    // Use Gemini Pro Image for higher quality output
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -86,7 +101,7 @@ async function generateImage(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image",
+        model: "google/gemini-3-pro-image-preview",
         messages: [{ role: "user", content: enhancedPrompt }],
         modalities: ["image", "text"],
       }),
