@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PricingPacks } from "@/components/PricingPacks";
 import { TrustedByCarousel } from "@/components/TrustedByCarousel";
+import { SocialPlatformIcons } from "@/components/SocialPlatformIcons";
 import {
   Play,
   Wand2,
@@ -234,6 +235,17 @@ const LandingPage = () => {
                 </motion.div>
               ))}
             </div>
+
+            {/* Auto-Post Platforms */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8 }}
+              className="mt-12 md:mt-16"
+            >
+              <p className="text-sm text-muted-foreground mb-6">Auto-publish to all major platforms</p>
+              <SocialPlatformIcons />
+            </motion.div>
           </motion.div>
         </div>
       </section>
