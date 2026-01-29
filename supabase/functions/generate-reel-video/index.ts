@@ -1,14 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// ============================================================
+// CORS – Simplified for mobile/WebView compatibility
+// ============================================================
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
 };
 
 // ============================================================
-// GENERATE REEL VIDEO – FULL MP4 EXPORT
-// Image: Gemini Pro | Audio: Free Bank | Video: CometAPI
+// GENERATE REEL VIDEO – FULL MP4 EXPORT (PROD-SAFE)
+// Image: Gemini 2.5 Flash | Audio: Free Bank | Video: CometAPI
 // Format: 9:16 Reel (1080×1920) | Duration: 5-15s
 // ============================================================
 
@@ -51,7 +54,7 @@ function getRandomTrack(category: string): string {
 }
 
 // ============================================================
-// IMAGE GENERATION – Gemini Pro
+// IMAGE GENERATION – Gemini 2.5 Flash (PROD STABLE)
 // ============================================================
 
 async function generateImage(prompt: string, brandName?: string): Promise<string> {
@@ -74,7 +77,7 @@ REQUIREMENTS:
 - Mobile-safe zones (avoid top 150px and bottom 200px)
 `.trim();
 
-  console.log("[REEL] Generating image with Gemini...");
+  console.log("[REEL] Generating image with Gemini 2.5 Flash...");
 
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -83,9 +86,9 @@ REQUIREMENTS:
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-3-pro-image-preview",
+      model: "google/gemini-2.5-flash-image",
       messages: [{ role: "user", content: finalPrompt }],
-      modalities: ["image", "text"],
+      modalities: ["image"],
     }),
   });
 
@@ -98,49 +101,77 @@ REQUIREMENTS:
   }
 
   const data = await response.json();
+  const message = data?.choices?.[0]?.message;
 
-  // Parse base64 from multiple response formats
-  let imageData: string | null = null;
+  // Secure parsing: only accept image_base64 from content array
+  const imagePart = Array.isArray(message?.content)
+    ? message.content.find((c: { type: string; image_base64?: string }) => 
+        c.type === "image" && c.image_base64
+      )
+    : null;
 
-  // Format 1: images array
-  if (data.choices?.[0]?.message?.images?.[0]?.image_url?.url) {
-    imageData = data.choices[0].message.images[0].image_url.url;
+  if (!imagePart?.image_base64) {
+    console.error("[REEL] No image in Gemini response");
+    throw new Error("No image returned by Gemini");
   }
 
-  // Format 2: content array with image type
-  if (!imageData && Array.isArray(data.choices?.[0]?.message?.content)) {
-    const imagePart = data.choices[0].message.content.find(
-      (c: { type: string; image_base64?: string }) => c.type === "image"
-    );
-    if (imagePart?.image_base64) {
-      imageData = `data:image/png;base64,${imagePart.image_base64}`;
-    }
-  }
-
-  // Format 3: direct base64 string
-  if (!imageData && typeof data.choices?.[0]?.message?.content === "string") {
-    const content = data.choices[0].message.content;
-    if (content.startsWith("data:image")) {
-      imageData = content;
-    }
-  }
-
-  if (!imageData) {
-    console.error("[REEL] No image in response");
-    throw new Error("No image generated");
-  }
-
-  const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
   console.log("[REEL] Image generated successfully");
-
-  return base64Data;
+  return imagePart.image_base64;
 }
 
 // ============================================================
-// VIDEO GENERATION – CometAPI (MP4 Export)
+// COMET API POLLING (for async video generation)
 // ============================================================
 
-async function generateVideoMP4(imageUrl: string, musicUrl: string, duration: number): Promise<string> {
+async function waitForCometVideo(jobId: string): Promise<string> {
+  const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
+  if (!COMETAPI_API_KEY) throw new Error("COMETAPI_API_KEY not configured");
+
+  const STATUS_URL = `https://api.cometapi.com/v1/video/status/${jobId}`;
+  const MAX_ATTEMPTS = 30;  // ~60s max
+  const DELAY_MS = 2000;
+
+  console.log(`[REEL] Polling CometAPI job: ${jobId}`);
+
+  for (let i = 0; i < MAX_ATTEMPTS; i++) {
+    const res = await fetch(STATUS_URL, {
+      headers: {
+        Authorization: `Bearer ${COMETAPI_API_KEY}`,
+      },
+    });
+
+    if (!res.ok) {
+      throw new Error(`Comet status check failed (${res.status})`);
+    }
+
+    const data = await res.json();
+    console.log(`[REEL] Poll ${i + 1}/${MAX_ATTEMPTS}: status=${data.status}`);
+
+    if (data.status === "completed" && data.video_url) {
+      console.log("[REEL] Video ready!");
+      return data.video_url;
+    }
+
+    if (data.status === "failed") {
+      throw new Error("CometAPI video generation failed");
+    }
+
+    // Still processing, wait before next poll
+    await new Promise((r) => setTimeout(r, DELAY_MS));
+  }
+
+  throw new Error("CometAPI video generation timeout");
+}
+
+// ============================================================
+// VIDEO GENERATION – CometAPI (async-safe)
+// ============================================================
+
+async function generateVideoMP4(
+  imageUrl: string,
+  musicUrl: string,
+  duration: number
+): Promise<string> {
   const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
   if (!COMETAPI_API_KEY) throw new Error("COMETAPI_API_KEY not configured");
 
@@ -171,13 +202,19 @@ async function generateVideoMP4(imageUrl: string, musicUrl: string, duration: nu
 
   const data = await response.json();
 
-  if (!data?.video_url) {
-    console.error("[REEL] No video URL in CometAPI response");
-    throw new Error("No MP4 returned by CometAPI");
+  // Handle instant response
+  if (data.video_url) {
+    console.log("[REEL] Instant video URL received");
+    return data.video_url;
   }
 
-  console.log("[REEL] MP4 generated successfully");
-  return data.video_url;
+  // Handle async response (needs polling)
+  if (data.job_id) {
+    console.log("[REEL] Async job started, polling...");
+    return await waitForCometVideo(data.job_id);
+  }
+
+  throw new Error("Invalid CometAPI response: no video_url or job_id");
 }
 
 // ============================================================
@@ -206,11 +243,11 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log("=== GENERATE REEL VIDEO (FULL MP4) ===");
+    console.log("=== GENERATE REEL VIDEO (PROD-SAFE MP4) ===");
     console.log("Prompt:", body.prompt.slice(0, 80));
     console.log("Duration:", duration, "s | Music:", musicCategory);
 
-    // Step 1: Generate image
+    // Step 1: Generate image with Gemini
     const imageBase64 = await generateImage(body.prompt, body.brandName);
 
     // Step 2: Upload image to storage
@@ -231,7 +268,7 @@ serve(async (req) => {
     // Step 3: Get music from free bank
     const musicUrl = getRandomTrack(musicCategory);
 
-    // Step 4: Generate MP4 via CometAPI
+    // Step 4: Generate MP4 via CometAPI (handles async polling)
     const videoTempUrl = await generateVideoMP4(imagePublicUrl.publicUrl, musicUrl, duration);
 
     // Step 5: Download and store video in Supabase
