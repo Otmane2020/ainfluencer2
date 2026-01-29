@@ -6,8 +6,8 @@ const corsHeaders = {
 };
 
 // ============================================================
-// MODEL POOL CONFIGURATION - Weighted Random Selection for Reels
-// Using sora-2 as stable model with 1080p quality
+// MODEL POOL CONFIGURATION - Kling 2.x for Reels
+// Using kling-video as stable model with 1080p quality
 // ============================================================
 
 interface ModelOption {
@@ -17,9 +17,9 @@ interface ModelOption {
   durations: number[];
 }
 
-// FIX: Using sora-2 with 1080p for better quality and stability
+// Kling 2.x standard for reels - stable and cost-effective
 const REEL_MODEL_POOL: ModelOption[] = [
-  { id: "sora-2", apiModel: "sora-2", weight: 100, durations: [5, 10] },
+  { id: "kling-2", apiModel: "kling-video", weight: 100, durations: [5, 10] },
 ];
 
 function selectReelModel(): ModelOption {
