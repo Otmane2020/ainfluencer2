@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Video, Image, FileText, Trash2, Share2, Copy, Check, Eye, Calendar, Loader2, RefreshCw, AlertTriangle } from "lucide-react";
+import { Video, Image, FileText, Trash2, Share2, Copy, Check, Eye, Calendar, Loader2, RefreshCw, AlertTriangle, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -290,6 +290,17 @@ export const ContentHistoryItem = ({
             >
               <Eye className="h-3 w-3 mr-1" />
               View
+            </Button>
+          )}
+          {item.status === "published" && item.platforms?.includes("facebook") && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => window.open("https://www.facebook.com", "_blank")}
+              className="h-8 text-xs text-primary hover:text-primary/80"
+            >
+              <ExternalLink className="h-3 w-3 mr-1" />
+              Facebook
             </Button>
           )}
           <Button
