@@ -274,7 +274,7 @@ export const ALL_PACKS = [...IMAGE_PACKS, ...VIDEO_PACKS];
 // ============================================================
 
 export const CREDIT_COSTS: Record<string, number> = {
-  // Images (price in credits = price in euros)
+  // Images (price in credits = price in USD)
   "smart-image": 2,
   "high-image": 3,
   "studio-image": 4,
@@ -443,7 +443,7 @@ export const getProductsByCategory = (category: CommercialProduct["category"]) =
 };
 
 export const formatPrice = (price: number, unit: string) => {
-  return `${price}€${unit}`;
+  return `$${price}${unit}`;
 };
 
 // Legacy compatibility - Import AIModel type for backwards compat

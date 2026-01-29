@@ -162,7 +162,7 @@ export const PricingPacks = ({
             {/* Price */}
             <div className="mb-6 text-center">
               <div className="flex items-baseline justify-center gap-1">
-                <span className="text-4xl font-bold text-gradient">{plan.price}€</span>
+                <span className="text-4xl font-bold text-gradient">${plan.price}</span>
                 <span className="text-muted-foreground">{plan.priceUnit}</span>
               </div>
             </div>
