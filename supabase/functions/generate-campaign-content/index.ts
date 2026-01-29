@@ -117,6 +117,8 @@ serve(async (req) => {
       overlayText = "",
       // ClipMotion mode
       clipmotion = false,
+      // Product/Service description
+      productDescription = null,
     } = await req.json();
 
     if (!campaignId) {
@@ -133,6 +135,7 @@ serve(async (req) => {
     
     console.log(`Image as Reel mode: ${imageAsReel}, Audio: ${audioCategory}, ClipMotion: ${clipmotion}`);
     console.log(`Brand options: logo=${includeLogo}, url=${includeUrl}, avatar=${includeAvatar}, text=${includeText}`);
+    console.log(`Product to promote: ${productDescription ? productDescription.slice(0, 100) + "..." : "Not specified"}`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -280,6 +283,11 @@ PROJECT CONTEXT:
 - Brand colors: ${project.theme_color || "Not specified"}
 ${project.logo_url ? `- Logo URL: ${project.logo_url}` : ""}
 
+${productDescription || campaign.ai_context ? `PRODUCT/SERVICE TO PROMOTE (CRITICAL - Focus on this!):
+${productDescription || campaign.ai_context}
+
+IMPORTANT: All content MUST specifically showcase and promote this product/service. Do not create generic content.` : ""}
+
 CAMPAIGN SETTINGS:
 - Tone: ${campaign.tone || "professional"} (IMPORTANT: Adapt writing style to match this tone)
 - Format: ${campaign.format || "reel"}
@@ -362,6 +370,11 @@ PROJECT CONTEXT:
 - Website: ${project.url || "Not specified"}
 - Brand color: ${project.theme_color || "#6366F1"}
 - Language: ${outputLanguage.toUpperCase()} - All image text MUST be in this language
+
+${productDescription || campaign.ai_context ? `PRODUCT/SERVICE TO PROMOTE (CRITICAL - Focus on this!):
+${productDescription || campaign.ai_context}
+
+IMPORTANT: The image MUST specifically showcase this product/service. Feature it prominently in the composition.` : ""}
 
 CAMPAIGN SETTINGS:
 - Tone: ${campaign.tone || "professional"}
