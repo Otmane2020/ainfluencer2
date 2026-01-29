@@ -89,11 +89,11 @@ async function generateWithCometAPI(
 
   console.log(`[AI-VIDEO] CometAPI: model=${model}, duration=${duration}s, size=${size}`);
 
-  // Use JSON body - CometAPI expects "seconds" not "duration" for some models
+  // Use JSON body - CometAPI expects "seconds" as STRING
   const requestBody = {
     prompt: prompt,
     model: model,
-    seconds: duration, // Use "seconds" parameter
+    seconds: String(duration), // Must be string
     size: size,
   };
 
