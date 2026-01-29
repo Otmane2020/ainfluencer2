@@ -508,38 +508,48 @@ export const ScheduledPostModal = ({
       if ((post.content_type === "video" || post.content_type === "reel") && !post.media_url) {
         // Check if this is a reel (either explicit reel type or Image as Reel)
         if (post.content_type === "reel" || isImageAsReel) {
-          // Use Gemini + music reel generation (no CometAPI)
-          setPublishingStatus("Generating reel image...");
+          // Use Kling Video via CometAPI for real MP4
+          setPublishingStatus("Generating reel video (Kling)...");
           
           toast({
-            title: "Generating reel...",
-            description: "Creating image with background music",
+            title: "Generating reel video...",
+            description: "Creating real MP4 with Kling (~2-3 min)",
           });
 
-          const { data: reelData, error: reelError } = await supabase.functions.invoke("generate-reel-video", {
-            body: {
-              prompt: post.ai_prompt || "Create an eye-catching social media reel",
-              format: videoFormat === "landscape" ? "landscape" : "reel",
-              brandName: projectContext?.name || undefined,
-              musicCategory: "upbeat",
-              duration: 10,
-            },
-          });
+          // Call with ?wait=true for sync mode
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-reel-video?wait=true`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                "Authorization": `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+              },
+              body: JSON.stringify({
+                prompt: post.ai_prompt || "Create an eye-catching social media reel",
+                brandName: projectContext?.name || undefined,
+                duration: 5,
+              }),
+            }
+          );
 
-          if (reelError) {
-            console.warn("Reel generation error:", reelError);
-          } else if (reelData?.success && reelData?.imageUrl) {
+          const reelData = await response.json();
+
+          if (!response.ok || !reelData?.success) {
+            console.warn("Reel generation error:", reelData?.error);
+          } else if (reelData?.videoUrl) {
             await supabase
               .from("scheduled_posts")
               .update({ 
-                media_url: reelData.imageUrl,
-                thumbnail_url: reelData.imageUrl,
+                media_url: reelData.videoUrl,
+                thumbnail_url: reelData.videoUrl,
                 status: "scheduled",
               })
               .eq("id", post.id);
             
             // Update local reference for publishing
-            post.media_url = reelData.imageUrl;
+            post.media_url = reelData.videoUrl;
           }
         } else if (selectedProduct) {
           // Actual video generation with CometAPI
@@ -770,12 +780,12 @@ export const ScheduledPostModal = ({
     }
   };
 
-  // Generate Reel using Lovable AI image + music
+  // Generate Reel using Kling Video via CometAPI (real MP4)
   const handleGenerateReel = async () => {
     setIsGenerating(true);
     try {
       // Build brand-aware prompt
-      let enhancedPrompt = post.ai_prompt || "Create an eye-catching social media reel image";
+      let enhancedPrompt = post.ai_prompt || "Create an eye-catching social media reel video";
       
       // Add brand context if available
       if (projectContext) {
@@ -784,51 +794,101 @@ export const ScheduledPostModal = ({
       }
 
       toast({
-        title: "Creating reel...",
+        title: "Creating reel video...",
         description: projectContext?.name 
-          ? `Generating video content for ${projectContext.name}` 
-          : "Generating reel with image and music",
+          ? `Generating Kling video for ${projectContext.name}` 
+          : "Generating reel with Kling Video (~2-3 min)",
       });
 
-      // Use generate-reel-video for proper reel with image + music
+      // Call generate-reel-video in async mode (returns taskId)
       const { data, error } = await supabase.functions.invoke("generate-reel-video", {
         body: {
           prompt: enhancedPrompt,
           brandName: projectContext?.name || undefined,
-          duration: 10,
-          musicCategory: "upbeat",
+          duration: 5,
         },
       });
 
       if (error) throw error;
 
-      if (data?.success && data?.imageUrl) {
-        // Update local state immediately for instant preview
-        setLocalMediaUrl(data.imageUrl);
-        setLocalMusicUrl(data.musicUrl || null);
-        setReelDuration(data.duration || 10);
-        
-        // Update post with generated reel
-        const { error: updateError } = await supabase
-          .from("scheduled_posts")
-          .update({ 
-            media_url: data.imageUrl,
-            thumbnail_url: data.imageUrl,
-            status: "scheduled",
-          })
-          .eq("id", post.id);
-
-        if (updateError) throw updateError;
-
-        toast({
-          title: "Reel ready! ✓",
-          description: "Play to preview with music",
-        });
-        
-        onUpdate?.();
-      } else {
-        throw new Error(data?.error || "Reel generation failed");
+      if (!data?.success || !data?.taskId) {
+        throw new Error(data?.error || "Failed to start video generation");
       }
+
+      const taskId = data.taskId;
+      console.log("[Reel] Task started:", taskId);
+
+      toast({
+        title: "Video generation started",
+        description: "Polling for completion... (this may take 2-3 minutes)",
+      });
+
+      // Poll for completion
+      let videoUrl: string | null = null;
+      const maxAttempts = 60; // 5 min max
+      
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5s
+
+        const { data: statusData, error: statusError } = await supabase.functions.invoke(
+          "generate-reel-video",
+          { body: {}, headers: {} }
+        );
+
+        // Use query param for status check
+        const statusResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-reel-video?action=status&taskId=${taskId}`,
+          {
+            headers: {
+              "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              "Authorization": `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            },
+          }
+        );
+
+        if (!statusResponse.ok) {
+          console.log(`[Reel] Poll ${i + 1}/${maxAttempts}: HTTP ${statusResponse.status}`);
+          continue;
+        }
+
+        const status = await statusResponse.json();
+        console.log(`[Reel] Poll ${i + 1}/${maxAttempts}:`, status.status);
+
+        if (status.status === "completed" && status.videoUrl) {
+          videoUrl = status.videoUrl;
+          break;
+        } else if (status.status === "failed") {
+          throw new Error("Video generation failed");
+        }
+      }
+
+      if (!videoUrl) {
+        throw new Error("Video generation timeout - please try again");
+      }
+
+      // Update local state immediately for instant preview
+      setLocalMediaUrl(videoUrl);
+      setLocalMusicUrl(null); // Real MP4 has audio baked in
+      setReelDuration(5);
+      
+      // Update post with generated video
+      const { error: updateError } = await supabase
+        .from("scheduled_posts")
+        .update({ 
+          media_url: videoUrl,
+          thumbnail_url: videoUrl,
+          status: "scheduled",
+        })
+        .eq("id", post.id);
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: "Reel video ready! ✓",
+        description: "Real MP4 video generated with Kling",
+      });
+      
+      onUpdate?.();
     } catch (error: any) {
       console.error("Reel generation error:", error);
       toast({
