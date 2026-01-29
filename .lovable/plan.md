@@ -1,62 +1,150 @@
 
-# Fix Manual Reel Generation
+# Solution: FFmpeg.wasm — Création vidéo 100% dans le navigateur
 
-## Problem Identified
+## Objectif
 
-The manual reel generation is failing because:
+Créer de **vrais fichiers MP4** directement dans le navigateur en combinant :
+- 🖼️ Image générée
+- 🎵 Musique
+- ⏱️ Durée choisie
 
-1. **Wrong function name on line 519**: The code calls `generate-reel` (which doesn't exist) instead of `generate-reel-video`
-2. **Config mismatch**: The config.toml references `generate-reel` but the actual function folder is `generate-reel-video`
-3. **No generate-reel folder exists**: The directory `supabase/functions/generate-reel` is empty/non-existent
+**Résultat** : Un MP4 téléchargeable et publiable sur Instagram/TikTok — sans aucun serveur externe !
 
-The edge function `generate-reel-video` works correctly (tested and returns success with imageUrl + musicUrl).
+---
 
-## Solution
+## Comment ça marche
 
-### Step 1: Fix the Wrong Function Call in ScheduledPostModal
-
-**File:** `src/components/ScheduledPostModal.tsx`
-
-Change line 519 from:
-```typescript
-const { data: reelData, error: reelError } = await supabase.functions.invoke("generate-reel", {
+```text
+┌─────────────────────────────────────────────────────────┐
+│                    NAVIGATEUR (Browser)                 │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│   1. Image (PNG) ─────┐                                │
+│                       ├──► FFmpeg.wasm ──► MP4 file    │
+│   2. Audio (MP3) ─────┘      (WebAssembly)             │
+│                                                         │
+│   3. Download / Upload to Supabase                      │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
 ```
 
-To:
-```typescript
-const { data: reelData, error: reelError } = await supabase.functions.invoke("generate-reel-video", {
+**Avantages :**
+- ✅ Gratuit (pas d'API payante)
+- ✅ Pas de serveur (pas de Railway)
+- ✅ Fichier MP4 réel
+- ✅ Téléchargeable + publiable
+
+**Inconvénients :**
+- ⚠️ ~10-30 secondes de traitement (selon l'appareil)
+- ⚠️ ~30MB téléchargés la première fois (cache ensuite)
+
+---
+
+## Implémentation
+
+### Étape 1 : Installer ffmpeg.wasm
+
+Ajouter les dépendances :
+```bash
+npm install @ffmpeg/ffmpeg @ffmpeg/util
 ```
 
-### Step 2: Clean Up the Config
+### Étape 2 : Créer un hook `useVideoComposer`
 
-**File:** `supabase/config.toml`
+Nouveau fichier : `src/hooks/useVideoComposer.ts`
 
-Remove the orphaned entry for the non-existent function:
-```toml
-[functions.generate-reel]  # <- DELETE THIS
-verify_jwt = false
+Ce hook va :
+1. Charger FFmpeg.wasm (une seule fois)
+2. Télécharger l'image et l'audio
+3. Les combiner avec effet Ken Burns
+4. Retourner un Blob MP4
+
+### Étape 3 : Créer un composant `VideoComposerModal`
+
+Nouveau fichier : `src/components/VideoComposerModal.tsx`
+
+Interface utilisateur :
+- Indicateur de progression (Loading FFmpeg → Downloading files → Rendering)
+- Barre de progression
+- Boutons : Télécharger / Upload to Cloud
+
+### Étape 4 : Mettre à jour `ReelVideoPlayer`
+
+Ajouter un bouton **"Create MP4"** qui :
+1. Ouvre le modal de composition
+2. Lance le rendu
+3. Propose le téléchargement
+
+### Étape 5 : Option upload vers Supabase
+
+Après création du MP4 :
+- Upload automatique dans `media/reels/`
+- URL publique disponible
+
+---
+
+## Fichiers à créer/modifier
+
+| Fichier | Action |
+|---------|--------|
+| `src/hooks/useVideoComposer.ts` | **Créer** — Logic FFmpeg.wasm |
+| `src/components/VideoComposerModal.tsx` | **Créer** — UI composition |
+| `src/components/ReelVideoPlayer.tsx` | **Modifier** — Ajouter bouton "Create MP4" |
+| `package.json` | **Modifier** — Ajouter @ffmpeg/ffmpeg, @ffmpeg/util |
+
+---
+
+## Détails techniques
+
+### Commande FFmpeg (Ken Burns + Audio)
+
+```javascript
+await ffmpeg.exec([
+  '-loop', '1',
+  '-i', 'image.png',
+  '-i', 'audio.mp3',
+  '-c:v', 'libx264',
+  '-t', '10',           // durée
+  '-pix_fmt', 'yuv420p',
+  '-vf', 'scale=1080:1920,zoompan=z=min(zoom+0.0008\\,1.08):d=300:s=1080x1920',
+  '-c:a', 'aac',
+  '-shortest',
+  '-movflags', '+faststart',
+  'output.mp4'
+]);
 ```
 
-## Summary
+### Flux utilisateur
 
-| What | Change |
-|------|--------|
-| Line 519 | `"generate-reel"` → `"generate-reel-video"` |
-| config.toml | Remove `[functions.generate-reel]` entry |
-
-## Technical Details
-
-The `generate-reel-video` function is already working correctly. The test shows:
-```json
-{
-  "success": true,
-  "imageUrl": "https://...supabase.co/storage/v1/object/public/media/reels/reel-...png",
-  "musicUrl": "https://assets.mixkit.co/music/preview/mixkit-hip-hop-02-738.mp3",
-  "duration": 10,
-  "format": "reel",
-  "aspectRatio": "9:16",
-  "status": "READY"
-}
+```text
+User clicks "Generate Reel"
+         ↓
+   Image + Audio créés (actuel)
+         ↓
+   Preview dans ReelVideoPlayer
+         ↓
+   User clicks "Create MP4"
+         ↓
+   FFmpeg.wasm charge (~5s première fois)
+         ↓
+   Composition (~10-20s)
+         ↓
+   ✅ Download MP4 ou Upload Cloud
 ```
 
-After this fix, both manual generation (Generate button) and auto-generation during publish will work correctly.
+---
+
+## Coût
+
+| Élément | Coût |
+|---------|------|
+| FFmpeg.wasm | Gratuit |
+| Serveur | Aucun |
+| API | Aucune |
+| **Total** | **0€** |
+
+---
+
+## Résumé
+
+Cette solution permet de générer de **vrais fichiers MP4** directement dans le navigateur, sans aucune infrastructure externe. L'utilisateur peut ensuite télécharger la vidéo ou l'uploader dans le cloud pour la publier.
