@@ -69,32 +69,60 @@ export const useCredits = () => {
         setSubscription(subData);
       }
 
-      // Fetch credits
+      // Fetch credits - use a transaction check to prevent duplicates
       const { data: creditsData } = await supabase
         .from("credits")
         .select("*")
         .eq("user_id", user.id)
         .maybeSingle();
 
-      // If no credits, create with default 10
+      // If no credits, create with default 10 (but check for race condition)
       if (!creditsData) {
-        const { data: newCredits } = await supabase
-          .from("credits")
-          .insert({
-            user_id: user.id,
-            balance: 10,
-          })
-          .select()
-          .single();
-        setCredits(newCredits);
-        
-        // Log welcome bonus
-        await supabase.from("credit_transactions").insert({
-          user_id: user.id,
-          amount: 10,
-          type: "bonus",
-          description: "Welcome bonus credits",
-        });
+        // First check if a transaction already exists (prevents duplicate bonus)
+        const { data: existingBonus } = await supabase
+          .from("credit_transactions")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("type", "bonus")
+          .eq("description", "Welcome bonus credits")
+          .limit(1)
+          .maybeSingle();
+
+        if (!existingBonus) {
+          // No existing bonus, safe to create
+          const { data: newCredits, error: insertError } = await supabase
+            .from("credits")
+            .insert({ user_id: user.id, balance: 10 })
+            .select()
+            .single();
+
+          if (!insertError && newCredits) {
+            setCredits(newCredits);
+            // Log welcome bonus only if credits were created
+            await supabase.from("credit_transactions").insert({
+              user_id: user.id,
+              amount: 10,
+              type: "bonus",
+              description: "Welcome bonus credits",
+            });
+          } else {
+            // Insert failed (likely duplicate), try fetching again
+            const { data: retryCredits } = await supabase
+              .from("credits")
+              .select("*")
+              .eq("user_id", user.id)
+              .maybeSingle();
+            setCredits(retryCredits);
+          }
+        } else {
+          // Bonus already exists, just fetch credits again (might have been created by race)
+          const { data: retryCredits } = await supabase
+            .from("credits")
+            .select("*")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          setCredits(retryCredits);
+        }
       } else {
         setCredits(creditsData);
       }
