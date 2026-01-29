@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 interface ContentSuggestion {
@@ -15,7 +15,19 @@ interface ContentSuggestion {
   hashtags: string[];
 }
 
-// Language-specific configurations
+// FIX 1: Robust JSON parsing utility
+function safeParseJSON<T>(text: string): T | null {
+  try {
+    const firstBrace = text.indexOf("{");
+    const lastBrace = text.lastIndexOf("}");
+    if (firstBrace === -1 || lastBrace === -1) return null;
+    return JSON.parse(text.slice(firstBrace, lastBrace + 1));
+  } catch {
+    return null;
+  }
+}
+
+// Language-specific configurations with FIX 8: Multilingual default hashtags
 const LANGUAGE_CONFIG: Record<string, { 
   systemIntro: string; 
   videoLabel: string; 
@@ -23,6 +35,7 @@ const LANGUAGE_CONFIG: Record<string, {
   generateLabel: string;
   fallbackVideoIdeas: { title: string; content: string }[];
   fallbackImageIdeas: { title: string; content: string }[];
+  defaultHashtags: { video: string[]; image: string[] };
 }> = {
   en: {
     systemIntro: "You are an expert in creating viral social media content.",
@@ -43,6 +56,10 @@ const LANGUAGE_CONFIG: Record<string, {
       { title: "Infographic", content: "Present interesting statistics or facts." },
       { title: "New release", content: "Announce a new offer or feature." },
     ],
+    defaultHashtags: {
+      video: ["viral", "reels", "content", "trending", "fyp"],
+      image: ["instagram", "post", "inspiration", "tips", "inspo"],
+    },
   },
   fr: {
     systemIntro: "Tu es un expert en création de contenu viral pour les réseaux sociaux.",
@@ -63,6 +80,10 @@ const LANGUAGE_CONFIG: Record<string, {
       { title: "Infographie", content: "Présentez des statistiques ou des faits intéressants." },
       { title: "Nouveauté", content: "Annoncez une nouvelle offre ou fonctionnalité." },
     ],
+    defaultHashtags: {
+      video: ["viral", "reels", "contenu", "tendance", "fyp"],
+      image: ["instagram", "publication", "inspiration", "conseils", "inspo"],
+    },
   },
   es: {
     systemIntro: "Eres un experto en creación de contenido viral para redes sociales.",
@@ -83,6 +104,10 @@ const LANGUAGE_CONFIG: Record<string, {
       { title: "Infografía", content: "Presenta estadísticas o datos interesantes." },
       { title: "Novedad", content: "Anuncia una nueva oferta o función." },
     ],
+    defaultHashtags: {
+      video: ["viral", "reels", "contenido", "tendencia", "fyp"],
+      image: ["instagram", "publicacion", "inspiracion", "consejos", "inspo"],
+    },
   },
   de: {
     systemIntro: "Du bist ein Experte für die Erstellung von viralem Social-Media-Content.",
@@ -103,6 +128,10 @@ const LANGUAGE_CONFIG: Record<string, {
       { title: "Infografik", content: "Präsentiere interessante Statistiken oder Fakten." },
       { title: "Neuheit", content: "Kündige ein neues Angebot oder Feature an." },
     ],
+    defaultHashtags: {
+      video: ["viral", "reels", "inhalt", "trend", "fyp"],
+      image: ["instagram", "post", "inspiration", "tipps", "inspo"],
+    },
   },
 };
 
@@ -116,6 +145,15 @@ serve(async (req) => {
 
     if (!projectId) {
       throw new Error("projectId is required");
+    }
+
+    // FIX 7: Rate limit / abuse protection
+    const totalPosts = videosPerMonth + imagesPerMonth;
+    if (totalPosts > 60) {
+      return new Response(
+        JSON.stringify({ error: "Monthly content limit exceeded (max 60 posts)" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -152,8 +190,6 @@ serve(async (req) => {
     if (project.facebook_enabled) platforms.push("facebook");
     if (project.linkedin_enabled) platforms.push("linkedin");
     if (project.tiktok_enabled) platforms.push("tiktok");
-
-    const totalPosts = videosPerMonth + imagesPerMonth;
 
     // Generate content suggestions via AI
     const systemPrompt = `${langConfig.systemIntro}
@@ -204,7 +240,7 @@ Respond ONLY with valid JSON:
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `${langConfig.generateLabel} ${totalPosts} viral content suggestions for this project.` },
+          { role: "user", content: `${langConfig.generateLabel} ${totalPosts} viral content suggestions for this project. Write ONLY in ${language.toUpperCase()}.` },
         ],
         temperature: 0.8,
       }),
@@ -225,19 +261,29 @@ Respond ONLY with valid JSON:
 
     console.log("AI response received, parsing...");
 
-    // Parse suggestions
+    // FIX 1: Use robust JSON parsing
     let suggestions: ContentSuggestion[] = [];
-    try {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        suggestions = parsed.suggestions || [];
-      }
-    } catch (parseError) {
-      console.error("Parse error:", parseError);
-      // Generate fallback suggestions
+    const parsed = safeParseJSON<{ suggestions: ContentSuggestion[] }>(content);
+
+    if (!parsed || !Array.isArray(parsed.suggestions)) {
+      console.warn("AI response parsing failed, using fallback suggestions");
       suggestions = generateFallbackSuggestions(project.name, videosPerMonth, imagesPerMonth, langConfig);
+    } else {
+      suggestions = parsed.suggestions;
     }
+
+    // FIX 2: Validate suggestion count and fill if needed
+    if (suggestions.length < totalPosts) {
+      console.warn(`AI returned ${suggestions.length} suggestions, expected ${totalPosts}. Filling with fallback.`);
+      const missing = totalPosts - suggestions.length;
+      const missingVideos = Math.min(missing, Math.max(0, videosPerMonth - suggestions.filter(s => s.contentType === "video").length));
+      const missingImages = missing - missingVideos;
+      const fallback = generateFallbackSuggestions(project.name, missingVideos, missingImages, langConfig);
+      suggestions.push(...fallback.slice(0, missing));
+    }
+
+    // Cap at requested total (in case AI returned more)
+    suggestions = suggestions.slice(0, totalPosts);
 
     console.log(`Generated ${suggestions.length} content suggestions`);
 
@@ -246,25 +292,32 @@ Respond ONLY with valid JSON:
     const scheduledPosts = [];
     const postsPerDay = Math.ceil(suggestions.length / 30);
     
+    // FIX 6: Add time variance to posting hours
+    const baseHours = [10, 14, 18];
+    
     for (let i = 0; i < suggestions.length; i++) {
       const suggestion = suggestions[i];
       const dayOffset = Math.floor(i / postsPerDay);
       const scheduledDate = new Date(now);
       scheduledDate.setDate(scheduledDate.getDate() + dayOffset + 1);
       
-      // Set time to optimal posting hours (10:00, 14:00, 18:00)
-      const hours = [10, 14, 18];
-      scheduledDate.setHours(hours[i % 3], 0, 0, 0);
+      // FIX 6: Set time with random minute variance (0-30 minutes)
+      const randomMinutes = Math.floor(Math.random() * 30);
+      scheduledDate.setHours(baseHours[i % 3], randomMinutes, 0, 0);
 
       scheduledPosts.push({
         project_id: projectId,
         user_id: project.user_id,
         content_type: suggestion.contentType,
         text_content: `${suggestion.title}\n\n${suggestion.content}\n\n${suggestion.hashtags.map(h => `#${h}`).join(" ")}`,
-        ai_prompt: suggestion.title,
+        // FIX 5: Store full AI context in ai_prompt
+        ai_prompt: `${suggestion.title} — ${suggestion.content}`,
+        // FIX 3: platforms is text[] in DB, Supabase handles it properly
         platforms: platforms,
         scheduled_for: scheduledDate.toISOString(),
         status: "draft",
+        // Note: estimated_engagement could be stored if column exists
+        // estimated_engagement: suggestion.estimatedEngagement,
       });
     }
 
@@ -287,6 +340,7 @@ Respond ONLY with valid JSON:
         postsCreated: insertedPosts?.length || 0,
         message: `${insertedPosts?.length} posts scheduled for the next 30 days`,
         language: language,
+        platforms,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -306,6 +360,7 @@ function generateFallbackSuggestions(
   langConfig: typeof LANGUAGE_CONFIG["en"]
 ): ContentSuggestion[] {
   const suggestions: ContentSuggestion[] = [];
+  const brandTag = projectName.toLowerCase().replace(/\s+/g, "");
   
   for (let i = 0; i < videosCount; i++) {
     const idea = langConfig.fallbackVideoIdeas[i % langConfig.fallbackVideoIdeas.length];
@@ -315,7 +370,8 @@ function generateFallbackSuggestions(
       content: idea.content,
       contentType: "video",
       estimatedEngagement: i < 2 ? "high" : "medium",
-      hashtags: ["viral", "video", projectName.toLowerCase().replace(/\s+/g, ""), "content", "reels"],
+      // FIX 8: Use multilingual default hashtags
+      hashtags: [...langConfig.defaultHashtags.video, brandTag],
     });
   }
 
@@ -327,7 +383,8 @@ function generateFallbackSuggestions(
       content: idea.content,
       contentType: "image",
       estimatedEngagement: i < 3 ? "high" : "medium",
-      hashtags: ["instagram", "post", projectName.toLowerCase().replace(/\s+/g, ""), "tips", "inspo"],
+      // FIX 8: Use multilingual default hashtags
+      hashtags: [...langConfig.defaultHashtags.image, brandTag],
     });
   }
 
