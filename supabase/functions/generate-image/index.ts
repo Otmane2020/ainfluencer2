@@ -6,6 +6,63 @@ const corsHeaders = {
 };
 
 // ============================================================
+// MODEL POOL CONFIGURATION - Weighted Random Selection
+// ============================================================
+
+interface ModelOption {
+  id: string;
+  provider: "lovable" | "cometapi";
+  weight: number;
+  apiModel: string;
+}
+
+const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
+  // Smart Image - ~$0.01/image avg
+  "smart-image": [
+    { id: "gemini-flash-image", provider: "lovable", weight: 60, apiModel: "google/gemini-2.5-flash-image" },
+    { id: "flux-2-flex", provider: "cometapi", weight: 40, apiModel: "flux-2-flex" },
+  ],
+  
+  // High Image - ~$0.05/image avg
+  "high-image": [
+    { id: "nano-banana-pro", provider: "cometapi", weight: 50, apiModel: "nano-banana-pro" },
+    { id: "flux-2-pro", provider: "cometapi", weight: 50, apiModel: "flux-2-pro" },
+  ],
+  
+  // Studio Image - ~$0.08/image avg
+  "studio-image": [
+    { id: "flux-2-pro", provider: "cometapi", weight: 60, apiModel: "flux-2-pro" },
+    { id: "gemini-pro-image", provider: "lovable", weight: 40, apiModel: "google/gemini-3-pro-image-preview" },
+  ],
+};
+
+// Legacy mappings for backwards compatibility
+const LEGACY_QUALITY_MAPPINGS: Record<string, string> = {
+  "ai-image-smart": "smart-image",
+  "ai-image-standard": "smart-image",
+  "ai-image-pro": "high-image",
+  "ai-image-studio": "studio-image",
+  "flux-2-flex": "smart-image",
+  "nano-banana-pro": "high-image",
+  "flux-2-pro": "studio-image",
+};
+
+function selectModelFromPool(qualityId: string): ModelOption {
+  const mappedQualityId = LEGACY_QUALITY_MAPPINGS[qualityId] || qualityId;
+  const pool = IMAGE_MODEL_POOLS[mappedQualityId] || IMAGE_MODEL_POOLS["smart-image"];
+  
+  const totalWeight = pool.reduce((sum, m) => sum + m.weight, 0);
+  let random = Math.random() * totalWeight;
+  
+  for (const model of pool) {
+    random -= model.weight;
+    if (random <= 0) return model;
+  }
+  
+  return pool[0]; // Fallback
+}
+
+// ============================================================
 // LOGO OVERLAY UTILITY
 // ============================================================
 
@@ -17,11 +74,10 @@ async function overlayLogoOnImage(
   try {
     console.log("[LogoOverlay] Fetching logo from:", logoUrl);
     
-    // Fetch the logo image
     const logoResponse = await fetch(logoUrl);
     if (!logoResponse.ok) {
       console.error("[LogoOverlay] Failed to fetch logo:", logoResponse.status);
-      return baseImageData; // Return original if logo fetch fails
+      return baseImageData;
     }
     
     const logoBlob = await logoResponse.blob();
@@ -29,14 +85,12 @@ async function overlayLogoOnImage(
     const logoBase64 = btoa(String.fromCharCode(...new Uint8Array(logoArrayBuffer)));
     const logoDataUrl = `data:${logoBlob.type || "image/png"};base64,${logoBase64}`;
     
-    // Use Lovable AI to composite the images
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       console.error("[LogoOverlay] No LOVABLE_API_KEY");
       return baseImageData;
     }
     
-    // Create a compositing prompt
     const compositePrompt = `Take this base image and add the provided logo to the ${position.replace("-", " ")} corner. 
 The logo should be:
 - Small (about 10-15% of the image width)
@@ -86,34 +140,9 @@ Keep the base image exactly as is, only add the logo overlay.`;
     return baseImageData;
   } catch (error) {
     console.error("[LogoOverlay] Error:", error);
-    return baseImageData; // Return original on any error
+    return baseImageData;
   }
 }
-
-// ============================================================
-// QUALITY-BASED MODEL ROUTING
-// ============================================================
-
-interface ModelRouting {
-  provider: "lovable" | "cometapi";
-  model: string;
-}
-
-const QUALITY_MODEL_MAP: Record<string, ModelRouting> = {
-  // Quality Levels - Use Lovable AI (Gemini) as primary for reliability
-  "smart-image": { provider: "lovable", model: "google/gemini-2.5-flash-image" },
-  "high-image": { provider: "lovable", model: "google/gemini-2.5-flash-image" },
-  "studio-image": { provider: "lovable", model: "google/gemini-2.5-flash-image" },
-  
-  // Legacy product IDs (backwards compatibility)
-  "ai-image-smart": { provider: "lovable", model: "google/gemini-2.5-flash-image" },
-  "ai-image-standard": { provider: "lovable", model: "google/gemini-2.5-flash-image" },
-  "ai-image-pro": { provider: "lovable", model: "google/gemini-2.5-flash-image" },
-  "ai-image-studio": { provider: "lovable", model: "google/gemini-2.5-flash-image" },
-};
-
-// Default to Lovable AI for stability
-const DEFAULT_MODEL_ROUTING: ModelRouting = { provider: "lovable", model: "google/gemini-2.5-flash-image" };
 
 // Scenario context builders
 const SECTOR_CONTEXT: Record<string, string> = {
@@ -265,6 +294,52 @@ async function generateWithLovableAI(
 }
 
 // ============================================================
+// FALLBACK GENERATION - Try alternate provider on failure
+// ============================================================
+
+async function generateWithFallback(
+  prompt: string,
+  selectedModel: ModelOption,
+  qualityId: string,
+  aspectRatio?: string
+): Promise<{ imageData: string | null; error?: string; usedModel: ModelOption }> {
+  // Try primary model
+  let result: { imageData: string | null; error?: string };
+  
+  if (selectedModel.provider === "cometapi") {
+    result = await generateWithCometAPI(prompt, selectedModel.apiModel, aspectRatio);
+  } else {
+    result = await generateWithLovableAI(prompt, selectedModel.apiModel);
+  }
+  
+  if (result.imageData) {
+    return { ...result, usedModel: selectedModel };
+  }
+  
+  // Try fallback from pool
+  console.log(`[Fallback] Primary model ${selectedModel.id} failed, trying fallback...`);
+  const pool = IMAGE_MODEL_POOLS[qualityId] || IMAGE_MODEL_POOLS["smart-image"];
+  const fallbackModels = pool.filter(m => m.id !== selectedModel.id);
+  
+  for (const fallbackModel of fallbackModels) {
+    console.log(`[Fallback] Trying ${fallbackModel.id}...`);
+    
+    if (fallbackModel.provider === "cometapi") {
+      result = await generateWithCometAPI(prompt, fallbackModel.apiModel, aspectRatio);
+    } else {
+      result = await generateWithLovableAI(prompt, fallbackModel.apiModel);
+    }
+    
+    if (result.imageData) {
+      console.log(`[Fallback] Success with ${fallbackModel.id}`);
+      return { ...result, usedModel: fallbackModel };
+    }
+  }
+  
+  return { imageData: null, error: result.error || "All models failed", usedModel: selectedModel };
+}
+
+// ============================================================
 // MAIN HANDLER
 // ============================================================
 
@@ -276,8 +351,8 @@ Deno.serve(async (req) => {
   try {
     const { 
       prompt,
-      productId, // Legacy: "ai-image-smart", etc.
-      qualityId, // New: "smart-image", "high-image", "studio-image"
+      productId,
+      qualityId,
       format, 
       aspectRatio, 
       width, 
@@ -306,13 +381,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Determine model routing - prefer qualityId, fallback to productId
+    // Determine quality and select model from pool
     const modelKey = qualityId || productId || "smart-image";
-    const routing = QUALITY_MODEL_MAP[modelKey] || DEFAULT_MODEL_ROUTING;
+    const mappedQualityId = LEGACY_QUALITY_MAPPINGS[modelKey] || modelKey;
+    const selectedModel = selectModelFromPool(modelKey);
 
     console.log(`=== Image Generation Request ===`);
-    console.log(`Quality/Product ID: ${modelKey}`);
-    console.log(`Provider: ${routing.provider}, Model: ${routing.model}`);
+    console.log(`Quality/Product ID: ${modelKey} -> ${mappedQualityId}`);
+    console.log(`Selected Model: ${selectedModel.id} (${selectedModel.provider})`);
+    console.log(`API Model: ${selectedModel.apiModel}`);
 
     // Determine output language
     const outputLanguage = detectedLanguage || "en";
@@ -367,25 +444,21 @@ Deno.serve(async (req) => {
       enhancedPrompt += ` Brand context: ${aiContextSummary.slice(0, 500)}.`;
     }
 
-    // BRAND ELEMENTS: Describe what the AI should generate (not actual files)
-    // Note: Real logo will be composited after generation if logoUrl is provided
+    // BRAND ELEMENTS
     if (includeLogo && brandName && !logoUrl) {
-      // No logo file - ask AI to generate text-based branding
       enhancedPrompt += ` IMPORTANT: Include a stylized brand logo area or badge in the bottom-right or top-left corner with the text "${brandName}" in elegant, professional typography that matches the image style.`;
     }
     
     if (includeUrl && projectUrl) {
-      // Extract clean domain for display
       const cleanUrl = projectUrl.replace(/^https?:\/\//, "").replace(/\/$/, "").split("/")[0];
       enhancedPrompt += ` Include a subtle website URL watermark "${cleanUrl}" at the bottom of the image in small, readable text.`;
     }
     
     if (includeAvatar && avatarUrl) {
-      // Describe the avatar style for AI to generate a similar spokesperson
       enhancedPrompt += ` Feature a professional-looking spokesperson or presenter figure prominently in the image - a confident, friendly person representing the brand, positioned as if speaking directly to the viewer.`;
     }
 
-    // Social media text overlay - ALWAYS specify language
+    // Social media text overlay
     if (includeText) {
       const textToOverlay = overlayText || brandName || "";
       if (textToOverlay) {
@@ -400,26 +473,11 @@ Deno.serve(async (req) => {
       enhancedPrompt += ` REMINDER: Any and all text visible in this image must be in ${languageName}, not English.`;
     }
     
-    // Log what brand options are being applied
-    console.log("Brand options applied:", { 
-      includeLogo, includeUrl, includeAvatar, includeText,
-      brandName, 
-      hasLogoUrl: !!logoUrl, 
-      hasAvatarUrl: !!avatarUrl, 
-      hasProjectUrl: !!projectUrl,
-      themeColor 
-    });
-
+    console.log("Brand options:", { includeLogo, includeUrl, includeAvatar, includeText, brandName, hasLogoUrl: !!logoUrl });
     console.log("Enhanced prompt:", enhancedPrompt.slice(0, 200) + "...");
 
-    // Generate image based on provider
-    let result: { imageData: string | null; error?: string };
-
-    if (routing.provider === "cometapi") {
-      result = await generateWithCometAPI(enhancedPrompt, routing.model, aspectRatio);
-    } else {
-      result = await generateWithLovableAI(enhancedPrompt, routing.model);
-    }
+    // Generate image with fallback system
+    const result = await generateWithFallback(enhancedPrompt, selectedModel, mappedQualityId, aspectRatio);
 
     if (!result.imageData) {
       console.error("Image generation failed:", result.error);
@@ -428,6 +486,8 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    console.log(`[SUCCESS] Generated with model: ${result.usedModel.id}`);
 
     // POST-PROCESSING: Overlay real logo if provided
     let finalImageData = result.imageData;
@@ -442,7 +502,6 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Convert base64 to blob (use finalImageData which may have logo overlay)
     const base64Data = finalImageData.replace(/^data:image\/\w+;base64,/, "");
     const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
 
@@ -457,7 +516,6 @@ Deno.serve(async (req) => {
 
     if (uploadError) {
       console.error("Storage upload error:", uploadError);
-      // Return base64 URL as fallback
       return new Response(
         JSON.stringify({ imageUrl: finalImageData }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -471,17 +529,18 @@ Deno.serve(async (req) => {
     console.log("Image uploaded:", publicUrlData.publicUrl);
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         imageUrl: publicUrlData.publicUrl,
-        prompt: enhancedPrompt,
-        qualityId: modelKey,
-        provider: routing.provider,
-        model: routing.model,
+        storagePath: fileName,
+        model: result.usedModel.id,
+        provider: result.usedModel.provider,
+        qualityId: mappedQualityId,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
+
   } catch (error) {
-    console.error("Generate image error:", error);
+    console.error("Image generation error:", error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

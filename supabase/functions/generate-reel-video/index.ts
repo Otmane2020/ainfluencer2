@@ -6,18 +6,45 @@ const corsHeaders = {
 };
 
 // ============================================================
-// KLING VIDEO via CometAPI - Low cost video generation
-// ~$0.006-0.02 per second - Perfect for Reels automation
+// MODEL POOL CONFIGURATION - Weighted Random Selection for Reels
+// ============================================================
+
+interface ModelOption {
+  id: string;
+  apiModel: string;
+  weight: number;
+  durations: number[];
+}
+
+const REEL_MODEL_POOL: ModelOption[] = [
+  { id: "veo-3.1", apiModel: "veo-2", weight: 50, durations: [5, 10] },
+  { id: "kling-v2", apiModel: "kling-video", weight: 35, durations: [5, 10] },
+  { id: "minimax-02", apiModel: "minimax-video-01", weight: 15, durations: [4, 6] },
+];
+
+function selectReelModel(): ModelOption {
+  const totalWeight = REEL_MODEL_POOL.reduce((sum, m) => sum + m.weight, 0);
+  let random = Math.random() * totalWeight;
+  
+  for (const model of REEL_MODEL_POOL) {
+    random -= model.weight;
+    if (random <= 0) return model;
+  }
+  
+  return REEL_MODEL_POOL[0];
+}
+
+// ============================================================
+// REEL VIDEO via CometAPI - Low cost video generation
 // ============================================================
 
 interface ReelRequest {
   prompt: string;
   brandName?: string;
-  duration?: number; // 5 or 10 seconds
-  imageUrl?: string; // Optional starting frame for image-to-video
+  duration?: number;
+  imageUrl?: string;
 }
 
-// Poll for video completion
 async function pollForVideo(
   taskId: string,
   apiKey: string,
@@ -26,7 +53,7 @@ async function pollForVideo(
   console.log(`[REEL] Polling for task ${taskId}...`);
 
   for (let i = 0; i < maxAttempts; i++) {
-    await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait 5s
+    await new Promise((resolve) => setTimeout(resolve, 5000));
 
     try {
       const response = await fetch(`https://api.cometapi.com/v1/videos/${taskId}`, {
@@ -46,7 +73,6 @@ async function pollForVideo(
       console.log(`[REEL] Poll ${i + 1}/${maxAttempts}: status=${status}`);
 
       if (status === "completed" || status === "success" || status === "succeeded" || status === "done") {
-        // CometAPI quirk: video URL sometimes in fail_reason field
         let videoUrl: string | null = null;
         
         if (videoData.fail_reason && typeof videoData.fail_reason === "string" && videoData.fail_reason.startsWith("http")) {
@@ -115,7 +141,7 @@ Deno.serve(async (req) => {
     const action = url.searchParams.get("action") || "create";
 
     // ============================================================
-    // STATUS CHECK (for polling from frontend)
+    // STATUS CHECK
     // ============================================================
     if (action === "status") {
       const taskId = url.searchParams.get("taskId");
@@ -136,7 +162,6 @@ Deno.serve(async (req) => {
       const innerData = videoData.data || {};
       const rawStatus = (videoData.status || innerData.status || "in_progress").toLowerCase();
 
-      // Normalize status
       let status = "processing";
       if (rawStatus === "completed" || rawStatus === "success" || rawStatus === "succeeded" || rawStatus === "done") {
         status = "completed";
@@ -144,7 +169,6 @@ Deno.serve(async (req) => {
         status = "failed";
       }
 
-      // Extract video URL
       let videoUrl: string | undefined;
       if (status === "completed") {
         if (videoData.fail_reason && typeof videoData.fail_reason === "string" && videoData.fail_reason.startsWith("http")) {
@@ -167,7 +191,7 @@ Deno.serve(async (req) => {
     }
 
     // ============================================================
-    // CREATE VIDEO (Kling via CometAPI)
+    // CREATE VIDEO
     // ============================================================
     const body: ReelRequest = await req.json();
     const { prompt, brandName, duration = 5, imageUrl } = body;
@@ -183,10 +207,25 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log("=== GENERATE REEL VIDEO (Kling) ===");
+    // ============================================================
+    // WEIGHTED RANDOM MODEL SELECTION
+    // ============================================================
+    const selectedModel = selectReelModel();
+    const apiModel = selectedModel.apiModel;
+
+    // Clamp duration to valid values for selected model
+    const validDurations = selectedModel.durations;
+    const clampedDuration = validDurations.includes(duration)
+      ? duration
+      : validDurations.reduce((prev, curr) =>
+          Math.abs(curr - duration) < Math.abs(prev - duration) ? curr : prev
+        );
+
+    console.log("=== GENERATE REEL VIDEO ===");
+    console.log("Selected Model:", selectedModel.id, "(", apiModel, ")");
     console.log("Prompt:", prompt.slice(0, 100));
     console.log("Brand:", brandName || "N/A");
-    console.log("Duration:", duration, "s");
+    console.log("Duration:", clampedDuration, "s (requested:", duration, "s)");
     console.log("Starting frame:", imageUrl ? "Yes" : "No");
 
     // Build enhanced prompt for social reels
@@ -196,14 +235,13 @@ Deno.serve(async (req) => {
     }
     enhancedPrompt += " Vertical 9:16 portrait format, perfect for Instagram Reels and TikTok, eye-catching motion, professional quality, vibrant colors, social media optimized.";
 
-    // Create video task with Kling
+    // Create video task
     const formData = new FormData();
     formData.append("prompt", enhancedPrompt);
-    formData.append("model", "kling-video");
-    formData.append("seconds", Math.min(Math.max(duration, 5), 10).toString());
-    formData.append("size", "720x1280"); // Portrait for Reels
+    formData.append("model", apiModel);
+    formData.append("seconds", clampedDuration.toString());
+    formData.append("size", "720x1280");
 
-    // If starting frame provided (image-to-video)
     if (imageUrl) {
       formData.append("image_url", imageUrl);
       console.log("[REEL] Using image-to-video mode");
@@ -228,13 +266,11 @@ Deno.serve(async (req) => {
       throw new Error("No task ID returned from CometAPI");
     }
 
-    console.log("[REEL] Task created:", taskId);
+    console.log("[REEL] Task created:", taskId, "| Model:", selectedModel.id);
 
-    // Check if we should wait for completion (sync mode) or return immediately (async mode)
     const waitForCompletion = url.searchParams.get("wait") === "true";
 
     if (waitForCompletion) {
-      // Sync mode: Wait for video completion (for cron jobs)
       const videoUrl = await pollForVideo(taskId, COMETAPI_API_KEY, 60);
 
       if (!videoUrl) {
@@ -244,7 +280,6 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Download and upload to Supabase for permanence
       console.log("[REEL] Downloading video for storage...");
       const videoResponse = await fetch(videoUrl);
       if (!videoResponse.ok) {
@@ -261,7 +296,6 @@ Deno.serve(async (req) => {
 
       if (uploadError) {
         console.error("[REEL] Upload error:", uploadError);
-        // Return original URL as fallback
         return new Response(
           JSON.stringify({
             success: true,
@@ -270,7 +304,8 @@ Deno.serve(async (req) => {
             status: "completed",
             format: "video",
             aspectRatio: "9:16",
-            duration: Math.min(Math.max(duration, 5), 10),
+            duration: clampedDuration,
+            model: selectedModel.id,
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
@@ -287,13 +322,14 @@ Deno.serve(async (req) => {
           status: "completed",
           format: "video",
           aspectRatio: "9:16",
-          duration: Math.min(Math.max(duration, 5), 10),
+          duration: clampedDuration,
+          model: selectedModel.id,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Async mode: Return task ID immediately (for frontend polling)
+    // Async mode
     return new Response(
       JSON.stringify({
         success: true,
@@ -301,7 +337,8 @@ Deno.serve(async (req) => {
         status: "processing",
         format: "video",
         aspectRatio: "9:16",
-        duration: Math.min(Math.max(duration, 5), 10),
+        duration: clampedDuration,
+        model: selectedModel.id,
         message: "Video generation started. Poll status endpoint for completion.",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
