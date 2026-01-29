@@ -10,9 +10,9 @@ const corsHeaders = {
 };
 
 // ============================================================
-// GENERATE REEL VIDEO – FULL MP4 EXPORT (PROD-SAFE)
-// Image: Gemini 2.5 Flash | Audio: Free Bank | Video: CometAPI
-// Format: 9:16 Reel (1080×1920) | Duration: 5-15s
+// GENERATE REEL VIDEO – IMAGE AS REEL (STABLE)
+// Image: CometAPI flux-2-pro | Audio: Free Bank
+// Format: 9:16 Reel (1024×1792) 
 // ============================================================
 
 interface ReelVideoRequest {
@@ -54,167 +54,76 @@ function getRandomTrack(category: string): string {
 }
 
 // ============================================================
-// IMAGE GENERATION – Gemini 2.5 Flash (PROD STABLE)
+// IMAGE GENERATION – CometAPI flux-2-pro (9:16 vertical)
 // ============================================================
 
 async function generateImage(prompt: string, brandName?: string): Promise<string> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+  const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
+  if (!COMETAPI_API_KEY) throw new Error("COMETAPI_API_KEY not configured");
 
   const finalPrompt = `
-Create a stunning vertical Reel image (9:16, 1080×1920):
+Create a stunning vertical Reel image (9:16 aspect ratio):
 
 ${prompt}
 ${brandName ? `Brand: ${brandName}` : ""}
 
 REQUIREMENTS:
-- Format: 9:16 vertical portrait (1080×1920)
+- Format: 9:16 vertical portrait
 - Ultra-premium advertising photography, 8K quality
 - Bold, large text overlay readable on mobile
 - High contrast, vibrant colors
 - Professional studio lighting
 - Instagram/TikTok Reel style
-- Mobile-safe zones (avoid top 150px and bottom 200px)
+- Mobile-safe zones (avoid top and bottom edges)
 `.trim();
 
-  console.log("[REEL] Generating image with Gemini 2.5 Flash...");
+  console.log("[REEL] Generating image with CometAPI flux-2-pro...");
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash-image",
-      messages: [{ role: "user", content: finalPrompt }],
-      modalities: ["image"],
-    }),
-  });
-
-  if (!response.ok) {
-    const status = response.status;
-    console.error("[REEL] Gemini error:", status);
-    if (status === 429) throw new Error("Rate limit exceeded");
-    if (status === 402) throw new Error("Credits required");
-    throw new Error(`Image generation failed: ${status}`);
-  }
-
-  const data = await response.json();
-  const message = data?.choices?.[0]?.message;
-
-  // Secure parsing: only accept image_base64 from content array
-  const imagePart = Array.isArray(message?.content)
-    ? message.content.find((c: { type: string; image_base64?: string }) => 
-        c.type === "image" && c.image_base64
-      )
-    : null;
-
-  if (!imagePart?.image_base64) {
-    console.error("[REEL] No image in Gemini response");
-    throw new Error("No image returned by Gemini");
-  }
-
-  console.log("[REEL] Image generated successfully");
-  return imagePart.image_base64;
-}
-
-// ============================================================
-// COMET API POLLING (for async video generation)
-// ============================================================
-
-async function waitForCometVideo(jobId: string): Promise<string> {
-  const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
-  if (!COMETAPI_API_KEY) throw new Error("COMETAPI_API_KEY not configured");
-
-  const STATUS_URL = `https://api.cometapi.com/v1/video/status/${jobId}`;
-  const MAX_ATTEMPTS = 30;  // ~60s max
-  const DELAY_MS = 2000;
-
-  console.log(`[REEL] Polling CometAPI job: ${jobId}`);
-
-  for (let i = 0; i < MAX_ATTEMPTS; i++) {
-    const res = await fetch(STATUS_URL, {
-      headers: {
-        Authorization: `Bearer ${COMETAPI_API_KEY}`,
-      },
-    });
-
-    if (!res.ok) {
-      throw new Error(`Comet status check failed (${res.status})`);
-    }
-
-    const data = await res.json();
-    console.log(`[REEL] Poll ${i + 1}/${MAX_ATTEMPTS}: status=${data.status}`);
-
-    if (data.status === "completed" && data.video_url) {
-      console.log("[REEL] Video ready!");
-      return data.video_url;
-    }
-
-    if (data.status === "failed") {
-      throw new Error("CometAPI video generation failed");
-    }
-
-    // Still processing, wait before next poll
-    await new Promise((r) => setTimeout(r, DELAY_MS));
-  }
-
-  throw new Error("CometAPI video generation timeout");
-}
-
-// ============================================================
-// VIDEO GENERATION – CometAPI (async-safe)
-// ============================================================
-
-async function generateVideoMP4(
-  imageUrl: string,
-  musicUrl: string,
-  duration: number
-): Promise<string> {
-  const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
-  if (!COMETAPI_API_KEY) throw new Error("COMETAPI_API_KEY not configured");
-
-  console.log("[REEL] Generating MP4 with CometAPI...");
-
-  const response = await fetch("https://api.cometapi.com/v1/video/generate", {
+  // Use flux-2-pro which is stable and supports 9:16
+  const response = await fetch("https://api.cometapi.com/v1/images/generations", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${COMETAPI_API_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      input_image: imageUrl,
-      audio_url: musicUrl,
-      duration,
-      aspect_ratio: "9:16",
-      output_format: "mp4",
-      motion: "subtle",
-      style: "reel",
+      model: "flux-2-pro",
+      prompt: finalPrompt,
+      n: 1,
+      size: "1024x1792", // 9:16 vertical for reels
     }),
   });
 
   if (!response.ok) {
+    const status = response.status;
     const errorText = await response.text();
-    console.error("[REEL] CometAPI error:", response.status, errorText);
-    throw new Error(`CometAPI video generation failed: ${response.status}`);
+    console.error("[REEL] CometAPI error:", status, errorText.slice(0, 300));
+    
+    if (status === 429) throw new Error("Rate limit exceeded");
+    if (status === 402) throw new Error("Credits required");
+    if (status === 503) throw new Error("Image service temporarily unavailable");
+    throw new Error(`Image generation failed: ${status}`);
   }
 
   const data = await response.json();
-
-  // Handle instant response
-  if (data.video_url) {
-    console.log("[REEL] Instant video URL received");
-    return data.video_url;
+  console.log("[REEL] CometAPI response received");
+  
+  const imageUrl = data.data?.[0]?.url || data.data?.[0]?.b64_json;
+  
+  if (!imageUrl) {
+    console.error("[REEL] No image in response:", JSON.stringify(data).slice(0, 200));
+    throw new Error("No image returned");
   }
 
-  // Handle async response (needs polling)
-  if (data.job_id) {
-    console.log("[REEL] Async job started, polling...");
-    return await waitForCometVideo(data.job_id);
+  // If it's a URL, return it directly (we'll download in next step)
+  if (imageUrl.startsWith("http")) {
+    console.log("[REEL] Image URL received");
+    return imageUrl;
   }
 
-  throw new Error("Invalid CometAPI response: no video_url or job_id");
+  // If base64, we need to upload it first
+  console.log("[REEL] Image base64 received");
+  return `data:image/png;base64,${imageUrl}`;
 }
 
 // ============================================================
@@ -243,69 +152,78 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log("=== GENERATE REEL VIDEO (PROD-SAFE MP4) ===");
+    console.log("=== GENERATE REEL (IMAGE AS REEL) ===");
     console.log("Prompt:", body.prompt.slice(0, 80));
     console.log("Duration:", duration, "s | Music:", musicCategory);
 
-    // Step 1: Generate image with Gemini
-    const imageBase64 = await generateImage(body.prompt, body.brandName);
+    // Step 1: Generate image
+    const imageResult = await generateImage(body.prompt, body.brandName);
+    
+    let imagePublicUrl: string;
+    
+    // Step 2: Handle image result (URL or base64)
+    if (imageResult.startsWith("http")) {
+      // Download the image and upload to our storage
+      console.log("[REEL] Downloading image from CometAPI...");
+      const imgResponse = await fetch(imageResult);
+      if (!imgResponse.ok) {
+        throw new Error(`Failed to download image: ${imgResponse.status}`);
+      }
+      const imgBuffer = await imgResponse.arrayBuffer();
+      const imageBytes = new Uint8Array(imgBuffer);
+      
+      const imagePath = `reels/image-${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
+      const { error: uploadError } = await supabase.storage
+        .from("media")
+        .upload(imagePath, imageBytes, { contentType: "image/png", upsert: true });
 
-    // Step 2: Upload image to storage
-    const imageBytes = Uint8Array.from(atob(imageBase64), (c) => c.charCodeAt(0));
-    const imagePath = `reels/image-${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
+      if (uploadError) {
+        console.error("[REEL] Image upload error:", uploadError);
+        throw new Error("Image upload failed");
+      }
 
-    const { error: uploadError } = await supabase.storage
-      .from("media")
-      .upload(imagePath, imageBytes, { contentType: "image/png", upsert: true });
+      const { data: urlData } = supabase.storage.from("media").getPublicUrl(imagePath);
+      imagePublicUrl = urlData.publicUrl;
+    } else {
+      // Handle base64
+      const base64Data = imageResult.replace(/^data:image\/\w+;base64,/, "");
+      const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+      
+      const imagePath = `reels/image-${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
+      const { error: uploadError } = await supabase.storage
+        .from("media")
+        .upload(imagePath, imageBytes, { contentType: "image/png", upsert: true });
 
-    if (uploadError) {
-      console.error("[REEL] Image upload error:", uploadError);
-      throw new Error("Image upload failed");
+      if (uploadError) {
+        console.error("[REEL] Image upload error:", uploadError);
+        throw new Error("Image upload failed");
+      }
+
+      const { data: urlData } = supabase.storage.from("media").getPublicUrl(imagePath);
+      imagePublicUrl = urlData.publicUrl;
     }
-
-    const { data: imagePublicUrl } = supabase.storage.from("media").getPublicUrl(imagePath);
 
     // Step 3: Get music from free bank
     const musicUrl = getRandomTrack(musicCategory);
 
-    // Step 4: Generate MP4 via CometAPI (handles async polling)
-    const videoTempUrl = await generateVideoMP4(imagePublicUrl.publicUrl, musicUrl, duration);
-
-    // Step 5: Download and store video in Supabase
-    const videoResponse = await fetch(videoTempUrl);
-    if (!videoResponse.ok) {
-      throw new Error("Failed to download generated video");
-    }
-    const videoBuffer = await videoResponse.arrayBuffer();
-
-    const videoPath = `reels/video-${Date.now()}-${Math.random().toString(36).slice(2)}.mp4`;
-    const { error: videoUploadError } = await supabase.storage
-      .from("media")
-      .upload(videoPath, videoBuffer, { contentType: "video/mp4", upsert: true });
-
-    if (videoUploadError) {
-      console.error("[REEL] Video upload error:", videoUploadError);
-      throw new Error("Video upload failed");
-    }
-
-    const { data: videoPublicUrl } = supabase.storage.from("media").getPublicUrl(videoPath);
-
     console.log("[REEL] Complete!");
-    console.log("  Image:", imagePublicUrl.publicUrl);
-    console.log("  Video:", videoPublicUrl.publicUrl);
+    console.log("  Image:", imagePublicUrl);
+    console.log("  Music:", musicUrl);
 
+    // Return "Image as Reel" - ready to post as static reel with music
     return new Response(
       JSON.stringify({
         success: true,
         format: "reel",
         aspectRatio: "9:16",
-        resolution: "1080x1920",
+        resolution: "1024x1792",
         duration,
-        imageUrl: imagePublicUrl.publicUrl,
-        videoUrl: videoPublicUrl.publicUrl,
+        imageUrl: imagePublicUrl,
+        videoUrl: null, // No video composition for now (CometAPI video endpoint unreliable)
+        musicUrl,
         musicCategory,
-        status: "VIDEO_READY",
-        message: `Reel MP4 exported successfully (9:16, ${duration}s)`,
+        status: "IMAGE_READY",
+        message: `Reel image generated (9:16). Ready for posting with background music.`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
