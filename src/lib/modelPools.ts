@@ -3,7 +3,7 @@
 // Centralized model selection with weighted random rotation
 // ============================================================
 
-export type Provider = "cometapi" | "lovable" | "openai" | "elevenlabs" | "suno";
+export type Provider = "replicate" | "lovable" | "openai" | "elevenlabs" | "suno";
 
 export interface ModelOption {
   id: string;
@@ -15,50 +15,50 @@ export interface ModelOption {
 }
 
 // ============================================================
-// VIDEO MODEL POOLS (via CometAPI)
+// VIDEO MODEL POOLS (via Replicate)
 // ============================================================
 
 export const VIDEO_MODEL_POOLS: Record<string, ModelOption[]> = {
   // Smart Video - ~$0.40/video avg
   "smart-video": [
-    { id: "veo-3.1", provider: "cometapi", weight: 50, apiModel: "veo-2", maxDuration: 10, costEstimate: 0.40 },
-    { id: "kling-v2", provider: "cometapi", weight: 35, apiModel: "kling-video", maxDuration: 10, costEstimate: 0.30 },
-    { id: "minimax-02", provider: "cometapi", weight: 15, apiModel: "minimax-video-01", maxDuration: 6, costEstimate: 0.20 },
+    { id: "veo-3.1", provider: "replicate", weight: 50, apiModel: "veo-2", maxDuration: 10, costEstimate: 0.40 },
+    { id: "kling-v2", provider: "replicate", weight: 35, apiModel: "kling-video", maxDuration: 10, costEstimate: 0.30 },
+    { id: "minimax-02", provider: "replicate", weight: 15, apiModel: "minimax-video-01", maxDuration: 6, costEstimate: 0.20 },
   ],
   
   // High Video - ~$1.20/video avg
   "high-video": [
-    { id: "sora-2", provider: "cometapi", weight: 60, apiModel: "sora-2", maxDuration: 12, costEstimate: 0.96 },
-    { id: "veo-3.1-pro", provider: "cometapi", weight: 40, apiModel: "veo-2", maxDuration: 20, costEstimate: 2.00 },
+    { id: "sora-2", provider: "replicate", weight: 60, apiModel: "sora-2", maxDuration: 12, costEstimate: 0.96 },
+    { id: "veo-3.1-pro", provider: "replicate", weight: 40, apiModel: "veo-2", maxDuration: 20, costEstimate: 2.00 },
   ],
   
   // Cinema Video - ~$2.40/video avg
   "cinema-video": [
-    { id: "sora-2-pro", provider: "cometapi", weight: 70, apiModel: "sora-2", maxDuration: 20, costEstimate: 2.40 },
-    { id: "veo-3.1-ultra", provider: "cometapi", weight: 30, apiModel: "veo-2", maxDuration: 30, costEstimate: 4.00 },
+    { id: "sora-2-pro", provider: "replicate", weight: 70, apiModel: "sora-2", maxDuration: 20, costEstimate: 2.40 },
+    { id: "veo-3.1-ultra", provider: "replicate", weight: 30, apiModel: "veo-2", maxDuration: 30, costEstimate: 4.00 },
   ],
 };
 
 // ============================================================
-// IMAGE MODEL POOLS (CometAPI + Lovable AI)
+// IMAGE MODEL POOLS (Replicate + Lovable AI)
 // ============================================================
 
 export const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
   // Smart Image - ~$0.01/image avg
   "smart-image": [
     { id: "gemini-flash-image", provider: "lovable", weight: 60, apiModel: "google/gemini-2.5-flash-image", costEstimate: 0.008 },
-    { id: "flux-2-flex", provider: "cometapi", weight: 40, apiModel: "flux-2-flex", costEstimate: 0.008 },
+    { id: "flux-2-flex", provider: "replicate", weight: 40, apiModel: "flux-2-flex", costEstimate: 0.008 },
   ],
   
   // High Image - ~$0.05/image avg
   "high-image": [
-    { id: "nano-banana-pro", provider: "cometapi", weight: 50, apiModel: "nano-banana-pro", costEstimate: 0.03 },
-    { id: "flux-2-pro", provider: "cometapi", weight: 50, apiModel: "flux-2-pro", costEstimate: 0.08 },
+    { id: "nano-banana-pro", provider: "replicate", weight: 50, apiModel: "nano-banana-pro", costEstimate: 0.03 },
+    { id: "flux-2-pro", provider: "replicate", weight: 50, apiModel: "flux-2-pro", costEstimate: 0.08 },
   ],
   
   // Studio Image - ~$0.08/image avg
   "studio-image": [
-    { id: "flux-2-pro", provider: "cometapi", weight: 60, apiModel: "flux-2-pro", costEstimate: 0.08 },
+    { id: "flux-2-pro", provider: "replicate", weight: 60, apiModel: "flux-2-pro", costEstimate: 0.08 },
     { id: "gemini-pro-image", provider: "lovable", weight: 40, apiModel: "google/gemini-3-pro-image-preview", costEstimate: 0.06 },
   ],
 };
