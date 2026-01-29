@@ -1,6 +1,43 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, ChevronDown, Sparkles } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Clapperboard,
+  X,
+  Layers,
+  Palette,
+  Volume2,
+  UtensilsCrossed,
+  ShoppingBag,
+  Home,
+  Stethoscope,
+  Building2,
+  Dumbbell,
+  Sparkles,
+  Car,
+  Laptop,
+  GraduationCap,
+  Briefcase,
+  Package,
+  MessageCircle,
+  Box,
+  ArrowRightLeft,
+  BookOpen,
+  Film,
+  BookMarked,
+  Heart,
+  Smartphone,
+  Zap,
+  Sunrise,
+  Shield,
+  Rocket,
+  Award,
+  PartyPopper,
+  Crown,
+  Fingerprint,
+  LucideIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,7 +47,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   BUSINESS_SECTORS,
@@ -21,6 +57,42 @@ import {
   ScenarioPreset,
   getPresetScenario,
 } from "@/lib/videoScenarios";
+
+// Icon mapping for dynamic rendering
+const iconMap: Record<string, LucideIcon> = {
+  UtensilsCrossed,
+  ShoppingBag,
+  Home,
+  Stethoscope,
+  Building2,
+  Dumbbell,
+  Sparkles,
+  Car,
+  Laptop,
+  GraduationCap,
+  Briefcase,
+  Package,
+  MessageCircle,
+  Box,
+  ArrowRightLeft,
+  BookOpen,
+  Film,
+  BookMarked,
+  Heart,
+  Smartphone,
+  Zap,
+  Sunrise,
+  Shield,
+  Rocket,
+  Award,
+  PartyPopper,
+  Crown,
+  Fingerprint,
+};
+
+const getIcon = (iconName: string): LucideIcon => {
+  return iconMap[iconName] || Layers;
+};
 
 interface ScenarioSelectorProps {
   selectedSector?: VideoScenario;
@@ -52,44 +124,66 @@ export function ScenarioSelector({
     setOpen(false);
   };
 
-  const getDisplayText = () => {
-    const parts: string[] = [];
-    if (selectedSector) parts.push(selectedSector.icon);
-    if (selectedStyle) parts.push(selectedStyle.icon);
-    if (selectedTone) parts.push(selectedTone.icon);
-    
-    if (parts.length === 0) return "Add Scenario";
-    return parts.join(" ");
-  };
-
   const hasSelection = selectedSector || selectedStyle || selectedTone;
+  const selectionCount = [selectedSector, selectedStyle, selectedTone].filter(Boolean).length;
 
-  const ScenarioGrid = ({ 
-    items, 
-    selected, 
-    onSelect 
-  }: { 
-    items: VideoScenario[]; 
-    selected?: VideoScenario; 
+  const ScenarioGrid = ({
+    items,
+    selected,
+    onSelect,
+    category,
+    categoryIcon: CategoryIcon,
+  }: {
+    items: VideoScenario[];
+    selected?: VideoScenario;
     onSelect: (item: VideoScenario | undefined) => void;
+    category: string;
+    categoryIcon: LucideIcon;
   }) => (
-    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-      {items.map((item) => (
-        <button
-          key={item.id}
-          onClick={() => onSelect(selected?.id === item.id ? undefined : item)}
-          className={cn(
-            "flex flex-col items-center gap-1 rounded-lg border p-2 text-center transition-all hover:bg-accent",
-            selected?.id === item.id && "border-primary bg-primary/10"
-          )}
-        >
-          <span className="text-xl">{item.icon}</span>
-          <span className="text-[10px] leading-tight">{item.name}</span>
-          {selected?.id === item.id && (
-            <Check className="h-3 w-3 text-primary" />
-          )}
-        </button>
-      ))}
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+        <CategoryIcon className="h-4 w-4" />
+        <span>{category}</span>
+        {selected && (
+          <span className="ml-auto text-xs text-primary font-normal">
+            {selected.name}
+          </span>
+        )}
+      </div>
+      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+        {items.map((item) => {
+          const Icon = getIcon(item.icon);
+          const isSelected = selected?.id === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => onSelect(isSelected ? undefined : item)}
+              className={cn(
+                "relative flex flex-col items-center gap-2 rounded-xl border-2 p-3 text-center transition-all duration-200",
+                "hover:bg-accent/50 hover:border-primary/30",
+                isSelected
+                  ? "border-primary bg-primary/10 shadow-sm shadow-primary/20"
+                  : "border-border/50 bg-card/50"
+              )}
+            >
+              <div
+                className={cn(
+                  "flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
+                  isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                )}
+              >
+                <Icon className="h-5 w-5" />
+              </div>
+              <span className="text-xs font-medium leading-tight">{item.name}</span>
+              {isSelected && (
+                <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary flex items-center justify-center">
+                  <Check className="h-3 w-3 text-primary-foreground" />
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 
@@ -100,30 +194,47 @@ export function ScenarioSelector({
           variant="outline"
           size="sm"
           className={cn(
-            "h-8 px-2 text-xs gap-1",
-            hasSelection && "border-primary/50 bg-primary/5"
+            "h-9 px-3 text-sm gap-2 rounded-lg transition-all",
+            hasSelection
+              ? "border-primary/50 bg-primary/5 text-primary hover:bg-primary/10"
+              : "hover:border-primary/30"
           )}
         >
-          <Sparkles className="h-3 w-3 text-primary" />
-          {getDisplayText()}
-          <ChevronDown className="h-3 w-3 ml-1" />
+          <Clapperboard className="h-4 w-4" />
+          <span className="hidden sm:inline">
+            {hasSelection ? `${selectionCount} Selected` : "Add Scenario"}
+          </span>
+          <span className="sm:hidden">
+            {hasSelection ? selectionCount : "+"}
+          </span>
+          <ChevronDown className="h-3 w-3 opacity-50" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-xl max-h-[85vh]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            Video Scenario
+
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] p-0 gap-0 overflow-hidden">
+        <DialogHeader className="p-6 pb-4 border-b border-border/50">
+          <DialogTitle className="flex items-center gap-3 text-lg">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Clapperboard className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <span className="font-semibold">Video Scenario</span>
+              <p className="text-sm font-normal text-muted-foreground mt-0.5">
+                Define the context and style for your video
+              </p>
+            </div>
           </DialogTitle>
         </DialogHeader>
 
         {/* Tabs */}
-        <div className="flex gap-2 border-b pb-2">
+        <div className="flex gap-1 p-2 mx-4 mt-4 bg-muted/50 rounded-lg">
           <button
             onClick={() => setActiveTab("presets")}
             className={cn(
-              "px-3 py-1.5 text-sm rounded-md transition-colors",
-              activeTab === "presets" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+              "flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all",
+              activeTab === "presets"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
             )}
           >
             Quick Presets
@@ -131,144 +242,146 @@ export function ScenarioSelector({
           <button
             onClick={() => setActiveTab("custom")}
             className={cn(
-              "px-3 py-1.5 text-sm rounded-md transition-colors",
-              activeTab === "custom" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+              "flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all",
+              activeTab === "custom"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
             )}
           >
             Custom Build
           </button>
         </div>
 
-        <ScrollArea className="max-h-[60vh] pr-4">
-          <AnimatePresence mode="wait">
-            {activeTab === "presets" && (
-              <motion.div
-                key="presets"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                className="grid grid-cols-2 gap-2"
-              >
-                {SCENARIO_PRESETS.map((preset) => {
-                  const scenario = getPresetScenario(preset.id);
-                  return (
-                    <button
-                      key={preset.id}
-                      onClick={() => handlePresetSelect(preset)}
-                      className="flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-all hover:bg-accent hover:border-primary/50"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">
-                          {scenario?.sector?.icon}
-                          {scenario?.style?.icon}
-                          {scenario?.tone?.icon}
-                        </span>
-                      </div>
-                      <span className="font-medium text-sm">{preset.name}</span>
-                      <span className="text-[10px] text-muted-foreground line-clamp-1">
-                        {preset.description}
-                      </span>
-                    </button>
-                  );
-                })}
-              </motion.div>
-            )}
+        <ScrollArea className="flex-1 max-h-[50vh]">
+          <div className="p-4">
+            <AnimatePresence mode="wait">
+              {activeTab === "presets" && (
+                <motion.div
+                  key="presets"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+                >
+                  {SCENARIO_PRESETS.map((preset) => {
+                    const scenario = getPresetScenario(preset.id);
+                    const SectorIcon = scenario?.sector ? getIcon(scenario.sector.icon) : Layers;
+                    const StyleIcon = scenario?.style ? getIcon(scenario.style.icon) : Layers;
+                    const ToneIcon = scenario?.tone ? getIcon(scenario.tone.icon) : Layers;
 
-            {activeTab === "custom" && (
-              <motion.div
-                key="custom"
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                className="space-y-4"
-              >
-                {/* Sector */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-medium">Business Sector</h4>
-                    {selectedSector && (
-                      <Badge variant="secondary" className="text-xs">
-                        {selectedSector.icon} {selectedSector.name}
-                      </Badge>
-                    )}
-                  </div>
+                    return (
+                      <button
+                        key={preset.id}
+                        onClick={() => handlePresetSelect(preset)}
+                        className="group flex items-start gap-4 rounded-xl border-2 border-border/50 bg-card/50 p-4 text-left transition-all hover:bg-accent/50 hover:border-primary/30 hover:shadow-sm"
+                      >
+                        <div className="flex -space-x-2">
+                          <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center border-2 border-background">
+                            <SectorIcon className="h-4 w-4 text-primary" />
+                          </div>
+                          <div className="h-8 w-8 rounded-lg bg-secondary/50 flex items-center justify-center border-2 border-background">
+                            <StyleIcon className="h-4 w-4 text-secondary-foreground" />
+                          </div>
+                          <div className="h-8 w-8 rounded-lg bg-accent flex items-center justify-center border-2 border-background">
+                            <ToneIcon className="h-4 w-4 text-accent-foreground" />
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="font-medium text-sm block">{preset.name}</span>
+                          <span className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+                            {preset.description}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </motion.div>
+              )}
+
+              {activeTab === "custom" && (
+                <motion.div
+                  key="custom"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-6"
+                >
                   <ScenarioGrid
                     items={BUSINESS_SECTORS}
                     selected={selectedSector}
                     onSelect={onSectorChange}
+                    category="Industry"
+                    categoryIcon={Briefcase}
                   />
-                </div>
-
-                {/* Style */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-medium">Video Style</h4>
-                    {selectedStyle && (
-                      <Badge variant="secondary" className="text-xs">
-                        {selectedStyle.icon} {selectedStyle.name}
-                      </Badge>
-                    )}
-                  </div>
                   <ScenarioGrid
                     items={VIDEO_STYLES}
                     selected={selectedStyle}
                     onSelect={onStyleChange}
+                    category="Video Style"
+                    categoryIcon={Palette}
                   />
-                </div>
-
-                {/* Tone */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-medium">Emotional Tone</h4>
-                    {selectedTone && (
-                      <Badge variant="secondary" className="text-xs">
-                        {selectedTone.icon} {selectedTone.name}
-                      </Badge>
-                    )}
-                  </div>
                   <ScenarioGrid
                     items={EMOTIONAL_TONES}
                     selected={selectedTone}
                     onSelect={onToneChange}
+                    category="Tone & Mood"
+                    categoryIcon={Volume2}
                   />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </ScrollArea>
 
-        {/* Current Selection Summary */}
+        {/* Footer with selection summary */}
         {hasSelection && (
-          <div className="flex items-center justify-between pt-2 border-t">
-            <div className="flex gap-2">
-              {selectedSector && (
-                <Badge variant="outline" className="text-xs">
-                  {selectedSector.icon} {selectedSector.name}
-                </Badge>
-              )}
-              {selectedStyle && (
-                <Badge variant="outline" className="text-xs">
-                  {selectedStyle.icon} {selectedStyle.name}
-                </Badge>
-              )}
-              {selectedTone && (
-                <Badge variant="outline" className="text-xs">
-                  {selectedTone.icon} {selectedTone.name}
-                </Badge>
-              )}
+          <div className="border-t border-border/50 p-4 bg-muted/30">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-wrap gap-2">
+                {selectedSector && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                    {(() => {
+                      const Icon = getIcon(selectedSector.icon);
+                      return <Icon className="h-3 w-3" />;
+                    })()}
+                    {selectedSector.name}
+                  </div>
+                )}
+                {selectedStyle && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary/50 text-secondary-foreground text-xs font-medium">
+                    {(() => {
+                      const Icon = getIcon(selectedStyle.icon);
+                      return <Icon className="h-3 w-3" />;
+                    })()}
+                    {selectedStyle.name}
+                  </div>
+                )}
+                {selectedTone && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent text-accent-foreground text-xs font-medium">
+                    {(() => {
+                      const Icon = getIcon(selectedTone.icon);
+                      return <Icon className="h-3 w-3" />;
+                    })()}
+                    {selectedTone.name}
+                  </div>
+                )}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  onSectorChange(undefined);
+                  onStyleChange(undefined);
+                  onToneChange(undefined);
+                }}
+                className="text-xs text-muted-foreground hover:text-destructive gap-1"
+              >
+                <X className="h-3 w-3" />
+                Clear
+              </Button>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                onSectorChange(undefined);
-                onStyleChange(undefined);
-                onToneChange(undefined);
-              }}
-              className="text-xs"
-            >
-              Clear
-            </Button>
           </div>
         )}
       </DialogContent>

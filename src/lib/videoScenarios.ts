@@ -1,11 +1,11 @@
 // ============================================================
-// VIDEO SCENARIOS - Mise en situation for video generation
+// VIDEO SCENARIOS - Context settings for video generation
 // ============================================================
 
 export interface VideoScenario {
   id: string;
   name: string;
-  icon: string;
+  icon: string; // Lucide icon name
   promptContext: string;
 }
 
@@ -17,73 +17,73 @@ export const BUSINESS_SECTORS: VideoScenario[] = [
   {
     id: "restaurant",
     name: "Restaurant",
-    icon: "🍽️",
+    icon: "UtensilsCrossed",
     promptContext: "Restaurant setting with delicious food, warm ambiance, chef preparing dishes, satisfied customers dining",
   },
   {
     id: "boutique",
-    name: "Boutique",
-    icon: "🛍️",
+    name: "Fashion & Retail",
+    icon: "ShoppingBag",
     promptContext: "Fashion boutique with elegant displays, customers trying on clothes, stylish interior, shopping experience",
   },
   {
     id: "real-estate",
     name: "Real Estate",
-    icon: "🏠",
+    icon: "Home",
     promptContext: "Beautiful property tour, modern home interior, real estate agent showing house, dream home vibes",
   },
   {
     id: "medical",
-    name: "Doctor/Clinic",
-    icon: "🏥",
+    name: "Healthcare",
+    icon: "Stethoscope",
     promptContext: "Professional medical clinic, caring doctor with patient, clean modern healthcare environment, trust and expertise",
   },
   {
     id: "hotel",
-    name: "Hotel",
-    icon: "🏨",
+    name: "Hospitality",
+    icon: "Building2",
     promptContext: "Luxury hotel experience, beautiful room reveal, spa and amenities, vacation and relaxation vibes",
   },
   {
     id: "fitness",
-    name: "Fitness/Gym",
-    icon: "💪",
+    name: "Fitness & Wellness",
+    icon: "Dumbbell",
     promptContext: "Dynamic gym environment, workout session, athletic performance, motivation and energy",
   },
   {
     id: "beauty",
-    name: "Beauty Salon",
-    icon: "💇",
+    name: "Beauty & Spa",
+    icon: "Sparkles",
     promptContext: "Beauty salon transformation, hair styling, makeup application, before and after reveal",
   },
   {
     id: "auto",
-    name: "Auto/Garage",
-    icon: "🚗",
+    name: "Automotive",
+    icon: "Car",
     promptContext: "Car dealership or garage, vehicle showcase, automotive expertise, professional car care",
   },
   {
     id: "tech",
-    name: "Tech/Startup",
-    icon: "💻",
+    name: "Technology",
+    icon: "Laptop",
     promptContext: "Modern tech office, innovative product demo, startup culture, cutting-edge technology",
   },
   {
     id: "education",
     name: "Education",
-    icon: "📚",
+    icon: "GraduationCap",
     promptContext: "Learning environment, classroom or online course, knowledge sharing, student success stories",
   },
   {
     id: "agency",
-    name: "Agency",
-    icon: "🏢",
+    name: "Professional Services",
+    icon: "Briefcase",
     promptContext: "Professional agency office, team collaboration, client meeting, business success",
   },
   {
     id: "ecommerce",
     name: "E-commerce",
-    icon: "📦",
+    icon: "Package",
     promptContext: "Product unboxing, online shopping experience, package delivery, customer satisfaction",
   },
 ];
@@ -96,49 +96,49 @@ export const VIDEO_STYLES: VideoScenario[] = [
   {
     id: "testimonial",
     name: "Testimonial",
-    icon: "🗣️",
+    icon: "MessageCircle",
     promptContext: "Authentic customer testimonial, real person speaking to camera, genuine emotion and satisfaction",
   },
   {
     id: "product-demo",
     name: "Product Demo",
-    icon: "🎁",
+    icon: "Box",
     promptContext: "Product demonstration, hands-on showcase, features highlight, close-up details",
   },
   {
     id: "before-after",
-    name: "Before/After",
-    icon: "✨",
+    name: "Transformation",
+    icon: "ArrowRightLeft",
     promptContext: "Dramatic before and after transformation, split screen comparison, impressive results",
   },
   {
     id: "tutorial",
     name: "Tutorial",
-    icon: "📖",
+    icon: "BookOpen",
     promptContext: "Step-by-step tutorial, educational content, how-to guide, clear instructions",
   },
   {
     id: "behind-scenes",
     name: "Behind the Scenes",
-    icon: "🎬",
+    icon: "Film",
     promptContext: "Behind the scenes footage, making-of content, authentic process reveal, team at work",
   },
   {
     id: "story",
     name: "Brand Story",
-    icon: "📜",
+    icon: "BookMarked",
     promptContext: "Brand storytelling, company journey, founder story, mission and values",
   },
   {
     id: "lifestyle",
     name: "Lifestyle",
-    icon: "🌟",
+    icon: "Heart",
     promptContext: "Lifestyle content, aspirational visuals, product in daily life, aesthetic scenes",
   },
   {
     id: "ugc",
     name: "UGC Style",
-    icon: "📱",
+    icon: "Smartphone",
     promptContext: "User-generated content style, casual phone recording, authentic and raw, relatable content",
   },
 ];
@@ -151,49 +151,49 @@ export const EMOTIONAL_TONES: VideoScenario[] = [
   {
     id: "urgent",
     name: "Urgent",
-    icon: "⚡",
+    icon: "Zap",
     promptContext: "Fast-paced, dynamic editing, urgency and FOMO, limited time offer vibes, action-driven",
   },
   {
     id: "inspiring",
     name: "Inspiring",
-    icon: "🌅",
+    icon: "Sunrise",
     promptContext: "Inspirational mood, motivational energy, success story, uplifting music vibes, emotional journey",
   },
   {
     id: "reassuring",
     name: "Reassuring",
-    icon: "🤝",
+    icon: "Shield",
     promptContext: "Calm and trustworthy, professional expertise, reliable service, peace of mind, safety",
   },
   {
     id: "dynamic",
     name: "Dynamic",
-    icon: "🚀",
+    icon: "Rocket",
     promptContext: "High energy, fast cuts, exciting visuals, modern and trendy, youth appeal",
   },
   {
     id: "professional",
     name: "Professional",
-    icon: "👔",
+    icon: "Award",
     promptContext: "Corporate style, business professional, credibility and expertise, polished presentation",
   },
   {
     id: "playful",
     name: "Playful",
-    icon: "🎉",
+    icon: "PartyPopper",
     promptContext: "Fun and playful, colorful visuals, humor, engaging and entertaining, light-hearted",
   },
   {
     id: "luxurious",
-    name: "Luxurious",
-    icon: "✨",
+    name: "Premium",
+    icon: "Crown",
     promptContext: "Premium and luxurious, elegant visuals, high-end aesthetic, exclusive and sophisticated",
   },
   {
     id: "authentic",
     name: "Authentic",
-    icon: "💯",
+    icon: "Fingerprint",
     promptContext: "Raw and authentic, no filters, real moments, genuine connection, transparency",
   },
 ];
