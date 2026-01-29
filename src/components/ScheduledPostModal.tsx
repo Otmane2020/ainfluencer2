@@ -70,6 +70,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { SocialShareModal } from "@/components/SocialShareModal";
+import { PaywallModal } from "@/components/PaywallModal";
 
 // TikTok icon component
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -192,6 +193,9 @@ export const ScheduledPostModal = ({
   
   // Share modal
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  
+  // Paywall modal for upgrade prompts
+  const [paywallOpen, setPaywallOpen] = useState(false);
   
   // Track if this is an "Image as Reel" post (image campaign with video content_type)
   const [isImageAsReel, setIsImageAsReel] = useState(false);
@@ -566,7 +570,38 @@ export const ScheduledPostModal = ({
         },
       });
 
-      if (error) throw error;
+      // Check if upgrade is required (403 with requires_upgrade flag)
+      if (error) {
+        // Try to parse the error response for requires_upgrade flag
+        try {
+          const errorData = await error.context?.json?.() || {};
+          if (errorData.requires_upgrade) {
+            setPaywallOpen(true);
+            toast({
+              title: "Subscription required",
+              description: "Video generation requires a Pro or Business plan",
+            });
+            return;
+          }
+        } catch {
+          // If we can't parse, check error message
+          if (error.message?.includes("requires_upgrade") || error.message?.includes("Subscription required")) {
+            setPaywallOpen(true);
+            return;
+          }
+        }
+        throw error;
+      }
+
+      // Check if response indicates upgrade required
+      if (data?.requires_upgrade) {
+        setPaywallOpen(true);
+        toast({
+          title: "Subscription required",
+          description: data.error || "Video generation requires a Pro or Business plan",
+        });
+        return;
+      }
 
       // Check if we got a video URL directly (some models return immediately)
       if (data?.videoUrl) {
@@ -608,11 +643,26 @@ export const ScheduledPostModal = ({
           .eq("id", post.id);
           
         onUpdate?.();
+      } else if (!data?.success && data?.error) {
+        // Handle structured error response
+        if (data.requires_upgrade) {
+          setPaywallOpen(true);
+          return;
+        }
+        throw new Error(data.error);
       } else {
         throw new Error("No video URL or task ID returned");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Video generation error:", error);
+      
+      // Check if this is a paywall-related error
+      const errorMessage = error?.message || String(error);
+      if (errorMessage.includes("Subscription") || errorMessage.includes("upgrade") || errorMessage.includes("Pro") || errorMessage.includes("Business")) {
+        setPaywallOpen(true);
+        return;
+      }
+      
       toast({
         title: "Generation failed",
         description: error instanceof Error ? error.message : "Unable to generate video",
@@ -1511,6 +1561,11 @@ export const ScheduledPostModal = ({
           mediaUrl: localMediaUrl || post.media_url || undefined,
           type: post.content_type === "video" || post.content_type === "reel" ? "video" : "image",
         }}
+      />
+      <PaywallModal
+        open={paywallOpen}
+        onOpenChange={setPaywallOpen}
+        feature="video"
       />
     </>
   );
