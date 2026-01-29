@@ -253,11 +253,11 @@ serve(async (req) => {
     const scenarioContext = buildScenarioContext();
 
     // ============================================
-    // USE LOVABLE AI (GEMINI) - FREE & FAST
+    // USE COMETAPI - NANOBANANA-PRO (CHEAP MODEL)
     // ============================================
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
+    if (!COMETAPI_API_KEY) {
+      throw new Error("COMETAPI_API_KEY is not configured");
     }
 
     // Calculate optimal word count based on duration (~2.5 words/second)
@@ -320,28 +320,28 @@ Respond ONLY with valid JSON:
   ]
 }`;
 
-    // Call Lovable AI (Gemini) - cheaper and faster than CometAPI for text
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Call CometAPI with nanobanana-pro (cheap & stable for scripts)
+    const response = await fetch("https://api.cometapi.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${COMETAPI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "nanobanana-pro", // ✅ CHEAP MODEL
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        temperature: 0.4,
-        max_tokens: 2000,
+        temperature: 0.35,
+        max_tokens: 900,
       }),
     });
 
     if (!response.ok) {
       const status = response.status;
       const errorText = await response.text();
-      console.error("[generate-script] Lovable AI error:", status, errorText.slice(0, 200));
+      console.error("[generate-script] CometAPI error:", status, errorText.slice(0, 200));
       
       if (status === 429) {
         return new Response(
@@ -356,7 +356,7 @@ Respond ONLY with valid JSON:
         );
       }
       
-      throw new Error(`Lovable AI error: ${status}`);
+      throw new Error(`CometAPI error: ${status}`);
     }
 
     const aiResponse = await response.json();
