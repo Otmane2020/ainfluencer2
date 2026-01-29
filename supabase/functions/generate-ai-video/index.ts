@@ -88,11 +88,11 @@ async function generateWithCometAPI(
 
   console.log(`[AI-VIDEO] CometAPI: model=${model}, duration=${duration}s, size=${size}`);
 
-  // Use JSON body instead of FormData for better compatibility
+  // Use JSON body - duration must be integer, not string
   const requestBody = {
     prompt: prompt,
     model: model,
-    duration: duration.toString(),
+    duration: duration, // Keep as number, not string
     size: size,
   };
 
