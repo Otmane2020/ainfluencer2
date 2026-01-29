@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Play, Pause, Volume2, VolumeX, RotateCcw } from "lucide-react";
+import { Play, Pause, Volume2, VolumeX, RotateCcw, Film } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { VideoComposerModal } from "./VideoComposerModal";
 
 interface ReelVideoPlayerProps {
   imageUrl: string;
@@ -23,6 +24,7 @@ export function ReelVideoPlayer({
   const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isEnded, setIsEnded] = useState(false);
+  const [showComposer, setShowComposer] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -173,6 +175,19 @@ export function ReelVideoPlayer({
         <div className="text-xs text-white/80 bg-black/40 px-2 py-1 rounded-full">
           {Math.round((progress / 100) * duration)}s / {duration}s
         </div>
+
+        {/* Create MP4 button */}
+        {audioUrl && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 bg-black/40 hover:bg-black/60 text-white rounded-full gap-1.5"
+            onClick={() => setShowComposer(true)}
+          >
+            <Film className="h-4 w-4" />
+            Create MP4
+          </Button>
+        )}
       </div>
 
       {/* Hidden audio element */}
@@ -183,6 +198,17 @@ export function ReelVideoPlayer({
           loop={false}
           muted={isMuted}
           preload="auto"
+        />
+      )}
+
+      {/* Video Composer Modal */}
+      {audioUrl && (
+        <VideoComposerModal
+          open={showComposer}
+          onOpenChange={setShowComposer}
+          imageUrl={imageUrl}
+          audioUrl={audioUrl}
+          duration={duration}
         />
       )}
     </div>
