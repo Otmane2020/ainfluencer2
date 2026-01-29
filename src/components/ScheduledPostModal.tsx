@@ -514,50 +514,108 @@ export const ScheduledPostModal = ({
   };
 
   const handleGenerateVideo = async () => {
-    if (!selectedProduct) {
-      toast({
-        title: "Product required",
-        description: "Select an AI model first in the AI Models tab",
-        variant: "destructive",
-      });
-      setActiveTab("models");
-      return;
-    }
-
     setIsGenerating(true);
     try {
-      // Here we would call the video generation edge function
+      // Build brand-aware prompt
+      let enhancedPrompt = post.ai_prompt || "Create an engaging social media video";
+      
+      // Add brand context if available
+      if (projectContext) {
+        const brandInfo = [];
+        if (projectContext.name) brandInfo.push(`Brand: ${projectContext.name}`);
+        if (projectContext.description) brandInfo.push(`About: ${projectContext.description.substring(0, 200)}`);
+        if (projectContext.url) brandInfo.push(`Website: ${projectContext.url}`);
+        
+        if (brandInfo.length > 0) {
+          enhancedPrompt = `${enhancedPrompt}\n\nBrand Context:\n${brandInfo.join('\n')}`;
+        }
+      }
+
+      // Get orientation from format
+      const orientation = videoFormat === "landscape" ? "landscape" : "portrait";
+      
+      // Default model - use selected product's internal model or fallback to kling-video (faster/cheaper)
+      const modelId = selectedProduct?.internalModels?.[0] || "kling-video";
+
       toast({
         title: "Generating video...",
-        description: `Using ${selectedProduct.name} with ${enableVoice && selectedVoice ? selectedVoice.name : "no voice"}`,
+        description: `Using ${selectedProduct?.name || "AI"} - this may take 2-3 minutes`,
       });
       
-      // Simulate generation - in real implementation, call the edge function
       console.log("Video generation config:", {
         postId: post.id,
-        product: selectedProduct.id,
+        product: selectedProduct?.id,
+        model: modelId,
         enableVoice,
         voiceId: selectedVoice?.id,
         language: selectedLanguage,
         avatarUrl,
         format: videoFormat,
+        orientation,
       });
-      
-      // TODO: Implement actual video generation call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      toast({
-        title: "Generation started ✓",
-        description: "Your video is being generated",
+
+      // Call video generation edge function
+      const { data, error } = await supabase.functions.invoke("generate-video-sora", {
+        body: {
+          prompt: enhancedPrompt,
+          duration: 5,
+          orientation,
+          format: videoFormat === "mix" ? "reel" : videoFormat,
+          model: modelId,
+          avatarUrl: avatarUrl || undefined,
+        },
       });
-      
-      onUpdate?.();
-      onClose();
+
+      if (error) throw error;
+
+      // Check if we got a video URL directly (some models return immediately)
+      if (data?.videoUrl) {
+        // Update local state immediately for instant preview
+        setLocalMediaUrl(data.videoUrl);
+        
+        // Update post with generated video
+        const { error: updateError } = await supabase
+          .from("scheduled_posts")
+          .update({ 
+            media_url: data.videoUrl,
+            thumbnail_url: data.thumbnailUrl || null,
+            status: "scheduled",
+          })
+          .eq("id", post.id);
+
+        if (updateError) throw updateError;
+
+        toast({
+          title: "Video generated ✓",
+          description: "Your video is ready",
+        });
+        
+        onUpdate?.();
+      } else if (data?.taskId) {
+        // Video is being generated asynchronously - store task ID
+        toast({
+          title: "Video generation started ✓",
+          description: `Task ID: ${data.taskId}. Check back in 2-3 minutes.`,
+        });
+        
+        // Update post with task info - video will be added when complete by cron
+        await supabase
+          .from("scheduled_posts")
+          .update({ 
+            status: "scheduled",
+            error_message: `Video generation in progress: ${data.taskId}`,
+          })
+          .eq("id", post.id);
+          
+        onUpdate?.();
+      } else {
+        throw new Error("No video URL or task ID returned");
+      }
     } catch (error) {
       console.error("Video generation error:", error);
       toast({
-        title: "Error",
-        description: "Unable to generate video",
+        title: "Generation failed",
+        description: error instanceof Error ? error.message : "Unable to generate video",
         variant: "destructive",
       });
     } finally {
