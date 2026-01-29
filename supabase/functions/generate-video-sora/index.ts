@@ -165,14 +165,14 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
   // INTERNAL MODEL IDs (Secondary - mapped from quality levels)
   // ============================================================
   
-  // Kling variants
+  // Kling variants - Temporarily mapped to veo-2 (kling-video unavailable)
   "kling-std": {
-    apiModel: "kling-video",
+    apiModel: "veo-2",
     durations: [5, 10],
     maxSize: { portrait: "720x1280", landscape: "1280x720" },
   },
   "kling-v2-master": {
-    apiModel: "kling-video",
+    apiModel: "veo-2",
     durations: [5, 10],
     maxSize: { portrait: "720x1280", landscape: "1280x720" },
   },
@@ -219,9 +219,9 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
   },
 };
 
-// Default fallback
+// Default fallback - Using veo-2 as kling-video is temporarily unavailable
 const DEFAULT_MODEL_CONFIG: ModelConfig = {
-  apiModel: "kling-video",
+  apiModel: "veo-2",
   durations: [5, 10],
   maxSize: { portrait: "720x1280", landscape: "1280x720" },
 };
