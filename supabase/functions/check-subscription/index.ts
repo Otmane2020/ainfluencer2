@@ -79,22 +79,54 @@ serve(async (req) => {
     
     if (!userEmail) throw new Error("User email not available");
 
+    // ============================================================
+    // CHECK DATABASE FIRST for lifetime/manual grants
+    // ============================================================
+    const { data: dbSubscription } = await supabaseClient
+      .from("subscriptions")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (dbSubscription && (dbSubscription.stripe_customer_id === "lifetime_grant" || !dbSubscription.stripe_subscription_id)) {
+      logStep("LIFETIME GRANT found in database", { 
+        planId: dbSubscription.plan_id, 
+        renewsAt: dbSubscription.renews_at 
+      });
+      
+      return new Response(JSON.stringify({
+        subscribed: true,
+        plan_id: dbSubscription.plan_id,
+        status: "active",
+        subscription_end: dbSubscription.renews_at,
+        requires_checkout: false,
+        lifetime: true,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+    // ============================================================
+
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     const customers = await stripe.customers.list({ email: userEmail, limit: 1 });
     
     if (customers.data.length === 0) {
       logStep("No Stripe customer found - user has no subscription");
       
-      // Update database to reflect no subscription
-      await supabaseClient
-        .from("subscriptions")
-        .upsert({
-          user_id: userId,
-          plan_id: "starter",
-          status: "inactive",
-          stripe_customer_id: null,
-          stripe_subscription_id: null,
-        }, { onConflict: "user_id" });
+      // Only update if no existing subscription in DB
+      if (!dbSubscription) {
+        await supabaseClient
+          .from("subscriptions")
+          .upsert({
+            user_id: userId,
+            plan_id: "starter",
+            status: "inactive",
+            stripe_customer_id: null,
+            stripe_subscription_id: null,
+          }, { onConflict: "user_id" });
+      }
 
       return new Response(JSON.stringify({
         subscribed: false,

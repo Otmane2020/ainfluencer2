@@ -40,19 +40,59 @@ async function verifyVideoAccess(authHeader: string | null): Promise<{ valid: bo
   
   try {
     const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
     
-    if (userError || !userData.user?.email) {
-      return { valid: false, error: "Invalid authentication" };
+    // Use getClaims for reliable JWT validation
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    
+    let userId: string;
+    let userEmail: string;
+    
+    if (claimsError || !claimsData?.claims) {
+      // Fallback to getUser
+      const { data: userData, error: userError } = await supabase.auth.getUser(token);
+      if (userError || !userData.user?.email) {
+        return { valid: false, error: "Invalid authentication" };
+      }
+      userId = userData.user.id;
+      userEmail = userData.user.email;
+    } else {
+      userId = claimsData.claims.sub as string;
+      userEmail = claimsData.claims.email as string;
     }
 
-    const user = userData.user;
+    if (!userEmail) {
+      return { valid: false, error: "User email not available" };
+    }
+
+    // ============================================================
+    // CHECK DATABASE FIRST for lifetime/manual grants (Pro or Business)
+    // ============================================================
+    const { data: dbSubscription } = await supabase
+      .from("subscriptions")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (dbSubscription) {
+      const planId = dbSubscription.plan_id;
+      // Video access requires Pro or Business
+      if (planId === "pro" || planId === "business") {
+        // Check if it's a lifetime grant or direct DB subscription
+        if (dbSubscription.stripe_customer_id === "lifetime_grant" || !dbSubscription.stripe_subscription_id) {
+          console.log(`[VIDEO-ACCESS] LIFETIME GRANT - Access granted for ${userEmail} (${planId})`);
+          return { valid: true, userId };
+        }
+      }
+    }
+    // ============================================================
+
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     
     // Find customer
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+    const customers = await stripe.customers.list({ email: userEmail, limit: 1 });
     if (customers.data.length === 0) {
-      console.log(`[VIDEO-ACCESS] No Stripe customer for ${user.email}`);
+      console.log(`[VIDEO-ACCESS] No Stripe customer for ${userEmail}`);
       return { valid: false, error: "Subscription required. Please subscribe to Pro or Business plan." };
     }
 
@@ -64,7 +104,7 @@ async function verifyVideoAccess(authHeader: string | null): Promise<{ valid: bo
     });
 
     if (subscriptions.data.length === 0) {
-      console.log(`[VIDEO-ACCESS] No active subscription for ${user.email}`);
+      console.log(`[VIDEO-ACCESS] No active subscription for ${userEmail}`);
       return { valid: false, error: "Subscription required. Please subscribe to Pro or Business plan." };
     }
 
@@ -78,8 +118,8 @@ async function verifyVideoAccess(authHeader: string | null): Promise<{ valid: bo
       return { valid: false, error: "Your plan does not include video generation. Please upgrade to Pro or Business." };
     }
 
-    console.log(`[VIDEO-ACCESS] Access granted for ${user.email} (${productId})`);
-    return { valid: true, userId: user.id };
+    console.log(`[VIDEO-ACCESS] Access granted for ${userEmail} (${productId})`);
+    return { valid: true, userId };
   } catch (error) {
     console.error("[VIDEO-ACCESS] Error:", error);
     return { valid: false, error: "Subscription verification failed" };
