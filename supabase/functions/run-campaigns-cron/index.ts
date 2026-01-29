@@ -218,6 +218,97 @@ async function generateVideo(prompt: string, supabase: any): Promise<string | nu
 }
 
 // ============================================================
+// IMAGE-TO-VIDEO CONVERSION (for Image as Reel)
+// Uses Kling to animate a static image with subtle motion
+// ============================================================
+
+async function convertImageToVideo(imageUrl: string, prompt: string, supabase: any): Promise<string | null> {
+  const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
+  if (!COMETAPI_API_KEY) {
+    console.error("[convertImageToVideo] COMETAPI_API_KEY not configured");
+    return null;
+  }
+
+  try {
+    console.log("[convertImageToVideo] Converting image to video (Image as Reel)...");
+    
+    // Create video task with image input
+    const formData = new FormData();
+    formData.append("prompt", `${prompt}. Subtle zoom and gentle camera movement. Professional social media reel.`);
+    formData.append("model", "kling-video");
+    formData.append("seconds", "5");
+    formData.append("size", "720x1280"); // Portrait for Reels
+    formData.append("image_url", imageUrl); // Use image as starting frame
+
+    const createResponse = await fetch("https://api.cometapi.com/v1/videos", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${COMETAPI_API_KEY}`,
+      },
+      body: formData,
+    });
+
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      console.error("[convertImageToVideo] Create error:", createResponse.status, errorText.slice(0, 200));
+      return null;
+    }
+
+    const createData = await createResponse.json();
+    const taskId = createData.id;
+    if (!taskId) {
+      console.error("[convertImageToVideo] No task ID in response");
+      return null;
+    }
+
+    console.log("[convertImageToVideo] Task created:", taskId);
+
+    // Poll for completion (max 5 minutes)
+    const maxAttempts = 30;
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10s
+
+      const statusResponse = await fetch(`https://api.cometapi.com/v1/videos/${taskId}`, {
+        headers: { Authorization: `Bearer ${COMETAPI_API_KEY}` },
+      });
+
+      if (!statusResponse.ok) continue;
+
+      const statusData = await statusResponse.json();
+      const videoData = statusData.data || statusData;
+      const innerData = videoData.data || {};
+      const status = (videoData.status || innerData.status || "").toLowerCase();
+
+      console.log(`[convertImageToVideo] Poll ${i + 1}/${maxAttempts}: status=${status}`);
+
+      if (status === "completed" || status === "success" || status === "succeeded" || status === "done") {
+        let videoUrl = null;
+        if (videoData.fail_reason && videoData.fail_reason.startsWith("http")) {
+          videoUrl = videoData.fail_reason;
+        } else {
+          videoUrl = innerData.output_video || videoData.output_video || 
+                     videoData.video_url || innerData.url || videoData.url;
+        }
+
+        if (videoUrl) {
+          console.log("[convertImageToVideo] Video ready:", videoUrl);
+          return videoUrl;
+        }
+      } else if (status === "failed" || status === "error") {
+        console.error("[convertImageToVideo] Task failed");
+        return null;
+      }
+    }
+
+    console.log("[convertImageToVideo] Timeout waiting for video");
+    return null;
+  } catch (error) {
+    console.error("[convertImageToVideo] Error:", error);
+    return null;
+  }
+}
+
+// ============================================================
 // PUBLISH TO FACEBOOK
 // ============================================================
 
@@ -299,19 +390,15 @@ async function publishToInstagram(
       return { success: false, error: "No access token available" };
     }
 
-    // Check if this is an "Image as Reel" post:
-    // content_type is "video" but the ai_prompt doesn't have video markers
-    const isImageAsReel = post.content_type === "video" && 
-      post.ai_prompt && 
-      !post.ai_prompt.includes("[0-") && 
-      !post.ai_prompt.toLowerCase().includes("voiceover") &&
-      !post.ai_prompt.toLowerCase().includes("scene ");
-
-    // Determine if this is actually a video file or an image
+    // Check if this is a video file (mp4, mov, etc.)
     const isVideoFile = post.media_url.match(/\.(mp4|mov|avi|webm)$/i);
-    const isVideo = post.content_type === "video" && isVideoFile && !isImageAsReel;
     
-    console.log(`[Instagram] Publishing ${isVideo ? "video/reel" : isImageAsReel ? "image-as-reel" : "image"} to ${metaConnection.instagram_id}`);
+    // Determine if we should publish as a Reel
+    // - True video files (actual videos)
+    // - Image as Reel posts now have video files too (converted from image)
+    const isVideo = post.content_type === "video" && isVideoFile;
+    
+    console.log(`[Instagram] Publishing ${isVideo ? "video/reel" : "image"} to ${metaConnection.instagram_id}`);
 
     // Step 1: Create media container
     const containerBody: any = {
@@ -324,7 +411,7 @@ async function publishToInstagram(
       containerBody.video_url = post.media_url;
       containerBody.share_to_feed = true;
     } else {
-      // For images (including Image as Reel which posts as carousel/image)
+      // For images
       containerBody.image_url = post.media_url;
     }
 
@@ -469,15 +556,42 @@ Deno.serve(async (req) => {
           !post.ai_prompt.toLowerCase().includes("voiceover") &&
           !post.ai_prompt.toLowerCase().includes("scene ");
         
-        if (post.content_type === "image" || isImageAsReel) {
-          console.log(`[cron] Generating Smart Image for post ${post.id}${isImageAsReel ? " (Image as Reel)" : ""} in ${projectLanguage}`);
+        if (isImageAsReel) {
+          // Image as Reel: Generate image first, then convert to video
+          console.log(`[cron] Generating Image as Reel for post ${post.id} in ${projectLanguage}`);
+          
+          // Step 1: Generate the static image
           const imageUrl = await generateImage(post.ai_prompt, supabase, brandName, projectLanguage);
           if (imageUrl) {
-            await supabase.from("scheduled_posts").update({ 
-              media_url: imageUrl,
-              // For Image as Reel, keep content_type as "video" for IG Reel publishing
-              // but mark that image was generated successfully
-            }).eq("id", post.id);
+            console.log(`[cron] Image generated, now converting to video...`);
+            
+            // Step 2: Convert image to video with subtle motion
+            const videoUrl = await convertImageToVideo(imageUrl, post.ai_prompt, supabase);
+            if (videoUrl) {
+              await supabase.from("scheduled_posts").update({ 
+                media_url: videoUrl,
+                thumbnail_url: imageUrl, // Keep original image as thumbnail
+              }).eq("id", post.id);
+              post.media_url = videoUrl;
+              totalGenerated++;
+              console.log(`[cron] Image as Reel video generated: ${videoUrl.slice(0, 50)}...`);
+            } else {
+              // Fallback: Use image directly (will be posted as image, not reel)
+              await supabase.from("scheduled_posts").update({ 
+                media_url: imageUrl,
+                error_message: "Video conversion failed - posted as image",
+              }).eq("id", post.id);
+              post.media_url = imageUrl;
+              console.log(`[cron] Video conversion failed, using image fallback`);
+            }
+          } else {
+            console.log(`[cron] Image generation failed for Image as Reel post ${post.id}`);
+          }
+        } else if (post.content_type === "image") {
+          console.log(`[cron] Generating Smart Image for post ${post.id} in ${projectLanguage}`);
+          const imageUrl = await generateImage(post.ai_prompt, supabase, brandName, projectLanguage);
+          if (imageUrl) {
+            await supabase.from("scheduled_posts").update({ media_url: imageUrl }).eq("id", post.id);
             post.media_url = imageUrl;
             totalGenerated++;
             console.log(`[cron] Smart Image generated: ${imageUrl.slice(0, 50)}...`);
