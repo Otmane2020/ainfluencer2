@@ -218,92 +218,99 @@ async function generateVideo(prompt: string, supabase: any): Promise<string | nu
 }
 
 // ============================================================
-// IMAGE-TO-VIDEO CONVERSION (for Image as Reel)
-// Uses Kling to animate a static image with subtle motion
+// REEL GENERATION (Image + Background Music via Lovable AI)
+// Uses Gemini for image + royalty-free music - NO video conversion
 // ============================================================
 
-async function convertImageToVideo(imageUrl: string, prompt: string, supabase: any): Promise<string | null> {
-  const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
-  if (!COMETAPI_API_KEY) {
-    console.error("[convertImageToVideo] COMETAPI_API_KEY not configured");
+async function generateReel(prompt: string, supabase: any, brandName?: string, language?: string): Promise<{ imageUrl: string; musicUrl: string } | null> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  if (!LOVABLE_API_KEY) {
+    console.error("[generateReel] LOVABLE_API_KEY not configured");
     return null;
   }
 
   try {
-    console.log("[convertImageToVideo] Converting image to video (Image as Reel)...");
+    // Build enhanced prompt for vertical reel format
+    let enhancedPrompt = prompt;
+    if (brandName) {
+      enhancedPrompt = `${prompt} for ${brandName} brand`;
+    }
     
-    // Create video task with image input
-    const formData = new FormData();
-    formData.append("prompt", `${prompt}. Subtle zoom and gentle camera movement. Professional social media reel.`);
-    formData.append("model", "kling-video");
-    formData.append("seconds", "5");
-    formData.append("size", "720x1280"); // Portrait for Reels
-    formData.append("image_url", imageUrl); // Use image as starting frame
+    // Add language constraint
+    const langMap: Record<string, string> = {
+      fr: "French", es: "Spanish", de: "German", it: "Italian", pt: "Portuguese"
+    };
+    const langName = langMap[language || ""] || "English";
+    if (language && language !== "en") {
+      enhancedPrompt = `[All text MUST be in ${langName}] ${enhancedPrompt}`;
+    }
+    
+    enhancedPrompt += ". Vertical portrait format 9:16, perfect for Instagram Reels, eye-catching, professional quality, vibrant colors, social media optimized, ultra high resolution.";
 
-    const createResponse = await fetch("https://api.cometapi.com/v1/videos", {
+    console.log("[generateReel] Generating image with Lovable AI (Gemini)...");
+    
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${COMETAPI_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
       },
-      body: formData,
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image",
+        messages: [{ role: "user", content: enhancedPrompt }],
+        modalities: ["image", "text"],
+      }),
     });
 
-    if (!createResponse.ok) {
-      const errorText = await createResponse.text();
-      console.error("[convertImageToVideo] Create error:", createResponse.status, errorText.slice(0, 200));
+    if (!response.ok) {
+      const status = response.status;
+      const errorText = await response.text();
+      console.error("[generateReel] Lovable AI error:", status, errorText.slice(0, 200));
       return null;
     }
 
-    const createData = await createResponse.json();
-    const taskId = createData.id;
-    if (!taskId) {
-      console.error("[convertImageToVideo] No task ID in response");
+    const data = await response.json();
+    const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+
+    if (!imageData) {
+      console.error("[generateReel] No image in response");
       return null;
     }
 
-    console.log("[convertImageToVideo] Task created:", taskId);
+    // Upload to Supabase storage
+    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
+    const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+    const fileName = `images/reel-${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from("media")
+      .upload(fileName, imageBytes, { contentType: "image/png", upsert: true });
 
-    // Poll for completion (max 5 minutes)
-    const maxAttempts = 30;
-    for (let i = 0; i < maxAttempts; i++) {
-      await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10s
-
-      const statusResponse = await fetch(`https://api.cometapi.com/v1/videos/${taskId}`, {
-        headers: { Authorization: `Bearer ${COMETAPI_API_KEY}` },
-      });
-
-      if (!statusResponse.ok) continue;
-
-      const statusData = await statusResponse.json();
-      const videoData = statusData.data || statusData;
-      const innerData = videoData.data || {};
-      const status = (videoData.status || innerData.status || "").toLowerCase();
-
-      console.log(`[convertImageToVideo] Poll ${i + 1}/${maxAttempts}: status=${status}`);
-
-      if (status === "completed" || status === "success" || status === "succeeded" || status === "done") {
-        let videoUrl = null;
-        if (videoData.fail_reason && videoData.fail_reason.startsWith("http")) {
-          videoUrl = videoData.fail_reason;
-        } else {
-          videoUrl = innerData.output_video || videoData.output_video || 
-                     videoData.video_url || innerData.url || videoData.url;
-        }
-
-        if (videoUrl) {
-          console.log("[convertImageToVideo] Video ready:", videoUrl);
-          return videoUrl;
-        }
-      } else if (status === "failed" || status === "error") {
-        console.error("[convertImageToVideo] Task failed");
-        return null;
-      }
+    let finalImageUrl: string;
+    if (uploadError) {
+      console.error("[generateReel] Upload error, using base64:", uploadError);
+      finalImageUrl = imageData; // Fallback to base64
+    } else {
+      const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(fileName);
+      finalImageUrl = publicUrlData.publicUrl;
     }
 
-    console.log("[convertImageToVideo] Timeout waiting for video");
-    return null;
+    // Select random background music track
+    const musicTracks = [
+      "https://assets.mixkit.co/music/preview/mixkit-tech-house-vibes-130.mp3",
+      "https://assets.mixkit.co/music/preview/mixkit-hip-hop-02-738.mp3",
+      "https://assets.mixkit.co/music/preview/mixkit-sleepy-cat-135.mp3",
+      "https://assets.mixkit.co/music/preview/mixkit-spirit-of-the-explorer-723.mp3",
+    ];
+    const musicUrl = musicTracks[Math.floor(Math.random() * musicTracks.length)];
+
+    console.log("[generateReel] Success! Image:", finalImageUrl.slice(0, 50), "Music:", musicUrl);
+    return { imageUrl: finalImageUrl, musicUrl };
   } catch (error) {
-    console.error("[convertImageToVideo] Error:", error);
+    console.error("[generateReel] Error:", error);
     return null;
   }
 }
@@ -557,35 +564,23 @@ Deno.serve(async (req) => {
           !post.ai_prompt.toLowerCase().includes("scene ");
         
         if (isImageAsReel) {
-          // Image as Reel: Generate image first, then convert to video
-          console.log(`[cron] Generating Image as Reel for post ${post.id} in ${projectLanguage}`);
+          // Image as Reel: Use Lovable AI Gemini for image + background music
+          // NO CometAPI video conversion - just static image posted as Instagram photo
+          console.log(`[cron] Generating Reel (Gemini image + music) for post ${post.id} in ${projectLanguage}`);
           
-          // Step 1: Generate the static image
-          const imageUrl = await generateImage(post.ai_prompt, supabase, brandName, projectLanguage);
-          if (imageUrl) {
-            console.log(`[cron] Image generated, now converting to video...`);
-            
-            // Step 2: Convert image to video with subtle motion
-            const videoUrl = await convertImageToVideo(imageUrl, post.ai_prompt, supabase);
-            if (videoUrl) {
-              await supabase.from("scheduled_posts").update({ 
-                media_url: videoUrl,
-                thumbnail_url: imageUrl, // Keep original image as thumbnail
-              }).eq("id", post.id);
-              post.media_url = videoUrl;
-              totalGenerated++;
-              console.log(`[cron] Image as Reel video generated: ${videoUrl.slice(0, 50)}...`);
-            } else {
-              // Fallback: Use image directly (will be posted as image, not reel)
-              await supabase.from("scheduled_posts").update({ 
-                media_url: imageUrl,
-                error_message: "Video conversion failed - posted as image",
-              }).eq("id", post.id);
-              post.media_url = imageUrl;
-              console.log(`[cron] Video conversion failed, using image fallback`);
-            }
+          const reelResult = await generateReel(post.ai_prompt, supabase, brandName, projectLanguage);
+          if (reelResult) {
+            // Store the image URL - Instagram will display as photo/carousel
+            // Music URL is available for client-side playback if needed
+            await supabase.from("scheduled_posts").update({ 
+              media_url: reelResult.imageUrl,
+              thumbnail_url: reelResult.imageUrl,
+            }).eq("id", post.id);
+            post.media_url = reelResult.imageUrl;
+            totalGenerated++;
+            console.log(`[cron] Reel image generated: ${reelResult.imageUrl.slice(0, 50)}...`);
           } else {
-            console.log(`[cron] Image generation failed for Image as Reel post ${post.id}`);
+            console.log(`[cron] Reel generation failed for post ${post.id}`);
           }
         } else if (post.content_type === "image") {
           console.log(`[cron] Generating Smart Image for post ${post.id} in ${projectLanguage}`);
