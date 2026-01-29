@@ -442,44 +442,79 @@ export const ScheduledPostModal = ({
 
       if (updateError) throw updateError;
 
-      // Step 3: If video content and a product is selected, start video generation
-      if ((post.content_type === "video" || post.content_type === "reel") && selectedProduct) {
-        setPublishingStatus(`Generating video with ${selectedProduct.name}...`);
-        
-        toast({
-          title: "Generating video...",
-          description: `Using ${selectedProduct.name}`,
-        });
-
-        // Get orientation from format
-        const orientation = videoFormat === "landscape" ? "landscape" : "portrait";
-        const modelId = selectedProduct.internalModels?.[0] || "sora-2";
-        
-        // Call video generation
-        const { data: videoData, error: videoError } = await supabase.functions.invoke("generate-video-sora", {
-          body: {
-            prompt: post.ai_prompt || "Create an engaging social media video",
-            duration: 8,
-            orientation,
-            format: videoFormat === "mix" ? "reel" : videoFormat,
-            model: modelId,
-            avatarUrl: avatarUrl || undefined,
-          },
-        });
-
-        if (videoError) {
-          console.warn("Video generation started in background:", videoError);
-        } else {
-          console.log("Video task started:", videoData?.taskId);
+      // Step 3: Generate media based on content type
+      if ((post.content_type === "video" || post.content_type === "reel") && !post.media_url) {
+        // Check if this is a reel (either explicit reel type or Image as Reel)
+        if (post.content_type === "reel" || isImageAsReel) {
+          // Use Gemini + music reel generation (no CometAPI)
+          setPublishingStatus("Generating reel image...");
           
-          // Update post with task info (video will be added when complete)
-          await supabase
-            .from("scheduled_posts")
-            .update({ 
-              status: "scheduled",
-              error_message: `Video generation started: ${videoData?.taskId || 'pending'}`,
-            })
-            .eq("id", post.id);
+          toast({
+            title: "Generating reel...",
+            description: "Creating image with background music",
+          });
+
+          const { data: reelData, error: reelError } = await supabase.functions.invoke("generate-reel", {
+            body: {
+              prompt: post.ai_prompt || "Create an eye-catching social media reel",
+              format: videoFormat === "landscape" ? "landscape" : "reel",
+              brandName: projectContext?.name || undefined,
+              musicCategory: "upbeat",
+              duration: 10,
+            },
+          });
+
+          if (reelError) {
+            console.warn("Reel generation error:", reelError);
+          } else if (reelData?.success && reelData?.imageUrl) {
+            await supabase
+              .from("scheduled_posts")
+              .update({ 
+                media_url: reelData.imageUrl,
+                thumbnail_url: reelData.imageUrl,
+                status: "scheduled",
+              })
+              .eq("id", post.id);
+            
+            // Update local reference for publishing
+            post.media_url = reelData.imageUrl;
+          }
+        } else if (selectedProduct) {
+          // Actual video generation with CometAPI
+          setPublishingStatus(`Generating video with ${selectedProduct.name}...`);
+          
+          toast({
+            title: "Generating video...",
+            description: `Using ${selectedProduct.name}`,
+          });
+
+          const orientation = videoFormat === "landscape" ? "landscape" : "portrait";
+          const modelId = selectedProduct.internalModels?.[0] || "sora-2";
+          
+          const { data: videoData, error: videoError } = await supabase.functions.invoke("generate-video-sora", {
+            body: {
+              prompt: post.ai_prompt || "Create an engaging social media video",
+              duration: 8,
+              orientation,
+              format: videoFormat === "mix" ? "reel" : videoFormat,
+              model: modelId,
+              avatarUrl: avatarUrl || undefined,
+            },
+          });
+
+          if (videoError) {
+            console.warn("Video generation started in background:", videoError);
+          } else {
+            console.log("Video task started:", videoData?.taskId);
+            
+            await supabase
+              .from("scheduled_posts")
+              .update({ 
+                status: "scheduled",
+                error_message: `Video generation started: ${videoData?.taskId || 'pending'}`,
+              })
+              .eq("id", post.id);
+          }
         }
       }
 
@@ -673,11 +708,88 @@ export const ScheduledPostModal = ({
     }
   };
 
-  // Generate content (image or video) based on content type
+  // Generate Reel using Gemini image + music (NOT CometAPI video)
+  const handleGenerateReel = async () => {
+    setIsGenerating(true);
+    try {
+      // Build brand-aware prompt
+      let enhancedPrompt = post.ai_prompt || "Create an eye-catching social media reel image";
+      
+      // Add brand context if available
+      if (projectContext) {
+        if (projectContext.name) enhancedPrompt += ` for ${projectContext.name} brand`;
+        if (projectContext.description) enhancedPrompt += `. About: ${projectContext.description.substring(0, 150)}`;
+      }
+
+      toast({
+        title: "Generating reel...",
+        description: projectContext?.name 
+          ? `Creating reel visual for ${projectContext.name}` 
+          : "Creating reel image with music",
+      });
+
+      // Use the new generate-reel edge function (Gemini + music)
+      const { data, error } = await supabase.functions.invoke("generate-reel", {
+        body: {
+          prompt: enhancedPrompt,
+          format: videoFormat === "landscape" ? "landscape" : "reel",
+          brandName: projectContext?.name || undefined,
+          musicCategory: "upbeat", // Default to upbeat for reels
+          duration: 10,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success && data?.imageUrl) {
+        // Update local state immediately for instant preview
+        setLocalMediaUrl(data.imageUrl);
+        
+        // Update post with generated reel image
+        const { error: updateError } = await supabase
+          .from("scheduled_posts")
+          .update({ 
+            media_url: data.imageUrl,
+            thumbnail_url: data.imageUrl,
+            status: "scheduled",
+          })
+          .eq("id", post.id);
+
+        if (updateError) throw updateError;
+
+        toast({
+          title: "Reel generated ✓",
+          description: data.musicUrl ? "Image ready with background music" : "Image ready for reel",
+        });
+        
+        onUpdate?.();
+      } else {
+        throw new Error(data?.error || "Reel generation failed");
+      }
+    } catch (error: any) {
+      console.error("Reel generation error:", error);
+      toast({
+        title: "Generation failed",
+        description: error instanceof Error ? error.message : "Unable to generate reel",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Generate content (image, video, or reel) based on content type
   const handleGenerate = async () => {
     setIsGenerating(true);
     
     try {
+      // Check if this is a reel (either explicit reel type or Image as Reel)
+      if (post.content_type === "reel" || isImageAsReel) {
+        // Use the new Gemini + music reel generation
+        await handleGenerateReel();
+        return;
+      }
+      
       if (post.content_type === "image") {
         // Build brand-aware prompt
         let enhancedPrompt = post.ai_prompt || "Create an engaging social media image";
@@ -734,8 +846,8 @@ export const ScheduledPostModal = ({
           
           onUpdate?.();
         }
-      } else if (post.content_type === "video" || post.content_type === "reel") {
-        // For video, use the existing handleGenerateVideo flow
+      } else if (post.content_type === "video") {
+        // For actual videos (NOT reels), use CometAPI video generation
         await handleGenerateVideo();
         return;
       } else {
