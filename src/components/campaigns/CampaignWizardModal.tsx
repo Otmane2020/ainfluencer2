@@ -39,6 +39,8 @@ import {
   Clock,
   Music,
   Sparkles,
+  Globe,
+  Package,
 } from "lucide-react";
 import { CampaignProgressModal } from "./CampaignProgressModal";
 
@@ -56,6 +58,8 @@ interface Project {
   id: string;
   name: string;
   theme_color: string;
+  url: string | null;
+  description: string | null;
 }
 
 interface CampaignWizardModalProps {
@@ -120,6 +124,8 @@ export const CampaignWizardModal = ({
   const [format, setFormat] = useState("reel");
   const [tone, setTone] = useState("professional");
   const [subject, setSubject] = useState("");
+  const [productDescription, setProductDescription] = useState("");
+  const [isSuggestingProduct, setIsSuggestingProduct] = useState(false);
   const [postingHour, setPostingHour] = useState(10);
   const [timezone, setTimezone] = useState("Europe/Paris");
   const [imageAsReel, setImageAsReel] = useState(false); // NEW: Convert images to reels with audio
@@ -154,6 +160,7 @@ export const CampaignWizardModal = ({
       setFormat("reel");
       setTone("professional");
       setSubject("");
+      setProductDescription("");
       setPostingHour(10);
       setTimezone("Europe/Paris");
       setImageAsReel(false);
@@ -167,13 +174,61 @@ export const CampaignWizardModal = ({
   const fetchProjects = async () => {
     const { data } = await supabase
       .from("projects")
-      .select("id, name, theme_color")
+      .select("id, name, theme_color, url, description")
       .order("name");
     if (data) {
       setProjects(data);
       if (data.length > 0 && !projectId) {
         setProjectId(data[0].id);
       }
+    }
+  };
+
+  // Suggest product/service from project URL
+  const handleSuggestProduct = async () => {
+    const selectedProject = projects.find(p => p.id === projectId);
+    if (!selectedProject?.url) {
+      toast({ title: "No URL", description: "This project doesn't have a URL to analyze", variant: "destructive" });
+      return;
+    }
+
+    setIsSuggestingProduct(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("scrape-project-url", {
+        body: { url: selectedProject.url },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        // Extract product/service info from description and markdown
+        let suggestion = "";
+        
+        if (data.description) {
+          suggestion = data.description;
+        }
+        
+        // If we have markdown, try to extract key product info
+        if (data.markdown && !suggestion) {
+          // Take first meaningful paragraph
+          const paragraphs = data.markdown.split("\n").filter((p: string) => p.trim().length > 50);
+          if (paragraphs.length > 0) {
+            suggestion = paragraphs[0].slice(0, 300);
+          }
+        }
+
+        if (suggestion) {
+          setProductDescription(suggestion);
+          toast({ title: "Product info detected!", description: "Review and edit if needed" });
+        } else {
+          toast({ title: "No product info found", description: "Please enter manually", variant: "destructive" });
+        }
+      }
+    } catch (error) {
+      console.error("Suggest product error:", error);
+      toast({ title: "Failed to analyze", description: "Please enter product info manually", variant: "destructive" });
+    } finally {
+      setIsSuggestingProduct(false);
     }
   };
 
@@ -205,6 +260,7 @@ export const CampaignWizardModal = ({
           format,
           tone,
           subject,
+          ai_context: productDescription || null, // Store product/service description
           posting_hour: postingHour,
           timezone,
           status: "draft",
@@ -229,7 +285,8 @@ export const CampaignWizardModal = ({
             includeUrl: brandOptions.includeUrl,
             imageAsReel: imageAsReel,
             audioCategory: audioCategory,
-            clipmotion: clipmotion, // Pass ClipMotion mode
+            clipmotion: clipmotion,
+            productDescription: productDescription || null,
           }
         }
       );
@@ -390,6 +447,43 @@ export const CampaignWizardModal = ({
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Product/Service to Promote */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-primary" />
+                    Product/Service to Promote
+                  </Label>
+                  {projectId && projects.find(p => p.id === projectId)?.url && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleSuggestProduct}
+                      disabled={isSuggestingProduct}
+                      className="h-7 text-xs gap-1"
+                    >
+                      {isSuggestingProduct ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Globe className="h-3 w-3" />
+                      )}
+                      Suggest from URL
+                    </Button>
+                  )}
+                </div>
+                <Textarea
+                  value={productDescription}
+                  onChange={(e) => setProductDescription(e.target.value)}
+                  placeholder="Describe the product or service you want to promote (e.g., 'Premium leather handbags handcrafted in Italy, featuring minimalist designs for modern professionals')"
+                  rows={3}
+                  className="resize-none"
+                />
+                <p className="text-xs text-muted-foreground">
+                  This helps AI generate more targeted and relevant content
+                </p>
               </div>
 
               {projects.length === 0 && (
