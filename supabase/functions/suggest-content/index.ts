@@ -499,126 +499,176 @@ Respond ONLY with valid JSON:
     let socialSuggestion = null;
     
     try {
-      // Try to extract JSON from the response (handle markdown code blocks)
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
+      // ROBUST JSON PARSING: Clean markdown and extract JSON
+      let cleanedContent = content
+        .replace(/```json\s*/gi, "")
+        .replace(/```\s*/g, "")
+        .trim();
+      
+      // Extract the first complete JSON object
+      const firstBrace = cleanedContent.indexOf("{");
+      const lastBrace = cleanedContent.lastIndexOf("}");
+      
+      if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+        throw new Error("No valid JSON structure found");
+      }
+      
+      const jsonStr = cleanedContent.slice(firstBrace, lastBrace + 1);
+      const parsed = JSON.parse(jsonStr);
+      
+      // Handle social_post format (singular suggestion)
+      if (contentType === "social_post" && parsed.suggestion) {
+        socialSuggestion = parsed.suggestion;
+        console.log("Social post suggestion parsed:", socialSuggestion.content?.substring(0, 100));
+      } else {
+        // Handle regular suggestions format
+        suggestions = parsed.suggestions || parsed;
         
-        // Handle social_post format (singular suggestion)
-        if (contentType === "social_post" && parsed.suggestion) {
-          socialSuggestion = parsed.suggestion;
-          console.log("Social post suggestion parsed:", socialSuggestion.content?.substring(0, 100));
-        } else {
-          // Handle regular suggestions format
-          suggestions = parsed.suggestions || parsed;
-          
-          // Quality filter: validate each suggestion (same logic as nanobanana)
-          if (Array.isArray(suggestions)) {
-            suggestions = suggestions.filter((s: { content?: string }) => {
-              const text = s.content?.trim() || "";
-              
-              // Length check (more permissive for ads with timestamps)
-              const textWithoutTimestamps = text.replace(/\[\d+[–-]\d+s\]/g, "").trim();
-              if (textWithoutTimestamps.length < 30 || textWithoutTimestamps.length > 800) return false;
-              
-              // English words check (strict - only for non-English content)
-              if (contentType !== "social_post") {
-                const englishWords = /\b(discover|our|solution|innovative|boost|game-changer|tips|hack|amazing|incredible|unique|transform|revolutionary)\b/gi;
-                if ((text.match(englishWords) || []).length > 0) return false;
+        // Quality filter: validate each suggestion
+        if (Array.isArray(suggestions)) {
+          suggestions = suggestions.filter((s: { content?: string }) => {
+            const text = s.content?.trim() || "";
+            
+            // Length check (more permissive for ads with timestamps)
+            const textWithoutTimestamps = text.replace(/\[\d+[–-]\d+s\]/g, "").trim();
+            if (textWithoutTimestamps.length < 30 || textWithoutTimestamps.length > 800) return false;
+            
+            // English words check - ONLY for non-English content, tolerate 1 occurrence
+            if (contentType !== "social_post" && outputLanguage !== "en") {
+              const englishWords = /\b(discover|our|solution|innovative|boost|game-changer|tips|hack|amazing|incredible|unique|transform|revolutionary)\b/gi;
+              const matches = (text.match(englishWords) || []).length;
+              if (matches > 1) {
+                console.log(`[FILTER] Rejected: ${matches} English words in ${outputLanguage} content`);
+                return false;
               }
+            }
+            
+            // Generic marketing phrases check - language-specific
+            if (contentType !== "social_post") {
+              const genericPhrases: Record<string, string[]> = {
+                fr: ["découvrez notre", "n'attendez plus", "solution innovante", "révolutionnaire", "unique en son genre", "va changer votre vie", "ne manquez pas"],
+                es: ["descubra nuestra", "no espere más", "solución innovadora", "revolucionario", "único en su género"],
+                de: ["entdecken sie unsere", "warten sie nicht", "innovative lösung", "revolutionär", "einzigartig"],
+                it: ["scopri la nostra", "non aspettare", "soluzione innovativa", "rivoluzionario"],
+                pt: ["descubra nossa", "não espere mais", "solução inovadora", "revolucionário"],
+              };
               
-              // Generic French marketing phrases check (only for French content)
-              if (contentType !== "social_post") {
-                const genericPhrases = [
-                  "découvrez notre",
-                  "n'attendez plus",
-                  "solution innovante",
-                  "révolutionnaire",
-                  "unique en son genre",
-                  "va changer votre vie",
-                  "ne manquez pas",
-                ];
-                const lowerText = text.toLowerCase();
-                if (genericPhrases.some(phrase => lowerText.includes(phrase))) return false;
+              const langPhrases = genericPhrases[outputLanguage] || [];
+              const lowerText = text.toLowerCase();
+              if (langPhrases.some(phrase => lowerText.includes(phrase))) {
+                console.log(`[FILTER] Rejected: generic phrase in ${outputLanguage}`);
+                return false;
               }
-              
-              // For ADS: Check sentence length (max 7 words per sentence)
-              if (scriptType === "ad") {
-                const lines = text.split(/\n/).filter(Boolean);
-                for (const line of lines) {
-                  const cleanLine = line.replace(/^\[\d+[–-]\d+s\]\s*/, "").trim();
-                  if (cleanLine) {
-                    const words = cleanLine.split(/\s+/).filter(Boolean);
-                    if (words.length > 8) {
-                      console.log("ADS script rejected - line too long:", cleanLine);
-                      return false;
-                    }
+            }
+            
+            // For ADS: Check sentence length (max 7 words per sentence)
+            if (scriptType === "ad") {
+              const lines = text.split(/\n/).filter(Boolean);
+              for (const line of lines) {
+                const cleanLine = line.replace(/^\[\d+[–-]\d+s\]\s*/, "").trim();
+                if (cleanLine) {
+                  const words = cleanLine.split(/\s+/).filter(Boolean);
+                  if (words.length > 8) {
+                    console.log("[FILTER] ADS script rejected - line too long:", cleanLine);
+                    return false;
                   }
                 }
               }
-              
-              return true;
-            });
-
-            // If all were filtered out, use fallbacks
-            if (suggestions.length === 0) {
-              throw new Error("All suggestions filtered for quality");
             }
+            
+            return true;
+          });
+
+          // If all were filtered out, use fallbacks
+          if (suggestions.length === 0) {
+            throw new Error("All suggestions filtered for quality");
           }
         }
-      } else {
-        throw new Error("No JSON found in response");
       }
     } catch (parseError) {
-      console.error("Parse error:", parseError, "Content:", content);
-      // Fallback suggestions in perfect French
-      suggestions = [
-        {
-          id: "1",
-          title: "L'histoire derrière la marque",
-          content: `${projectName || "Notre marque"} est née d'une conviction simple : faire mieux, pas plus. Chaque détail compte. Chaque client aussi.`,
-          contentType: "video",
-          angle: "emotion",
-          estimatedEngagement: "high",
-          hashtags: ["authenticite", "marque", "histoire"],
+      console.error("Parse error:", parseError, "Content preview:", content.substring(0, 200));
+      // MULTILINGUAL FALLBACK SUGGESTIONS
+      const fallbackByLang: Record<string, { titles: string[]; contents: string[]; hashtags: string[][] }> = {
+        fr: {
+          titles: ["L'histoire derrière la marque", "Le problème que vous connaissez", "Résultat concret", "La question qui pique", "L'action immédiate"],
+          contents: [
+            `${projectName || "Notre marque"} est née d'une conviction simple : faire mieux, pas plus. Chaque détail compte. Chaque client aussi.`,
+            `Vous perdez du temps sur des tâches répétitives ? ${projectName || "Cette solution"} automatise l'essentiel pour que vous puissiez vous concentrer sur ce qui compte vraiment.`,
+            `Moins de stress. Plus de résultats. Voilà ce que nos clients disent après 30 jours avec ${projectName || "nous"}.`,
+            `Combien de clients as-tu perdus ce mois-ci sans le savoir ? ${projectName || "Notre solution"} te donne les réponses.`,
+            `Une semaine. C'est tout ce qu'il te faut pour voir la différence avec ${projectName || "notre solution"}. Prêt à essayer ?`,
+          ],
+          hashtags: [["authenticite", "marque", "histoire"], ["productivite", "automatisation", "efficacite"], ["resultats", "temoignage", "confiance"], ["clients", "analyse", "performance"], ["action", "defi", "transformation"]],
         },
-        {
-          id: "2", 
-          title: "Le problème que vous connaissez",
-          content: `Vous perdez du temps sur des tâches répétitives ? ${projectName || "Cette solution"} automatise l'essentiel pour que vous puissiez vous concentrer sur ce qui compte vraiment.`,
-          contentType: "video",
-          angle: "probleme",
-          estimatedEngagement: "high",
-          hashtags: ["productivite", "automatisation", "efficacite"],
+        en: {
+          titles: ["The story behind the brand", "The problem you know", "Concrete results", "The question that stings", "Take action now"],
+          contents: [
+            `${projectName || "Our brand"} was born from a simple conviction: do better, not more. Every detail matters. Every customer too.`,
+            `Wasting time on repetitive tasks? ${projectName || "This solution"} automates the essentials so you can focus on what really matters.`,
+            `Less stress. More results. That's what our clients say after 30 days with ${projectName || "us"}.`,
+            `How many customers did you lose this month without knowing? ${projectName || "Our solution"} gives you the answers.`,
+            `One week. That's all you need to see the difference with ${projectName || "our solution"}. Ready to try?`,
+          ],
+          hashtags: [["authentic", "brand", "story"], ["productivity", "automation", "efficiency"], ["results", "testimonial", "trust"], ["customers", "analytics", "performance"], ["action", "challenge", "transformation"]],
         },
-        {
-          id: "3",
-          title: "Résultat concret",
-          content: `Moins de stress. Plus de résultats. Voilà ce que nos clients disent après 30 jours avec ${projectName || "nous"}.`,
-          contentType: "video",
-          angle: "benefice",
-          estimatedEngagement: "medium",
-          hashtags: ["resultats", "temoignage", "confiance"],
+        es: {
+          titles: ["La historia detrás de la marca", "El problema que conoces", "Resultados concretos", "La pregunta que pica", "Actúa ahora"],
+          contents: [
+            `${projectName || "Nuestra marca"} nació de una convicción simple: hacer mejor, no más. Cada detalle cuenta. Cada cliente también.`,
+            `¿Pierdes tiempo en tareas repetitivas? ${projectName || "Esta solución"} automatiza lo esencial para que puedas enfocarte en lo que realmente importa.`,
+            `Menos estrés. Más resultados. Eso es lo que dicen nuestros clientes después de 30 días con ${projectName || "nosotros"}.`,
+            `¿Cuántos clientes perdiste este mes sin saberlo? ${projectName || "Nuestra solución"} te da las respuestas.`,
+            `Una semana. Es todo lo que necesitas para ver la diferencia con ${projectName || "nuestra solución"}. ¿Listo para probar?`,
+          ],
+          hashtags: [["autentico", "marca", "historia"], ["productividad", "automatizacion", "eficiencia"], ["resultados", "testimonio", "confianza"], ["clientes", "analisis", "rendimiento"], ["accion", "reto", "transformacion"]],
         },
-        {
-          id: "4",
-          title: "La question qui pique",
-          content: `Combien de clients as-tu perdus ce mois-ci sans le savoir ? ${projectName || "Notre solution"} te donne les réponses.`,
-          contentType: "video",
-          angle: "emotion",
-          estimatedEngagement: "high",
-          hashtags: ["clients", "analyse", "performance"],
+        de: {
+          titles: ["Die Geschichte hinter der Marke", "Das Problem, das Sie kennen", "Konkrete Ergebnisse", "Die Frage, die brennt", "Jetzt handeln"],
+          contents: [
+            `${projectName || "Unsere Marke"} wurde aus einer einfachen Überzeugung geboren: besser machen, nicht mehr. Jedes Detail zählt. Jeder Kunde auch.`,
+            `Verschwenden Sie Zeit mit sich wiederholenden Aufgaben? ${projectName || "Diese Lösung"} automatisiert das Wesentliche, damit Sie sich auf das konzentrieren können, was wirklich zählt.`,
+            `Weniger Stress. Mehr Ergebnisse. Das sagen unsere Kunden nach 30 Tagen mit ${projectName || "uns"}.`,
+            `Wie viele Kunden haben Sie diesen Monat verloren, ohne es zu wissen? ${projectName || "Unsere Lösung"} gibt Ihnen die Antworten.`,
+            `Eine Woche. Das ist alles, was Sie brauchen, um den Unterschied mit ${projectName || "unserer Lösung"} zu sehen. Bereit zu starten?`,
+          ],
+          hashtags: [["authentisch", "marke", "geschichte"], ["produktivitaet", "automatisierung", "effizienz"], ["ergebnisse", "testimonial", "vertrauen"], ["kunden", "analyse", "leistung"], ["aktion", "herausforderung", "transformation"]],
         },
-        {
-          id: "5",
-          title: "L'action immédiate",
-          content: `Une semaine. C'est tout ce qu'il te faut pour voir la différence avec ${projectName || "notre solution"}. Prêt à essayer ?`,
-          contentType: "video",
-          angle: "urgence",
-          estimatedEngagement: "high",
-          hashtags: ["action", "defi", "transformation"],
+        it: {
+          titles: ["La storia dietro il marchio", "Il problema che conosci", "Risultati concreti", "La domanda che punge", "Agisci ora"],
+          contents: [
+            `${projectName || "Il nostro marchio"} è nato da una convinzione semplice: fare meglio, non di più. Ogni dettaglio conta. Ogni cliente anche.`,
+            `Perdi tempo in compiti ripetitivi? ${projectName || "Questa soluzione"} automatizza l'essenziale per concentrarti su ciò che conta davvero.`,
+            `Meno stress. Più risultati. Ecco cosa dicono i nostri clienti dopo 30 giorni con ${projectName || "noi"}.`,
+            `Quanti clienti hai perso questo mese senza saperlo? ${projectName || "La nostra soluzione"} ti dà le risposte.`,
+            `Una settimana. È tutto ciò che serve per vedere la differenza con ${projectName || "la nostra soluzione"}. Pronto a provare?`,
+          ],
+          hashtags: [["autentico", "marchio", "storia"], ["produttivita", "automazione", "efficienza"], ["risultati", "testimonianza", "fiducia"], ["clienti", "analisi", "prestazioni"], ["azione", "sfida", "trasformazione"]],
         },
-      ];
+        pt: {
+          titles: ["A história por trás da marca", "O problema que você conhece", "Resultados concretos", "A pergunta que pica", "Aja agora"],
+          contents: [
+            `${projectName || "Nossa marca"} nasceu de uma convicção simples: fazer melhor, não mais. Cada detalhe conta. Cada cliente também.`,
+            `Perdendo tempo em tarefas repetitivas? ${projectName || "Esta solução"} automatiza o essencial para você focar no que realmente importa.`,
+            `Menos estresse. Mais resultados. É o que nossos clientes dizem após 30 dias com ${projectName || "a gente"}.`,
+            `Quantos clientes você perdeu este mês sem saber? ${projectName || "Nossa solução"} te dá as respostas.`,
+            `Uma semana. É tudo que você precisa para ver a diferença com ${projectName || "nossa solução"}. Pronto para tentar?`,
+          ],
+          hashtags: [["autentico", "marca", "historia"], ["produtividade", "automacao", "eficiencia"], ["resultados", "depoimento", "confianca"], ["clientes", "analise", "desempenho"], ["acao", "desafio", "transformacao"]],
+        },
+      };
+      
+      const langFallback = fallbackByLang[outputLanguage] || fallbackByLang.en;
+      const angles = ["emotion", "probleme", "benefice", "emotion", "urgence"];
+      
+      suggestions = langFallback.titles.map((title, i) => ({
+        id: String(i + 1),
+        title,
+        content: langFallback.contents[i],
+        contentType: "video",
+        angle: angles[i],
+        estimatedEngagement: i < 2 || i === 3 ? "high" : "medium",
+        hashtags: langFallback.hashtags[i],
+      }));
     }
 
     // Return appropriate format based on content type
