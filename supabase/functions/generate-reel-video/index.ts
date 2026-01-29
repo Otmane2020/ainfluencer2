@@ -7,21 +7,23 @@ const corsHeaders = {
 };
 
 // ============================================================
-// GENERATE REEL VIDEO - FIXED VERSION
+// GENERATE REEL VIDEO - UNIFIED PRO VERSION
 // Format: REEL ONLY (9:16) - Mobile First - Starlinko Ready
-// Duration: 5-15 seconds strict
-// Output: Assets ready for external video API (Banana/Fal/Replicate)
+// Duration: 5-15 seconds
+// Image: Gemini Pro (high quality)
+// Audio: ElevenLabs (optional) + Audio Bank (fallback)
+// Output: Assets ready for external video API
 // ============================================================
 
 interface ReelVideoRequest {
   prompt: string;
   brandName?: string;
-  duration?: number; // 5-15 seconds
+  duration?: number;
   musicCategory?: "upbeat" | "chill" | "dramatic" | "corporate" | "inspiring";
   musicPrompt?: string;
 }
 
-// Audio bank - fallback ALWAYS works
+// Audio bank - guaranteed fallback
 const AUDIO_TRACKS: Record<string, string[]> = {
   upbeat: [
     "https://assets.mixkit.co/music/preview/mixkit-tech-house-vibes-130.mp3",
@@ -50,7 +52,7 @@ function getRandomTrack(category: string): string {
 }
 
 // ============================================================
-// IMAGE GENERATION - Gemini with CORRECT base64 parsing
+// IMAGE GENERATION - Gemini Pro (High Quality)
 // ============================================================
 
 async function generateImage(
@@ -64,26 +66,24 @@ async function generateImage(
   }
 
   try {
-    // Mobile-first prompt for Starlinko (mobile application)
     const finalPrompt = `
-Create a stunning vertical Reel image for Starlinko mobile app:
+Create a stunning vertical Reel image (9:16, 1080×1920):
 
 ${prompt}
 ${brandName ? `Brand: ${brandName}` : ""}
 
-CRITICAL REQUIREMENTS:
+REQUIREMENTS:
 - Format: 9:16 vertical portrait (1080×1920)
-- Starlinko is a MOBILE APPLICATION for social media content
 - Ultra-premium advertising photography, 8K quality
 - Bold, large text overlay readable on mobile
 - High contrast, vibrant colors
-- Clean background, professional studio lighting
+- Professional studio lighting
 - Instagram/TikTok Reel style
-- Mobile-safe zones respected (avoid top 150px and bottom 200px)
-- Include motivational CTA text: "Download Now", "Try Free", "Get Started"
+- Mobile-safe zones (avoid top 150px and bottom 200px)
+- Include CTA text: "Download Now", "Try Free", or "Get Started"
 `.trim();
 
-    console.log("[REEL-VIDEO] Generating image with Gemini...");
+    console.log("[REEL-VIDEO] Generating PRO image with Gemini...");
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -99,26 +99,27 @@ CRITICAL REQUIREMENTS:
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[REEL-VIDEO] Gemini error:", response.status, errorText.slice(0, 200));
+      const status = response.status;
+      console.error("[REEL-VIDEO] Gemini error:", status);
       
-      if (response.status === 429) {
-        return { imageBase64: "", error: "Rate limit exceeded. Please try again later." };
-      }
-      if (response.status === 402) {
-        return { imageBase64: "", error: "Credits required. Please add credits." };
-      }
-      return { imageBase64: "", error: `Image generation failed: ${response.status}` };
+      if (status === 429) return { imageBase64: "", error: "Rate limit exceeded" };
+      if (status === 402) return { imageBase64: "", error: "Credits required" };
+      return { imageBase64: "", error: `Image generation failed: ${status}` };
     }
 
     const data = await response.json();
     
-    // Method 1: Check for images array (standard format)
-    let imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    // Parse base64 from multiple possible response formats
+    let imageData: string | null = null;
+
+    // Format 1: images array
+    if (data.choices?.[0]?.message?.images?.[0]?.image_url?.url) {
+      imageData = data.choices[0].message.images[0].image_url.url;
+    }
     
-    // Method 2: Check for content array with image type
-    if (!imageData) {
-      const imagePart = data.choices?.[0]?.message?.content?.find?.(
+    // Format 2: content array with image type
+    if (!imageData && Array.isArray(data.choices?.[0]?.message?.content)) {
+      const imagePart = data.choices[0].message.content.find(
         (c: { type: string; image_base64?: string }) => c.type === "image"
       );
       if (imagePart?.image_base64) {
@@ -126,7 +127,7 @@ CRITICAL REQUIREMENTS:
       }
     }
 
-    // Method 3: Check if content itself is base64
+    // Format 3: direct base64 string
     if (!imageData && typeof data.choices?.[0]?.message?.content === "string") {
       const content = data.choices[0].message.content;
       if (content.startsWith("data:image")) {
@@ -135,36 +136,35 @@ CRITICAL REQUIREMENTS:
     }
 
     if (!imageData) {
-      console.error("[REEL-VIDEO] No image in response:", JSON.stringify(data).slice(0, 500));
-      return { imageBase64: "", error: "No image generated by AI" };
+      console.error("[REEL-VIDEO] No image in response");
+      return { imageBase64: "", error: "No image generated" };
     }
 
-    // Extract base64 from data URL
     const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
-    
     console.log("[REEL-VIDEO] Image generated successfully");
+    
     return { imageBase64: base64Data };
 
   } catch (error) {
-    console.error("[REEL-VIDEO] Image generation error:", error);
+    console.error("[REEL-VIDEO] Image error:", error);
     return { imageBase64: "", error: String(error) };
   }
 }
 
 // ============================================================
-// MUSIC GENERATION - ElevenLabs OPTIONAL (fallback guaranteed)
+// MUSIC GENERATION - ElevenLabs (Optional)
 // ============================================================
 
 async function generateMusic(prompt: string, duration: number): Promise<string | null> {
   const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY");
 
   if (!ELEVENLABS_API_KEY) {
-    console.log("[REEL-VIDEO] No ElevenLabs API key, using audio bank fallback");
+    console.log("[REEL-VIDEO] No ElevenLabs key, using audio bank");
     return null;
   }
 
   try {
-    console.log("[REEL-VIDEO] Attempting ElevenLabs music generation...");
+    console.log("[REEL-VIDEO] Generating custom music...");
     
     const response = await fetch("https://api.elevenlabs.io/v1/music", {
       method: "POST",
@@ -173,25 +173,24 @@ async function generateMusic(prompt: string, duration: number): Promise<string |
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        prompt: `${prompt}. ${duration} second track, perfect for social media reel, catchy and engaging.`,
+        prompt: `${prompt}. ${duration} second track for social media reel.`,
         duration_seconds: duration,
       }),
     });
 
     if (!response.ok) {
-      console.log("[REEL-VIDEO] ElevenLabs failed, using fallback:", response.status);
+      console.log("[REEL-VIDEO] ElevenLabs failed, using fallback");
       return null;
     }
 
     const audioBuffer = await response.arrayBuffer();
     const { encode: base64Encode } = await import("https://deno.land/std@0.168.0/encoding/base64.ts");
-    const audioBase64 = base64Encode(audioBuffer);
-
-    console.log("[REEL-VIDEO] Custom music generated successfully");
-    return `data:audio/mpeg;base64,${audioBase64}`;
+    
+    console.log("[REEL-VIDEO] Custom music generated");
+    return `data:audio/mpeg;base64,${base64Encode(audioBuffer)}`;
     
   } catch (error) {
-    console.log("[REEL-VIDEO] ElevenLabs error, using fallback:", error);
+    console.log("[REEL-VIDEO] Music error, using fallback:", error);
     return null;
   }
 }
@@ -215,82 +214,72 @@ serve(async (req) => {
       );
     }
 
-    // Force Reel format (9:16 only) and safe duration (5-15s)
-    const safeDuration = Math.min(Math.max(body.duration ?? 10, 5), 15);
+    // Enforce Reel specs: 9:16, 5-15s
+    const duration = Math.min(Math.max(body.duration ?? 10, 5), 15);
     const musicCategory = body.musicCategory ?? "upbeat";
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log("=== GENERATE REEL VIDEO (FIXED VERSION) ===");
-    console.log("Prompt:", body.prompt.slice(0, 100));
-    console.log("Brand:", body.brandName || "none");
-    console.log("Duration:", safeDuration, "s | Music:", musicCategory);
+    console.log("=== GENERATE REEL VIDEO (PRO) ===");
+    console.log("Prompt:", body.prompt.slice(0, 80));
+    console.log("Duration:", duration, "s | Music:", musicCategory);
 
-    // Step 1: Generate image with Gemini (base64)
+    // Step 1: Generate PRO image
     const imageResult = await generateImage(body.prompt, body.brandName);
     
     if (!imageResult.imageBase64) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: imageResult.error || "Image generation failed",
-          step: "image" 
-        }),
+        JSON.stringify({ success: false, error: imageResult.error, step: "image" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Step 2: Upload image to Supabase storage
+    // Step 2: Upload to storage
     const imageBytes = Uint8Array.from(atob(imageResult.imageBase64), (c) => c.charCodeAt(0));
-    const imagePath = `reels/reel-image-${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
+    const imagePath = `reels/reel-${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
 
     const { error: uploadError } = await supabase.storage
       .from("media")
       .upload(imagePath, imageBytes, { contentType: "image/png", upsert: true });
 
     if (uploadError) {
-      console.error("[REEL-VIDEO] Image upload error:", uploadError);
+      console.error("[REEL-VIDEO] Upload error:", uploadError);
       return new Response(
-        JSON.stringify({ success: false, error: "Failed to upload image", step: "upload" }),
+        JSON.stringify({ success: false, error: "Image upload failed", step: "upload" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const { data: imagePublicUrl } = supabase.storage.from("media").getPublicUrl(imagePath);
 
-    // Step 3: Get music (ElevenLabs optional + fallback guaranteed)
+    // Step 3: Get music (ElevenLabs optional, fallback guaranteed)
     let musicUrl = getRandomTrack(musicCategory);
     
     if (body.musicPrompt) {
-      const customMusic = await generateMusic(body.musicPrompt, safeDuration);
-      if (customMusic) {
-        musicUrl = customMusic;
-      }
+      const customMusic = await generateMusic(body.musicPrompt, duration);
+      if (customMusic) musicUrl = customMusic;
     }
 
-    console.log("[REEL-VIDEO] Pipeline complete!");
+    console.log("[REEL-VIDEO] Complete!");
     console.log("  Image:", imagePublicUrl.publicUrl);
-    console.log("  Music:", musicUrl.startsWith("data:") ? "Custom (base64)" : musicUrl);
-    console.log("  Duration:", safeDuration, "s");
+    console.log("  Music:", musicUrl.startsWith("data:") ? "Custom" : "Bank");
 
-    // Return assets ready for external video API
+    // Return assets ready for video composition
     return new Response(
       JSON.stringify({
         success: true,
         format: "reel",
         aspectRatio: "9:16",
         resolution: "1080x1920",
-        duration: safeDuration,
+        duration,
         imageUrl: imagePublicUrl.publicUrl,
         musicUrl,
         musicCategory,
-        // Clear indication that MP4 composition requires external API
-        videoGeneration: "external_api_required",
-        nextStep: "send_to_video_api",
-        recommendedApis: ["Banana", "Fal.ai", "Replicate", "CometAPI"],
-        message: `Reel assets ready (9:16, ${safeDuration}s). Send to video API for MP4 composition.`,
+        videoReady: false,
+        nextStep: "compose_video",
+        message: `Reel assets ready (9:16, ${duration}s). Use video API for MP4 export.`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -298,10 +287,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("[REEL-VIDEO] Error:", error);
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error instanceof Error ? error.message : "Unknown error" 
-      }),
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
