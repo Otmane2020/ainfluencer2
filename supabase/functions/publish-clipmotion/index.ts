@@ -135,7 +135,7 @@ async function logPublishedPost(
   errorMessage?: string
 ): Promise<void> {
   try {
-    // Log to scheduled_posts with published status
+    // Log to scheduled_posts with published status and external post ID
     await supabase.from("scheduled_posts").insert({
       user_id: userId,
       project_id: userId, // Use userId as fallback project
@@ -147,8 +147,9 @@ async function logPublishedPost(
       error_message: errorMessage,
       published_at: success ? new Date().toISOString() : null,
       scheduled_for: new Date().toISOString(),
+      external_post_id: postId || null, // Store the platform post ID for direct linking
     });
-    console.log(`[LOG] Post logged: ${platform} - ${success ? "published" : "failed"}`);
+    console.log(`[LOG] Post logged: ${platform} - ${success ? "published" : "failed"} - postId: ${postId}`);
   } catch (err) {
     console.error("[LOG] Failed to log post:", err);
   }

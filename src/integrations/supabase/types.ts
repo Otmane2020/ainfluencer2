@@ -395,6 +395,7 @@ export type Database = {
           content_type: string
           created_at: string
           error_message: string | null
+          external_post_id: string | null
           id: string
           media_url: string | null
           platforms: string[] | null
@@ -413,6 +414,7 @@ export type Database = {
           content_type: string
           created_at?: string
           error_message?: string | null
+          external_post_id?: string | null
           id?: string
           media_url?: string | null
           platforms?: string[] | null
@@ -431,6 +433,7 @@ export type Database = {
           content_type?: string
           created_at?: string
           error_message?: string | null
+          external_post_id?: string | null
           id?: string
           media_url?: string | null
           platforms?: string[] | null
