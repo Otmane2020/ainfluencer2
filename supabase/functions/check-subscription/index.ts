@@ -80,26 +80,35 @@ serve(async (req) => {
     if (!userEmail) throw new Error("User email not available");
 
     // ============================================================
-    // CHECK DATABASE FIRST for lifetime/manual grants
+    // CHECK DATABASE FIRST for lifetime/manual grants (BEFORE any Stripe check)
     // ============================================================
-    const { data: dbSubscription } = await supabaseClient
+    const { data: lifetimeGrant } = await supabaseClient
       .from("subscriptions")
       .select("*")
       .eq("user_id", userId)
-      .eq("status", "active")
+      .eq("stripe_customer_id", "lifetime_grant")
       .maybeSingle();
 
-    if (dbSubscription && (dbSubscription.stripe_customer_id === "lifetime_grant" || !dbSubscription.stripe_subscription_id)) {
-      logStep("LIFETIME GRANT found in database", { 
-        planId: dbSubscription.plan_id, 
-        renewsAt: dbSubscription.renews_at 
+    if (lifetimeGrant) {
+      logStep("LIFETIME GRANT found in database - skipping Stripe check", { 
+        planId: lifetimeGrant.plan_id, 
+        renewsAt: lifetimeGrant.renews_at,
+        status: lifetimeGrant.status
       });
+      
+      // Ensure status is active for lifetime grants
+      if (lifetimeGrant.status !== "active") {
+        await supabaseClient
+          .from("subscriptions")
+          .update({ status: "active" })
+          .eq("id", lifetimeGrant.id);
+      }
       
       return new Response(JSON.stringify({
         subscribed: true,
-        plan_id: dbSubscription.plan_id,
+        plan_id: lifetimeGrant.plan_id,
         status: "active",
-        subscription_end: dbSubscription.renews_at,
+        subscription_end: lifetimeGrant.renews_at,
         requires_checkout: false,
         lifetime: true,
       }), {
@@ -115,18 +124,15 @@ serve(async (req) => {
     if (customers.data.length === 0) {
       logStep("No Stripe customer found - user has no subscription");
       
-      // Only update if no existing subscription in DB
-      if (!dbSubscription) {
-        await supabaseClient
-          .from("subscriptions")
-          .upsert({
-            user_id: userId,
-            plan_id: "starter",
-            status: "inactive",
-            stripe_customer_id: null,
-            stripe_subscription_id: null,
-          }, { onConflict: "user_id" });
-      }
+      await supabaseClient
+        .from("subscriptions")
+        .upsert({
+          user_id: userId,
+          plan_id: "starter",
+          status: "inactive",
+          stripe_customer_id: null,
+          stripe_subscription_id: null,
+        }, { onConflict: "user_id" });
 
       return new Response(JSON.stringify({
         subscribed: false,
