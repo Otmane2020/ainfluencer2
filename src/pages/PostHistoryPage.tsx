@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Project {
   id: string;
@@ -26,18 +27,23 @@ interface ShareContent {
 }
 
 const PostHistoryPage = () => {
+  const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const [shareModal, setShareModal] = useState<{ open: boolean; content?: ShareContent }>({ open: false });
 
   useEffect(() => {
-    fetchProjects();
-  }, []);
+    if (user) {
+      fetchProjects();
+    }
+  }, [user]);
 
   const fetchProjects = async () => {
+    if (!user) return;
     const { data } = await supabase
       .from("projects")
       .select("id, name, theme_color")
+      .eq("user_id", user.id)
       .order("name");
     if (data) setProjects(data);
   };

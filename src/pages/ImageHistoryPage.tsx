@@ -62,27 +62,32 @@ const ImageHistoryPage = () => {
   }, [selectedProject]);
 
   const fetchProjects = async () => {
+    if (!user) return;
     const { data } = await supabase
       .from("projects")
       .select("id, name")
+      .eq("user_id", user.id)
       .order("name");
     if (data) setProjects(data);
   };
 
   const fetchCampaigns = async () => {
+    if (!user) return;
     const { data } = await supabase
       .from("campaigns")
       .select("id, name, project_id")
+      .eq("user_id", user.id)
       .order("name");
     if (data) setCampaigns(data);
   };
 
   const fetchImages = async () => {
+    if (!user) return;
     setIsLoading(true);
     try {
       const allImages: ImagePost[] = [];
 
-      // 1. Fetch image posts from scheduled_posts
+      // 1. Fetch image posts from scheduled_posts (RLS filters by user_id automatically)
       const { data: scheduledPosts } = await supabase
         .from("scheduled_posts")
         .select(`
@@ -92,6 +97,7 @@ const ImageHistoryPage = () => {
           campaigns!scheduled_posts_campaign_id_fkey(name)
         `)
         .eq("content_type", "image")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(200);
 

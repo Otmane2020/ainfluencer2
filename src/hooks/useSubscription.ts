@@ -48,12 +48,25 @@ export const useSubscription = () => {
     }
 
     // Check if we have a valid session before calling the edge function
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData?.session) {
-      console.log("No valid session, skipping subscription check");
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !sessionData?.session?.access_token) {
+      console.log("No valid session, skipping subscription check and using database fallback");
       setIsLoading(false);
       await loadFromDatabase();
       return;
+    }
+
+    // Double-check that the token is not expired
+    const tokenExpiry = sessionData.session.expires_at;
+    if (tokenExpiry && tokenExpiry * 1000 < Date.now()) {
+      console.log("Session token expired, refreshing...");
+      const { error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError) {
+        console.log("Failed to refresh session, using database fallback");
+        setIsLoading(false);
+        await loadFromDatabase();
+        return;
+      }
     }
 
     setIsCheckingStripe(true);

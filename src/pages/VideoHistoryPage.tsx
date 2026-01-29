@@ -15,6 +15,7 @@ import {
 import { RefreshCw, Video, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Project {
   id: string;
@@ -30,6 +31,7 @@ const VideoHistoryPage = () => {
   const { fetchStoredVideos, isLoading: isLoadingVideos } = useStoredVideos();
   const { tasks, getPendingTasks, updateTask } = useGenerationTasks();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   // Get all in-progress tasks (queued or in_progress status)
   const activeTasks = getPendingTasks();
@@ -64,9 +66,11 @@ const VideoHistoryPage = () => {
   }, [completedTasks]);
 
   useEffect(() => {
-    fetchProjects();
-    loadVideos();
-  }, []);
+    if (user) {
+      fetchProjects();
+      loadVideos();
+    }
+  }, [user]);
 
   // Immediate status check for any pending tasks on mount
   useEffect(() => {
@@ -159,9 +163,11 @@ const VideoHistoryPage = () => {
   }, [activeTasks, updateTask]);
 
   const fetchProjects = async () => {
+    if (!user) return;
     const { data } = await supabase
       .from("projects")
       .select("id, name, theme_color")
+      .eq("user_id", user.id)
       .order("name");
     if (data) setProjects(data);
   };
