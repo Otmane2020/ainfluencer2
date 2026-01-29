@@ -787,11 +787,10 @@ export const ScheduledPostModal = ({
           : "Creating reel image with music",
       });
 
-      // Use the new generate-reel edge function (Gemini + music)
-      const { data, error } = await supabase.functions.invoke("generate-reel", {
+      // Use the generate-reel-video edge function (Gemini + music + MP4 export)
+      const { data, error } = await supabase.functions.invoke("generate-reel-video", {
         body: {
           prompt: enhancedPrompt,
-          format: videoFormat === "landscape" ? "landscape" : "reel",
           brandName: projectContext?.name || undefined,
           musicCategory: "upbeat", // Default to upbeat for reels
           duration: 10,
@@ -800,16 +799,23 @@ export const ScheduledPostModal = ({
 
       if (error) throw error;
 
-      if (data?.success && data?.imageUrl) {
-        // Update local state immediately for instant preview
-        setLocalMediaUrl(data.imageUrl);
+      if (data?.success) {
+        // Use videoUrl if available (full MP4), otherwise fall back to imageUrl
+        const mediaUrl = data.videoUrl || data.imageUrl;
         
-        // Update post with generated reel image
+        if (!mediaUrl) {
+          throw new Error(data?.error || "No media URL returned");
+        }
+        
+        // Update local state immediately for instant preview
+        setLocalMediaUrl(mediaUrl);
+        
+        // Update post with generated reel (video or image)
         const { error: updateError } = await supabase
           .from("scheduled_posts")
           .update({ 
-            media_url: data.imageUrl,
-            thumbnail_url: data.imageUrl,
+            media_url: mediaUrl,
+            thumbnail_url: data.imageUrl || mediaUrl,
             status: "scheduled",
           })
           .eq("id", post.id);
@@ -818,7 +824,9 @@ export const ScheduledPostModal = ({
 
         toast({
           title: "Reel generated ✓",
-          description: data.musicUrl ? "Image ready with background music" : "Image ready for reel",
+          description: data.videoUrl 
+            ? `MP4 exported (${data.duration}s)` 
+            : "Reel image ready",
         });
         
         onUpdate?.();
