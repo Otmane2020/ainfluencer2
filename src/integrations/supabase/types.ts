@@ -394,6 +394,84 @@ export type Database = {
         }
         Relationships: []
       }
+      tiktok_connections: {
+        Row: {
+          access_token: string
+          avatar_url: string | null
+          created_at: string
+          display_name: string
+          expires_at: string
+          id: string
+          open_id: string
+          refresh_token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          avatar_url?: string | null
+          created_at?: string
+          display_name: string
+          expires_at: string
+          id?: string
+          open_id: string
+          refresh_token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string
+          expires_at?: string
+          id?: string
+          open_id?: string
+          refresh_token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      youtube_connections: {
+        Row: {
+          access_token: string
+          channel_id: string
+          channel_name: string
+          channel_picture_url: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          refresh_token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          channel_id: string
+          channel_name: string
+          channel_picture_url?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          refresh_token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          channel_id?: string
+          channel_name?: string
+          channel_picture_url?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          refresh_token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
