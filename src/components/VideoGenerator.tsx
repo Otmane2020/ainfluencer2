@@ -568,6 +568,22 @@ ${formattedHashtags}`;
       return;
     }
     
+    // Get session for authenticated calls
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    
+    if (!accessToken) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to generate videos",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    setShowProgressModal(true);
+    
     // Step 1: Generate audio with ElevenLabs TTS for voiceover
     const segmentsWithAudio = await Promise.all(
       segments.map(async (segment) => {
@@ -581,7 +597,7 @@ ${formattedHashtags}`;
               headers: {
                 "Content-Type": "application/json",
                 apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                Authorization: `Bearer ${accessToken}`,
               },
               body: JSON.stringify({
                 text: segment.script,
@@ -624,7 +640,7 @@ ${formattedHashtags}`;
               headers: {
                 "Content-Type": "application/json",
                 apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                Authorization: `Bearer ${accessToken}`,
               },
               body: JSON.stringify({
                 prompt: buildScenarioPrompt(selectedSector, selectedStyle, selectedTone) + segment.script,
@@ -700,7 +716,7 @@ ${formattedHashtags}`;
                 method: "GET",
                 headers: {
                   apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                  Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                  Authorization: `Bearer ${accessToken}`,
                 },
               }
             );
@@ -737,7 +753,7 @@ ${formattedHashtags}`;
                   method: "GET",
                   headers: {
                     apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                    Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                    Authorization: `Bearer ${accessToken}`,
                   },
                 }
               );

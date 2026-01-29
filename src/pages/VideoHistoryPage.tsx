@@ -75,6 +75,10 @@ const VideoHistoryPage = () => {
   // Immediate status check for any pending tasks on mount
   useEffect(() => {
     const checkImmediateStatus = async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) return;
+
       for (const task of activeTasks) {
         try {
           console.log("[VideoHistory] Checking status for task:", task.taskId);
@@ -84,7 +88,7 @@ const VideoHistoryPage = () => {
               method: "GET",
               headers: {
                 apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                Authorization: `Bearer ${accessToken}`,
               },
             }
           );
@@ -123,6 +127,10 @@ const VideoHistoryPage = () => {
     if (activeTasks.length === 0) return;
 
     const pollInterval = setInterval(async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) return;
+
       for (const task of activeTasks) {
         try {
           const statusResponse = await fetch(
@@ -131,7 +139,7 @@ const VideoHistoryPage = () => {
               method: "GET",
               headers: {
                 apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                Authorization: `Bearer ${accessToken}`,
               },
             }
           );
