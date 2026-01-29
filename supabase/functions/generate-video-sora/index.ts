@@ -297,10 +297,34 @@ serve(async (req) => {
       // ============================================================
       // WEIGHTED RANDOM MODEL SELECTION
       // ============================================================
-      const selectedModel = selectModelFromPool(requestedModel);
-      const apiModel = selectedModel.apiModel;
+      
+      // Fallback: ensure requestedModel exists in pool
+      const safeRequestedModel = VIDEO_MODEL_POOLS[requestedModel] ? requestedModel : "smart-video";
+      let selectedModel = selectModelFromPool(safeRequestedModel);
+      let apiModel = selectedModel.apiModel;
 
-      console.log(`[MODEL-POOL] Quality: ${requestedModel} -> Selected: ${selectedModel.id} (${apiModel})`);
+      console.log(`[MODEL-POOL] Quality: ${requestedModel} -> Safe: ${safeRequestedModel} -> Selected: ${selectedModel.id} (${apiModel})`);
+
+      // ============================================================
+      // CLIPMOTION COST PROTECTION: Force cheap model for ClipMotion
+      // ClipMotion = high volume social content, never use expensive Sora
+      // ============================================================
+      if (videoMode === "clipmotion" && apiModel.startsWith("sora")) {
+        console.log("[COST-PROTECTION] ClipMotion forced to cheap model (was:", apiModel, ")");
+        selectedModel = VIDEO_MODEL_POOLS["smart-video"][0]; // Force veo-2
+        apiModel = selectedModel.apiModel;
+      }
+
+      // ============================================================
+      // COST LOGGING (for analytics & abuse detection)
+      // ============================================================
+      const estimatedCost = 
+        apiModel === "sora-2" ? "€€€ (~$1.20)" :
+        apiModel === "veo-2" ? "€ (~$0.40)" :
+        apiModel === "kling-video" ? "€ (~$0.35)" :
+        apiModel === "minimax-video-01" ? "€ (~$0.30)" : "?";
+      
+      console.log(`[COST] Model: ${apiModel} | Estimated: ${estimatedCost} | Mode: ${videoMode}`);
 
       // Validate duration for this model
       const validDurations = selectedModel.durations;
