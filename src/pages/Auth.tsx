@@ -148,23 +148,27 @@ const Auth = () => {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
+      const redirectUrl = `${window.location.origin}/dashboard`;
       const { error } = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+        redirect_uri: redirectUrl,
       });
       if (error) {
+        console.error("[Auth] Google OAuth error:", error);
         toast({
           title: "Google Sign In Error",
-          description: error.message,
+          description: error.message || "Failed to authenticate with Google",
           variant: "destructive",
         });
+        setIsGoogleLoading(false);
       }
+      // Don't reset loading state on success - page will redirect
     } catch (error) {
+      console.error("[Auth] Google OAuth exception:", error);
       toast({
         title: "Error",
-        description: "Failed to sign in with Google",
+        description: "Failed to sign in with Google. Please try again.",
         variant: "destructive",
       });
-    } finally {
       setIsGoogleLoading(false);
     }
   };
@@ -172,23 +176,27 @@ const Auth = () => {
   const handleAppleSignIn = async () => {
     setIsAppleLoading(true);
     try {
+      const redirectUrl = `${window.location.origin}/dashboard`;
       const { error } = await lovable.auth.signInWithOAuth("apple", {
-        redirect_uri: window.location.origin,
+        redirect_uri: redirectUrl,
       });
       if (error) {
+        console.error("[Auth] Apple OAuth error:", error);
         toast({
           title: "Apple Sign In Error",
-          description: error.message,
+          description: error.message || "Failed to authenticate with Apple",
           variant: "destructive",
         });
+        setIsAppleLoading(false);
       }
+      // Don't reset loading state on success - page will redirect
     } catch (error) {
+      console.error("[Auth] Apple OAuth exception:", error);
       toast({
         title: "Error",
-        description: "Failed to sign in with Apple",
+        description: "Failed to sign in with Apple. Please try again.",
         variant: "destructive",
       });
-    } finally {
       setIsAppleLoading(false);
     }
   };
