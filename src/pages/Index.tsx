@@ -123,8 +123,8 @@ const Index = () => {
       );
     } catch {
       toast({
-        title: "Erreur",
-        description: "Impossible de copier le contenu",
+        title: "Error",
+        description: "Could not copy content",
         variant: "destructive",
       });
     }

@@ -72,7 +72,7 @@ const PricingPage = () => {
             Choose the plan that fits your needs. Start with a subscription, pay per generation with credits.
           </p>
           <p className="text-sm text-muted-foreground mb-12">
-            No hidden fees • Cancel anytime • 1 credit = 1€
+            No hidden fees • Cancel anytime • 1 credit = $1
           </p>
           
           <PricingPacks />
@@ -146,7 +146,7 @@ const PricingPage = () => {
                           {pack.quantity} ClipMotion videos
                         </TableCell>
                         <TableCell className="text-right font-bold">
-                          {pack.price} €
+                          ${pack.price}
                         </TableCell>
                         <TableCell className="text-right">
                           <Button 
@@ -189,7 +189,7 @@ const PricingPage = () => {
                           {pack.quantity} images {getQualityLabel(pack.quality)}
                         </TableCell>
                         <TableCell className="text-right font-bold">
-                          {pack.price} €
+                          ${pack.price}
                         </TableCell>
                         <TableCell className="text-right">
                           <Button 
@@ -232,7 +232,7 @@ const PricingPage = () => {
                           {pack.quantity} videos {getQualityLabel(pack.quality)}
                         </TableCell>
                         <TableCell className="text-right font-bold">
-                          {pack.price} €
+                          ${pack.price}
                         </TableCell>
                         <TableCell className="text-right">
                           <Button 

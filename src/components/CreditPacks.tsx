@@ -49,7 +49,7 @@ export const CreditPacks = ({ onCheckoutStarted, compact = false }: CreditPacksP
           Buy Credits
         </h3>
         <p className="text-sm text-muted-foreground">
-          1 credit = 1€ · Recharge anytime · No commitment
+          1 credit = $1 · Recharge anytime · No commitment
         </p>
       </div>
 
@@ -113,7 +113,7 @@ export const CreditPacks = ({ onCheckoutStarted, compact = false }: CreditPacksP
                 )}
 
                 <div className="text-lg font-bold">
-                  {pack.price}€
+                  ${pack.price}
                 </div>
               </div>
             </motion.div>
