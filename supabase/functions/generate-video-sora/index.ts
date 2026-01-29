@@ -246,6 +246,11 @@ serve(async (req) => {
     const url = new URL(req.url);
     const action = url.searchParams.get("action") || "create";
 
+    // Create Supabase admin client for generation tracking
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } });
+
     if (action === "create") {
       // ============================================================
       // SUBSCRIPTION VERIFICATION
@@ -282,11 +287,46 @@ serve(async (req) => {
         startingFrameUrl,
         model: requestedModel = "smart-video",
         videoMode = "standard",
-      }: VideoRequest = await req.json();
+        projectId,
+        campaignId,
+      }: VideoRequest & { projectId?: string; campaignId?: string } = await req.json();
 
       if (!prompt) {
         throw new Error("Prompt is required");
       }
+
+      // ============================================================
+      // STEP 1: CREATE GENERATION HISTORY BEFORE API CALL
+      // This ensures we always have a trace, even if generation fails
+      // ============================================================
+      const { data: generation, error: genError } = await supabaseAdmin
+        .from("generations")
+        .insert({
+          user_id: accessCheck.userId,
+          project_id: projectId || null,
+          campaign_id: campaignId || null,
+          type: "video",
+          video_mode: videoMode,
+          status: "pending",
+          progress: 5,
+          step: "initializing",
+          prompt: prompt,
+          duration: requestedDuration,
+          model: requestedModel,
+          quality: quality,
+          format: format || (requestedOrientation === "portrait" ? "reel" : "landscape"),
+          estimated_cost: requestedModel === "cinema-video" ? 2.40 : requestedModel === "high-video" ? 1.20 : 0.40,
+          started_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (genError) {
+        console.error("[GENERATE-VIDEO] Failed to create generation record:", genError);
+        throw new Error("Failed to initialize generation tracking");
+      }
+
+      console.log(`[GENERATE-VIDEO] Created generation record: ${generation.id}`);
 
       // Determine orientation from format
       let orientation = requestedOrientation;
@@ -358,6 +398,7 @@ serve(async (req) => {
       }
 
       console.log("=== Video Generation Request ===");
+      console.log("Generation ID:", generation.id);
       console.log("Video Mode:", videoMode);
       console.log("Quality Level:", requestedModel);
       console.log("Selected Model:", selectedModel.id);
@@ -367,6 +408,16 @@ serve(async (req) => {
       if (startingFrameUrl) {
         console.log("Starting frame URL provided for video continuation");
       }
+
+      // ============================================================
+      // STEP 2: UPDATE PROGRESS - Sending to model
+      // ============================================================
+      await supabaseAdmin.from("generations").update({
+        progress: 20,
+        step: "video",
+        model: apiModel, // Update with actual model selected
+        status: "generating",
+      }).eq("id", generation.id);
 
       // FIX 5: Clean FormData for CometAPI - conditional image_url
       const formData = new FormData();
@@ -380,29 +431,64 @@ serve(async (req) => {
         console.log("Added starting frame for image-to-video");
       }
 
-      const response = await fetch("https://api.cometapi.com/v1/videos", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${COMETAPI_API_KEY}`,
-        },
-        body: formData,
-      });
+      let result;
+      try {
+        const response = await fetch("https://api.cometapi.com/v1/videos", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${COMETAPI_API_KEY}`,
+          },
+          body: formData,
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("CometAPI error:", errorText);
-        throw new Error(`CometAPI error: ${response.status} - ${errorText}`);
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("CometAPI error:", errorText);
+          
+          // Update generation as failed
+          await supabaseAdmin.from("generations").update({
+            status: "failed",
+            progress: 0,
+            error_message: `CometAPI error: ${response.status} - ${errorText}`,
+            completed_at: new Date().toISOString(),
+          }).eq("id", generation.id);
+          
+          throw new Error(`CometAPI error: ${response.status} - ${errorText}`);
+        }
+
+        result = await response.json();
+      } catch (apiError) {
+        // Update generation as failed if not already
+        await supabaseAdmin.from("generations").update({
+          status: "failed",
+          progress: 0,
+          error_message: apiError instanceof Error ? apiError.message : "API call failed",
+          completed_at: new Date().toISOString(),
+        }).eq("id", generation.id);
+        
+        throw apiError;
       }
 
-      const result = await response.json();
       console.log("Video task created:", result.id, "| Model:", selectedModel.id, "(", apiModel, ") | Duration:", duration, "s");
+
+      // ============================================================
+      // STEP 3: UPDATE PROGRESS - Task submitted, video generating
+      // ============================================================
+      await supabaseAdmin.from("generations").update({
+        progress: 40,
+        step: "video",
+        external_task_id: result.id,
+        status: "generating",
+      }).eq("id", generation.id);
 
       return new Response(
         JSON.stringify({
           success: true,
-          taskId: result.id,
-          status: result.status,
-          progress: result.progress || 0,
+          generationId: generation.id, // Internal tracking ID
+          taskId: result.id, // CometAPI task ID
+          status: "generating",
+          progress: 40,
+          step: "video",
           model: apiModel,
           selectedModel: selectedModel.id,
           requestedModel,
@@ -417,11 +503,13 @@ serve(async (req) => {
 
     } else if (action === "status") {
       const taskId = url.searchParams.get("taskId");
+      const generationId = url.searchParams.get("generationId");
+      
       if (!taskId) {
         throw new Error("taskId is required for status check");
       }
 
-      console.log("Checking status for task:", taskId);
+      console.log("Checking status for task:", taskId, "generationId:", generationId);
 
       const response = await fetch(`https://api.cometapi.com/v1/videos/${taskId}`, {
         method: "GET",
@@ -433,6 +521,17 @@ serve(async (req) => {
       if (!response.ok) {
         const errorText = await response.text();
         console.error("Status check error:", errorText);
+        
+        // Update generation as failed if we have an ID
+        if (generationId) {
+          await supabaseAdmin.from("generations").update({
+            status: "failed",
+            progress: 0,
+            error_message: `Status check failed: ${response.status}`,
+            completed_at: new Date().toISOString(),
+          }).eq("id", generationId);
+        }
+        
         throw new Error(`Status check failed: ${response.status}`);
       }
 
@@ -512,10 +611,66 @@ serve(async (req) => {
         frontendStatus = "queued";
       }
 
+      // ============================================================
+      // SYNC GENERATION HISTORY WITH COMETAPI STATUS
+      // This ensures our DB is always up-to-date
+      // ============================================================
+      if (generationId) {
+        const mappedProgress = 
+          frontendStatus === "completed" ? 100 :
+          frontendStatus === "failed" ? 0 :
+          Math.min(40 + Math.floor(taskProgress * 0.55), 95); // Map 0-100 to 40-95
+
+        await supabaseAdmin.from("generations").update({
+          status: frontendStatus === "processing" ? "generating" : frontendStatus,
+          progress: mappedProgress,
+          step: frontendStatus === "completed" ? "finalizing" : "video",
+          media_url: videoUrl || null,
+          completed_at: (frontendStatus === "completed" || frontendStatus === "failed") 
+            ? new Date().toISOString() 
+            : null,
+          error_message: frontendStatus === "failed" 
+            ? (videoData.fail_reason || innerData.fail_reason || "Generation failed") 
+            : null,
+        }).eq("id", generationId);
+
+        console.log(`[SYNC] Updated generation ${generationId}: status=${frontendStatus}, progress=${mappedProgress}%`);
+      } else if (taskId) {
+        // Try to find by external_task_id if generationId not provided
+        const { data: existingGen } = await supabaseAdmin
+          .from("generations")
+          .select("id")
+          .eq("external_task_id", taskId)
+          .maybeSingle();
+
+        if (existingGen) {
+          const mappedProgress = 
+            frontendStatus === "completed" ? 100 :
+            frontendStatus === "failed" ? 0 :
+            Math.min(40 + Math.floor(taskProgress * 0.55), 95);
+
+          await supabaseAdmin.from("generations").update({
+            status: frontendStatus === "processing" ? "generating" : frontendStatus,
+            progress: mappedProgress,
+            step: frontendStatus === "completed" ? "finalizing" : "video",
+            media_url: videoUrl || null,
+            completed_at: (frontendStatus === "completed" || frontendStatus === "failed") 
+              ? new Date().toISOString() 
+              : null,
+            error_message: frontendStatus === "failed" 
+              ? (videoData.fail_reason || innerData.fail_reason || "Generation failed") 
+              : null,
+          }).eq("id", existingGen.id);
+
+          console.log(`[SYNC] Updated generation ${existingGen.id} (found by taskId): status=${frontendStatus}`);
+        }
+      }
+
       return new Response(
         JSON.stringify({
           success: true,
           taskId,
+          generationId,
           status: frontendStatus,
           rawStatus: taskStatus,
           progress: taskProgress,
