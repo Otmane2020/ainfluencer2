@@ -65,7 +65,8 @@ async function verifyVideoAccess(authHeader: string | null): Promise<{ valid: bo
     }
 
     // ============================================================
-    // CHECK DATABASE FIRST for lifetime/manual grants (Pro or Business)
+    // CHECK DATABASE FIRST for lifetime/manual grants
+    // Lifetime users get FULL access regardless of plan_id
     // ============================================================
     const { data: lifetimeGrant } = await supabase
       .from("subscriptions")
@@ -75,14 +76,8 @@ async function verifyVideoAccess(authHeader: string | null): Promise<{ valid: bo
       .maybeSingle();
 
     if (lifetimeGrant) {
-      const planId = lifetimeGrant.plan_id;
-      // Video access requires Pro or Business
-      if (planId === "pro" || planId === "business") {
-        console.log(`[VIDEO-ACCESS] LIFETIME GRANT - Access granted for ${userEmail} (${planId})`);
-        return { valid: true, userId };
-      } else {
-        console.log(`[VIDEO-ACCESS] LIFETIME GRANT exists but plan ${planId} doesn't include video`);
-      }
+      console.log(`[VIDEO-ACCESS] LIFETIME GRANT - Full access granted for ${userEmail}`);
+      return { valid: true, userId };
     }
     // ============================================================
 
@@ -126,112 +121,66 @@ async function verifyVideoAccess(authHeader: string | null): Promise<{ valid: bo
 }
 
 // ============================================================
-// MODEL CONFIGURATION - Quality-based routing to CometAPI
+// MODEL POOL CONFIGURATION - Weighted Random Selection
 // ============================================================
 
-interface ModelConfig {
+interface ModelOption {
+  id: string;
   apiModel: string;
+  weight: number;
   durations: number[];
   maxSize: { portrait: string; landscape: string };
 }
 
-const MODEL_CONFIGS: Record<string, ModelConfig> = {
-  // ============================================================
-  // QUALITY LEVELS (Primary - used by frontend)
-  // ============================================================
+const VIDEO_MODEL_POOLS: Record<string, ModelOption[]> = {
+  // Smart Video - ~$0.40/video avg
+  "smart-video": [
+    { id: "veo-3.1", apiModel: "veo-2", weight: 50, durations: [5, 10], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
+    { id: "kling-v2", apiModel: "kling-video", weight: 35, durations: [5, 10], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
+    { id: "minimax-02", apiModel: "minimax-video-01", weight: 15, durations: [4, 6], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
+  ],
   
-  // Smart Video - Using Veo-2 as fallback (kling-video temporarily unavailable)
-  "smart-video": {
-    apiModel: "veo-2",
-    durations: [5, 10],
-    maxSize: { portrait: "720x1280", landscape: "1280x720" },
-  },
+  // High Video - ~$1.20/video avg
+  "high-video": [
+    { id: "sora-2", apiModel: "sora-2", weight: 60, durations: [4, 8, 12], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
+    { id: "veo-3.1-pro", apiModel: "veo-2", weight: 40, durations: [5, 10, 20], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
+  ],
   
-  // High Video - Veo 3.1 / Sora 2 - 12.90€
-  "high-video": {
-    apiModel: "veo-2",
-    durations: [5, 10],
-    maxSize: { portrait: "720x1280", landscape: "1280x720" },
-  },
-  
-  // Cinema Video - Sora 2 Pro / Veo Pro - 19.90€
-  "cinema-video": {
-    apiModel: "sora-2",
-    durations: [4, 8, 12],
-    maxSize: { portrait: "720x1280", landscape: "1280x720" },
-  },
-
-  // ============================================================
-  // INTERNAL MODEL IDs (Secondary - mapped from quality levels)
-  // ============================================================
-  
-  // Kling variants - Temporarily mapped to veo-2 (kling-video unavailable)
-  "kling-std": {
-    apiModel: "veo-2",
-    durations: [5, 10],
-    maxSize: { portrait: "720x1280", landscape: "1280x720" },
-  },
-  "kling-v2-master": {
-    apiModel: "veo-2",
-    durations: [5, 10],
-    maxSize: { portrait: "720x1280", landscape: "1280x720" },
-  },
-  
-  // Veo variants
-  "veo-3.1": {
-    apiModel: "veo-2",
-    durations: [5, 10],
-    maxSize: { portrait: "720x1280", landscape: "1280x720" },
-  },
-  "veo-fast": {
-    apiModel: "veo-2",
-    durations: [5, 10],
-    maxSize: { portrait: "720x1280", landscape: "1280x720" },
-  },
-  "veo-pro": {
-    apiModel: "veo-2",
-    durations: [10, 20, 30],
-    maxSize: { portrait: "720x1280", landscape: "1280x720" },
-  },
-  "veo-3.1-pro": {
-    apiModel: "veo-2",
-    durations: [10, 20, 30],
-    maxSize: { portrait: "720x1280", landscape: "1280x720" },
-  },
-  
-  // Sora variants
-  "sora-2": {
-    apiModel: "sora-2",
-    durations: [4, 8, 12],
-    maxSize: { portrait: "720x1280", landscape: "1280x720" },
-  },
-  "sora-2-pro": {
-    apiModel: "sora-2",
-    durations: [4, 8, 12],
-    maxSize: { portrait: "720x1280", landscape: "1280x720" },
-  },
-  
-  // MiniMax (legacy)
-  "minimax-hailuo": {
-    apiModel: "minimax-video-01",
-    durations: [4, 6],
-    maxSize: { portrait: "720x1280", landscape: "1280x720" },
-  },
+  // Cinema Video - ~$2.40/video avg
+  "cinema-video": [
+    { id: "sora-2-pro", apiModel: "sora-2", weight: 70, durations: [4, 8, 12], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
+    { id: "veo-3.1-ultra", apiModel: "veo-2", weight: 30, durations: [10, 20, 30], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
+  ],
 };
 
-// Default fallback - Using veo-2 as kling-video is temporarily unavailable
-const DEFAULT_MODEL_CONFIG: ModelConfig = {
-  apiModel: "veo-2",
-  durations: [5, 10],
-  maxSize: { portrait: "720x1280", landscape: "1280x720" },
+// Legacy model ID mappings for backwards compatibility
+const LEGACY_MODEL_MAPPINGS: Record<string, string> = {
+  "kling-std": "smart-video",
+  "kling-v2-master": "smart-video",
+  "veo-3.1": "high-video",
+  "veo-fast": "smart-video",
+  "veo-pro": "cinema-video",
+  "veo-3.1-pro": "high-video",
+  "sora-2": "high-video",
+  "sora-2-pro": "cinema-video",
+  "minimax-hailuo": "smart-video",
 };
 
-// Legacy quality sizes (fallback)
-const QUALITY_SIZES: Record<string, { portrait: string; landscape: string }> = {
-  "720p": { portrait: "720x1280", landscape: "1280x720" },
-  "1080p": { portrait: "720x1280", landscape: "1280x720" },
-  "4k": { portrait: "720x1280", landscape: "1280x720" },
-};
+function selectModelFromPool(qualityId: string): ModelOption {
+  // Map legacy model IDs to quality levels
+  const mappedQualityId = LEGACY_MODEL_MAPPINGS[qualityId] || qualityId;
+  const pool = VIDEO_MODEL_POOLS[mappedQualityId] || VIDEO_MODEL_POOLS["smart-video"];
+  
+  const totalWeight = pool.reduce((sum, m) => sum + m.weight, 0);
+  let random = Math.random() * totalWeight;
+  
+  for (const model of pool) {
+    random -= model.weight;
+    if (random <= 0) return model;
+  }
+  
+  return pool[0]; // Fallback
+}
 
 interface VideoRequest {
   prompt: string;
@@ -242,8 +191,8 @@ interface VideoRequest {
   orientation?: "portrait" | "landscape";
   format?: "reel" | "landscape" | "story";
   startingFrameUrl?: string;
-  model?: string; // Quality ID (e.g., "smart-video") or internal model ID
-  videoMode?: "standard" | "clipmotion"; // NEW: Video generation mode
+  model?: string;
+  videoMode?: "standard" | "clipmotion";
 }
 
 // ClipMotion prompt modifiers for social-optimized videos
@@ -274,7 +223,7 @@ serve(async (req) => {
 
     if (action === "create") {
       // ============================================================
-      // SUBSCRIPTION VERIFICATION - Block unauthorized video generation
+      // SUBSCRIPTION VERIFICATION
       // ============================================================
       const authHeader = req.headers.get("Authorization");
       const accessCheck = await verifyVideoAccess(authHeader);
@@ -295,7 +244,6 @@ serve(async (req) => {
       }
       
       console.log("[GENERATE-VIDEO] Subscription verified, proceeding with generation");
-      // ============================================================
 
       const {
         prompt, 
@@ -306,8 +254,8 @@ serve(async (req) => {
         orientation: requestedOrientation = "portrait",
         format,
         startingFrameUrl,
-        model: requestedModel = "smart-video", // Default to Smart Video
-        videoMode = "standard", // NEW: Default to standard mode
+        model: requestedModel = "smart-video",
+        videoMode = "standard",
       }: VideoRequest = await req.json();
 
       if (!prompt) {
@@ -320,12 +268,16 @@ serve(async (req) => {
         orientation = format === "landscape" ? "landscape" : "portrait";
       }
 
-      // Get model configuration (fallback to Smart Video if unknown)
-      const modelConfig = MODEL_CONFIGS[requestedModel] || DEFAULT_MODEL_CONFIG;
-      const apiModel = modelConfig.apiModel;
+      // ============================================================
+      // WEIGHTED RANDOM MODEL SELECTION
+      // ============================================================
+      const selectedModel = selectModelFromPool(requestedModel);
+      const apiModel = selectedModel.apiModel;
+
+      console.log(`[MODEL-POOL] Quality: ${requestedModel} -> Selected: ${selectedModel.id} (${apiModel})`);
 
       // Validate duration for this model
-      const validDurations = modelConfig.durations;
+      const validDurations = selectedModel.durations;
       const duration = validDurations.includes(requestedDuration) 
         ? requestedDuration 
         : validDurations.reduce((prev, curr) => 
@@ -333,7 +285,7 @@ serve(async (req) => {
           );
 
       // Determine size
-      const size = legacySize || modelConfig.maxSize[orientation];
+      const size = legacySize || selectedModel.maxSize[orientation];
 
       // Build enhanced prompt
       let fullPrompt = prompt;
@@ -358,6 +310,7 @@ serve(async (req) => {
       console.log("=== Video Generation Request ===");
       console.log("Video Mode:", videoMode);
       console.log("Quality Level:", requestedModel);
+      console.log("Selected Model:", selectedModel.id);
       console.log("API Model:", apiModel);
       console.log("Resolution:", size);
       console.log("Duration:", duration, "s (requested:", requestedDuration, "s)");
@@ -392,7 +345,7 @@ serve(async (req) => {
       }
 
       const result = await response.json();
-      console.log("Video task created:", result.id, "| API Model:", apiModel, "| Duration:", duration, "s");
+      console.log("Video task created:", result.id, "| Model:", selectedModel.id, "(", apiModel, ") | Duration:", duration, "s");
 
       return new Response(
         JSON.stringify({
@@ -401,6 +354,7 @@ serve(async (req) => {
           status: result.status,
           progress: result.progress || 0,
           model: apiModel,
+          selectedModel: selectedModel.id,
           requestedModel,
           qualityLevel: requestedModel,
           size,
@@ -453,10 +407,9 @@ serve(async (req) => {
       const submitTime = videoData.submit_time || innerData.submit_time || videoData.created_at;
       const finishTime = videoData.finish_time || innerData.finish_time || videoData.completed_at;
 
-      // Extract video URL - try multiple possible locations
+      // Extract video URL
       let videoUrl = undefined;
       if (taskStatus === "success" || taskStatus === "succeeded" || taskStatus === "completed" || taskStatus === "done") {
-        // Try various CometAPI response locations for video URL
         videoUrl = 
           videoData.video_url || 
           videoData.url || 
@@ -488,95 +441,59 @@ serve(async (req) => {
             });
             
             if (contentResponse.ok) {
-              // Check if it returns a redirect or a direct URL
-              const contentType = contentResponse.headers.get("content-type");
-              if (contentType?.includes("application/json")) {
-                const contentData = await contentResponse.json();
-                videoUrl = contentData.url || contentData.video_url || contentData.download_url;
-                console.log("Got video URL from content endpoint:", videoUrl);
-              } else {
-                // It's returning the video directly, construct a download URL
-                videoUrl = `https://api.cometapi.com/v1/videos/${taskId}/content`;
-                console.log("Content endpoint returns video directly, using:", videoUrl);
-              }
+              const contentData = await contentResponse.json();
+              videoUrl = contentData.url || contentData.video_url || contentData.data?.url || contentData.data?.video_url;
+              console.log("Video URL from content endpoint:", videoUrl ? "Found" : "Not found");
             }
           } catch (contentError) {
-            console.error("Error fetching content endpoint:", contentError);
+            console.log("Content endpoint fallback failed:", contentError);
           }
+        }
+        
+        if (videoUrl) {
+          console.log("Video URL found:", videoUrl.slice(0, 80) + "...");
+        } else {
+          console.log("WARNING: Task completed but no video URL found. Full response:", JSON.stringify(result));
         }
       }
 
-      const model = innerData.model || videoData.model || "smart-video";
-      const seconds = innerData.seconds || videoData.seconds || 5;
-
-      console.log("Parsed - Status:", taskStatus, "Progress:", taskProgress, "VideoUrl:", videoUrl);
-
-      // Map status
-      let mappedStatus: "queued" | "in_progress" | "completed" | "failed" = "in_progress";
-      if (taskStatus === "queued" || taskStatus === "pending" || taskStatus === "waiting") {
-        mappedStatus = "queued";
-      } else if (taskStatus === "completed" || taskStatus === "succeeded" || taskStatus === "success" || taskStatus === "done") {
-        mappedStatus = "completed";
+      // Map status to frontend-friendly format
+      let frontendStatus = "processing";
+      if (taskStatus === "success" || taskStatus === "succeeded" || taskStatus === "completed" || taskStatus === "done") {
+        frontendStatus = "completed";
       } else if (taskStatus === "failed" || taskStatus === "error") {
-        mappedStatus = "failed";
+        frontendStatus = "failed";
+      } else if (taskStatus === "pending" || taskStatus === "queued") {
+        frontendStatus = "queued";
       }
 
       return new Response(
         JSON.stringify({
-          id: taskId,
-          status: mappedStatus,
-          progress: typeof taskProgress === "number" ? taskProgress : parseInt(taskProgress) || 0,
+          success: true,
+          taskId,
+          status: frontendStatus,
+          rawStatus: taskStatus,
+          progress: taskProgress,
           videoUrl,
           submitTime,
           finishTime,
-          model,
-          seconds,
+          failReason: taskStatus === "failed" ? (videoData.fail_reason || innerData.fail_reason) : undefined,
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
 
-    } else if (action === "download") {
-      const taskId = url.searchParams.get("taskId");
-      if (!taskId) {
-        throw new Error("taskId is required for download");
-      }
-
-      console.log("Downloading video for task:", taskId);
-
-      const response = await fetch(`https://api.cometapi.com/v1/videos/${taskId}/content`, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${COMETAPI_API_KEY}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Download error:", errorText);
-        throw new Error(`Download failed: ${response.status}`);
-      }
-
-      const videoBlob = await response.blob();
-      
-      return new Response(videoBlob, {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "video/mp4",
-        },
-      });
+    } else {
+      throw new Error(`Unknown action: ${action}`);
     }
 
-    throw new Error(`Unknown action: ${action}`);
-
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    console.error("Error:", errorMessage);
+  } catch (error) {
+    console.error("Video generation error:", error);
     return new Response(
       JSON.stringify({
         success: false,
-        error: errorMessage,
+        error: error instanceof Error ? error.message : "Unknown error",
       }),
       {
         status: 500,

@@ -26,7 +26,7 @@ export const IMAGE_QUALITY_LEVELS: QualityLevel[] = [
   {
     id: "smart-image",
     name: "Smart Image",
-    internalModel: "flux-2-flex",
+    internalModel: "pool:smart-image", // Pool: gemini-flash, flux-2-flex
     price: 1.50,
     description: "Fast AI-powered image generation",
     features: ["HD Quality", "Fast generation", "All styles"],
@@ -34,7 +34,7 @@ export const IMAGE_QUALITY_LEVELS: QualityLevel[] = [
   {
     id: "high-image",
     name: "High Image",
-    internalModel: "nano-banana-pro",
+    internalModel: "pool:high-image", // Pool: nano-banana-pro, flux-2-pro
     price: 2.50,
     description: "Premium photorealistic images",
     features: ["Ultra HD 2K", "Photorealistic", "Premium styles"],
@@ -42,7 +42,7 @@ export const IMAGE_QUALITY_LEVELS: QualityLevel[] = [
   {
     id: "studio-image",
     name: "Studio Image",
-    internalModel: "flux-2-pro",
+    internalModel: "pool:studio-image", // Pool: flux-2-pro, gemini-pro
     price: 4.00,
     description: "Professional studio quality",
     features: ["4K Ultra HD", "Perfect consistency", "Brand identity"],
@@ -53,7 +53,7 @@ export const VIDEO_QUALITY_LEVELS: QualityLevel[] = [
   {
     id: "smart-video",
     name: "Smart Video",
-    internalModel: "kling-std",
+    internalModel: "pool:smart-video", // Pool: veo-3.1, kling-v2, minimax
     price: 9.90,
     description: "Short videos for your social networks",
     features: ["HD 1080p", "5-10s", "AI Voice included"],
@@ -61,7 +61,7 @@ export const VIDEO_QUALITY_LEVELS: QualityLevel[] = [
   {
     id: "high-video",
     name: "High Video",
-    internalModel: "veo-3.1",
+    internalModel: "pool:high-video", // Pool: sora-2, veo-3.1-pro
     price: 12.90,
     description: "Ultra-smooth premium videos",
     features: ["Full HD", "4-12s", "Natural voice", "Smooth motion"],
@@ -69,7 +69,7 @@ export const VIDEO_QUALITY_LEVELS: QualityLevel[] = [
   {
     id: "cinema-video",
     name: "Cinema Video",
-    internalModel: "sora-2-pro",
+    internalModel: "pool:cinema-video", // Pool: sora-2-pro, veo-ultra
     price: 19.90,
     description: "Professional cinema quality",
     features: ["4K HDR", "5-10s", "Cinematic rendering", "Premium audio"],
@@ -80,20 +80,29 @@ export const VIDEO_QUALITY_LEVELS: QualityLevel[] = [
 // COMETAPI MODEL ROUTING (Internal - Never exposed to clients)
 // ============================================================
 
+// ============================================================
+// COMETAPI MODEL ROUTING (Internal - Legacy mappings)
+// Now handled by model pools in Edge Functions
+// ============================================================
+
 export const COMETAPI_MODEL_ROUTING: Record<string, string> = {
-  // Images
+  // Images - Now using pool system
   "flux-2-flex": "flux-2-flex",
   "nano-banana-pro": "nano-banana-pro",
   "flux-2-pro": "flux-2-pro",
   "gpt-image": "gpt-image-1",
   "gpt-image-hq": "gpt-image-1",
-  // Videos
+  // Videos - Now using pool system
   "kling-std": "kling-video",
+  "kling-v2": "kling-video",
   "veo-fast": "veo-2",
   "veo-3.1": "veo-2",
+  "veo-3.1-pro": "veo-2",
+  "veo-3.1-ultra": "veo-2",
   "sora-2": "sora-2",
   "sora-2-pro": "sora-2",
   "veo-pro": "veo-2",
+  "minimax-02": "minimax-video-01",
   // Legacy mappings
   "kling-v2-master": "kling-video",
   "minimax-hailuo": "minimax-video-01",
