@@ -168,29 +168,7 @@ const ImageHistoryPage = () => {
             name: file.name,
             url: urlData.publicUrl,
             createdAt: new Date(file.created_at || Date.now()),
-            status: "generated", // Not published to social media
-            projectId: null,
-            projectName: null,
-            campaignId: null,
-            campaignName: null,
-            platforms: [],
-            isProductShot: true,
-            source: "storage",
-          });
-        }
-      }
-
-      // Process product shots
-      if (productShotsResult.data) {
-        for (const file of productShotsResult.data.filter(f => f.name.match(/\.(jpg|jpeg|png|gif|webp)$/i))) {
-          const { data: urlData } = supabase.storage.from("media").getPublicUrl(`product-shots/${file.name}`);
-          
-          allImages.push({
-            id: file.id || `ps-${file.name}`,
-            name: file.name,
-            url: urlData.publicUrl,
-            createdAt: new Date(file.created_at || Date.now()),
-            status: "published",
+            status: "generated",
             projectId: null,
             projectName: null,
             campaignId: null,
