@@ -581,7 +581,8 @@ ${formattedHashtags}`;
       return;
     }
 
-    setIsGenerating(true);
+    // Note: setIsGenerating already called in generateContent(), don't duplicate
+    // Only ensure progress modal is shown
     setShowProgressModal(true);
     
     // Step 1: Generate audio with ElevenLabs TTS for voiceover
@@ -688,6 +689,12 @@ ${formattedHashtags}`;
           return { ...segment, taskId: result.taskId, progress: 0, submitTime: currentTime };
         } catch (error) {
           console.error("Video task creation error:", error);
+          toast({
+            title: "Video generation failed",
+            description: error instanceof Error ? error.message : "Unable to create video task",
+            variant: "destructive",
+          });
+          setIsGenerating(false);
           return { ...segment, status: "error" as const };
         }
       })
