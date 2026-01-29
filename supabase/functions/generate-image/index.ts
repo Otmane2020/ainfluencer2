@@ -276,19 +276,25 @@ Deno.serve(async (req) => {
       enhancedPrompt = `${enhancedPrompt}. Ultra high resolution, professional quality.`;
     }
 
-    // Add brand elements
-    if (includeLogo && brandName) {
-      enhancedPrompt += ` Include a subtle, elegant brand logo for "${brandName}" in a corner of the image.`;
-    }
-    if (includeUrl && projectUrl) {
-      enhancedPrompt += ` Include the website URL "${projectUrl}" as a subtle watermark or call-to-action element.`;
-    }
-    if (includeAvatar && avatarUrl) {
-      enhancedPrompt += ` Feature a professional spokesperson or avatar prominently in the image, representing the brand.`;
-    }
-    
+    // Add AI context for brand personality and products
     if (aiContextSummary) {
       enhancedPrompt += ` Brand context: ${aiContextSummary.slice(0, 500)}.`;
+    }
+
+    // BRAND ELEMENTS: Describe what the AI should generate (not actual files)
+    if (includeLogo && brandName) {
+      enhancedPrompt += ` IMPORTANT: Include a stylized brand logo area or badge in the bottom-right or top-left corner with the text "${brandName}" in elegant, professional typography that matches the image style.`;
+    }
+    
+    if (includeUrl && projectUrl) {
+      // Extract clean domain for display
+      const cleanUrl = projectUrl.replace(/^https?:\/\//, "").replace(/\/$/, "").split("/")[0];
+      enhancedPrompt += ` Include a subtle website URL watermark "${cleanUrl}" at the bottom of the image in small, readable text.`;
+    }
+    
+    if (includeAvatar && avatarUrl) {
+      // Describe the avatar style for AI to generate a similar spokesperson
+      enhancedPrompt += ` Feature a professional-looking spokesperson or presenter figure prominently in the image - a confident, friendly person representing the brand, positioned as if speaking directly to the viewer.`;
     }
 
     // Social media text overlay - ALWAYS specify language
@@ -305,6 +311,12 @@ Deno.serve(async (req) => {
     if (outputLanguage !== "en") {
       enhancedPrompt += ` REMINDER: Any and all text visible in this image must be in ${languageName}, not English.`;
     }
+    
+    // Log what brand options are being applied
+    console.log("Brand options applied:", { 
+      includeLogo, includeUrl, includeAvatar, includeText,
+      brandName, hasAvatarUrl: !!avatarUrl, hasProjectUrl: !!projectUrl 
+    });
 
     console.log("Enhanced prompt:", enhancedPrompt.slice(0, 200) + "...");
 
