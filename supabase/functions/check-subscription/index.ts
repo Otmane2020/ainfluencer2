@@ -8,21 +8,21 @@ const corsHeaders = {
 };
 
 // ============================================================
-// STRICT PRODUCT/PRICE MAPPING - Only these grant valid subscriptions
+// STRICT PRODUCT/PRICE MAPPING (USD) - Only these grant valid subscriptions
 // ============================================================
 
 // Product IDs for ClipMotion subscription plans
 const PRODUCT_TO_PLAN: Record<string, string> = {
-  "prod_TsR9Pr6RC1wKB9": "starter",
-  "prod_TsR9BN6zNpq8Rp": "pro",
-  "prod_TsR93v9Am93N8O": "business",
+  "prod_TsTqynweuSksG3": "starter",
+  "prod_TsTqUdBfAHdNCi": "pro",
+  "prod_TsTqxdl9cpZNJg": "business",
 };
 
 // Price IDs for ClipMotion subscription plans (fallback lookup)
 const PRICE_TO_PLAN: Record<string, string> = {
-  "price_1SugHFEfti9t9nN9b36Qye6L": "starter",
-  "price_1SugHGEfti9t9nN9luP2Qtj9": "pro",
-  "price_1SugHIEfti9t9nN9eJMHoewy": "business",
+  "price_1SuiszEfti9t9nN9qEGnwrdT": "starter",
+  "price_1Suit0Efti9t9nN9jKws1R3q": "pro",
+  "price_1Suit1Efti9t9nN9F5g8iTGq": "business",
 };
 
 const logStep = (step: string, details?: unknown) => {

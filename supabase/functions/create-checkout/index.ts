@@ -7,19 +7,19 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Stripe price mappings
+// Stripe price mappings (USD)
 const PLAN_PRICES: Record<string, string> = {
-  starter: "price_1SugHFEfti9t9nN9b36Qye6L",
-  pro: "price_1SugHGEfti9t9nN9luP2Qtj9",
-  business: "price_1SugHIEfti9t9nN9eJMHoewy",
+  starter: "price_1SuiszEfti9t9nN9qEGnwrdT",
+  pro: "price_1Suit0Efti9t9nN9jKws1R3q",
+  business: "price_1Suit1Efti9t9nN9F5g8iTGq",
 };
 
 const CREDIT_PACK_PRICES: Record<string, { priceId: string; credits: number }> = {
-  "pack-50": { priceId: "price_1SugHJEfti9t9nN9envQQFpb", credits: 50 },
-  "pack-100": { priceId: "price_1SugHKEfti9t9nN99kdSOTBB", credits: 100 },
-  "pack-250": { priceId: "price_1SugHMEfti9t9nN9bYQWaV7u", credits: 250 },
-  "pack-500": { priceId: "price_1SugHNEfti9t9nN9Fqd8PlP6", credits: 500 },
-  "pack-1000": { priceId: "price_1SugHOEfti9t9nN99vbXioV6", credits: 1000 },
+  "pack-50": { priceId: "price_1Suit2Efti9t9nN9idG07kAf", credits: 50 },
+  "pack-100": { priceId: "price_1Suit3Efti9t9nN9vPGwwfWa", credits: 100 },
+  "pack-250": { priceId: "price_1Suit5Efti9t9nN9cjaee5yZ", credits: 250 },
+  "pack-500": { priceId: "price_1Suit5Efti9t9nN96jaDSp7j", credits: 500 },
+  "pack-1000": { priceId: "price_1Suit6Efti9t9nN9ynTRmA7o", credits: 1000 },
 };
 
 const logStep = (step: string, details?: unknown) => {
