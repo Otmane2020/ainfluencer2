@@ -157,24 +157,22 @@ interface ModelOption {
 }
 
 // FIX 4: Coherent model routing - clear mapping for pricing
+// NOTE: veo-2 and kling-video are currently unavailable on CometAPI (503 model_not_found)
+// Using sora-2 as the only stable model across all tiers
 const VIDEO_MODEL_POOLS: Record<string, ModelOption[]> = {
-  // Smart Video - ~$0.40/video avg (veo-2 primary)
-  // NOTE: minimax-video-01 removed - unavailable on CometAPI (503 model_not_found)
+  // Smart Video - Using sora-2 (only stable model available)
   "smart-video": [
-    { id: "veo-2", apiModel: "veo-2", weight: 70, durations: [5, 10], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
-    { id: "kling-v2", apiModel: "kling-video", weight: 30, durations: [5, 10], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
+    { id: "sora-2-lite", apiModel: "sora-2", weight: 100, durations: [4, 8], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
   ],
   
-  // High Video - ~$1.20/video avg (sora-2 primary)
+  // High Video - sora-2 primary
   "high-video": [
-    { id: "sora-2", apiModel: "sora-2", weight: 70, durations: [4, 8, 12], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
-    { id: "veo-2-pro", apiModel: "veo-2", weight: 30, durations: [5, 10, 20], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
+    { id: "sora-2", apiModel: "sora-2", weight: 100, durations: [4, 8, 12], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
   ],
   
-  // Cinema Video - ~$2.40/video avg (sora-2-pro primary)
+  // Cinema Video - sora-2 with longer durations
   "cinema-video": [
-    { id: "sora-2-pro", apiModel: "sora-2", weight: 80, durations: [8, 12, 20], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
-    { id: "veo-2-ultra", apiModel: "veo-2", weight: 20, durations: [10, 20, 30], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
+    { id: "sora-2-pro", apiModel: "sora-2", weight: 100, durations: [8, 12, 20], maxSize: { portrait: "720x1280", landscape: "1280x720" } },
   ],
 };
 
