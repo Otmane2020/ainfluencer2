@@ -76,16 +76,9 @@ async function generateWithCometAPI(
   resolution: string,
   apiKey: string
 ): Promise<{ taskId: string; videoUrl?: string }> {
-  // Sora-2 uses specific resolution formats
-  // Based on CometAPI docs: "1920x1080" for landscape, "1080x1920" for portrait
-  let size: string;
-  if (model === "sora-2") {
-    // Sora-2 accepts: "1920x1080", "1280x720", "1080x1920", "720x1280"
-    size = resolution === "1080p" ? "1920x1080" : "1280x720";
-  } else {
-    // Kling uses portrait format
-    size = resolution === "1080p" ? "1080x1920" : "720x1280";
-  }
+  // Sora-2 only accepts: "1280x720" (landscape) or "720x1280" (portrait)
+  // Using landscape format as default
+  const size = "1280x720";
 
   console.log(`[AI-VIDEO] CometAPI: model=${model}, duration=${duration}s, size=${size}`);
 
