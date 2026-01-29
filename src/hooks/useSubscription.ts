@@ -10,6 +10,7 @@ interface SubscriptionState {
   isSubscribed: boolean;
   stripeCustomerId: string | null;
   requiresCheckout: boolean;
+  isLifetime: boolean;
 }
 
 export const useSubscription = () => {
@@ -21,16 +22,20 @@ export const useSubscription = () => {
     isSubscribed: false,
     stripeCustomerId: null,
     requiresCheckout: true,
+    isLifetime: false,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isCheckingStripe, setIsCheckingStripe] = useState(false);
 
+  // Lifetime users get business-tier access regardless of stored plan_id
+  const effectivePlanId = subscription.isLifetime ? "business" : subscription.planId;
+  
   const currentPlan: PricingPlan = subscription.isSubscribed 
-    ? (PRICING_PLANS.find(p => p.id === subscription.planId) || PRICING_PLANS[0])
-    : PRICING_PLANS[0]; // Default to starter limits if not subscribed
+    ? (PRICING_PLANS.find(p => p.id === effectivePlanId) || PRICING_PLANS[0])
+    : PRICING_PLANS[0];
   
   const planAccess = subscription.isSubscribed 
-    ? (PLAN_QUALITY_ACCESS[subscription.planId] || PLAN_QUALITY_ACCESS.starter)
+    ? (PLAN_QUALITY_ACCESS[effectivePlanId] || PLAN_QUALITY_ACCESS.starter)
     : { 
         image: [], 
         video: [], 
@@ -80,6 +85,7 @@ export const useSubscription = () => {
         await loadFromDatabase();
       } else if (data) {
         const isValidSubscription = data.subscribed === true && data.plan_id !== null;
+        const isLifetime = data.lifetime === true;
         
         setSubscription({
           planId: data.plan_id || "starter",
@@ -88,6 +94,7 @@ export const useSubscription = () => {
           isSubscribed: isValidSubscription,
           stripeCustomerId: null,
           requiresCheckout: data.requires_checkout || !isValidSubscription,
+          isLifetime,
         });
       }
     } catch (err) {
@@ -113,6 +120,7 @@ export const useSubscription = () => {
       // Only consider valid if status is "active" and plan is recognized
       const validPlans = ["starter", "pro", "business"];
       const isValidSubscription = data.status === "active" && validPlans.includes(data.plan_id);
+      const isLifetime = data.stripe_customer_id === "lifetime_grant";
       
       setSubscription({
         planId: data.plan_id || "starter",
@@ -121,6 +129,7 @@ export const useSubscription = () => {
         isSubscribed: isValidSubscription,
         stripeCustomerId: data.stripe_customer_id || null,
         requiresCheckout: !isValidSubscription,
+        isLifetime,
       });
     } else {
       // No subscription record at all
@@ -131,6 +140,7 @@ export const useSubscription = () => {
         isSubscribed: false,
         stripeCustomerId: null,
         requiresCheckout: true,
+        isLifetime: false,
       });
     }
   };
