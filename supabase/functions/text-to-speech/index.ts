@@ -17,15 +17,15 @@ interface TTSModelOption {
 }
 
 const TTS_MODEL_POOLS: Record<string, TTSModelOption[]> = {
-  // Standard Voice - Cheapest (~$0.006/request)
+  // Standard Voice - Use OpenAI TTS (reliable) as primary, ElevenLabs as fallback
   "standard-voice": [
-    { id: "kling-tts", provider: "cometapi", weight: 100, costEstimate: 0.006 },
+    { id: "openai-tts", provider: "openai", weight: 100, costEstimate: 0.015 },
   ],
   
   // Natural Voice - Balanced (~$0.015/request avg)
   "natural-voice": [
-    { id: "openai-tts", provider: "openai", weight: 50, costEstimate: 0.015 },
-    { id: "kling-tts", provider: "cometapi", weight: 50, costEstimate: 0.006 },
+    { id: "openai-tts", provider: "openai", weight: 70, costEstimate: 0.015 },
+    { id: "elevenlabs-tts", provider: "elevenlabs", weight: 30, costEstimate: 0.024 },
   ],
   
   // Premium Voice - Highest quality (~$0.024/1K chars)
@@ -34,7 +34,10 @@ const TTS_MODEL_POOLS: Record<string, TTSModelOption[]> = {
   ],
 };
 
-// Default to standard for cost efficiency
+// Fallback order when primary provider fails
+const FALLBACK_ORDER: TTSModelOption["provider"][] = ["openai", "elevenlabs", "cometapi"];
+
+// Default to standard for reliability
 const DEFAULT_QUALITY = "standard-voice";
 
 function selectTTSModel(qualityId: string): TTSModelOption {
@@ -240,20 +243,42 @@ serve(async (req) => {
         break;
     }
 
-    // Fallback if primary fails
-    if (!result.audioBuffer && selectedModel.provider !== "cometapi") {
-      console.log("[TTS] Primary failed, falling back to Kling TTS...");
-      result = await generateWithKlingTTS(text, voiceId);
+    // Fallback chain if primary fails
+    if (!result.audioBuffer) {
+      console.log(`[TTS] Primary ${selectedModel.provider} failed, trying fallbacks...`);
+      
+      for (const fallbackProvider of FALLBACK_ORDER) {
+        if (fallbackProvider === selectedModel.provider) continue; // Skip already tried
+        
+        console.log(`[TTS] Trying fallback: ${fallbackProvider}`);
+        
+        switch (fallbackProvider) {
+          case "openai":
+            result = await generateWithOpenAITTS(text, voiceId);
+            break;
+          case "elevenlabs":
+            result = await generateWithElevenLabs(text, voiceId || "JBFqnCBsd6RMkjVDRZzb");
+            break;
+          case "cometapi":
+            result = await generateWithKlingTTS(text, voiceId);
+            break;
+        }
+        
+        if (result.audioBuffer) {
+          console.log(`[TTS] Fallback ${fallbackProvider} succeeded`);
+          break;
+        }
+      }
     }
 
     if (!result.audioBuffer) {
       return new Response(
-        JSON.stringify({ error: result.error || "TTS generation failed" }),
+        JSON.stringify({ error: result.error || "All TTS providers failed" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`[TTS] Success with ${selectedModel.id}, returning audio`);
+    console.log(`[TTS] Success, returning audio`);
 
     return new Response(result.audioBuffer, {
       headers: {
