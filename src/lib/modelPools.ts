@@ -64,22 +64,22 @@ export const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
 };
 
 // ============================================================
-// AUDIO/VOICE MODEL POOLS (Multi-provider)
+// AUDIO/VOICE MODEL POOLS (Multi-provider with fallback)
 // ============================================================
 
 export const TTS_MODEL_POOLS: Record<string, ModelOption[]> = {
-  // Standard Voice - ~$0.006/request (cheapest)
+  // Standard Voice - OpenAI TTS (reliable) ~$0.015/request
   "standard-voice": [
-    { id: "kling-tts", provider: "cometapi", weight: 100, apiModel: "kling-tts", costEstimate: 0.006 },
+    { id: "openai-tts", provider: "openai", weight: 100, apiModel: "tts-1", costEstimate: 0.015 },
   ],
   
-  // Natural Voice - ~$0.02/request avg
+  // Natural Voice - Mix of OpenAI and ElevenLabs ~$0.018/request avg
   "natural-voice": [
-    { id: "openai-tts", provider: "openai", weight: 50, apiModel: "tts-1", costEstimate: 0.015 },
-    { id: "kling-tts", provider: "cometapi", weight: 50, apiModel: "kling-tts", costEstimate: 0.006 },
+    { id: "openai-tts", provider: "openai", weight: 70, apiModel: "tts-1", costEstimate: 0.015 },
+    { id: "elevenlabs-tts", provider: "elevenlabs", weight: 30, apiModel: "eleven_multilingual_v2", costEstimate: 0.024 },
   ],
   
-  // Premium Voice - ~$0.024/1K chars (highest quality)
+  // Premium Voice - ElevenLabs highest quality ~$0.024/1K chars
   "premium-voice": [
     { id: "elevenlabs-tts", provider: "elevenlabs", weight: 100, apiModel: "eleven_multilingual_v2", costEstimate: 0.024 },
   ],
