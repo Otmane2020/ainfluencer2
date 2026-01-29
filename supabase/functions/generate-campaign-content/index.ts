@@ -119,6 +119,10 @@ serve(async (req) => {
       clipmotion = false,
       // Product/Service description
       productDescription = null,
+      // Campaign settings (override DB values if provided)
+      format: requestFormat = null,
+      tone: requestTone = null,
+      subject: requestSubject = null,
     } = await req.json();
 
     if (!campaignId) {
@@ -177,7 +181,13 @@ serve(async (req) => {
 
     console.log(`Generating content for campaign: ${campaign.name} (${campaign.campaign_type})`);
     console.log(`Project: ${project.name}, Language: ${project.detected_language || "en"}`);
-
+    
+    // Use request values if provided, otherwise fall back to campaign DB values
+    const effectiveFormat = requestFormat || campaign.format || "reel";
+    const effectiveTone = requestTone || campaign.tone || "professional";
+    const effectiveSubject = requestSubject || campaign.subject || null;
+    
+    console.log(`Settings: format=${effectiveFormat}, tone=${effectiveTone}, subject=${effectiveSubject || "none"}`);
     // Calculate how many posts to generate
     const totalVideos = campaign.campaign_type === "image" ? 0 : (campaign.videos_per_month || 4);
     const totalImages = campaign.campaign_type === "video" ? 0 : (campaign.images_per_month || 12);
@@ -289,9 +299,9 @@ ${productDescription || campaign.ai_context}
 IMPORTANT: All content MUST specifically showcase and promote this product/service. Do not create generic content.` : ""}
 
 CAMPAIGN SETTINGS:
-- Tone: ${campaign.tone || "professional"} (IMPORTANT: Adapt writing style to match this tone)
-- Format: ${campaign.format || "reel"}
-${campaign.subject ? `- Focus topic: ${campaign.subject}` : ""}
+- Tone: ${effectiveTone} (IMPORTANT: Adapt writing style to match this tone)
+- Format: ${effectiveFormat}
+${effectiveSubject ? `- Focus topic: ${effectiveSubject}` : ""}
 ${clipmotion ? `- Mode: CLIPMOTION (social-optimized, fast-paced, viral potential)` : ""}
 
 BRAND ELEMENTS TO INCLUDE:
@@ -300,12 +310,12 @@ ${includeUrl && project.url ? `- Include website URL: ${project.url} in final sc
 ${includeAvatar && project.avatar_url ? `- Include brand avatar/spokesperson in scenes` : ""}
 ${includeText && overlayText ? `- Include text overlay: "${overlayText}"` : ""}
 
-TONE GUIDELINES (${campaign.tone || "professional"}):
-${campaign.tone === "casual" ? "- Use friendly, conversational language. Short punchy sentences. Emojis OK." : ""}
-${campaign.tone === "professional" ? "- Use polished, business-appropriate language. Clear and authoritative." : ""}
-${campaign.tone === "urgent" ? "- Create urgency. Use action words. Limited time messaging." : ""}
-${campaign.tone === "luxurious" ? "- Use elegant, refined language. Emphasize quality and exclusivity." : ""}
-${campaign.tone === "playful" ? "- Use fun, energetic language. Humor and creativity welcome." : ""}
+TONE GUIDELINES (${effectiveTone}):
+${effectiveTone === "casual" ? "- Use friendly, conversational language. Short punchy sentences. Emojis OK." : ""}
+${effectiveTone === "professional" ? "- Use polished, business-appropriate language. Clear and authoritative." : ""}
+${effectiveTone === "urgent" ? "- Create urgency. Use action words. Limited time messaging." : ""}
+${effectiveTone === "luxurious" ? "- Use elegant, refined language. Emphasize quality and exclusivity." : ""}
+${effectiveTone === "playful" ? "- Use fun, energetic language. Humor and creativity welcome." : ""}
 
 ${clipmotion ? `CLIPMOTION MODE - CRITICAL INSTRUCTIONS:
 - Fast-paced editing with 1-2 second scene cuts
@@ -357,12 +367,12 @@ ${includeLogo && project.logo_url ? `- Include brand logo in corner or watermark
 ${includeUrl && project.url ? `- Include website URL "${project.url}" as text overlay` : ""}
 ${includeText && overlayText ? `- Include text overlay: "${overlayText}"` : ""}
 
-TONE/STYLE (${campaign.tone || "professional"}):
-${campaign.tone === "casual" ? "- Relaxed, approachable visuals. Natural settings." : ""}
-${campaign.tone === "professional" ? "- Polished, corporate aesthetic. Clean lines." : ""}
-${campaign.tone === "urgent" ? "- Bold colors, dynamic composition. Call-to-action emphasis." : ""}
-${campaign.tone === "luxurious" ? "- Elegant, high-end aesthetic. Rich textures, premium feel." : ""}
-${campaign.tone === "playful" ? "- Vibrant, energetic visuals. Fun compositions." : ""}
+TONE/STYLE (${effectiveTone}):
+${effectiveTone === "casual" ? "- Relaxed, approachable visuals. Natural settings." : ""}
+${effectiveTone === "professional" ? "- Polished, corporate aesthetic. Clean lines." : ""}
+${effectiveTone === "urgent" ? "- Bold colors, dynamic composition. Call-to-action emphasis." : ""}
+${effectiveTone === "luxurious" ? "- Elegant, high-end aesthetic. Rich textures, premium feel." : ""}
+${effectiveTone === "playful" ? "- Vibrant, energetic visuals. Fun compositions." : ""}
 
 PROJECT CONTEXT:
 - Brand: ${project.name}
@@ -377,9 +387,9 @@ ${productDescription || campaign.ai_context}
 IMPORTANT: The image MUST specifically showcase this product/service. Feature it prominently in the composition.` : ""}
 
 CAMPAIGN SETTINGS:
-- Tone: ${campaign.tone || "professional"}
-- Format: ${campaign.format || "reel"}
-${campaign.subject ? `- Focus topic: ${campaign.subject}` : ""}
+- Tone: ${effectiveTone}
+- Format: ${effectiveFormat}
+${effectiveSubject ? `- Focus topic: ${effectiveSubject}` : ""}
 
 Respond ONLY with valid JSON:
 {

@@ -281,8 +281,15 @@ export const CampaignWizardModal = ({
           body: { 
             campaignId: newCampaign.id, 
             platforms: selectedPlatforms,
+            // Brand options
             includeLogo: brandOptions.includeLogo,
             includeUrl: brandOptions.includeUrl,
+            includeAvatar: brandOptions.includeAvatar,
+            includeText: brandOptions.includeText,
+            // Content options
+            format: format,
+            tone: tone,
+            subject: subject || null,
             imageAsReel: imageAsReel,
             audioCategory: audioCategory,
             clipmotion: clipmotion,
