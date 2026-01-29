@@ -27,6 +27,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useSubscription } from "@/hooks/useSubscription";
 import { CreditPacks } from "@/components/CreditPacks";
 import {
   Dialog,
@@ -46,6 +47,7 @@ const Settings = () => {
     isLoading: creditsLoading,
     subscription,
   } = useCredits();
+  const { isSubscribed, subscription: stripeSubscription } = useSubscription();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [displayName, setDisplayName] = useState(profile?.display_name || "");
@@ -56,6 +58,11 @@ const Settings = () => {
     push: false,
     weekly: true,
   });
+
+  // Use Stripe subscription status for accurate plan display
+  const effectivePlanName = isSubscribed ? (currentPlan?.name || "Starter") : "Free";
+  const effectiveStatus = isSubscribed ? "active" : (stripeSubscription.status === "orphan" ? "invalid" : "inactive");
+  const showPrice = isSubscribed;
 
   useEffect(() => {
     if (profile?.display_name) {
@@ -116,23 +123,33 @@ const Settings = () => {
           {/* Plan Info */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${getPlanGradient(currentPlan?.id || "starter")}`}>
+              <div className={`flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${isSubscribed ? getPlanGradient(currentPlan?.id || "starter") : "from-gray-400 to-gray-500"}`}>
                 <Crown className="h-6 w-6 text-white" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <p className="font-semibold">{currentPlan?.name || "Starter"}</p>
-                  <Badge variant="outline" className="text-xs">
-                    {subscription?.status || "active"}
+                  <p className="font-semibold">{effectivePlanName}</p>
+                  <Badge 
+                    variant="outline" 
+                    className={`text-xs ${effectiveStatus === "invalid" ? "border-destructive text-destructive" : ""}`}
+                  >
+                    {effectiveStatus}
                   </Badge>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {currentPlan?.price}€{currentPlan?.priceUnit}
-                </p>
+                {showPrice && currentPlan && (
+                  <p className="text-sm text-muted-foreground">
+                    ${currentPlan.price}{currentPlan.priceUnit}
+                  </p>
+                )}
+                {!isSubscribed && (
+                  <p className="text-sm text-muted-foreground">
+                    Subscribe to unlock features
+                  </p>
+                )}
               </div>
             </div>
             <Button variant="outline" size="sm" onClick={() => navigate("/pricing")}>
-              Upgrade
+              {isSubscribed ? "Manage" : "Subscribe"}
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </div>
@@ -169,13 +186,16 @@ const Settings = () => {
             </div>
           </div>
 
-          {/* AutoPost Limits */}
+          {/* AutoPost Limits - Only show for subscribed users */}
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-lg bg-muted/50 p-3 text-center">
               <div className="flex items-center justify-center gap-1.5">
                 <Image className="h-4 w-4 text-primary" />
                 <span className="text-lg font-bold">
-                  {currentPlan?.limits.autopostImages === -1 ? "∞" : currentPlan?.limits.autopostImages || 30}
+                  {isSubscribed 
+                    ? (currentPlan?.limits.autopostImages === -1 ? "∞" : currentPlan?.limits.autopostImages || 0)
+                    : 0
+                  }
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">Images/day</p>
@@ -184,7 +204,10 @@ const Settings = () => {
               <div className="flex items-center justify-center gap-1.5">
                 <Video className="h-4 w-4 text-secondary" />
                 <span className="text-lg font-bold">
-                  {currentPlan?.limits.autopostVideos === -1 ? "∞" : currentPlan?.limits.autopostVideos || 0}
+                  {isSubscribed 
+                    ? (currentPlan?.limits.autopostVideos === -1 ? "∞" : currentPlan?.limits.autopostVideos || 0)
+                    : 0
+                  }
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">Videos/day</p>
