@@ -258,35 +258,35 @@ Video duration: ${duration} seconds
 Script type: ${scriptType}
 Target word count: ${minWords}-${maxWords} words`;
 
-    // Call Lovable AI
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("Missing LOVABLE_API_KEY");
+    // Call CometAPI with NanoBanana Pro (cheap model)
+    const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
+    if (!COMETAPI_API_KEY) {
+      throw new Error("Missing COMETAPI_API_KEY");
     }
 
-    console.log("[generate-video-scenario] Calling Lovable AI...");
+    console.log("[generate-video-scenario] Calling NanoBanana Pro (cheap)...");
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch("https://api.cometapi.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${COMETAPI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "nanobanana-pro", // ✅ CHEAP MODEL
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage },
         ],
-        temperature: 0.7,
-        max_tokens: 4000,
+        temperature: 0.45, // more stable for JSON
+        max_tokens: 1800,
       }),
     });
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error("[generate-video-scenario] AI error:", errorText);
-      throw new Error(`AI API error: ${aiResponse.status}`);
+      console.error("[generate-video-scenario] CometAPI error:", errorText);
+      throw new Error(`CometAPI error: ${aiResponse.status}`);
     }
 
     const aiData = await aiResponse.json();
