@@ -41,13 +41,29 @@ serve(async (req) => {
     logStep("Function started");
 
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("No authorization header provided");
+    if (!authHeader?.startsWith("Bearer ")) {
+      throw new Error("No authorization header provided");
+    }
 
     const token = authHeader.replace("Bearer ", "");
-    const { data } = await supabaseClient.auth.getUser(token);
-    const user = data.user;
-    if (!user?.email) throw new Error("User not authenticated or email not available");
-    logStep("User authenticated", { userId: user.id, email: user.email });
+    
+    // Use getClaims for reliable JWT validation
+    const supabaseWithAuth = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    
+    const { data: claimsData, error: claimsError } = await supabaseWithAuth.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      throw new Error("User not authenticated");
+    }
+    
+    const userId = claimsData.claims.sub as string;
+    const userEmail = claimsData.claims.email as string;
+    
+    if (!userEmail) throw new Error("User email not available");
+    logStep("User authenticated via getClaims", { userId, email: userEmail });
 
     const { type, planId, packId } = await req.json();
     logStep("Request params", { type, planId, packId });
@@ -58,7 +74,7 @@ serve(async (req) => {
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
     // Check if customer exists
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+    const customers = await stripe.customers.list({ email: userEmail, limit: 1 });
     let customerId: string | undefined;
     
     if (customers.data.length > 0) {
@@ -97,13 +113,13 @@ serve(async (req) => {
 
       session = await stripe.checkout.sessions.create({
         customer: customerId,
-        customer_email: customerId ? undefined : user.email,
+        customer_email: customerId ? undefined : userEmail,
         line_items: [{ price: priceId, quantity: 1 }],
         mode: "subscription",
         success_url: `${origin}/settings?payment=success&plan=${planId}`,
         cancel_url: `${origin}/settings?payment=canceled`,
         metadata: {
-          user_id: user.id,
+          user_id: userId,
           plan_id: planId,
           type: "subscription",
         },
@@ -119,13 +135,13 @@ serve(async (req) => {
 
       session = await stripe.checkout.sessions.create({
         customer: customerId,
-        customer_email: customerId ? undefined : user.email,
+        customer_email: customerId ? undefined : userEmail,
         line_items: [{ price: pack.priceId, quantity: 1 }],
         mode: "payment",
         success_url: `${origin}/settings?payment=success&credits=${pack.credits}`,
         cancel_url: `${origin}/settings?payment=canceled`,
         metadata: {
-          user_id: user.id,
+          user_id: userId,
           pack_id: packId,
           credits: pack.credits.toString(),
           type: "credits",
