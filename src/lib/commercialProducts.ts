@@ -20,6 +20,7 @@ export interface QualityLevel {
   price: number;
   description: string;
   features: string[];
+  supportedDurations?: number[]; // Available durations in seconds
 }
 
 export const IMAGE_QUALITY_LEVELS: QualityLevel[] = [
@@ -56,7 +57,8 @@ export const VIDEO_QUALITY_LEVELS: QualityLevel[] = [
     internalModel: "pool:smart-video", // Pool: veo-3.1, kling-v2, minimax
     price: 9.90,
     description: "Short videos for your social networks",
-    features: ["HD 1080p", "5-10s", "AI Voice included"],
+    features: ["HD 1080p", "4-10s", "AI Voice included"],
+    supportedDurations: [4, 5, 6, 8, 10], // veo-2: 5,10 | kling: 5,10 | minimax: 4,6
   },
   {
     id: "high-video",
@@ -64,7 +66,8 @@ export const VIDEO_QUALITY_LEVELS: QualityLevel[] = [
     internalModel: "pool:high-video", // Pool: sora-2, veo-3.1-pro
     price: 12.90,
     description: "Ultra-smooth premium videos",
-    features: ["Full HD", "4-12s", "Natural voice", "Smooth motion"],
+    features: ["Full HD", "4-20s", "Natural voice", "Smooth motion"],
+    supportedDurations: [4, 5, 8, 10, 12, 15, 20], // sora-2: 4-20s
   },
   {
     id: "cinema-video",
@@ -72,7 +75,8 @@ export const VIDEO_QUALITY_LEVELS: QualityLevel[] = [
     internalModel: "pool:cinema-video", // Pool: sora-2-pro, veo-ultra
     price: 19.90,
     description: "Professional cinema quality",
-    features: ["4K HDR", "5-10s", "Cinematic rendering", "Premium audio"],
+    features: ["4K HDR", "5-30s", "Cinematic rendering", "Premium audio"],
+    supportedDurations: [5, 8, 10, 12, 15, 20, 30], // sora-2-pro: up to 30s
   },
 ];
 
@@ -375,7 +379,7 @@ export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
     features: q.features,
     internalModels: [q.internalModel],
     needsVoice: true,
-    supportedDurations: i === 0 ? [5, 10] : i === 1 ? [5, 10] : [4, 8, 12],
+    supportedDurations: q.supportedDurations || [5, 10],
     badge: i === 2 ? "CINEMA" : undefined,
     popular: i === 1,
   })),
