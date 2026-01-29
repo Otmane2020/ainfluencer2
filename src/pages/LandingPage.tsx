@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PricingPacks } from "@/components/PricingPacks";
@@ -16,38 +16,96 @@ import {
   ArrowRight,
   Check,
   Star,
+  Sparkles,
+  Image,
+  Camera,
+  Megaphone,
+  Mic,
+  User,
+  Layers,
+  Share2,
+  Clock,
+  Target,
+  Film,
 } from "lucide-react";
 
-const features = [
+// Core product features
+const coreProducts = [
+  {
+    icon: Sparkles,
+    title: "ClipMotion Videos",
+    description: "Create viral vertical videos optimized for TikTok, Reels & Shorts with AI voiceovers and dynamic animations.",
+    badge: "FLAGSHIP",
+    link: "/clipmotion",
+  },
+  {
+    icon: Image,
+    title: "Smart Images",
+    description: "Generate stunning AI images in seconds with our Smart, High, and Studio quality tiers.",
+    badge: "AI SMART",
+    link: "/images",
+  },
+  {
+    icon: Camera,
+    title: "Product Shots",
+    description: "Transform a single product photo into multiple professional angles and lifestyle scenes.",
+    badge: "AI SMART",
+    link: "/product-shots",
+  },
   {
     icon: Video,
-    title: "AI Video Generation",
-    description: "Create stunning AI-powered videos for Reels, TikTok, and Shorts in seconds.",
+    title: "Cinema Videos",
+    description: "Create cinematic AI videos with Sora 2 quality for professional brand content.",
+    badge: "PREMIUM",
+    link: "/videos",
   },
   {
-    icon: Wand2,
-    title: "AI Influencer Avatars",
-    description: "Generate realistic AI influencers that represent your brand perfectly.",
+    icon: User,
+    title: "AI Avatars",
+    description: "Generate realistic AI influencers and brand ambassadors that represent your brand perfectly.",
+    badge: null,
+    link: "/settings",
   },
+  {
+    icon: Megaphone,
+    title: "AI Campaigns",
+    description: "Automate your content calendar with AI-generated posts, images, and videos published on autopilot.",
+    badge: "NEW",
+    link: "/campaigns",
+  },
+];
+
+// Platform features
+const platformFeatures = [
   {
     icon: Calendar,
     title: "Smart Scheduling",
-    description: "Plan and automate your content calendar across all social platforms.",
-  },
-  {
-    icon: TrendingUp,
-    title: "Engagement Analytics",
-    description: "Track performance and optimize your content strategy with AI insights.",
+    description: "Plan and automate your content calendar across all social platforms with timezone-aware publishing.",
   },
   {
     icon: Globe,
-    title: "Multi-Platform",
-    description: "Publish to Instagram, Facebook, TikTok, and LinkedIn simultaneously.",
+    title: "Multi-Platform Publishing",
+    description: "Publish to Instagram, Facebook, TikTok, and LinkedIn simultaneously with one click.",
+  },
+  {
+    icon: Mic,
+    title: "AI Voiceovers",
+    description: "Choose from 50+ natural voices in multiple languages for your video content.",
+  },
+  {
+    icon: Layers,
+    title: "Scenario System",
+    description: "Select from business sectors, video styles, and emotional tones to guide AI generation.",
+  },
+  {
+    icon: Target,
+    title: "Brand Context",
+    description: "Your brand identity is automatically injected into all generated content.",
   },
   {
     icon: Zap,
-    title: "One-Click Publishing",
-    description: "Generate, review, and publish content with a single click.",
+    title: "Instant Generation",
+    description: "Generate content in seconds, not hours. Scale your output 10x faster.",
   },
 ];
 
@@ -90,16 +148,18 @@ const LandingPage = () => {
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 glass">
         <div className="container mx-auto flex h-14 md:h-16 items-center justify-between px-3 md:px-4">
-          <div className="flex items-center gap-2 md:gap-3">
+          <Link to="/" className="flex items-center gap-2 md:gap-3">
             <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-xl overflow-hidden shadow-glow">
               <img src="/logo.png" alt="ClipMotion" className="h-full w-full object-contain scale-125" />
             </div>
             <span className="font-display text-lg md:text-xl font-bold text-gradient">ClipMotion</span>
-          </div>
+          </Link>
           <div className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
-            <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
-            <a href="#testimonials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Testimonials</a>
+            <Link to="/features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</Link>
+            <Link to="/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</Link>
+            <Link to="/use-cases" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Use Cases</Link>
+            <Link to="/faq" className="text-sm text-muted-foreground hover:text-foreground transition-colors">FAQ</Link>
+            <Link to="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Blog</Link>
           </div>
           <div className="flex items-center gap-2 md:gap-3">
             <Button variant="ghost" size="sm" onClick={() => navigate("/auth")} className="text-xs md:text-sm px-2 md:px-4">
@@ -181,8 +241,70 @@ const LandingPage = () => {
       {/* Trusted By Carousel */}
       <TrustedByCarousel />
 
-      {/* Features Section */}
-      <section id="features" className="py-12 md:py-20 bg-muted/30">
+      {/* Core Products Section */}
+      <section id="products" className="py-12 md:py-20 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-10 md:mb-16"
+          >
+            <h2 className="font-display text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
+              AI-Powered <span className="text-gradient">Content Suite</span>
+            </h2>
+            <p className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto px-2">
+              Everything you need to create, automate, and publish stunning content at scale.
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {coreProducts.map((product, index) => (
+              <motion.div
+                key={product.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <Card 
+                  className="h-full hover:shadow-glow transition-all hover:border-primary/30 bg-card/50 cursor-pointer group"
+                  onClick={() => navigate(product.link)}
+                >
+                  <CardContent className="p-4 md:p-6 relative">
+                    {product.badge && (
+                      <div className="absolute top-3 right-3">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          product.badge === "FLAGSHIP" 
+                            ? "bg-gradient-to-r from-primary to-secondary text-white" 
+                            : product.badge === "AI SMART"
+                            ? "bg-accent/20 text-accent"
+                            : product.badge === "PREMIUM"
+                            ? "bg-amber-500/20 text-amber-400"
+                            : "bg-primary/20 text-primary"
+                        }`}>
+                          {product.badge}
+                        </span>
+                      </div>
+                    )}
+                    <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl gradient-primary flex items-center justify-center mb-3 md:mb-4 shadow-primary group-hover:scale-110 transition-transform">
+                      <product.icon className="h-5 w-5 md:h-6 md:w-6 text-white" />
+                    </div>
+                    <h3 className="font-display text-lg md:text-xl font-semibold mb-2">{product.title}</h3>
+                    <p className="text-sm md:text-base text-muted-foreground">{product.description}</p>
+                    <div className="mt-4 flex items-center gap-1 text-primary text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                      Try now <ArrowRight className="h-4 w-4" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Platform Features Section */}
+      <section id="features" className="py-12 md:py-20">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -194,12 +316,12 @@ const LandingPage = () => {
               Everything You Need to <span className="text-gradient">Dominate</span> Social Media
             </h2>
             <p className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto px-2">
-              Powerful AI tools designed to help creators and brands scale their content effortlessly.
+              Powerful features designed to help creators and brands scale their content effortlessly.
             </p>
           </motion.div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            {features.map((feature, index) => (
+            {platformFeatures.map((feature, index) => (
               <motion.div
                 key={feature.title}
                 initial={{ opacity: 0, y: 20 }}
@@ -209,8 +331,8 @@ const LandingPage = () => {
               >
                 <Card className="h-full hover:shadow-glow transition-all hover:border-primary/30 bg-card/50">
                   <CardContent className="p-4 md:p-6">
-                    <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl gradient-primary flex items-center justify-center mb-3 md:mb-4 shadow-primary">
-                      <feature.icon className="h-5 w-5 md:h-6 md:w-6 text-white" />
+                    <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-muted flex items-center justify-center mb-3 md:mb-4">
+                      <feature.icon className="h-5 w-5 md:h-6 md:w-6 text-primary" />
                     </div>
                     <h3 className="font-display text-lg md:text-xl font-semibold mb-2">{feature.title}</h3>
                     <p className="text-sm md:text-base text-muted-foreground">{feature.description}</p>
@@ -366,22 +488,52 @@ const LandingPage = () => {
       </section>
 
       {/* Footer */}
-      <footer className="py-12 border-t border-border">
+      <footer className="py-12 border-t border-border bg-muted/30">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+            <div>
+              <h4 className="font-display font-semibold mb-4">Product</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><Link to="/features" className="hover:text-foreground transition-colors">Features</Link></li>
+                <li><Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link></li>
+                <li><Link to="/ai-video-generator" className="hover:text-foreground transition-colors">AI Video Generator</Link></li>
+                <li><Link to="/motion-design-ai" className="hover:text-foreground transition-colors">Motion Design AI</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-display font-semibold mb-4">Resources</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><Link to="/blog" className="hover:text-foreground transition-colors">Blog</Link></li>
+                <li><Link to="/use-cases" className="hover:text-foreground transition-colors">Use Cases</Link></li>
+                <li><Link to="/faq" className="hover:text-foreground transition-colors">FAQ</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-display font-semibold mb-4">Company</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><Link to="/contact" className="hover:text-foreground transition-colors">Contact</Link></li>
+                <li><a href="https://twitter.com/clipmotion" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">Twitter</a></li>
+                <li><a href="https://linkedin.com/company/clipmotion" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">LinkedIn</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-display font-semibold mb-4">Legal</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><Link to="/privacy-policy" className="hover:text-foreground transition-colors">Privacy Policy</Link></li>
+                <li><Link to="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link></li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-8 border-t border-border">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl overflow-hidden">
                 <img src="/logo.png" alt="ClipMotion" className="h-full w-full object-contain" />
               </div>
               <span className="font-display text-lg font-bold">ClipMotion</span>
             </div>
-            <div className="flex items-center gap-6 text-sm text-muted-foreground">
-              <a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a>
-              <a href="#" className="hover:text-foreground transition-colors">Terms of Service</a>
-              <a href="#" className="hover:text-foreground transition-colors">Contact</a>
-            </div>
             <p className="text-sm text-muted-foreground">
-              © 2024 ClipMotion. All rights reserved.
+              © {new Date().getFullYear()} ClipMotion. All rights reserved.
             </p>
           </div>
         </div>
