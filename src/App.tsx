@@ -31,6 +31,8 @@ import AIVideoGeneratorPage from "./pages/AIVideoGeneratorPage";
 import MotionDesignAIPage from "./pages/MotionDesignAIPage";
 import FAQPage from "./pages/FAQPage";
 import BlogPage from "./pages/BlogPage";
+import BlogClipMotionPage from "./pages/BlogClipMotionPage";
+import ClipMotionFAQPage from "./pages/ClipMotionFAQPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsPage from "./pages/TermsPage";
 import ContactPage from "./pages/ContactPage";
@@ -52,6 +54,8 @@ const App = () => (
           <Route path="/motion-design-ai" element={<MotionDesignAIPage />} />
           <Route path="/faq" element={<FAQPage />} />
           <Route path="/blog" element={<BlogPage />} />
+          <Route path="/blog/clip-motion" element={<BlogClipMotionPage />} />
+          <Route path="/clip-motion-faq" element={<ClipMotionFAQPage />} />
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/contact" element={<ContactPage />} />
