@@ -23,60 +23,28 @@ export interface QualityLevel {
   supportedDurations?: number[]; // Available durations in seconds
 }
 
+// Single unified image quality using Gemini 2.5 Flash
 export const IMAGE_QUALITY_LEVELS: QualityLevel[] = [
   {
-    id: "smart-image",
-    name: "Smart Image",
-    internalModel: "pool:smart-image", // Pool: gemini-flash, flux-2-flex
-    price: 1.50,
-    description: "Fast AI-powered image generation",
-    features: ["HD Quality", "Fast generation", "All styles"],
-  },
-  {
-    id: "high-image",
-    name: "High Image",
-    internalModel: "pool:high-image", // Pool: nano-banana-pro, flux-2-pro
-    price: 2.50,
-    description: "Premium photorealistic images",
-    features: ["Ultra HD 2K", "Photorealistic", "Premium styles"],
-  },
-  {
-    id: "studio-image",
-    name: "Studio Image",
-    internalModel: "pool:studio-image", // Pool: flux-2-pro, gemini-pro
-    price: 4.00,
-    description: "Professional studio quality",
-    features: ["4K Ultra HD", "Perfect consistency", "Brand identity"],
+    id: "pro-image",
+    name: "Pro Image",
+    internalModel: "gemini-flash-image", // Gemini 2.5 Flash via Lovable AI
+    price: 2.00,
+    description: "Professional AI image generation",
+    features: ["Ultra HD", "Photorealistic", "All styles", "Fast generation"],
   },
 ];
 
+// Single unified video quality using Sora-2 (up to 20s)
 export const VIDEO_QUALITY_LEVELS: QualityLevel[] = [
   {
-    id: "smart-video",
-    name: "Smart Video",
-    internalModel: "pool:smart-video", // Pool: veo-3.1, kling-v2, minimax
-    price: 9.90,
-    description: "Short videos for your social networks",
-    features: ["HD 1080p", "4-10s", "AI Voice included"],
-    supportedDurations: [4, 5, 6, 8, 10], // veo-2: 5,10 | kling: 5,10 | minimax: 4,6
-  },
-  {
-    id: "high-video",
-    name: "High Video",
-    internalModel: "pool:high-video", // Pool: sora-2, veo-3.1-pro
+    id: "pro-video",
+    name: "Pro Video",
+    internalModel: "sora-2", // Sora-2 via CometAPI
     price: 12.90,
-    description: "Ultra-smooth premium videos",
-    features: ["Full HD", "4-20s", "Natural voice", "Smooth motion"],
-    supportedDurations: [4, 5, 8, 10, 12, 15, 20], // sora-2: 4-20s
-  },
-  {
-    id: "cinema-video",
-    name: "Cinema Video",
-    internalModel: "pool:cinema-video", // Pool: sora-2-pro, veo-ultra
-    price: 19.90,
-    description: "Professional cinema quality",
-    features: ["4K HDR", "5-30s", "Cinematic rendering", "Premium audio"],
-    supportedDurations: [5, 8, 10, 12, 15, 20, 30], // sora-2-pro: up to 30s
+    description: "Professional AI video generation",
+    features: ["Full HD 1080p", "4-20s", "AI Voice included", "Smooth motion"],
+    supportedDurations: [4, 5, 8, 10, 12, 15, 20],
   },
 ];
 
@@ -127,7 +95,7 @@ export interface PlanQualityAccess {
 
 export const PLAN_QUALITY_ACCESS: Record<string, PlanQualityAccess> = {
   starter: {
-    image: ["smart-image"],
+    image: ["pro-image"],
     video: [], // NO video access
     maxProjects: 3,
     maxCampaigns: 1,
@@ -135,16 +103,16 @@ export const PLAN_QUALITY_ACCESS: Record<string, PlanQualityAccess> = {
     autopostVideosPerDay: 0,
   },
   pro: {
-    image: ["smart-image", "high-image"],
-    video: ["smart-video", "high-video"],
+    image: ["pro-image"],
+    video: ["pro-video"],
     maxProjects: 10,
     maxCampaigns: -1, // Unlimited
     autopostImagesPerDay: -1, // Unlimited
     autopostVideosPerDay: 1,
   },
   business: {
-    image: ["smart-image", "high-image", "studio-image"],
-    video: ["smart-video", "high-video", "cinema-video"],
+    image: ["pro-image"],
+    video: ["pro-video"],
     maxProjects: -1, // Unlimited
     maxCampaigns: -1,
     autopostImagesPerDay: -1,
@@ -186,7 +154,7 @@ export const PRICING_PLANS: PricingPlan[] = [
       "3 projects",
       "1 campaign max",
       "AutoPost AI Images (up to 30/day)",
-      "Smart quality images",
+      "Pro quality images",
       "Email support",
     ],
     limits: {
@@ -195,7 +163,7 @@ export const PRICING_PLANS: PricingPlan[] = [
       autopostImages: 30,
       autopostVideos: 0,
     },
-    imageQualities: ["smart-image"],
+    imageQualities: ["pro-image"],
     videoQualities: [],
   },
   {
@@ -209,7 +177,7 @@ export const PRICING_PLANS: PricingPlan[] = [
       "Unlimited campaigns",
       "AutoPost AI Images (unlimited)",
       "AutoPost AI Videos (1/day)",
-      "Smart & High quality",
+      "Pro quality images & videos",
       "Priority support",
     ],
     limits: {
@@ -218,8 +186,8 @@ export const PRICING_PLANS: PricingPlan[] = [
       autopostImages: -1,
       autopostVideos: 1,
     },
-    imageQualities: ["smart-image", "high-image"],
-    videoQualities: ["smart-video", "high-video"],
+    imageQualities: ["pro-image"],
+    videoQualities: ["pro-video"],
     popular: true,
     badge: "POPULAR",
   },
@@ -234,7 +202,7 @@ export const PRICING_PLANS: PricingPlan[] = [
       "Unlimited campaigns",
       "AutoPost AI Images (unlimited)",
       "AutoPost AI Videos (3/day)",
-      "All quality levels",
+      "Pro quality",
       "Priority queue",
       "API access",
     ],
@@ -244,8 +212,8 @@ export const PRICING_PLANS: PricingPlan[] = [
       autopostImages: -1,
       autopostVideos: 3,
     },
-    imageQualities: ["smart-image", "high-image", "studio-image"],
-    videoQualities: ["smart-video", "high-video", "cinema-video"],
+    imageQualities: ["pro-image"],
+    videoQualities: ["pro-video"],
     badge: "PRO",
   },
 ];
@@ -287,24 +255,24 @@ export const ALL_PACKS = [...IMAGE_PACKS, ...VIDEO_PACKS];
 // ============================================================
 
 export const CREDIT_COSTS: Record<string, number> = {
-  // Images (price in credits = price in USD)
+  // Unified Pro quality
+  "pro-image": 2,
+  "pro-video": 10,
+  
+  // Legacy support (backwards compatibility)
   "smart-image": 2,
-  "high-image": 3,
-  "studio-image": 4,
-  
-  // Videos
+  "high-image": 2,
+  "studio-image": 2,
   "smart-video": 10,
-  "high-video": 13,
-  "cinema-video": 20,
-  
-  // Legacy product IDs (backwards compatibility)
+  "high-video": 10,
+  "cinema-video": 10,
   "ai-image-smart": 2,
   "ai-image-standard": 2,
-  "ai-image-pro": 3,
-  "ai-image-studio": 4,
+  "ai-image-pro": 2,
+  "ai-image-studio": 2,
   "ai-reel": 10,
-  "ai-reel-pro": 13,
-  "ai-cinema": 20,
+  "ai-reel-pro": 10,
+  "ai-cinema": 10,
   "ai-influencer-standard": 39,
   "ai-influencer-pro": 69,
 };

@@ -51,8 +51,11 @@ export const CLIPMOTION_PACKS: ClipMotionPack[] = [
   { id: "clip-50", name: "Agency", quantity: 50, price: 269, badge: "BEST VALUE" },
 ];
 
-// Credit cost for ClipMotion videos
-export const CLIPMOTION_CREDIT_COST = 8;
+// Credit cost for ClipMotion videos (uses Sora-2)
+export const CLIPMOTION_CREDIT_COST = 10;
+
+// ClipMotion uses Sora-2 model
+export const CLIPMOTION_MODEL = "sora-2";
 
 // Default ClipMotion configuration
 export const DEFAULT_CLIPMOTION_CONFIG: ClipMotionConfig = {
@@ -99,8 +102,8 @@ Generate SHORT, PUNCHY scenarios optimized for social media virality:
 - Style: TikTok/Reels native aesthetic
 `;
 
-// Default durations for ClipMotion mode (shorter, punchier)
-export const CLIPMOTION_DURATIONS = [5, 8, 10];
+// Default durations for ClipMotion mode (Sora-2 supports 4-20s)
+export const CLIPMOTION_DURATIONS = [5, 8, 10, 15];
 
 // ClipMotion always uses vertical format
 export const CLIPMOTION_DEFAULT_FORMAT = "reel";
