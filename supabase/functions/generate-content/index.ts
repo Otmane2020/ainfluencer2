@@ -2,8 +2,12 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+// Valid content types
+const VALID_TYPES = ["text", "image", "both"] as const;
+type ContentType = typeof VALID_TYPES[number];
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -18,6 +22,14 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
+    // FIX 1: Strict type validation
+    if (!prompt || !VALID_TYPES.includes(type)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid request. 'prompt' is required and 'type' must be text | image | both" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Language-specific system prompts
     const languageInstructions: Record<string, string> = {
       en: "You are an expert social media content creator. Create engaging, viral, and authentic posts for Instagram and Facebook. Use emojis strategically. Include relevant hashtags at the end. The tone should be inspiring, motivating, and accessible. Limit text to 200 words maximum.",
@@ -28,10 +40,20 @@ serve(async (req) => {
       pt: "Você é um especialista em criação de conteúdo para redes sociais. Crie posts envolventes, virais e autênticos para Instagram e Facebook. Use emojis estrategicamente. Inclua hashtags relevantes no final. O tom deve ser inspirador, motivador e acessível. Limite o texto a no máximo 200 palavras.",
     };
 
+    const languageNames: Record<string, string> = {
+      en: "English",
+      fr: "French", 
+      es: "Spanish",
+      de: "German",
+      it: "Italian",
+      pt: "Portuguese",
+    };
+
     const language = detectedLanguage || "en";
+    const languageName = languageNames[language] || "English";
     const systemPrompt = languageInstructions[language] || languageInstructions.en;
 
-    console.log("Generating content for prompt:", prompt, "type:", type, "language:", language);
+    console.log("Generating content for prompt:", prompt.slice(0, 100), "type:", type, "language:", language);
 
     // Generate text content
     let generatedText = "";
@@ -43,7 +65,8 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          // FIX 3: Use stable model instead of preview
+          model: "google/gemini-2.5-flash",
           messages: [
             {
               role: "system",
@@ -51,7 +74,9 @@ serve(async (req) => {
             },
             {
               role: "user",
-              content: `Create a viral post about: ${prompt}`,
+              // FIX 2: Stronger language lock in user prompt
+              content: `Create a viral post about: ${prompt}.
+IMPORTANT: Write ONLY in ${languageName}. Do not use any other language.`,
             },
           ],
         }),
@@ -61,13 +86,13 @@ serve(async (req) => {
         const status = textResponse.status;
         if (status === 429) {
           return new Response(
-            JSON.stringify({ error: "Rate limits exceeded" }),
+            JSON.stringify({ error: "Rate limits exceeded, please try again later." }),
             { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
         if (status === 402) {
           return new Response(
-            JSON.stringify({ error: "Payment required" }),
+            JSON.stringify({ error: "Payment required, please add credits." }),
             { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
@@ -93,10 +118,21 @@ serve(async (req) => {
           messages: [
             {
               role: "user",
-              content: `Create a beautiful, professional, Instagram-worthy image for a social media post about: ${prompt}. 
-The image should be vibrant, engaging, and suitable for an influencer account. 
-Style: modern, aesthetic, high-quality photography or digital art.
-Aspect ratio: square (1:1)`,
+              // FIX 4: Social-first optimized image prompt
+              content: `Create a high-impact, scroll-stopping social media image about: ${prompt}.
+
+STYLE REQUIREMENTS:
+- Ultra high quality, modern Instagram aesthetic
+- Strong focal point with clean composition
+- High contrast, vibrant colors
+- Influencer-style photography or premium digital art
+- No text unless naturally integrated
+- No watermark, no logo
+
+FORMAT:
+- Square 1:1 aspect ratio
+- Optimized for Instagram feed
+- Professional quality, attention-grabbing`,
             },
           ],
           modalities: ["image", "text"],
@@ -111,15 +147,34 @@ Aspect ratio: square (1:1)`,
         const imageData = await imageResponse.json();
         const images = imageData.choices?.[0]?.message?.images;
         if (images && images.length > 0) {
-          imageUrl = images[0].image_url?.url || "";
+          const rawUrl = images[0].image_url?.url || "";
+          
+          // FIX 5: Don't return base64 directly - it can break frontend
+          if (rawUrl && !rawUrl.startsWith("data:image")) {
+            imageUrl = rawUrl;
+          } else if (rawUrl.startsWith("data:image")) {
+            // Base64 returned - for now we skip, cron can handle upload later
+            console.log("Image returned as base64, skipping direct return");
+            imageUrl = "";
+          }
+          
           console.log("Image generated successfully");
         }
       }
     }
 
+    // FIX 6: Better fallback text with proper CTA
+    const fallbackText = `✨ ${prompt}
+
+🔥 Follow for more content!
+#inspiration #socialmedia #contentcreator #viral #trending`;
+
+    // FIX 7: Return mode and language for frontend clarity
     return new Response(
       JSON.stringify({
-        text: generatedText || `✨ ${prompt}\n\n#viral #trending #influencer`,
+        mode: type,
+        language,
+        text: generatedText || fallbackText,
         imageUrl: imageUrl || undefined,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
