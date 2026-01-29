@@ -571,9 +571,9 @@ serve(async (req) => {
           innerData.url ||
           undefined;
         
-        // If still no URL, try to fetch the video content endpoint
+        // If still no URL, download video from CometAPI and upload to Supabase storage
         if (!videoUrl) {
-          console.log("No video URL in status response, trying content endpoint...");
+          console.log("No video URL in status response, downloading from CometAPI and uploading to storage...");
           try {
             const contentResponse = await fetch(`https://api.cometapi.com/v1/videos/${taskId}/content`, {
               method: "GET",
@@ -583,17 +583,37 @@ serve(async (req) => {
             });
             
             if (contentResponse.ok) {
-              const contentData = await contentResponse.json();
-              videoUrl = contentData.url || contentData.video_url || contentData.data?.url || contentData.data?.video_url;
-              console.log("Video URL from content endpoint:", videoUrl ? "Found" : "Not found");
+              const videoBuffer = await contentResponse.arrayBuffer();
+              const fileName = `${Date.now()}-${taskId}.mp4`;
+              
+              // Upload to Supabase storage
+              const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+                .from("media")
+                .upload(`videos/${fileName}`, videoBuffer, {
+                  contentType: "video/mp4",
+                  upsert: true,
+                });
+              
+              if (!uploadError && uploadData) {
+                const { data: publicUrlData } = supabaseAdmin.storage
+                  .from("media")
+                  .getPublicUrl(`videos/${fileName}`);
+                
+                videoUrl = publicUrlData.publicUrl;
+                console.log("Video uploaded to storage:", videoUrl);
+              } else {
+                console.error("Failed to upload video to storage:", uploadError);
+              }
+            } else {
+              console.error("Failed to download video from CometAPI:", contentResponse.status);
             }
-          } catch (contentError) {
-            console.log("Content endpoint fallback failed:", contentError);
+          } catch (uploadError) {
+            console.error("Video upload process failed:", uploadError);
           }
         }
         
         if (videoUrl) {
-          console.log("Video URL found:", videoUrl.slice(0, 80) + "...");
+          console.log("Final video URL:", videoUrl.slice(0, 80) + "...");
         } else {
           console.log("WARNING: Task completed but no video URL found. Full response:", JSON.stringify(result));
         }
