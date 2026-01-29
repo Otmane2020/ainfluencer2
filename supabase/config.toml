@@ -94,3 +94,9 @@ verify_jwt = false
 
 [functions.generate-reel]
 verify_jwt = false
+
+[functions.generate-reel-video]
+verify_jwt = false
+
+[functions.publish-clipmotion]
+verify_jwt = false
