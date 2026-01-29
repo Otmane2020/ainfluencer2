@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { NotificationSettings } from "@/components/NotificationSettings";
 import {
   FolderKanban,
   Calendar,
@@ -15,6 +16,7 @@ import {
   Clock,
   CheckCircle2,
   ArrowRight,
+  Bell,
 } from "lucide-react";
 
 interface Project {
@@ -292,6 +294,15 @@ const Dashboard = () => {
             ))}
           </div>
         )}
+      </motion.div>
+
+      {/* Notification Settings */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.8 }}
+      >
+        <NotificationSettings />
       </motion.div>
     </div>
   );

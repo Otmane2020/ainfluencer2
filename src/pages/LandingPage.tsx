@@ -5,6 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PricingPacks } from "@/components/PricingPacks";
 import { TrustedByCarousel } from "@/components/TrustedByCarousel";
 import { SocialPlatformIcons } from "@/components/SocialPlatformIcons";
+import { FlashSaleBanner } from "@/components/FlashSaleBanner";
+import { MobileStickyCta } from "@/components/MobileStickyeCTA";
 import {
   Play,
   Wand2,
@@ -146,8 +148,11 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Flash Sale Banner */}
+      <FlashSaleBanner className="fixed top-0 left-0 right-0 z-[60]" />
+
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 glass">
+      <nav className="fixed top-10 left-0 right-0 z-50 border-b border-border/50 glass">
         <div className="container mx-auto flex h-14 md:h-16 items-center justify-between px-3 md:px-4">
           <Link to="/" className="flex items-center gap-2 md:gap-3">
             <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-xl overflow-hidden shadow-glow">
@@ -174,7 +179,7 @@ const LandingPage = () => {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-24 md:pt-32 pb-12 md:pb-20 overflow-hidden">
+      <section className="relative pt-34 md:pt-44 pb-12 md:pb-20 overflow-hidden">
         <div className="absolute inset-0 gradient-hero opacity-10" />
         <div className="absolute top-1/4 left-1/4 w-48 md:w-96 h-48 md:h-96 bg-primary/20 rounded-full blur-3xl" />
         <div className="absolute bottom-1/4 right-1/4 w-48 md:w-96 h-48 md:h-96 bg-secondary/20 rounded-full blur-3xl" />
@@ -550,6 +555,9 @@ const LandingPage = () => {
           </div>
         </div>
       </footer>
+
+      {/* Mobile Sticky CTA */}
+      <MobileStickyCta showFlashSale={true} />
     </div>
   );
 };
