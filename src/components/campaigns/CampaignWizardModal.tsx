@@ -214,18 +214,44 @@ export const CampaignWizardModal = ({
     }
   };
 
-  // Auto-suggest services when project changes (and has URL)
+  // Auto-suggest services when project changes (only if project hasn't been scraped before)
   useEffect(() => {
+    // Skip if already suggested for this project in this session
+    if (autoSuggestedProjectId === projectId) return;
+    // Skip if user has already entered tags
+    if (serviceTags.length > 0) return;
+    
     const selectedProject = projects.find(p => p.id === projectId);
-    // Only auto-suggest if:
-    // 1. Project has a URL
-    // 2. We haven't already auto-suggested for this project
-    // 3. Service tags are empty (don't override user input)
-    if (selectedProject?.url && autoSuggestedProjectId !== projectId && serviceTags.length === 0) {
+    if (!selectedProject?.url) return;
+
+    // Check if project already has scraped data (don't re-scrape)
+    const checkAndSuggest = async () => {
+      const { data: projectData } = await supabase
+        .from("projects")
+        .select("scraped_markdown, scraped_data")
+        .eq("id", projectId)
+        .single();
+
+      // If already scraped, extract services from existing data instead of re-crawling
+      if (projectData?.scraped_markdown || projectData?.scraped_data) {
+        setAutoSuggestedProjectId(projectId);
+        // Try to extract from existing scraped_data if it has services
+        const existingData = projectData.scraped_data as any;
+        if (existingData?.services && Array.isArray(existingData.services)) {
+          setServiceTags(existingData.services.slice(0, 8));
+          toast({ title: "Services loaded", description: `${Math.min(existingData.services.length, 8)} services from project` });
+        }
+        return;
+      }
+
+      // Only call Firecrawl if no scraped data exists
       setAutoSuggestedProjectId(projectId);
-      handleAutoSuggestServices(selectedProject.url);
-    }
-  }, [projectId, projects]);
+      handleAutoSuggestServices(selectedProject.url!);
+    };
+
+    checkAndSuggest();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]); // Only trigger on projectId change, not on projects array change
 
   // Auto-suggest services from project URL (silent, no toast on failure)
   const handleAutoSuggestServices = async (url: string) => {
@@ -262,6 +288,24 @@ export const CampaignWizardModal = ({
 
     setIsSuggestingProduct(true);
     try {
+      // First check if project already has scraped data
+      const { data: projectData } = await supabase
+        .from("projects")
+        .select("scraped_markdown, scraped_data")
+        .eq("id", projectId)
+        .single();
+
+      // Use existing data if available
+      const existingData = projectData?.scraped_data as any;
+      if (existingData?.services && Array.isArray(existingData.services) && existingData.services.length > 0) {
+        const newTags = existingData.services.slice(0, 8);
+        setServiceTags(prev => [...new Set([...prev, ...newTags])].slice(0, 8));
+        toast({ title: "Services loaded!", description: `${newTags.length} services from existing data` });
+        setIsSuggestingProduct(false);
+        return;
+      }
+
+      // Only call Firecrawl if no existing data
       const { data, error } = await supabase.functions.invoke("scrape-project-url", {
         body: { url: selectedProject.url },
       });
