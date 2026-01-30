@@ -186,31 +186,25 @@ const Settings = () => {
             </div>
           </div>
 
-          {/* AutoPost Limits - Only show for subscribed users */}
+          {/* AutoPost Info - Credits-based */}
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-lg bg-muted/50 p-3 text-center">
               <div className="flex items-center justify-center gap-1.5">
                 <Image className="h-4 w-4 text-primary" />
                 <span className="text-lg font-bold">
-                  {isSubscribed 
-                    ? (currentPlan?.limits.autopostImages === -1 ? "∞" : currentPlan?.limits.autopostImages || 0)
-                    : 0
-                  }
+                  {isSubscribed ? "∞" : 0}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground">Images/day</p>
+              <p className="text-xs text-muted-foreground">Images (credits)</p>
             </div>
             <div className="rounded-lg bg-muted/50 p-3 text-center">
               <div className="flex items-center justify-center gap-1.5">
                 <Video className="h-4 w-4 text-secondary" />
                 <span className="text-lg font-bold">
-                  {isSubscribed 
-                    ? (currentPlan?.limits.autopostVideos === -1 ? "∞" : currentPlan?.limits.autopostVideos || 0)
-                    : 0
-                  }
+                  {isSubscribed ? "∞" : 0}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground">Videos/day</p>
+              <p className="text-xs text-muted-foreground">Videos (credits)</p>
             </div>
           </div>
 

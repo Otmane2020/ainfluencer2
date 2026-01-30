@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { PRICING_PLANS, PricingPlan, PLAN_QUALITY_ACCESS } from "@/lib/commercialProducts";
+import { PRICING_PLANS, PricingPlan, getPlanAccess, PlanAccess } from "@/lib/commercialProducts";
 
 interface SubscriptionState {
   planId: string;
@@ -27,22 +27,21 @@ export const useSubscription = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isCheckingStripe, setIsCheckingStripe] = useState(false);
 
-  // Lifetime users get business-tier access regardless of stored plan_id
+  // Lifetime users get business-tier access
   const effectivePlanId = subscription.isLifetime ? "business" : subscription.planId;
   
   const currentPlan: PricingPlan = subscription.isSubscribed 
     ? (PRICING_PLANS.find(p => p.id === effectivePlanId) || PRICING_PLANS[0])
     : PRICING_PLANS[0];
   
-  const planAccess = subscription.isSubscribed 
-    ? (PLAN_QUALITY_ACCESS[effectivePlanId] || PLAN_QUALITY_ACCESS.starter)
+  const planAccess: PlanAccess = subscription.isSubscribed 
+    ? getPlanAccess(effectivePlanId)
     : { 
-        image: [], 
-        video: [], 
         maxProjects: 0, 
         maxCampaigns: 0, 
-        autopostImagesPerDay: 0, 
-        autopostVideosPerDay: 0 
+        canAutopost: false, 
+        hasPriorityQueue: false, 
+        hasApiAccess: false 
       };
 
   // Check subscription status via Stripe
@@ -52,23 +51,18 @@ export const useSubscription = () => {
       return;
     }
 
-    // Check if we have a valid session before calling the edge function
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     if (sessionError || !sessionData?.session?.access_token) {
-      console.log("No valid session, skipping subscription check and using database fallback");
+      console.log("No valid session, using database fallback");
       setIsLoading(false);
       await loadFromDatabase();
       return;
     }
 
-    // Double-check that the token is not expired
     const tokenExpiry = sessionData.session.expires_at;
     if (tokenExpiry && tokenExpiry * 1000 < Date.now()) {
-      console.log("Session token expired, refreshing...");
       const { error: refreshError } = await supabase.auth.refreshSession();
       if (refreshError) {
-        console.log("Failed to refresh session, using database fallback");
-        setIsLoading(false);
         await loadFromDatabase();
         return;
       }
@@ -81,7 +75,6 @@ export const useSubscription = () => {
 
       if (error) {
         console.error("Error checking subscription:", error);
-        // Fall back to database
         await loadFromDatabase();
       } else if (data) {
         const isValidSubscription = data.subscribed === true && data.plan_id !== null;
@@ -117,7 +110,6 @@ export const useSubscription = () => {
       .maybeSingle();
 
     if (data) {
-      // Only consider valid if status is "active" and plan is recognized
       const validPlans = ["starter", "pro", "business"];
       const isValidSubscription = data.status === "active" && validPlans.includes(data.plan_id);
       const isLifetime = data.stripe_customer_id === "lifetime_grant";
@@ -132,7 +124,6 @@ export const useSubscription = () => {
         isLifetime,
       });
     } else {
-      // No subscription record at all
       setSubscription({
         planId: "starter",
         status: "inactive",
@@ -145,15 +136,12 @@ export const useSubscription = () => {
     }
   };
 
-  // Initial load
   useEffect(() => {
     checkSubscription();
   }, [checkSubscription]);
 
-  // Refresh subscription periodically (every 60 seconds)
   useEffect(() => {
     if (!user) return;
-
     const interval = setInterval(checkSubscription, 60000);
     return () => clearInterval(interval);
   }, [user, checkSubscription]);
@@ -198,49 +186,51 @@ export const useSubscription = () => {
     }
   };
 
-  // Guard functions - STRICT: No access if not subscribed
-  const canAccessFeature = (feature: "video" | "campaigns" | "projects" | "studio"): boolean => {
-    // No valid subscription = no access
-    if (!subscription.isSubscribed) {
-      return false;
-    }
+  // Access control - Subscription grants feature access
+  const canAccessFeature = (feature: "campaigns" | "projects" | "autopost" | "priority" | "api"): boolean => {
+    if (!subscription.isSubscribed) return false;
     
     switch (feature) {
-      case "video":
-        return planAccess.video.length > 0;
       case "campaigns":
         return planAccess.maxCampaigns !== 0;
       case "projects":
         return planAccess.maxProjects !== 0;
-      case "studio":
-        return planAccess.image.includes("studio-image");
+      case "autopost":
+        return planAccess.canAutopost;
+      case "priority":
+        return planAccess.hasPriorityQueue;
+      case "api":
+        return planAccess.hasApiAccess;
       default:
         return false;
     }
   };
 
-  const canAccessQuality = (qualityId: string): boolean => {
-    if (!subscription.isSubscribed) return false;
-    return planAccess.image.includes(qualityId) || planAccess.video.includes(qualityId);
+  // Check project/campaign limits
+  const canCreateProject = async (): Promise<boolean> => {
+    if (!subscription.isSubscribed || !user) return false;
+    if (planAccess.maxProjects === -1) return true;
+
+    const { count } = await supabase
+      .from("projects")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id);
+
+    return (count || 0) < planAccess.maxProjects;
   };
 
-  const getAutopostLimit = (contentType: "image" | "video"): number => {
-    if (!subscription.isSubscribed) return 0;
-    return contentType === "image" 
-      ? planAccess.autopostImagesPerDay 
-      : planAccess.autopostVideosPerDay;
+  const canCreateCampaign = async (): Promise<boolean> => {
+    if (!subscription.isSubscribed || !user) return false;
+    if (planAccess.maxCampaigns === -1) return true;
+
+    const { count } = await supabase
+      .from("campaigns")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id);
+
+    return (count || 0) < planAccess.maxCampaigns;
   };
 
-  const getRemainingQuota = (contentType: "image" | "video"): { limit: number; used: number; remaining: number } => {
-    if (!subscription.isSubscribed) {
-      return { limit: 0, used: 0, remaining: 0 };
-    }
-    const limit = getAutopostLimit(contentType);
-    // In a real implementation, this would check actual usage from database
-    return { limit, used: 0, remaining: limit === -1 ? Infinity : limit };
-  };
-
-  // Redirect to checkout for the appropriate plan
   const redirectToCheckout = async (planId: string = "starter") => {
     return startCheckout("subscription", { planId });
   };
@@ -258,9 +248,8 @@ export const useSubscription = () => {
     redirectToCheckout,
     // Guards
     canAccessFeature,
-    canAccessQuality,
-    getAutopostLimit,
-    getRemainingQuota,
+    canCreateProject,
+    canCreateCampaign,
     // Convenience
     isPro: subscription.isSubscribed && (subscription.planId === "pro" || subscription.planId === "business"),
     isBusiness: subscription.isSubscribed && subscription.planId === "business",
