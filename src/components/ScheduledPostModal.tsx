@@ -1000,15 +1000,15 @@ export const ScheduledPostModal = ({
 
   // Modal content shared between Dialog and Drawer
   const ModalContent = () => (
-    <div className="flex flex-col h-full min-h-0 overflow-hidden">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+    <div className="flex flex-col h-full min-h-0">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
         <TabsList className="grid w-full grid-cols-3 shrink-0">
           <TabsTrigger value="details" className="text-xs sm:text-sm">Details</TabsTrigger>
           <TabsTrigger value="platforms" className="text-xs sm:text-sm">Platforms</TabsTrigger>
           <TabsTrigger value="models" className="text-xs sm:text-sm">AI</TabsTrigger>
         </TabsList>
 
-        <ScrollArea className="flex-1 mt-4 min-h-0">
+        <div className="flex-1 min-h-0 overflow-y-auto mt-4 pr-2">
           <TabsContent value="details" className="space-y-4 m-0 px-1 pb-4">
             {/* Media Preview - Show from local state or post prop */}
             {(localMediaUrl || post.media_url || post.thumbnail_url) && (
@@ -1417,7 +1417,7 @@ export const ScheduledPostModal = ({
               )}
             </div>
           </TabsContent>
-        </ScrollArea>
+        </div>
       </Tabs>
 
       {/* Actions - Always visible at bottom */}
@@ -1611,13 +1611,15 @@ export const ScheduledPostModal = ({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col" aria-describedby={undefined}>
-          <DialogHeader>
+        <DialogContent className="max-w-3xl h-[85vh] flex flex-col overflow-hidden" aria-describedby={undefined}>
+          <DialogHeader className="shrink-0">
             <DialogTitle>
               <HeaderContent />
             </DialogTitle>
           </DialogHeader>
-          <ModalContent />
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ModalContent />
+          </div>
         </DialogContent>
       </Dialog>
       <SocialShareModal
