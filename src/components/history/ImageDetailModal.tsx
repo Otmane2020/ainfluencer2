@@ -19,9 +19,17 @@ import {
 import { FaFacebook, FaLinkedin, FaInstagram, FaTiktok } from "react-icons/fa";
 import { format } from "date-fns";
 import { enUS } from "date-fns/locale";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+
+interface ProjectContext {
+  name: string;
+  description?: string;
+  detected_language?: string;
+  ai_context_summary?: string;
+  scraped_markdown?: string;
+}
 
 interface ImageDetailModalProps {
   isOpen: boolean;
@@ -30,7 +38,9 @@ interface ImageDetailModalProps {
   title?: string;
   prompt?: string;
   createdAt?: Date;
+  projectId?: string;
   projectName?: string;
+  campaignId?: string;
   campaignName?: string;
   isProductShot?: boolean;
   onDelete?: () => void;
@@ -43,7 +53,9 @@ export const ImageDetailModal = ({
   title,
   prompt,
   createdAt,
+  projectId,
   projectName,
+  campaignId,
   campaignName,
   isProductShot,
   onDelete,
@@ -52,47 +64,85 @@ export const ImageDetailModal = ({
   const [copied, setCopied] = useState(false);
   const [isGeneratingCaption, setIsGeneratingCaption] = useState(false);
   const [isCreatingReel, setIsCreatingReel] = useState(false);
+  const [projectContext, setProjectContext] = useState<ProjectContext | null>(null);
   const { toast } = useToast();
 
-  // Generate caption from prompt with AI
+  // Fetch project context when modal opens
+  useEffect(() => {
+    if (isOpen && projectId) {
+      fetchProjectContext();
+    }
+  }, [isOpen, projectId]);
+
+  const fetchProjectContext = async () => {
+    if (!projectId) return;
+    try {
+      const { data } = await supabase
+        .from("projects")
+        .select("name, description, detected_language, ai_context_summary, scraped_markdown")
+        .eq("id", projectId)
+        .single();
+      if (data) {
+        setProjectContext(data);
+      }
+    } catch (error) {
+      console.error("Error fetching project context:", error);
+    }
+  };
+
+  // Generate caption from prompt with AI - uses full project context
   const handleGenerateCaption = async () => {
     setIsGeneratingCaption(true);
     try {
-      // Build context from prompt and project info
-      const contextText = prompt 
-        ? `AI-generated image based on: ${prompt}`
-        : "AI-generated creative content";
+      // Build rich context from project data
+      const name = projectContext?.name || projectName || "AI Creation";
+      const language = projectContext?.detected_language || "en";
+      
+      // Use ai_context_summary or scraped_markdown for better context
+      let description = "";
+      if (prompt) {
+        description += `Image generated with prompt: ${prompt}. `;
+      }
+      if (projectContext?.ai_context_summary) {
+        description += projectContext.ai_context_summary;
+      } else if (projectContext?.description) {
+        description += projectContext.description;
+      }
+      // Add scraped content for richer context
+      const scrapedContent = projectContext?.scraped_markdown?.substring(0, 800) || "";
+
+      console.log("Generating caption with context:", { name, language, description: description.substring(0, 200) });
 
       const response = await supabase.functions.invoke("suggest-content", {
         body: {
           contentType: "social_post",
-          projectName: projectName || "AI Creation",
-          projectDescription: contextText,
+          projectName: name,
+          projectDescription: description || "AI-generated creative content",
+          detectedLanguage: language, // Match edge function parameter name
+          scrapedContent, // Include scraped content for brand context
         },
       });
 
       console.log("Generate caption response:", response);
 
-      // Handle the correct response structure: { suggestion: { content, hashtags } }
       if (response.data?.suggestion?.content) {
         const content = response.data.suggestion.content;
         const hashtags = response.data.suggestion.hashtags || [];
         const hashtagString = hashtags.length > 0 
           ? "\n\n" + hashtags.map((h: string) => `#${h.replace(/^#/, '')}`).join(" ")
           : "";
-        setCaption(`✨ AI Generated Post\n\n${content}${hashtagString}`);
+        setCaption(`${content}${hashtagString}`);
         toast({ title: "Caption generated!" });
       } else {
         // Fallback to local generation
         const shortPrompt = prompt && prompt.length > 120 ? prompt.substring(0, 120) + "..." : prompt;
         setCaption(prompt 
-          ? `✨ AI Generated Post\n\n${shortPrompt}\n\n#AI #AIGenerated #CreativeContent`
+          ? `✨ ${name}\n\n${shortPrompt}\n\n#AI #AIGenerated #CreativeContent`
           : `✨ Created with AI\n\n#AI #AIGenerated #CreativeContent`);
         toast({ title: "Caption generated (local)" });
       }
     } catch (error) {
       console.error("Error generating caption:", error);
-      // Fallback to local
       const shortPrompt = prompt && prompt.length > 120 ? prompt.substring(0, 120) + "..." : prompt;
       setCaption(prompt
         ? `✨ AI Generated Post\n\n${shortPrompt}\n\n#AI #AIGenerated #CreativeContent`

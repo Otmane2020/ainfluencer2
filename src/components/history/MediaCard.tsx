@@ -13,9 +13,12 @@ export interface MediaItem {
   status: string;
   duration?: number;
   script?: string;
+  projectId?: string;
   projectName?: string;
+  campaignId?: string;
   campaignName?: string;
   isProductShot?: boolean;
+  storagePath?: string; // Full path in storage bucket for deletion
   aspectRatio?: "vertical" | "square" | "horizontal";
 }
 

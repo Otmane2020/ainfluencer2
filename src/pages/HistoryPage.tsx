@@ -247,9 +247,11 @@ const HistoryPage = () => {
             url: post.media_url || undefined,
             createdAt: new Date(post.created_at),
             status: post.status || "draft",
+            projectId: post.project_id,
             projectName: (post.projects as any)?.name,
+            campaignId: post.campaign_id || undefined,
             campaignName: (post.campaigns as any)?.name,
-            script: post.ai_prompt || undefined, // Use ai_prompt as the generation prompt
+            script: post.ai_prompt || undefined,
             aspectRatio: "square",
           });
         }
@@ -269,7 +271,8 @@ const HistoryPage = () => {
 
       if (imagesResult.data) {
         for (const file of imagesResult.data.filter(f => f.name.match(/\.(jpg|jpeg|png|gif|webp)$/i))) {
-          const { data: urlData } = supabase.storage.from("media").getPublicUrl(`images/${file.name}`);
+          const storagePath = `images/${file.name}`;
+          const { data: urlData } = supabase.storage.from("media").getPublicUrl(storagePath);
           const existsInPosts = media.some(m => m.url === urlData.publicUrl);
           
           if (!existsInPosts) {
@@ -280,6 +283,7 @@ const HistoryPage = () => {
               url: urlData.publicUrl,
               createdAt: new Date(file.created_at || Date.now()),
               status: "generated",
+              storagePath,
               aspectRatio: "square",
             });
           }
@@ -288,7 +292,8 @@ const HistoryPage = () => {
 
       if (productShotsResult.data) {
         for (const file of productShotsResult.data.filter(f => f.name.match(/\.(jpg|jpeg|png|gif|webp)$/i))) {
-          const { data: urlData } = supabase.storage.from("media").getPublicUrl(`product-shots/${file.name}`);
+          const storagePath = `product-shots/${file.name}`;
+          const { data: urlData } = supabase.storage.from("media").getPublicUrl(storagePath);
           
           media.push({
             id: file.id || `ps-${file.name}`,
@@ -298,6 +303,7 @@ const HistoryPage = () => {
             createdAt: new Date(file.created_at || Date.now()),
             status: "generated",
             isProductShot: true,
+            storagePath,
             aspectRatio: "square",
           });
         }
@@ -345,23 +351,30 @@ const HistoryPage = () => {
 
   const handleDelete = async (id: string, type: "video" | "image") => {
     try {
+      const item = allMedia.find(m => m.id === id);
+      
       if (type === "video") {
+        // Delete from generations table
         await supabase.from("generations").delete().eq("id", id);
-        const item = allMedia.find(m => m.id === id);
+        // Also delete from storage if applicable
         if (item?.url?.includes("supabase.co/storage")) {
           const urlParts = item.url.split("/media/");
           if (urlParts[1]) {
-            await supabase.storage.from("media").remove([urlParts[1]]);
+            await supabase.storage.from("media").remove([decodeURIComponent(urlParts[1])]);
           }
         }
       } else {
-        const item = allMedia.find(m => m.id === id);
-        if (item?.url) {
-          if (item.isProductShot) {
-            await supabase.storage.from("media").remove([`product-shots/${item.title}`]);
-          } else {
-            await supabase.from("scheduled_posts").delete().eq("id", id);
+        // For images, check if it's from scheduled_posts or storage
+        if (item?.storagePath) {
+          // Delete directly from storage using the stored path
+          const { error } = await supabase.storage.from("media").remove([item.storagePath]);
+          if (error) {
+            console.error("Storage delete error:", error);
+            throw error;
           }
+        } else if (item?.projectId || id.match(/^[0-9a-f-]{36}$/i)) {
+          // Has a project ID or looks like a UUID - it's from scheduled_posts
+          await supabase.from("scheduled_posts").delete().eq("id", id);
         }
       }
       
@@ -370,6 +383,7 @@ const HistoryPage = () => {
       setSelectedImage(null);
       toast({ title: "Deleted" });
     } catch (error) {
+      console.error("Delete error:", error);
       toast({ title: "Delete failed", variant: "destructive" });
     }
   };
@@ -597,7 +611,9 @@ const HistoryPage = () => {
         title={selectedImage?.title}
         prompt={selectedImage?.script}
         createdAt={selectedImage?.createdAt}
+        projectId={selectedImage?.projectId}
         projectName={selectedImage?.projectName}
+        campaignId={selectedImage?.campaignId}
         campaignName={selectedImage?.campaignName}
         isProductShot={selectedImage?.isProductShot}
         onDelete={() => {
