@@ -33,7 +33,7 @@ export const QUALITY_TIERS: Record<QualityTier, QualityTierConfig> = {
   standard: {
     id: "standard",
     name: "Fast",
-    description: "Sora Pro • Quick",
+    description: "Sora • Quick (10s max)",
     icon: "⚡",
     gradient: "from-slate-500 to-zinc-600",
     costs: {
@@ -43,14 +43,14 @@ export const QUALITY_TIERS: Record<QualityTier, QualityTierConfig> = {
     },
     models: {
       image: "gemini-flash-image",
-      video: "sora-pro",
-      reel: "sora-pro",
+      video: "sora",
+      reel: "sora",
     },
   },
   pro: {
     id: "pro",
     name: "Medium",
-    description: "Sora 2 Pro • 20s",
+    description: "Sora 2 • HD (20s max)",
     icon: "✨",
     gradient: "from-blue-500 to-indigo-600",
     costs: {
@@ -60,8 +60,8 @@ export const QUALITY_TIERS: Record<QualityTier, QualityTierConfig> = {
     },
     models: {
       image: "nano-banana-image",
-      video: "sora-2-pro",
-      reel: "sora-2-pro",
+      video: "sora-2",
+      reel: "sora-2",
     },
   },
   cinema: {
@@ -77,8 +77,8 @@ export const QUALITY_TIERS: Record<QualityTier, QualityTierConfig> = {
     },
     models: {
       image: "gemini-pro-image",
-      video: "nano-banana-video",
-      reel: "nano-banana-video",
+      video: "nano-banana",
+      reel: "nano-banana",
     },
   },
 };
@@ -406,10 +406,13 @@ export const COMETAPI_MODEL_ROUTING: Record<string, string> = {
   "flux-2-pro": "flux-2-pro",
   "gpt-image": "gpt-image-1",
   "gpt-image-hq": "gpt-image-1",
+  // Video models
+  "sora": "sora",
+  "sora-2": "sora-2",
+  "nano-banana": "nano-banana",
+  // Legacy
   "kling-std": "kling-video",
   "kling-v2": "kling-video",
-  "sora-2": "sora-2",
-  "sora-2-pro": "sora-2",
 };
 
 export interface CommercialProduct {

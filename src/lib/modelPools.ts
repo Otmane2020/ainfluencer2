@@ -15,29 +15,29 @@ export interface ModelOption {
 }
 
 // ============================================================
-// VIDEO MODEL POOLS (via Replicate/CometAPI)
-// Fast: Sora Pro | Medium: Sora 2 Pro (20s) | High: Nano Banana
+// VIDEO MODEL POOLS (via CometAPI)
+// Standard: Sora (fast) | Pro: Sora 2 (20s) | Cinema: Nano Banana
 // ============================================================
 
 export const VIDEO_MODEL_POOLS: Record<string, ModelOption[]> = {
-  // Standard Video - Sora Pro (fast, 10s max)
+  // Standard Video - Sora (fast, 10s max)
   "standard-video": [
-    { id: "sora-pro", provider: "replicate", weight: 100, apiModel: "sora-2", maxDuration: 10, costEstimate: 0.48 },
+    { id: "sora", provider: "replicate", weight: 100, apiModel: "sora", maxDuration: 10, costEstimate: 0.30 },
   ],
-  // Pro Video - Sora 2 Pro (high quality, 20s)
+  // Pro Video - Sora 2 (high quality, 20s)
   "pro-video": [
-    { id: "sora-2-pro", provider: "replicate", weight: 100, apiModel: "sora-2", maxDuration: 20, costEstimate: 0.96 },
+    { id: "sora-2", provider: "replicate", weight: 100, apiModel: "sora-2", maxDuration: 20, costEstimate: 0.60 },
   ],
-  // Cinema Video - Nano Banana (premium quality)
+  // Cinema Video - Nano Banana (premium quality via Lovable AI)
   "cinema-video": [
-    { id: "nano-banana-video", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", maxDuration: 10, costEstimate: 0.05 },
+    { id: "nano-banana", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", maxDuration: 15, costEstimate: 0.05 },
   ],
   // Legacy support
   "smart-video": [
-    { id: "sora-pro", provider: "replicate", weight: 100, apiModel: "sora-2", maxDuration: 10, costEstimate: 0.48 },
+    { id: "sora", provider: "replicate", weight: 100, apiModel: "sora", maxDuration: 10, costEstimate: 0.30 },
   ],
   "high-video": [
-    { id: "sora-2-pro", provider: "replicate", weight: 100, apiModel: "sora-2", maxDuration: 20, costEstimate: 0.96 },
+    { id: "sora-2", provider: "replicate", weight: 100, apiModel: "sora-2", maxDuration: 20, costEstimate: 0.60 },
   ],
 };
 
@@ -190,10 +190,11 @@ export function getQualityModels(qualityId: string): ModelOption[] {
 
 export const VIDEO_DURATION_CONFIGS: Record<string, { min: number; max: number; step: number }> = {
   // CometAPI models with actual API limits
-  "veo-2": { min: 5, max: 10, step: 5 },         // Veo 3.1: 5s or 10s
-  "kling-video": { min: 5, max: 10, step: 5 },   // Kling v2: 5s or 10s
-  "minimax-video-01": { min: 4, max: 6, step: 2 }, // MiniMax: 4s or 6s
+  "sora": { min: 4, max: 10, step: 1 },          // Sora: 4-10s
   "sora-2": { min: 4, max: 20, step: 1 },        // Sora 2: 4-20s flexible
+  "nano-banana": { min: 5, max: 15, step: 5 },   // Nano Banana: 5, 10, 15s
+  "veo-2": { min: 5, max: 10, step: 5 },         // Veo 3.1: 5s or 10s
+  "kling-video": { min: 5, max: 10, step: 5 },   // Kling v2: 5s or 10s (deprecated)
 };
 
 export function getValidDurations(apiModel: string): number[] {
