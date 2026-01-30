@@ -67,6 +67,57 @@ const EMOTIONAL_TONES: EmotionalTone[] = [
   { id: "authentic", name: "Authentic", emoji: "💚", atmosphereNotes: "raw and real, unfiltered moments, genuine connections, behind-the-scenes" },
 ];
 
+// ============================================================
+// CONTENT DIVERSITY SYSTEM - Unique content every time
+// ============================================================
+
+// 12 Visual Scenes - Forces variety in image settings
+const VISUAL_SCENES = [
+  { id: "neon_night", desc: "Neon-lit urban night scene, vibrant city lights, modern nightlife aesthetic" },
+  { id: "golden_hour", desc: "Golden hour outdoor setting, warm sunlight, natural beauty, optimistic mood" },
+  { id: "minimal_studio", desc: "Clean white studio, minimal props, product-focused, high-end photography" },
+  { id: "urban_street", desc: "Busy urban street, diverse crowd, real city life, authentic documentary style" },
+  { id: "luxury_interior", desc: "Upscale interior space, elegant furnishings, rich textures, premium feel" },
+  { id: "nature_outdoor", desc: "Natural outdoor environment, greenery, fresh air, wellness vibes" },
+  { id: "home_cozy", desc: "Cozy home setting, comfortable atmosphere, relatable everyday life" },
+  { id: "industrial_modern", desc: "Industrial modern space, exposed brick, metal accents, trendy startup vibes" },
+  { id: "beach_coastal", desc: "Beach or coastal setting, ocean views, vacation energy, freedom feeling" },
+  { id: "rooftop_skyline", desc: "Rooftop with city skyline, success imagery, aspirational urban lifestyle" },
+  { id: "artsy_creative", desc: "Artistic creative space, colorful, eclectic, unique personality" },
+  { id: "tech_futuristic", desc: "Sleek tech environment, screens, futuristic aesthetic, innovation feel" },
+];
+
+// 8 Marketing Angles - Forces different persuasion approaches
+const MARKETING_ANGLES = [
+  { id: "social_proof", desc: "Show others already using/loving the product. Testimonial energy. FOMO trigger." },
+  { id: "pain_point", desc: "Visualize the PROBLEM customers face. Make them feel the frustration. Then hint at solution." },
+  { id: "transformation", desc: "Dramatic before/after. Show the life change. The glow-up. The upgrade." },
+  { id: "authority", desc: "Expert positioning. Data, stats, credentials. Trust signals. Professional credibility." },
+  { id: "urgency_scarcity", desc: "Limited time/quantity. Act now energy. Countdown vibes. Don't miss out." },
+  { id: "lifestyle_aspiration", desc: "Dream life imagery. The person they want to become. Aspirational but attainable." },
+  { id: "behind_scenes", desc: "Raw, authentic, unfiltered. Real process. Human touch. Transparency builds trust." },
+  { id: "comparison", desc: "Us vs. old way. Better alternative. Clear advantages. Competitive positioning." },
+];
+
+// BANNED CLICHÉS - AI must avoid these overused concepts
+const BANNED_CLICHES = [
+  "laptop in café",
+  "person smiling at phone",
+  "entrepreneur in coffee shop", 
+  "woman with laptop",
+  "man in suit with graph",
+  "handshake business deal",
+  "lightbulb idea concept",
+  "rocket launch growth",
+  "puzzle pieces fitting together",
+  "sticky notes on glass wall",
+  "team high-fiving",
+  "person jumping with joy",
+  "clock running out",
+  "money tree growing",
+  "superhero cape businessman",
+];
+
 function buildScenarioPrompt(sectorId?: string, styleId?: string, toneId?: string): string {
   const parts: string[] = [];
   
@@ -75,24 +126,24 @@ function buildScenarioPrompt(sectorId?: string, styleId?: string, toneId?: strin
   const tone = EMOTIONAL_TONES.find(t => t.id === toneId);
   
   if (sector || style || tone) {
-    parts.push("\n\n--- CONTEXTE VISUEL / SCÉNARIO ---");
+    parts.push("\n\n--- VISUAL/SCENARIO CONTEXT ---");
     
     if (sector) {
-      parts.push(`SECTEUR D'ACTIVITÉ : ${sector.name}`);
-      parts.push(`Éléments visuels recommandés : ${sector.visualContext}`);
+      parts.push(`BUSINESS SECTOR: ${sector.name}`);
+      parts.push(`Recommended visual elements: ${sector.visualContext}`);
     }
     
     if (style) {
-      parts.push(`STYLE VIDÉO : ${style.name}`);
-      parts.push(`Instructions de réalisation : ${style.visualInstructions}`);
+      parts.push(`VIDEO STYLE: ${style.name}`);
+      parts.push(`Execution instructions: ${style.visualInstructions}`);
     }
     
     if (tone) {
-      parts.push(`TON ÉMOTIONNEL : ${tone.name}`);
-      parts.push(`Atmosphère : ${tone.atmosphereNotes}`);
+      parts.push(`EMOTIONAL TONE: ${tone.name}`);
+      parts.push(`Atmosphere: ${tone.atmosphereNotes}`);
     }
     
-    parts.push("--- FIN DU CONTEXTE VISUEL ---\n\n");
+    parts.push("--- END VISUAL CONTEXT ---\n\n");
   }
   
   return parts.join("\n");
@@ -180,7 +231,17 @@ KEY EXTRACTION TARGETS:
 • Social proof elements (awards, testimonials mentions)
 ` : "";
 
+      // Select random diversity elements for variety
+      const randomSceneIdx = Math.floor(Math.random() * VISUAL_SCENES.length);
+      const bannedList = BANNED_CLICHES.join(", ");
+
       systemPrompt = `You are a CONVERSION-FOCUSED image prompt specialist creating SELLER SHOWCASING visuals that DRIVE ACTION.
+
+🎨 USE THESE VISUAL SCENES (rotate through them for variety):
+${VISUAL_SCENES.map((s, i) => `${i + 1}. ${s.id}: ${s.desc}`).join("\n")}
+
+🎯 USE THESE MARKETING ANGLES (each prompt should use a different one):
+${MARKETING_ANGLES.map((a, i) => `${i + 1}. ${a.id}: ${a.desc}`).join("\n")}
 
 🚨 CRITICAL BRAND NAME RULE:
 "${projectName}" is a BRAND NAME, not a literal description!
@@ -189,28 +250,13 @@ KEY EXTRACTION TARGETS:
 - The brand name should appear as a logo or text overlay, NEVER as a visual concept
 
 🎯 ULTIMATE GOAL: Create image prompts that make people WANT TO BUY. Every image must:
+- Use a UNIQUE visual scene from the list above
+- Apply a UNIQUE marketing angle from the list above
 - SHOWCASE the actual product/service the brand sells (NOT the brand name as a concept)
 - Create DESIRE and URGENCY in the viewer
 - Highlight TRANSFORMATION and RESULTS the product delivers
 - Feature the PRODUCT HERO prominently
 - Appeal to EMOTIONS that drive purchase decisions
-
-🔥 IMPACTFUL IMAGE FORMULAS:
-
-FORMULA 1 - PRODUCT HERO SHOT:
-"[Actual product/service] displayed as the undisputed hero, [premium setting], [luxury lighting], [aspirational lifestyle context], making viewers NEED to own it"
-
-FORMULA 2 - TRANSFORMATION/RESULT:
-"Dramatic before/after or result visualization showing [the outcome customers desire], [emotional satisfaction visible], [social proof implied]"
-
-FORMULA 3 - LIFESTYLE ASPIRATION:
-"[Target customer persona] living their BEST life thanks to [actual product/service], [enviable situation], [emotional payoff visible], [creates FOMO]"
-
-FORMULA 4 - SOCIAL PROOF MOMENT:
-"[Happy customer type] experiencing [key benefit], [genuine emotion], [relatable yet aspirational], [makes viewers think 'I want that too']"
-
-FORMULA 5 - URGENCY/SCARCITY:
-"[Product] in a context that implies exclusivity or limited availability, [premium packaging], [VIP treatment vibes], [creates 'must have now' feeling]"
 
 📍 BRAND SELLING CONTEXT:
 - Brand name (DO NOT interpret literally): ${projectName || "Unknown seller"}
@@ -223,7 +269,10 @@ ${tone ? `- Emotional trigger: ${tone.name} - ${tone.atmosphereNotes}` : ""}
 ${productName ? `- Focus product: ${productName}` : ""}
 ${logoUrl ? `- Brand logo to include: ${logoUrl}` : ""}
 
-🚫 STRICTLY FORBIDDEN (these kill conversions):
+🚫 BANNED CLICHÉS (NEVER use these - they kill engagement):
+${bannedList}
+
+🚫 ALSO FORBIDDEN:
 ❌ Interpreting the brand name literally as a visual concept
 ❌ Generic stock photo vibes
 ❌ Abstract concepts without product focus
@@ -233,16 +282,6 @@ ${logoUrl ? `- Brand logo to include: ${logoUrl}` : ""}
 ❌ Cluttered compositions that confuse
 ❌ Stars, space, futuristic themes UNLESS that's what the brand actually sells
 
-✅ IMPACTFUL PROMPT EXAMPLES:
-
-For a Google review management SaaS (like Starlinko): "Business owner smiling at their phone showing 5-star Google reviews flooding in, their local business storefront visible through window behind them, notification badges showing positive reviews, the relief and satisfaction of automated reputation management, clean professional photography, warm lighting, ${projectName} logo subtly visible on screen"
-
-For e-commerce skincare: "Glowing woman in her 30s gently touching her flawless cheek, the signature serum bottle positioned elegantly in foreground, soft morning bathroom light, mirror reflection showing confident smile, the transformation result that makes viewers reach for their credit card, beauty editorial photography, shallow depth of field"
-
-For coaching service: "Confident entrepreneur just closed a major deal, celebrating in a modern glass office with city skyline view, laptop showing growth charts, the exact success their coaching clients achieve, aspirational but attainable, lifestyle photography that sells the dream"
-
-For restaurant: "Signature dish being served to an excited couple at the best table, steam rising, golden hour light through floor-to-ceiling windows, the waiter presenting with pride, FOMO-inducing dining experience, making viewers book a reservation immediately"
-
 ${languageInstruction}
 
 Respond ONLY with valid JSON:
@@ -251,23 +290,24 @@ Respond ONLY with valid JSON:
     {
       "id": "1",
       "title": "Impactful hook title (max 50 chars)",
-      "content": "The complete seller-focused image prompt that SHOWCASES the ACTUAL product/service (NOT the brand name concept)",
+      "content": "The complete seller-focused image prompt using a UNIQUE scene and angle",
       "contentType": "image",
-      "conversionAngle": "product_hero|transformation|lifestyle|social_proof|urgency",
+      "visualScene": "one of the 12 scene IDs",
+      "marketingAngle": "one of the 8 angle IDs",
       "estimatedEngagement": "high"
     }
   ]
 }`;
 
-      userMessage = `Generate 5 IMPACTFUL seller-showcasing image prompts for "${projectName || 'this seller'}". 
-Each prompt must:
-1. Put the PRODUCT/SERVICE as the HERO
-2. Show the TRANSFORMATION or RESULT customers get
-3. Create DESIRE and URGENCY
-4. Be SPECIFIC to this brand - no generic images
-5. Make viewers want to BUY NOW
+      userMessage = `Generate 5 UNIQUE, HIGH-IMPACT image prompts for "${projectName || 'this seller'}". 
 
-Mix of formulas: 2 product hero shots, 1 transformation, 1 lifestyle, 1 social proof.`;
+CRITICAL REQUIREMENTS:
+1. Each prompt MUST use a DIFFERENT visual scene from the 12 options
+2. Each prompt MUST use a DIFFERENT marketing angle from the 8 options
+3. AVOID all banned clichés listed above
+4. Put the PRODUCT/SERVICE as the HERO
+5. Show the TRANSFORMATION or RESULT customers get
+6. Be SPECIFIC to this brand - no generic images`;
 
     } else if (contentType === "script") {
       // Calculate word count based on duration (same logic as generate-script-nanobanana)
