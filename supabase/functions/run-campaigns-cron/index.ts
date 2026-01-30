@@ -491,9 +491,15 @@ async function publishToInstagram(
     // Wait for container to be ready (required for both images and videos)
     // Instagram error 9007 occurs when trying to publish before container is ready
     console.log("[Instagram] Waiting for media container to be ready...");
-    const maxWait = isVideo ? 60 : 10; // Videos need more time
+    
+    // Increased timeouts for more reliable publishing
+    const maxWait = isVideo ? 60 : 20; // Increased from 10 to 20 for images
     const waitInterval = isVideo ? 5000 : 2000; // 5s for videos, 2s for images
     
+    // Add initial wait before first status check (Instagram needs time to start processing)
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    let containerReady = false;
     for (let i = 0; i < maxWait; i++) {
       await new Promise(resolve => setTimeout(resolve, waitInterval));
       
@@ -510,19 +516,27 @@ async function publishToInstagram(
         
         if (statusCode === "FINISHED") {
           console.log("[Instagram] Container ready!");
+          containerReady = true;
           break;
         }
         if (statusCode === "ERROR") {
           return { success: false, error: "Media processing failed at Instagram" };
         }
-        // For images, IN_PROGRESS is also acceptable after a few retries
-        if (!isVideo && statusCode === "IN_PROGRESS" && i >= 3) {
-          console.log("[Instagram] Image still processing, attempting publish anyway...");
+        // For images, IN_PROGRESS is also acceptable after several retries
+        if (!isVideo && statusCode === "IN_PROGRESS" && i >= 8) {
+          console.log("[Instagram] Image still processing after 8 attempts, attempting publish...");
+          containerReady = true; // Try anyway
           break;
         }
       } catch (parseError) {
         console.log(`[Instagram] Status check parse error, continuing...`);
       }
+    }
+    
+    // If container never finished, try publishing anyway as a fallback
+    // Instagram sometimes has delays in reporting FINISHED status
+    if (!containerReady) {
+      console.log("[Instagram] Container timeout - attempting publish anyway (fallback)...");
     }
 
     // Step 2: Publish the container
@@ -603,9 +617,22 @@ Deno.serve(async (req) => {
       .order("scheduled_for", { ascending: true })
       .limit(20);
 
-    // If forceRun with campaignId, get posts for that campaign regardless of time
+    // If forceRun with campaignId, get ONLY TODAY's posts for that campaign
     if (forceRun && campaignId) {
       postsQuery = postsQuery.eq("campaign_id", campaignId);
+      
+      // Get today's date boundaries in UTC
+      const startOfToday = new Date();
+      startOfToday.setUTCHours(0, 0, 0, 0);
+      const endOfToday = new Date();
+      endOfToday.setUTCHours(23, 59, 59, 999);
+      
+      // Only process posts scheduled for today (not the whole month)
+      postsQuery = postsQuery
+        .gte("scheduled_for", startOfToday.toISOString())
+        .lte("scheduled_for", endOfToday.toISOString());
+      
+      console.log(`[cron] ForceRun: filtering posts between ${startOfToday.toISOString()} and ${endOfToday.toISOString()}`);
     } else {
       // Normal cron: only get posts that are due
       postsQuery = postsQuery.lte("scheduled_for", now.toISOString());
