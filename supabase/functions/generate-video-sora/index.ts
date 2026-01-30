@@ -25,32 +25,33 @@ function getCreditCost(quality: string): number {
 }
 
 // ============================================================
-// MODEL SELECTION BY QUALITY - ALL VIA LOVABLE AI
-// CometAPI models (sora, sora-2) are currently unavailable
-// Using Lovable AI exclusively for reliability
+// MODEL SELECTION BY QUALITY - VIA COMETAPI VIDEO ENDPOINTS
 // ============================================================
 
-function getVideoModel(quality: string): { model: string; provider: "lovable" } {
-  // All qualities now use Lovable AI due to CometAPI model unavailability
+function getVideoModel(quality: string): { model: string; endpoint: string } {
   switch (quality) {
     case "cinema":
-      return { model: "gemini-2.5-flash-image", provider: "lovable" };
+      // Premium quality - use Kling for best cinematic results
+      return { model: "kling-video/v1.6/pro/image-to-video", endpoint: "image-to-video" };
     case "pro":
-      return { model: "gemini-2.5-flash-image", provider: "lovable" };
+      // High quality - Kling standard
+      return { model: "kling-video/v1.6/standard/text-to-video", endpoint: "text-to-video" };
     case "standard":
     default:
-      return { model: "gemini-2.5-flash-lite-image", provider: "lovable" };
+      // Fast generation - MiniMax
+      return { model: "video-01", endpoint: "text-to-video" };
   }
 }
 
-// Duration configs (Lovable AI generates static frames, duration is for reference)
+// Duration configs per model
 const DURATION_CONFIGS: Record<string, { min: number; max: number }> = {
-  "gemini-2.5-flash-image": { min: 5, max: 15 },
-  "gemini-2.5-flash-lite-image": { min: 4, max: 10 },
+  "kling-video/v1.6/pro/image-to-video": { min: 5, max: 10 },
+  "kling-video/v1.6/standard/text-to-video": { min: 5, max: 10 },
+  "video-01": { min: 5, max: 6 },
 };
 
 function clampDuration(duration: number, model: string): number {
-  const config = DURATION_CONFIGS[model] || { min: 4, max: 10 };
+  const config = DURATION_CONFIGS[model] || { min: 5, max: 10 };
   return Math.max(config.min, Math.min(config.max, duration));
 }
 
@@ -89,7 +90,6 @@ serve(async (req) => {
 
   try {
     const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!COMETAPI_API_KEY) {
       throw new Error("COMETAPI_API_KEY is not configured");
@@ -137,8 +137,8 @@ serve(async (req) => {
         throw new Error("Prompt is required");
       }
 
-      // Get model and provider based on quality
-      const { model: videoModel, provider } = getVideoModel(quality);
+      // Get model and endpoint based on quality
+      const { model: videoModel, endpoint } = getVideoModel(quality);
       
       // Clamp duration to model limits
       const clampedDuration = clampDuration(duration, videoModel);
@@ -148,7 +148,7 @@ serve(async (req) => {
 
       console.log("=== Video Generation ===");
       console.log(`User: ${userId || "anonymous"}`);
-      console.log(`Quality: ${quality} | Model: ${videoModel} | Provider: ${provider}`);
+      console.log(`Quality: ${quality} | Model: ${videoModel} | Endpoint: ${endpoint}`);
       console.log(`Credit Cost: ${creditCost}`);
       console.log("Prompt:", prompt.substring(0, 100) + "...");
       console.log("Duration:", clampedDuration, "s | Size:", size);
@@ -290,49 +290,59 @@ serve(async (req) => {
       }
 
       // ============================================================
-      // ROUTE TO APPROPRIATE PROVIDER
+      // VIDEO GENERATION VIA COMETAPI
       // ============================================================
       
-      let taskId: string;
-      let taskStatus: string;
-      let taskProgress: number;
-
-      // All video generation now uses Lovable AI
-      if (!LOVABLE_API_KEY) {
-        throw new Error("LOVABLE_API_KEY is not configured");
-      }
-
-      console.log(`Using Lovable AI (${videoModel})...`);
+      console.log(`Calling CometAPI video generation (${videoModel})...`);
       
-      // Generate video frame with Lovable AI
-      const imageResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      // Build request body based on endpoint type
+      const aspectRatio = format === "vertical" ? "9:16" : "16:9";
+      
+      let videoRequestBody: Record<string, unknown>;
+      let apiEndpoint: string;
+      
+      if (endpoint === "text-to-video") {
+        apiEndpoint = "https://api.cometapi.com/v1/video/generations";
+        videoRequestBody = {
+          model: videoModel,
+          prompt: fullPrompt,
+          duration: `${clampedDuration}`,
+          aspect_ratio: aspectRatio,
+        };
+      } else {
+        // image-to-video - for now fallback to text-to-video
+        apiEndpoint = "https://api.cometapi.com/v1/video/generations";
+        videoRequestBody = {
+          model: "kling-video/v1.6/standard/text-to-video",
+          prompt: fullPrompt,
+          duration: `${clampedDuration}`,
+          aspect_ratio: aspectRatio,
+        };
+      }
+      
+      console.log("CometAPI Request:", JSON.stringify(videoRequestBody));
+      
+      const videoResponse = await fetch(apiEndpoint, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Authorization": `Bearer ${COMETAPI_API_KEY}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash-image",
-          messages: [
-            {
-              role: "user",
-              content: `Generate a stunning cinematic video frame: ${fullPrompt}. 
-Style: ${format === "vertical" ? "9:16 vertical portrait" : "16:9 horizontal landscape"}, 
-ultra high quality, professional cinematography, vibrant colors, perfect lighting.`,
-            },
-          ],
-        }),
+        body: JSON.stringify(videoRequestBody),
       });
+      
+      const responseText = await videoResponse.text();
+      console.log("CometAPI Response status:", videoResponse.status);
+      console.log("CometAPI Response:", responseText.substring(0, 500));
 
-      if (!imageResponse.ok) {
-        const errorText = await imageResponse.text();
-        console.error("Lovable AI error:", errorText);
+      if (!videoResponse.ok) {
+        console.error("CometAPI video error:", responseText);
         
         // Update generation as failed
         if (generationId) {
           await supabase
             .from("generations")
-            .update({ status: "failed", error_message: errorText, step: "error" })
+            .update({ status: "failed", error_message: responseText, step: "error" })
             .eq("id", generationId);
         }
 
@@ -351,56 +361,48 @@ ultra high quality, professional cinematography, vibrant colors, perfect lightin
           console.log(`✓ Refunded ${creditCost} credits`);
         }
         
-        throw new Error(`Lovable AI error: ${imageResponse.status} - ${errorText}`);
+        throw new Error(`CometAPI video error: ${videoResponse.status} - ${responseText}`);
       }
 
-      const imageResult = await imageResponse.json();
-      
-      // Extract the generated image URL from the response
-      const imageContent = imageResult.choices?.[0]?.message?.content;
-      let mediaUrl: string | null = null;
-      
-      // Try to extract URL from the response content
-      if (imageContent) {
-        const urlMatch = imageContent.match(/https?:\/\/[^\s"']+/);
-        if (urlMatch) {
-          mediaUrl = urlMatch[0];
-        }
+      let videoResult: Record<string, unknown>;
+      try {
+        videoResult = JSON.parse(responseText);
+      } catch {
+        throw new Error(`Invalid JSON response from CometAPI: ${responseText}`);
       }
       
-      taskId = `lovable-${Date.now()}`;
-      taskStatus = "completed";
-      taskProgress = 100;
+      // CometAPI returns a task ID for async video generation
+      const taskId = (videoResult.id || videoResult.task_id || `comet-${Date.now()}`) as string;
+      const initialStatus = (videoResult.status || "queued") as string;
+      
+      console.log(`✓ Video task created: ${taskId} (status: ${initialStatus})`);
 
-      // Update generation as completed
+      // Update generation with task ID
       if (generationId) {
         await supabase
           .from("generations")
           .update({ 
             external_task_id: taskId,
-            status: "completed",
-            step: "completed",
-            progress: 100,
-            media_url: mediaUrl,
-            completed_at: new Date().toISOString(),
+            status: initialStatus === "completed" ? "completed" : "processing",
+            step: initialStatus === "completed" ? "completed" : "generating",
+            progress: initialStatus === "completed" ? 100 : 30,
+            media_url: videoResult.video_url as string || videoResult.output as string || null,
           })
           .eq("id", generationId);
       }
-
-      console.log("✓ Video generation completed via Lovable AI");
 
       return new Response(
         JSON.stringify({
           success: true,
           taskId,
           generationId,
-          status: "completed",
-          progress: 100,
+          status: initialStatus,
+          progress: initialStatus === "completed" ? 100 : 30,
           quality,
           model: videoModel,
-          mediaUrl,
+          mediaUrl: videoResult.video_url || videoResult.output || null,
           creditCost: skipCreditDeduction ? 0 : creditCost,
-          message: "Generated via Lovable AI",
+          message: `Video generation started via CometAPI (${videoModel})`,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
