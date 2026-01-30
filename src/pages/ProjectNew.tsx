@@ -40,6 +40,7 @@ const projectSchema = z.object({
   theme_color: z.string().default("#F97316"),
   instagram_enabled: z.boolean().default(true),
   facebook_enabled: z.boolean().default(true),
+  youtube_enabled: z.boolean().default(false),
   linkedin_enabled: z.boolean().default(false),
   tiktok_enabled: z.boolean().default(false),
   posts_per_week: z.number().min(1).max(14).default(3),
@@ -98,6 +99,7 @@ const ProjectNew = () => {
     theme_color: "#F97316",
     instagram_enabled: true,
     facebook_enabled: true,
+    youtube_enabled: false,
     linkedin_enabled: false,
     tiktok_enabled: false,
     posts_per_week: 3,
@@ -135,6 +137,7 @@ const ProjectNew = () => {
             theme_color: data.theme_color || "#F97316",
             instagram_enabled: data.instagram_enabled ?? true,
             facebook_enabled: data.facebook_enabled ?? true,
+            youtube_enabled: data.youtube_enabled ?? false,
             linkedin_enabled: data.linkedin_enabled ?? false,
             tiktok_enabled: data.tiktok_enabled ?? false,
             posts_per_week: data.posts_per_week || 3,
@@ -204,7 +207,7 @@ const ProjectNew = () => {
       case 2: // Branding - always valid (default color)
         return true;
       case 3: // Platforms
-        if (!formData.instagram_enabled && !formData.facebook_enabled && !formData.linkedin_enabled && !formData.tiktok_enabled) {
+        if (!formData.instagram_enabled && !formData.facebook_enabled && !formData.youtube_enabled && !formData.linkedin_enabled && !formData.tiktok_enabled) {
           toast({
             title: "Platform required",
             description: "Select at least one publishing platform",
@@ -361,6 +364,7 @@ const ProjectNew = () => {
         theme_color: formData.theme_color,
         instagram_enabled: formData.instagram_enabled,
         facebook_enabled: formData.facebook_enabled,
+        youtube_enabled: formData.youtube_enabled,
         linkedin_enabled: formData.linkedin_enabled,
         tiktok_enabled: formData.tiktok_enabled,
         posts_per_week: formData.posts_per_week,
@@ -713,6 +717,35 @@ const ProjectNew = () => {
 
                       <motion.div
                         className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                          formData.youtube_enabled 
+                            ? "border-primary bg-primary/5" 
+                            : "border-border bg-muted/50"
+                        }`}
+                        onClick={() => setFormData(prev => ({ 
+                          ...prev, 
+                          youtube_enabled: !prev.youtube_enabled 
+                        }))}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-[hsl(0,100%,50%)] flex items-center justify-center">
+                              <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-primary-foreground">
+                                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="font-semibold">YouTube</p>
+                              <p className="text-xs text-muted-foreground">Shorts, Videos</p>
+                            </div>
+                          </div>
+                          <Switch checked={formData.youtube_enabled} />
+                        </div>
+                      </motion.div>
+
+                      <motion.div
+                        className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
                           formData.linkedin_enabled 
                             ? "border-primary bg-primary/5" 
                             : "border-border bg-muted/50"
@@ -793,6 +826,7 @@ const ProjectNew = () => {
                           {[
                             formData.instagram_enabled && "Instagram",
                             formData.facebook_enabled && "Facebook",
+                            formData.youtube_enabled && "YouTube",
                             formData.linkedin_enabled && "LinkedIn",
                             formData.tiktok_enabled && "TikTok",
                           ].filter(Boolean).join(", ") || "None selected"}
