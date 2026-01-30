@@ -488,25 +488,40 @@ async function publishToInstagram(
       return { success: false, error: "No container ID returned" };
     }
 
-    // For videos, wait for processing
-    if (isVideo) {
-      console.log("[Instagram] Waiting for video processing...");
-      const maxWait = 60;
-      for (let i = 0; i < maxWait; i++) {
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        
-        const statusRes = await fetch(
-          `https://graph.facebook.com/v18.0/${containerData.id}?fields=status_code&access_token=${accessToken}`
-        );
-        const statusText = await statusRes.text();
+    // Wait for container to be ready (required for both images and videos)
+    // Instagram error 9007 occurs when trying to publish before container is ready
+    console.log("[Instagram] Waiting for media container to be ready...");
+    const maxWait = isVideo ? 60 : 10; // Videos need more time
+    const waitInterval = isVideo ? 5000 : 2000; // 5s for videos, 2s for images
+    
+    for (let i = 0; i < maxWait; i++) {
+      await new Promise(resolve => setTimeout(resolve, waitInterval));
+      
+      const statusRes = await fetch(
+        `https://graph.facebook.com/v18.0/${containerData.id}?fields=status_code&access_token=${accessToken}`
+      );
+      const statusText = await statusRes.text();
+      
+      try {
         const statusData = JSON.parse(statusText);
+        const statusCode = statusData.status_code || "UNKNOWN";
         
-        console.log(`[Instagram] Processing status (${i + 1}/${maxWait}): ${statusData.status_code}`);
+        console.log(`[Instagram] Processing status (${i + 1}/${maxWait}): ${statusCode}`);
         
-        if (statusData.status_code === "FINISHED") break;
-        if (statusData.status_code === "ERROR") {
-          return { success: false, error: "Video processing failed at Instagram" };
+        if (statusCode === "FINISHED") {
+          console.log("[Instagram] Container ready!");
+          break;
         }
+        if (statusCode === "ERROR") {
+          return { success: false, error: "Media processing failed at Instagram" };
+        }
+        // For images, IN_PROGRESS is also acceptable after a few retries
+        if (!isVideo && statusCode === "IN_PROGRESS" && i >= 3) {
+          console.log("[Instagram] Image still processing, attempting publish anyway...");
+          break;
+        }
+      } catch (parseError) {
+        console.log(`[Instagram] Status check parse error, continuing...`);
       }
     }
 
