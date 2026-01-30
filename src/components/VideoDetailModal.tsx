@@ -82,10 +82,14 @@ export const VideoDetailModal = ({
 
   // Generate caption from prompt
   useEffect(() => {
-    if (isOpen && prompt && !socialCaption) {
-      // Create a short caption from the prompt
-      const shortPrompt = prompt.length > 150 ? prompt.substring(0, 150) + "..." : prompt;
-      setSocialCaption(`✨ AI Generated Content\n\n${shortPrompt}\n\n#AI #AIVideo #CreativeContent`);
+    if (isOpen && !socialCaption) {
+      if (prompt) {
+        // Create engaging caption from the AI prompt
+        const shortPrompt = prompt.length > 120 ? prompt.substring(0, 120) + "..." : prompt;
+        setSocialCaption(`✨ AI Generated Post\n\n${shortPrompt}\n\n#AI #AIVideo #CreativeContent #Generated`);
+      } else {
+        setSocialCaption(`✨ Created with AI\n\n#AI #AIVideo #CreativeContent`);
+      }
     }
   }, [isOpen, prompt]);
 
