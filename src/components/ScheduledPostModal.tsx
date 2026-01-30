@@ -912,15 +912,18 @@ export const ScheduledPostModal = ({
 
         if (error) throw error;
 
-        if (data?.imageUrl) {
+        // The generate-image function returns imageData (base64) not imageUrl
+        const generatedImage = data?.imageUrl || data?.imageData;
+        
+        if (generatedImage) {
           // Update local state immediately for instant preview
-          setLocalMediaUrl(data.imageUrl);
+          setLocalMediaUrl(generatedImage);
           
           // Update post with generated image
           const { error: updateError } = await supabase
             .from("scheduled_posts")
             .update({ 
-              media_url: data.imageUrl,
+              media_url: generatedImage,
               status: "scheduled",
             })
             .eq("id", post.id);
@@ -933,6 +936,8 @@ export const ScheduledPostModal = ({
           });
           
           onUpdate?.();
+        } else {
+          throw new Error("No image was generated");
         }
       } else if (post.content_type === "video") {
         // For actual videos (NOT reels), use CometAPI video generation
