@@ -470,8 +470,8 @@ Respond ONLY with valid JSON:
   "angle": "${diversity.angle.id}"
 }` 
                   :
-                  // IMAGE PROMPT with diversity and brand context
-                  `You are an expert AI IMAGE prompt engineer creating UNIQUE, HIGH-IMPACT visuals. ${langInstruction}
+                  // IMAGE PROMPT with diversity, brand context, and REINFORCED BRANDING
+                  `You are an expert AI IMAGE prompt engineer creating UNIQUE, HIGH-IMPACT visuals with STRONG BRAND IDENTITY. ${langInstruction}
 
 ${brandContextBlock}
 
@@ -491,20 +491,48 @@ FORBIDDEN:
 - NO English text in the image (unless brand name)
 - NO generic stock photo compositions
 
+=== MANDATORY VISUAL BRANDING RULES (CRITICAL) ===
+
+${marketingContext?.visual_identity?.primary_color || project.theme_color ? `🎨 BRAND COLOR (MANDATORY):
+- The primary color ${marketingContext?.visual_identity?.primary_color || project.theme_color} MUST be prominently visible
+- Use it for: backgrounds, key objects, accents, clothing, or UI elements
+- The image must "FEEL" this color - it should dominate the palette
+- NO conflicting or clashing color schemes` : ""}
+
+${includeLogo && project.logo_url ? `🏷️ LOGO SPACE (MANDATORY):
+- Reserve bottom-right corner (15% of image) with SIMPLE background
+- Keep this area UNCLUTTERED - solid color or subtle gradient only
+- Do NOT place subjects or important elements in bottom-right corner` : ""}
+
+${includeUrl && project.url ? `🌐 WEBSITE URL (MANDATORY):
+- Include "${project.url}" as VISIBLE text in the image
+- Position: Bottom of image, clearly legible
+- Size: 5-8% of image height, white text with dark shadow
+- Must be READABLE - high contrast against background` : ""}
+
+${includeText && overlayText ? `📝 TEXT OVERLAY (MANDATORY - CRITICAL):
+- Display EXACTLY: "${overlayText}"
+- SIZE: LARGE - at least 15-20% of image width
+- FONT: Bold modern sans-serif (Helvetica Bold style)
+- COLOR: High contrast - white with dark shadow/outline
+- POSITION: Center-bottom or lower-third (mobile-safe)
+- Must be the FIRST thing viewers notice - IMPOSSIBLE to miss` : ""}
+
+TEXT QUALITY RULES (applies to ALL text in image):
+- Size: MINIMUM 8% of image height for any text
+- Style: Bold sans-serif, modern, highly readable
+- Contrast: Always use shadow or outline for visibility
+- Placement: Mobile-safe zones (avoid top 10% and extreme edges)
+
 REQUIRED - Build your prompt using the SCENE and ANGLE above:
 - Subject: What is the main focus (must relate to ${diversity.angle.id} angle)
 - Setting: MUST be "${diversity.scene.id}" style (${diversity.scene.desc})
 - Lighting: Creative lighting that matches the scene mood
 - Composition: How is it framed (close-up, wide shot, flat lay)
-- Colors: Color palette aligned with brand
+- Colors: ${marketingContext?.visual_identity?.primary_color || project.theme_color ? `MUST use ${marketingContext?.visual_identity?.primary_color || project.theme_color} as dominant color` : "Color palette aligned with brand"}
 - Style: Photography style (professional, editorial, lifestyle, product photography)
-- Text overlay: Any text in the image MUST be in ${languageName || "the project's language"}, never English
-- Quality: End with "Ultra high resolution, professional quality"
-
-BRAND ELEMENTS TO INCLUDE IN IMAGE:
-${includeLogo && project.logo_url ? `- Include brand logo in corner or watermark position` : ""}
-${includeUrl && project.url ? `- Include website URL "${project.url}" as text overlay` : ""}
-${includeText && overlayText ? `- Include text overlay: "${overlayText}"` : ""}
+- Text overlay: Any text in the image MUST be in ${languageName || "the project's language"}, LARGE, BOLD, READABLE
+- Quality: End with "Ultra high resolution, professional advertising quality"
 
 TONE/STYLE (${effectiveTone}):
 ${effectiveTone === "casual" ? "- Relaxed, approachable visuals. Natural settings." : ""}
@@ -526,7 +554,7 @@ ${effectiveSubject ? `- Focus topic: ${effectiveSubject}` : ""}
 Respond ONLY with valid JSON:
 {
   "title": "Short descriptive title for this image concept",
-  "aiPrompt": "The detailed STATIC IMAGE prompt using the ${diversity.scene.id} scene and ${diversity.angle.id} angle. Include instruction that any text must be in ${languageName}",
+  "aiPrompt": "The detailed STATIC IMAGE prompt using the ${diversity.scene.id} scene and ${diversity.angle.id} angle. MUST include ${marketingContext?.visual_identity?.primary_color || project.theme_color ? `the brand color ${marketingContext?.visual_identity?.primary_color || project.theme_color} prominently, ` : ""}${includeText && overlayText ? `large bold text "${overlayText}", ` : ""}${includeUrl && project.url ? `visible URL ${project.url}, ` : ""}${includeLogo ? `reserved logo space in bottom-right, ` : ""}and instruction that any text must be in ${languageName}",
   "textContent": "Social media caption with hashtags (8-12 relevant hashtags) - MUST BE IN ${languageName.toUpperCase()}",
   "angle": "${diversity.angle.id}"
 }`
