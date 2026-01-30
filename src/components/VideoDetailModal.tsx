@@ -415,7 +415,25 @@ export const VideoDetailModal = ({
 
                   {/* Caption */}
                   <div>
-                    <h4 className="text-xs font-medium text-muted-foreground mb-2">CAPTION</h4>
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-xs font-medium text-muted-foreground">CAPTION</h4>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-7 px-2 gap-1 text-primary hover:text-primary/80"
+                        onClick={() => {
+                          if (prompt) {
+                            const shortPrompt = prompt.length > 120 ? prompt.substring(0, 120) + "..." : prompt;
+                            setSocialCaption(`✨ AI Generated Post\n\n${shortPrompt}\n\n#AI #AIVideo #CreativeContent #Generated`);
+                          } else {
+                            setSocialCaption(`✨ Created with AI\n\n#AI #AIVideo #CreativeContent`);
+                          }
+                        }}
+                      >
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Generate
+                      </Button>
+                    </div>
                     <Textarea
                       value={socialCaption}
                       onChange={(e) => setSocialCaption(e.target.value)}

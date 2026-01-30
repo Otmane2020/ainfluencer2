@@ -13,6 +13,7 @@ import {
   ExternalLink,
   Copy,
   Check,
+  Sparkles,
 } from "lucide-react";
 import { FaFacebook, FaLinkedin, FaInstagram, FaTiktok } from "react-icons/fa";
 import { format } from "date-fns";
@@ -208,7 +209,18 @@ export const ImageDetailModal = ({
                 {/* Caption editor */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-medium">Caption</h4>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-medium">Caption</h4>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-7 px-2 gap-1 text-primary hover:text-primary/80"
+                        onClick={() => setCaption(generateCaption())}
+                      >
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Generate
+                      </Button>
+                    </div>
                     <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={handleCopyCaption}>
                       {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                       {copied ? "Copied" : "Copy"}
