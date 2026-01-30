@@ -178,10 +178,10 @@ export const CampaignWizardModal = ({
   useEffect(() => {
     if (isOpen) {
       fetchProjects();
+      fetchCampaignCount();
       // Reset form
       setStep(1);
       setCampaignType("mixed");
-      setName("");
       setProjectId("");
       setVideosPerMonth(4);
       setImagesPerMonth(12);
@@ -202,6 +202,16 @@ export const CampaignWizardModal = ({
       setPlatforms({ facebook: true, instagram: true, youtube: false, linkedin: false, tiktok: false });
     }
   }, [isOpen]);
+
+  // Fetch campaign count for default naming
+  const fetchCampaignCount = async () => {
+    const { count } = await supabase
+      .from("campaigns")
+      .select("*", { count: "exact", head: true });
+    
+    const nextNumber = (count || 0) + 1;
+    setName(`Campaign ${nextNumber}`);
+  };
 
   const fetchProjects = async () => {
     const { data } = await supabase
@@ -683,7 +693,6 @@ export const CampaignWizardModal = ({
                   <Button
                     type="button"
                     variant="secondary"
-                    size="sm"
                     onClick={() => {
                       if (newTag.trim() && !serviceTags.includes(newTag.trim())) {
                         setServiceTags(prev => [...prev, newTag.trim()].slice(0, 8));
@@ -691,6 +700,7 @@ export const CampaignWizardModal = ({
                       }
                     }}
                     disabled={!newTag.trim() || serviceTags.length >= 8}
+                    className="shrink-0"
                   >
                     Add
                   </Button>
