@@ -294,6 +294,8 @@ function generateCallbackHtml(result: { success?: boolean; channel?: { id: strin
     .icon { font-size: 4rem; margin-bottom: 1rem; }
     h1 { margin: 0 0 0.5rem; }
     p { color: #aaa; }
+    .close-btn { margin-top: 1.5rem; padding: 0.75rem 2rem; background: #ff0000; color: white; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; }
+    .close-btn:hover { background: #cc0000; }
   </style>
 </head>
 <body>
@@ -301,13 +303,33 @@ function generateCallbackHtml(result: { success?: boolean; channel?: { id: strin
     <div class="icon">${result.success ? "✅" : "❌"}</div>
     <h1>${result.success ? "Connected!" : "Connection Failed"}</h1>
     <p>${result.success ? `Channel: ${result.channel?.name}` : result.error}</p>
-    <p>This window will close automatically...</p>
+    <p id="status">Closing automatically...</p>
+    <button class="close-btn" onclick="closeWindow()">Close Window</button>
   </div>
   <script>
+    // Send message to parent window
     if (window.opener) {
       window.opener.postMessage(${JSON.stringify(messageData)}, "*");
     }
-    setTimeout(() => window.close(), 2000);
+    
+    function closeWindow() {
+      try {
+        window.close();
+      } catch (e) {
+        document.getElementById('status').textContent = 'Please close this tab manually';
+      }
+    }
+    
+    // Try to close after 1.5 seconds
+    setTimeout(() => {
+      closeWindow();
+      // If still open after another 500ms, show manual close message
+      setTimeout(() => {
+        if (!window.closed) {
+          document.getElementById('status').textContent = 'You can close this tab now';
+        }
+      }, 500);
+    }, 1500);
   </script>
 </body>
 </html>`;
