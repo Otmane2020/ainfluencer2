@@ -178,12 +178,19 @@ export const ScheduledPostModal = ({
   const [localMusicUrl, setLocalMusicUrl] = useState<string | null>(null);
   const [reelDuration, setReelDuration] = useState<number>(10);
   
-  // Project context for brand-aware generation
+  // Project context for brand-aware generation (full context for Generation Context Guard)
   const [projectContext, setProjectContext] = useState<{
     name: string;
     logo_url: string | null;
     url: string | null;
     description: string | null;
+    // Rich context fields for Generation Context Guard
+    marketing_context: any | null;
+    ai_context_summary: string | null;
+    detected_language: string | null;
+    theme_color: string | null;
+    avatar_url: string | null;
+    scraped_markdown: string | null;
   } | null>(null);
   
   // Video generation options
@@ -231,12 +238,17 @@ export const ScheduledPostModal = ({
     setIsEditingPrompt(false);
     setIsEditingContent(false);
     
-    // Fetch project context for brand-aware generation
+    // Fetch FULL project context for brand-aware generation via Generation Context Guard
     const fetchProjectContext = async () => {
       if (!post?.project_id) return;
       const { data } = await supabase
         .from("projects")
-        .select("name, logo_url, url, description")
+        .select(`
+          name, logo_url, url, description,
+          marketing_context, ai_context_summary,
+          detected_language, theme_color,
+          avatar_url, scraped_markdown
+        `)
         .eq("id", post.project_id)
         .single();
       if (data) {
@@ -878,20 +890,8 @@ export const ScheduledPostModal = ({
       }
       
       if (post.content_type === "image") {
-        // Build brand-aware prompt
-        let enhancedPrompt = post.ai_prompt || "Create an engaging social media image";
-        
-        // Add brand context if available
-        if (projectContext) {
-          const brandInfo = [];
-          if (projectContext.name) brandInfo.push(`Brand: ${projectContext.name}`);
-          if (projectContext.description) brandInfo.push(`About: ${projectContext.description.substring(0, 200)}`);
-          if (projectContext.url) brandInfo.push(`Website: ${projectContext.url}`);
-          
-          if (brandInfo.length > 0) {
-            enhancedPrompt = `${enhancedPrompt}\n\nBrand Context:\n${brandInfo.join('\n')}`;
-          }
-        }
+        // Use base prompt - rich context is built by Generation Context Guard in Edge Function
+        const basePrompt = post.ai_prompt || "Create an engaging social media image";
         
         toast({
           title: "Generating image...",
@@ -900,13 +900,22 @@ export const ScheduledPostModal = ({
             : "Creating visual content from prompt",
         });
 
+        // Pass FULL project context to let Generation Context Guard build rich prompts
         const { data, error } = await supabase.functions.invoke("generate-image", {
           body: {
-            prompt: enhancedPrompt,
+            prompt: basePrompt,
             aspectRatio: "1:1",
             quality: imageQuality.id === "fast-image" ? "standard" : imageQuality.id === "medium-image" ? "pro" : "cinema",
-            logoUrl: projectContext?.logo_url || undefined,
-            brandName: projectContext?.name || undefined,
+            // Full brand context for Generation Context Guard
+            logoUrl: projectContext?.logo_url,
+            brandName: projectContext?.name,
+            projectUrl: projectContext?.url,
+            projectDescription: projectContext?.description,
+            detectedLanguage: projectContext?.detected_language || "en",
+            marketingContext: projectContext?.marketing_context,
+            aiContextSummary: projectContext?.ai_context_summary,
+            themeColor: projectContext?.theme_color,
+            avatarUrl: projectContext?.avatar_url,
           },
         });
 
