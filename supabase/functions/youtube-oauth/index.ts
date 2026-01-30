@@ -142,21 +142,32 @@ Deno.serve(async (req) => {
         });
       }
 
-      console.log("[youtube-oauth] Token exchange successful");
+      console.log("[youtube-oauth] Token exchange successful, access_token length:", tokens.access_token?.length);
 
       // Get YouTube channel info
       const channelResponse = await fetch(
         "https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true",
         {
-          headers: { Authorization: `Bearer ${tokens.access_token}` },
+          headers: { 
+            Authorization: `Bearer ${tokens.access_token}`,
+            Accept: "application/json",
+          },
         }
       );
 
       const channelData = await channelResponse.json();
+      console.log("[youtube-oauth] Channel API response status:", channelResponse.status);
+
+      if (!channelResponse.ok) {
+        console.error("[youtube-oauth] Channel API error:", JSON.stringify(channelData));
+        return new Response(generateCallbackHtml({ error: channelData.error?.message || "Failed to fetch channel info" }), {
+          headers: { ...corsHeaders, "Content-Type": "text/html" },
+        });
+      }
 
       if (!channelData.items || channelData.items.length === 0) {
-        console.error("[youtube-oauth] No YouTube channel found");
-        return new Response(generateCallbackHtml({ error: "No YouTube channel found for this account" }), {
+        console.error("[youtube-oauth] No YouTube channel found for this account");
+        return new Response(generateCallbackHtml({ error: "No YouTube channel found for this account. Please ensure you have a YouTube channel created." }), {
           headers: { ...corsHeaders, "Content-Type": "text/html" },
         });
       }
