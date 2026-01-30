@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -10,10 +9,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RefreshCw, Video, Image, Loader2, Download, Trash2, ExternalLink, Camera, Check, X, Instagram, Facebook, Linkedin, Sparkles } from "lucide-react";
-import { VideoHistory, VideoHistoryItem } from "@/components/VideoHistory";
+import { RefreshCw, Video, Image, Loader2, LayoutGrid } from "lucide-react";
+import { MasonryGrid } from "@/components/history/MasonryGrid";
+import { MediaItem } from "@/components/history/MediaCard";
+import { ImageDetailModal } from "@/components/history/ImageDetailModal";
+import { VideoDetailModal } from "@/components/VideoDetailModal";
 import { useStoredVideos } from "@/hooks/useStoredVideos";
 import { useGenerationTasks } from "@/hooks/useGenerationTasks";
+import { useVideoThumbnail } from "@/hooks/useVideoThumbnail";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -30,25 +33,10 @@ interface Campaign {
   project_id: string;
 }
 
-interface ImagePost {
-  id: string;
-  name: string;
-  url: string | null;
-  createdAt: Date;
-  status: string;
-  projectId: string | null;
-  projectName: string | null;
-  campaignId: string | null;
-  campaignName: string | null;
-  platforms: string[];
-  isProductShot: boolean;
-  source: "scheduled_post" | "storage";
-}
-
 const HistoryPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = searchParams.get("tab") || "videos";
+  const initialTab = searchParams.get("tab") || "all";
   const [activeTab, setActiveTab] = useState(initialTab);
   
   // Common state
@@ -57,34 +45,36 @@ const HistoryPage = () => {
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const [selectedCampaign, setSelectedCampaign] = useState<string>("all");
   
-  // Video state
-  const [videoHistory, setVideoHistory] = useState<VideoHistoryItem[]>([]);
+  // Media state
+  const [allMedia, setAllMedia] = useState<MediaItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [generatingThumbnails, setGeneratingThumbnails] = useState<Set<string>>(new Set());
+  
+  // Modal state
+  const [selectedVideo, setSelectedVideo] = useState<MediaItem | null>(null);
+  const [selectedImage, setSelectedImage] = useState<MediaItem | null>(null);
+  
   const { fetchStoredVideos, isLoading: isLoadingVideos } = useStoredVideos();
   const { tasks, getPendingTasks, updateTask } = useGenerationTasks();
-  
-  // Image state
-  const [images, setImages] = useState<ImagePost[]>([]);
-  const [isLoadingImages, setIsLoadingImages] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<string>("all");
-  
+  const { generateThumbnail } = useVideoThumbnail();
   const { toast } = useToast();
   const { user } = useAuth();
-
+  
+  const processedVideosRef = useRef<Set<string>>(new Set());
   const activeTasks = getPendingTasks();
-  const completedTasks = tasks.filter(t => t.status === "completed" && t.videoUrl);
 
   // Sync tab with URL
   useEffect(() => {
     setSearchParams({ tab: activeTab });
-  }, [activeTab]);
+  }, [activeTab, setSearchParams]);
 
   // Fetch projects and campaigns
   useEffect(() => {
     if (user) {
       fetchProjects();
       fetchCampaigns();
-      loadVideos();
-      fetchImages();
+      loadAllMedia();
     }
   }, [user]);
 
@@ -125,7 +115,7 @@ const HistoryPage = () => {
             });
 
             if (status.status === "completed") {
-              loadVideos();
+              loadAllMedia();
               toast({
                 title: "Video ready!",
                 description: "Your video has been generated",
@@ -139,7 +129,49 @@ const HistoryPage = () => {
     }, 10000);
 
     return () => clearInterval(pollInterval);
-  }, [activeTasks, updateTask]);
+  }, [activeTasks, updateTask, toast]);
+
+  // Auto-generate thumbnails for videos
+  useEffect(() => {
+    const processVideos = async () => {
+      const videos = allMedia.filter(m => m.type === "video");
+      for (const video of videos) {
+        if (
+          processedVideosRef.current.has(video.id) ||
+          video.thumbnailUrl ||
+          !video.url ||
+          generatingThumbnails.has(video.id)
+        ) {
+          continue;
+        }
+        
+        if (!video.url.includes("supabase.co")) {
+          processedVideosRef.current.add(video.id);
+          continue;
+        }
+        
+        processedVideosRef.current.add(video.id);
+        setGeneratingThumbnails((prev) => new Set(prev).add(video.id));
+        
+        try {
+          const result = await generateThumbnail(video.url);
+          if (result) {
+            setAllMedia(prev => prev.map(m => 
+              m.id === video.id ? { ...m, thumbnailUrl: result.thumbnailUrl } : m
+            ));
+          }
+        } finally {
+          setGeneratingThumbnails((prev) => {
+            const updated = new Set(prev);
+            updated.delete(video.id);
+            return updated;
+          });
+        }
+      }
+    };
+    
+    processVideos();
+  }, [allMedia.length, generateThumbnail, generatingThumbnails]);
 
   const fetchProjects = async () => {
     if (!user) return;
@@ -167,63 +199,32 @@ const HistoryPage = () => {
     if (data) setCampaigns(data);
   };
 
-  // Video functions
-  const loadVideos = async () => {
-    const storedVideos = await fetchStoredVideos();
-    if (storedVideos.length > 0) {
-      setVideoHistory(storedVideos);
-    }
-  };
-
-  const handleRefreshVideos = async () => {
-    const storedVideos = await fetchStoredVideos();
-    setVideoHistory(storedVideos);
-    toast({
-      title: "Refreshed",
-      description: `Found ${storedVideos.length} videos`,
-    });
-  };
-
-  const handleDeleteVideo = async (id: string) => {
-    try {
-      await supabase.from("generations").delete().eq("id", id);
-      
-      const video = videoHistory.find(v => v.id === id);
-      if (video?.videoUrl?.includes("supabase.co/storage")) {
-        const urlParts = video.videoUrl.split("/media/");
-        if (urlParts[1]) {
-          await supabase.storage.from("media").remove([urlParts[1]]);
-        }
-      }
-
-      setVideoHistory((prev) => prev.filter((v) => v.id !== id));
-      toast({ title: "Video deleted" });
-    } catch (error) {
-      toast({ title: "Delete failed", variant: "destructive" });
-    }
-  };
-
-  const handlePlayVideo = (video: VideoHistoryItem) => {
-    console.log("Playing video:", video.id);
-  };
-
-  const handleThumbnailGenerated = (id: string, thumbnailUrl: string) => {
-    setVideoHistory((prev) =>
-      prev.map((v) => (v.id === id ? { ...v, thumbnailUrl } : v))
-    );
-  };
-
-  const handleContinueVideo = (videoUrl: string) => {
-    navigate(`/videos?continueFrom=${encodeURIComponent(videoUrl)}`);
-  };
-
-  // Image functions
-  const fetchImages = async () => {
+  const loadAllMedia = async () => {
     if (!user) return;
-    setIsLoadingImages(true);
+    setIsLoading(true);
+    
     try {
-      const allImages: ImagePost[] = [];
-
+      const media: MediaItem[] = [];
+      
+      // Fetch videos
+      const storedVideos = await fetchStoredVideos();
+      for (const video of storedVideos) {
+        media.push({
+          id: video.id,
+          type: "video",
+          title: video.title,
+          url: video.videoUrl,
+          thumbnailUrl: video.thumbnailUrl,
+          createdAt: video.createdAt,
+          status: video.status,
+          duration: video.duration,
+          script: video.script,
+          campaignName: undefined, // Could be enhanced later
+          aspectRatio: "vertical",
+        });
+      }
+      
+      // Fetch images from scheduled_posts
       const { data: scheduledPosts } = await supabase
         .from("scheduled_posts")
         .select(`
@@ -239,23 +240,21 @@ const HistoryPage = () => {
 
       if (scheduledPosts) {
         for (const post of scheduledPosts) {
-          allImages.push({
+          media.push({
             id: post.id,
-            name: `Image ${new Date(post.created_at).toLocaleDateString()}`,
-            url: post.media_url,
+            type: "image",
+            title: `Image ${new Date(post.created_at).toLocaleDateString()}`,
+            url: post.media_url || undefined,
             createdAt: new Date(post.created_at),
             status: post.status || "draft",
-            projectId: post.project_id,
-            projectName: (post.projects as any)?.name || null,
-            campaignId: post.campaign_id,
-            campaignName: (post.campaigns as any)?.name || null,
-            platforms: post.platforms || [],
-            isProductShot: false,
-            source: "scheduled_post",
+            projectName: (post.projects as any)?.name,
+            campaignName: (post.campaigns as any)?.name,
+            aspectRatio: "square",
           });
         }
       }
 
+      // Fetch images from storage
       const [imagesResult, productShotsResult] = await Promise.all([
         supabase.storage.from("media").list("images", {
           limit: 100,
@@ -270,22 +269,17 @@ const HistoryPage = () => {
       if (imagesResult.data) {
         for (const file of imagesResult.data.filter(f => f.name.match(/\.(jpg|jpeg|png|gif|webp)$/i))) {
           const { data: urlData } = supabase.storage.from("media").getPublicUrl(`images/${file.name}`);
-          const existsInPosts = allImages.some(img => img.url === urlData.publicUrl);
+          const existsInPosts = media.some(m => m.url === urlData.publicUrl);
           
           if (!existsInPosts) {
-            allImages.push({
+            media.push({
               id: file.id || `img-${file.name}`,
-              name: file.name,
+              type: "image",
+              title: file.name,
               url: urlData.publicUrl,
               createdAt: new Date(file.created_at || Date.now()),
               status: "generated",
-              projectId: null,
-              projectName: null,
-              campaignId: null,
-              campaignName: null,
-              platforms: [],
-              isProductShot: false,
-              source: "storage",
+              aspectRatio: "square",
             });
           }
         }
@@ -295,41 +289,47 @@ const HistoryPage = () => {
         for (const file of productShotsResult.data.filter(f => f.name.match(/\.(jpg|jpeg|png|gif|webp)$/i))) {
           const { data: urlData } = supabase.storage.from("media").getPublicUrl(`product-shots/${file.name}`);
           
-          allImages.push({
+          media.push({
             id: file.id || `ps-${file.name}`,
-            name: file.name,
+            type: "image",
+            title: file.name,
             url: urlData.publicUrl,
             createdAt: new Date(file.created_at || Date.now()),
             status: "generated",
-            projectId: null,
-            projectName: null,
-            campaignId: null,
-            campaignName: null,
-            platforms: [],
             isProductShot: true,
-            source: "storage",
+            aspectRatio: "square",
           });
         }
       }
 
-      allImages.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-      setImages(allImages);
+      // Sort by date
+      media.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      setAllMedia(media);
     } catch (error) {
-      console.error("Error fetching images:", error);
+      console.error("Error loading media:", error);
     } finally {
-      setIsLoadingImages(false);
+      setIsLoading(false);
     }
   };
 
-  const handleDownloadImage = async (image: ImagePost) => {
-    if (!image.url) return;
+  const handleRefresh = async () => {
+    await loadAllMedia();
+    toast({
+      title: "Refreshed",
+      description: `Found ${allMedia.length} items`,
+    });
+  };
+
+  const handleDownload = async (item: MediaItem) => {
+    if (!item.url) return;
+    setDownloadingId(item.id);
     try {
-      const response = await fetch(image.url);
+      const response = await fetch(item.url);
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = image.name;
+      a.download = `${item.title.replace(/\s+/g, "-")}-${item.id}.${item.type === "video" ? "mp4" : "png"}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -337,21 +337,47 @@ const HistoryPage = () => {
       toast({ title: "Download started" });
     } catch (error) {
       toast({ title: "Download failed", variant: "destructive" });
+    } finally {
+      setDownloadingId(null);
     }
   };
 
-  const handleDeleteImage = async (image: ImagePost) => {
+  const handleDelete = async (id: string, type: "video" | "image") => {
     try {
-      if (image.source === "scheduled_post") {
-        await supabase.from("scheduled_posts").delete().eq("id", image.id);
+      if (type === "video") {
+        await supabase.from("generations").delete().eq("id", id);
+        const item = allMedia.find(m => m.id === id);
+        if (item?.url?.includes("supabase.co/storage")) {
+          const urlParts = item.url.split("/media/");
+          if (urlParts[1]) {
+            await supabase.storage.from("media").remove([urlParts[1]]);
+          }
+        }
       } else {
-        const folder = image.isProductShot ? "product-shots" : "images";
-        await supabase.storage.from("media").remove([`${folder}/${image.name}`]);
+        const item = allMedia.find(m => m.id === id);
+        if (item?.url) {
+          if (item.isProductShot) {
+            await supabase.storage.from("media").remove([`product-shots/${item.title}`]);
+          } else {
+            await supabase.from("scheduled_posts").delete().eq("id", id);
+          }
+        }
       }
-      setImages(prev => prev.filter(i => i.id !== image.id));
-      toast({ title: "Image deleted" });
+      
+      setAllMedia(prev => prev.filter(m => m.id !== id));
+      setSelectedVideo(null);
+      setSelectedImage(null);
+      toast({ title: "Deleted" });
     } catch (error) {
       toast({ title: "Delete failed", variant: "destructive" });
+    }
+  };
+
+  const handleItemClick = (item: MediaItem) => {
+    if (item.type === "video") {
+      setSelectedVideo(item);
+    } else {
+      setSelectedImage(item);
     }
   };
 
@@ -360,42 +386,14 @@ const HistoryPage = () => {
     ? campaigns 
     : campaigns.filter(c => c.project_id === selectedProject);
 
-  const filteredVideos = selectedCampaign === "all" 
-    ? videoHistory 
-    : videoHistory.filter(v => v.campaignId === selectedCampaign);
-
-  const filteredImages = images.filter(image => {
-    if (selectedProject !== "all" && image.projectId !== selectedProject) return false;
-    if (selectedCampaign !== "all" && image.campaignId !== selectedCampaign) return false;
-    if (selectedStatus !== "all" && image.status !== selectedStatus) return false;
+  const filteredMedia = allMedia.filter(item => {
+    // Tab filter
+    if (activeTab === "videos" && item.type !== "video") return false;
+    if (activeTab === "images" && item.type !== "image") return false;
+    
+    // Project/campaign filter would need to be enhanced with campaign data on videos
     return true;
   });
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "published":
-        return <Badge variant="default" className="bg-green-500/20 text-green-400 border-green-500/30 text-[10px]"><Check className="h-3 w-3 mr-0.5" />Published</Badge>;
-      case "generated":
-        return <Badge variant="secondary" className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-[10px]">Generated</Badge>;
-      case "scheduled":
-        return <Badge variant="secondary" className="text-[10px]">Scheduled</Badge>;
-      case "draft":
-        return <Badge variant="outline" className="text-[10px]">Draft</Badge>;
-      case "failed":
-        return <Badge variant="destructive" className="text-[10px]"><X className="h-3 w-3 mr-0.5" />Failed</Badge>;
-      default:
-        return <Badge variant="outline" className="text-[10px]">{status}</Badge>;
-    }
-  };
-
-  const getPlatformIcon = (platform: string) => {
-    switch (platform) {
-      case "instagram": return <Instagram className="h-3 w-3" />;
-      case "facebook": return <Facebook className="h-3 w-3" />;
-      case "linkedin": return <Linkedin className="h-3 w-3" />;
-      default: return null;
-    }
-  };
 
   return (
     <div className="space-y-4">
@@ -435,12 +433,25 @@ const HistoryPage = () => {
               ))}
             </SelectContent>
           </Select>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleRefresh}
+            disabled={isLoading}
+            className="h-9 w-9"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+          </Button>
         </div>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full max-w-[300px] grid-cols-2">
+        <TabsList className="grid w-full max-w-[400px] grid-cols-3">
+          <TabsTrigger value="all" className="gap-2">
+            <LayoutGrid className="h-4 w-4" />
+            All
+          </TabsTrigger>
           <TabsTrigger value="videos" className="gap-2">
             <Video className="h-4 w-4" />
             Videos
@@ -451,24 +462,50 @@ const HistoryPage = () => {
           </TabsTrigger>
         </TabsList>
 
-        {/* Videos Tab */}
+        <TabsContent value="all" className="mt-4">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-xs text-muted-foreground">
+              {filteredMedia.length} item{filteredMedia.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+          
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : (
+            <MasonryGrid
+              items={filteredMedia}
+              generatingTasks={activeTasks.map(task => ({
+                id: task.id,
+                taskId: task.taskId,
+                status: task.status,
+                progress: task.progress,
+                model: task.model,
+                duration: task.duration,
+                script: task.script,
+              }))}
+              onItemClick={handleItemClick}
+              onDelete={handleDelete}
+              onDownload={handleDownload}
+              downloadingId={downloadingId}
+              generatingThumbnails={generatingThumbnails}
+            />
+          )}
+        </TabsContent>
+
         <TabsContent value="videos" className="mt-4">
           <div className="flex items-center justify-between mb-4">
             <span className="text-xs text-muted-foreground">
-              {filteredVideos.length} video{filteredVideos.length !== 1 ? "s" : ""}
+              {filteredMedia.length} video{filteredMedia.length !== 1 ? "s" : ""}
             </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleRefreshVideos}
-              disabled={isLoadingVideos}
-              className="h-8 w-8"
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoadingVideos ? "animate-spin" : ""}`} />
-            </Button>
           </div>
-
-          {filteredVideos.length === 0 && activeTasks.length === 0 ? (
+          
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : filteredMedia.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
                 <Video className="h-6 w-6 text-muted-foreground" />
@@ -479,8 +516,8 @@ const HistoryPage = () => {
               </Button>
             </div>
           ) : (
-            <VideoHistory
-              videos={filteredVideos}
+            <MasonryGrid
+              items={filteredMedia}
               generatingTasks={activeTasks.map(task => ({
                 id: task.id,
                 taskId: task.taskId,
@@ -490,49 +527,27 @@ const HistoryPage = () => {
                 duration: task.duration,
                 script: task.script,
               }))}
-              onDelete={handleDeleteVideo}
-              onPlay={handlePlayVideo}
-              onThumbnailGenerated={handleThumbnailGenerated}
-              onContinueVideo={handleContinueVideo}
+              onItemClick={handleItemClick}
+              onDelete={handleDelete}
+              onDownload={handleDownload}
+              downloadingId={downloadingId}
+              generatingThumbnails={generatingThumbnails}
             />
           )}
         </TabsContent>
 
-        {/* Images Tab */}
         <TabsContent value="images" className="mt-4">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">
-                {filteredImages.length} image{filteredImages.length !== 1 ? "s" : ""}
-              </span>
-              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger className="w-[100px] h-7 text-xs">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="published">Published</SelectItem>
-                  <SelectItem value="generated">Generated</SelectItem>
-                  <SelectItem value="scheduled">Scheduled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={fetchImages}
-              disabled={isLoadingImages}
-              className="h-8 w-8"
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoadingImages ? "animate-spin" : ""}`} />
-            </Button>
+            <span className="text-xs text-muted-foreground">
+              {filteredMedia.length} image{filteredMedia.length !== 1 ? "s" : ""}
+            </span>
           </div>
-
-          {isLoadingImages ? (
+          
+          {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
-          ) : filteredImages.length === 0 ? (
+          ) : filteredMedia.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-3">
                 <Image className="h-6 w-6 text-muted-foreground" />
@@ -543,69 +558,53 @@ const HistoryPage = () => {
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-              {filteredImages.map((image) => (
-                <div
-                  key={image.id}
-                  className="group relative aspect-square rounded-lg overflow-hidden border border-border bg-card"
-                >
-                  {image.url ? (
-                    <img src={image.url} alt={image.name} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center bg-muted">
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    </div>
-                  )}
-                  
-                  <div className="absolute top-1 left-1 flex flex-wrap gap-1 max-w-[90%]">
-                    {image.isProductShot && (
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5 gap-1">
-                        <Camera className="h-3 w-3" />Shot
-                      </Badge>
-                    )}
-                    {getStatusBadge(image.status)}
-                  </div>
-
-                  {image.platforms.length > 0 && (
-                    <div className="absolute top-1 right-1 flex gap-0.5">
-                      {image.platforms.map(p => (
-                        <div key={p} className="bg-black/60 rounded p-0.5 text-white">
-                          {getPlatformIcon(p)}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {(image.projectName || image.campaignName) && (
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 pt-4">
-                      {image.campaignName && (
-                        <p className="text-[10px] text-white/90 truncate">{image.campaignName}</p>
-                      )}
-                      {image.projectName && (
-                        <p className="text-[9px] text-white/60 truncate">{image.projectName.slice(0, 30)}</p>
-                      )}
-                    </div>
-                  )}
-                  
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 active:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <Button variant="secondary" size="icon" className="h-8 w-8" onClick={() => handleDownloadImage(image)} disabled={!image.url}>
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    {image.url && (
-                      <Button variant="secondary" size="icon" className="h-8 w-8" onClick={() => window.open(image.url!, "_blank")}>
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
-                    )}
-                    <Button variant="destructive" size="icon" className="h-8 w-8" onClick={() => handleDeleteImage(image)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <MasonryGrid
+              items={filteredMedia}
+              onItemClick={handleItemClick}
+              onDelete={handleDelete}
+              onDownload={handleDownload}
+              downloadingId={downloadingId}
+              generatingThumbnails={generatingThumbnails}
+            />
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Video Detail Modal */}
+      <VideoDetailModal
+        isOpen={!!selectedVideo}
+        onClose={() => setSelectedVideo(null)}
+        videoUrl={selectedVideo?.url}
+        thumbnailUrl={selectedVideo?.thumbnailUrl}
+        title={selectedVideo?.title || ""}
+        prompt={selectedVideo?.script}
+        duration={selectedVideo?.duration}
+        createdAt={selectedVideo?.createdAt}
+        model="AI Video"
+        onDelete={() => {
+          if (selectedVideo) {
+            handleDelete(selectedVideo.id, "video");
+          }
+        }}
+      />
+
+      {/* Image Detail Modal */}
+      <ImageDetailModal
+        isOpen={!!selectedImage}
+        onClose={() => setSelectedImage(null)}
+        imageUrl={selectedImage?.url}
+        title={selectedImage?.title}
+        prompt={selectedImage?.script}
+        createdAt={selectedImage?.createdAt}
+        projectName={selectedImage?.projectName}
+        campaignName={selectedImage?.campaignName}
+        isProductShot={selectedImage?.isProductShot}
+        onDelete={() => {
+          if (selectedImage) {
+            handleDelete(selectedImage.id, "image");
+          }
+        }}
+      />
     </div>
   );
 };
