@@ -153,6 +153,7 @@ export const CampaignWizardModal = ({
   const [newTag, setNewTag] = useState("");
   const [isSuggestingProduct, setIsSuggestingProduct] = useState(false);
   const autoSuggestedProjectIdRef = useRef<string | null>(null);
+  const isLoadingServicesRef = useRef(false);
   const [postingHour, setPostingHour] = useState(10);
   const [timezone, setTimezone] = useState("Europe/Paris");
   const [imageAsReel, setImageAsReel] = useState(false); // NEW: Convert images to reels with audio
@@ -191,6 +192,7 @@ export const CampaignWizardModal = ({
       setServiceTags([]);
       setNewTag("");
       autoSuggestedProjectIdRef.current = null;
+      isLoadingServicesRef.current = false;
       setPostingHour(10);
       setTimezone("Europe/Paris");
       setImageAsReel(false);
@@ -217,19 +219,37 @@ export const CampaignWizardModal = ({
   // Auto-suggest services when project changes (and has URL)
   // PRIORITY: Use cached scraped_data from DB, only call API if not cached
   useEffect(() => {
-    // Only auto-suggest when on step 2 (project selection step)
+    // Guard: Only on step 2 (project selection step)
     if (step !== 2) return;
-    if (!projectId || autoSuggestedProjectIdRef.current === projectId || serviceTags.length > 0) return;
+    
+    // Guard: Must have projects loaded
+    if (projects.length === 0) return;
+    
+    // Guard: Must have projectId
+    if (!projectId) return;
+    
+    // Guard: Already processed this project
+    if (autoSuggestedProjectIdRef.current === projectId) return;
+    
+    // Guard: Already have tags
+    if (serviceTags.length > 0) return;
+    
+    // Guard: Already loading
+    if (isLoadingServicesRef.current) return;
     
     const selectedProject = projects.find(p => p.id === projectId);
     if (!selectedProject?.url) return;
 
     autoSuggestedProjectIdRef.current = projectId;
     loadServicesFromCache(projectId, selectedProject.url);
-  }, [projectId, step]);
+  }, [projectId, step, projects.length, serviceTags.length]);
 
   // Load services from DB cache first, fallback to API scrape
   const loadServicesFromCache = async (projId: string, url: string) => {
+    // Guard: Prevent duplicate calls
+    if (isLoadingServicesRef.current) return;
+    
+    isLoadingServicesRef.current = true;
     setIsSuggestingProduct(true);
     try {
       // 1. Check if project has cached scraped_data
@@ -268,6 +288,7 @@ export const CampaignWizardModal = ({
       // Silent fail
     } finally {
       setIsSuggestingProduct(false);
+      isLoadingServicesRef.current = false;
     }
   };
 
