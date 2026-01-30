@@ -222,6 +222,12 @@ export const ScheduledPostModal = ({
     const defaultVoice = getDefaultVoiceForLanguage(selectedLanguage);
     setSelectedVoice(defaultVoice);
     
+    // Reset expand states when post changes
+    setExpandPrompt(false);
+    setExpandContent(false);
+    setIsEditingPrompt(false);
+    setIsEditingContent(false);
+    
     // Fetch project context for brand-aware generation
     const fetchProjectContext = async () => {
       if (!post?.project_id) return;
@@ -991,14 +997,14 @@ export const ScheduledPostModal = ({
   // Modal content shared between Dialog and Drawer
   const ModalContent = () => (
     <>
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
         <TabsList className="grid w-full grid-cols-3 shrink-0">
           <TabsTrigger value="details" className="text-xs sm:text-sm">Details</TabsTrigger>
           <TabsTrigger value="platforms" className="text-xs sm:text-sm">Platforms</TabsTrigger>
           <TabsTrigger value="models" className="text-xs sm:text-sm">AI</TabsTrigger>
         </TabsList>
 
-        <ScrollArea className="flex-1 mt-4">
+        <ScrollArea className="flex-1 mt-4 min-h-0" style={{ maxHeight: "calc(70vh - 150px)" }}>
           <TabsContent value="details" className="space-y-4 m-0 px-1">
             {/* Media Preview - Show from local state or post prop */}
             {(localMediaUrl || post.media_url || post.thumbnail_url) && (
@@ -1559,7 +1565,7 @@ export const ScheduledPostModal = ({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col" aria-describedby={undefined}>
+        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>
               <HeaderContent />
