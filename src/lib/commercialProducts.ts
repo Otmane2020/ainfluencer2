@@ -379,24 +379,58 @@ export interface QualityLevel {
 
 export const IMAGE_QUALITY_LEVELS: QualityLevel[] = [
   {
-    id: "pro-image",
-    name: "Pro Image",
+    id: "fast-image",
+    name: "Fast Image",
     internalModel: "gemini-flash-image",
-    price: 2.00,
-    description: "Professional AI image generation",
-    features: ["Ultra HD", "Photorealistic", "All styles", "Fast generation"],
+    price: 1.00,
+    description: "Quick AI image generation",
+    features: ["HD Quality", "Fast generation", "All styles"],
+  },
+  {
+    id: "medium-image",
+    name: "Medium Image",
+    internalModel: "nano-banana-image",
+    price: 3.00,
+    description: "Balanced quality and speed",
+    features: ["Ultra HD", "Enhanced details", "All styles"],
+  },
+  {
+    id: "high-image",
+    name: "High Image",
+    internalModel: "gemini-pro-image",
+    price: 5.00,
+    description: "Premium AI image generation",
+    features: ["4K Quality", "Photorealistic", "Premium rendering"],
   },
 ];
 
 export const VIDEO_QUALITY_LEVELS: QualityLevel[] = [
   {
-    id: "pro-video",
-    name: "Pro Video",
+    id: "fast-video",
+    name: "Fast Video",
+    internalModel: "sora",
+    price: 5.00,
+    description: "Quick AI video generation",
+    features: ["HD 720p", "10s max", "AI Voice included"],
+    supportedDurations: [4, 5, 8, 10],
+  },
+  {
+    id: "medium-video",
+    name: "Medium Video",
     internalModel: "sora-2",
-    price: 12.90,
+    price: 10.00,
     description: "Professional AI video generation",
-    features: ["Full HD 1080p", "4-20s", "AI Voice included", "Smooth motion"],
+    features: ["Full HD 1080p", "20s max", "AI Voice included"],
     supportedDurations: [4, 5, 8, 10, 12, 15, 20],
+  },
+  {
+    id: "high-video",
+    name: "High Video",
+    internalModel: "nano-banana",
+    price: 20.00,
+    description: "Premium cinematic AI video",
+    features: ["Full HD 1080p", "30s max", "Premium quality"],
+    supportedDurations: [5, 10, 15, 20, 30],
   },
 ];
 
@@ -433,24 +467,26 @@ export interface CommercialProduct {
 }
 
 export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
+  // Images - 3 tiers
   ...IMAGE_QUALITY_LEVELS.map((q, i) => ({
     id: q.id,
     name: q.name,
     category: "image" as const,
-    tier: "pro" as CommercialProduct["tier"],
+    tier: (i === 0 ? "standard" : i === 1 ? "pro" : "cinema") as CommercialProduct["tier"],
     salePrice: q.price,
     salePriceUnit: "/image",
     description: q.description,
     features: q.features,
     internalModels: [q.internalModel],
     needsVoice: false,
-    popular: true,
+    popular: i === 1, // Medium is popular
   })),
-  ...VIDEO_QUALITY_LEVELS.map((q) => ({
+  // Videos - 3 tiers
+  ...VIDEO_QUALITY_LEVELS.map((q, i) => ({
     id: q.id,
     name: q.name,
     category: "video" as const,
-    tier: "pro" as CommercialProduct["tier"],
+    tier: (i === 0 ? "standard" : i === 1 ? "pro" : "cinema") as CommercialProduct["tier"],
     salePrice: q.price,
     salePriceUnit: "/video",
     description: q.description,
@@ -458,7 +494,7 @@ export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
     internalModels: [q.internalModel],
     needsVoice: true,
     supportedDurations: q.supportedDurations || [5, 10],
-    popular: true,
+    popular: i === 1, // Medium is popular
   })),
 ];
 
