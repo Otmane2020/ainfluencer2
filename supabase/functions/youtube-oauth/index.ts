@@ -56,20 +56,20 @@ Deno.serve(async (req) => {
       userId = user.id;
     }
 
-    // Get redirect URI from referer or use default
+    // Get redirect URI - NO query params (YouTube requirement)
     const referer = req.headers.get("referer") || req.headers.get("origin") || "";
     const origin = referer ? new URL(referer).origin : "https://ainfluencer2.lovable.app";
-    const redirectUri = `${SUPABASE_URL}/functions/v1/youtube-oauth?action=callback`;
+    const redirectUri = `${SUPABASE_URL}/functions/v1/youtube-oauth`;
 
     // ========== AUTHORIZE ==========
     if (action === "authorize") {
       // Generate state with user ID for callback
       const state = btoa(JSON.stringify({ userId, origin }));
       
+      // Only request scopes we actually use
       const scopes = [
         "https://www.googleapis.com/auth/youtube.upload",
         "https://www.googleapis.com/auth/youtube.readonly",
-        "https://www.googleapis.com/auth/userinfo.profile",
       ].join(" ");
 
       const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
@@ -89,21 +89,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ========== CALLBACK ==========
-    if (action === "callback") {
-      const code = url.searchParams.get("code");
-      const stateParam = url.searchParams.get("state");
+    // ========== CALLBACK (detect via code param, not action) ==========
+    const code = url.searchParams.get("code");
+    const stateParam = url.searchParams.get("state");
+    
+    if (code && stateParam) {
       const error = url.searchParams.get("error");
 
       if (error) {
         console.error("[youtube-oauth] OAuth error:", error);
         return new Response(generateCallbackHtml({ error }), {
-          headers: { ...corsHeaders, "Content-Type": "text/html" },
-        });
-      }
-
-      if (!code || !stateParam) {
-        return new Response(generateCallbackHtml({ error: "Missing code or state" }), {
           headers: { ...corsHeaders, "Content-Type": "text/html" },
         });
       }
@@ -114,6 +109,13 @@ Deno.serve(async (req) => {
         stateData = JSON.parse(atob(stateParam));
       } catch {
         return new Response(generateCallbackHtml({ error: "Invalid state" }), {
+          headers: { ...corsHeaders, "Content-Type": "text/html" },
+        });
+      }
+
+      // Validate state payload has required userId
+      if (!stateData.userId) {
+        return new Response(generateCallbackHtml({ error: "Invalid state payload" }), {
           headers: { ...corsHeaders, "Content-Type": "text/html" },
         });
       }
@@ -166,10 +168,14 @@ Deno.serve(async (req) => {
 
       console.log(`[youtube-oauth] Channel found: ${channelName} (${channelId})`);
 
-      // Calculate expiry
-      const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
+      // Calculate expiry with fallback
+      const expiresAt = new Date(Date.now() + (tokens.expires_in ?? 3600) * 1000).toISOString();
 
-      // Save to database
+      // Safe refresh token handling - don't overwrite if not provided
+      // Google only returns refresh_token on first consent
+      const refreshToken = tokens.refresh_token || undefined;
+
+      // Save to database - undefined values won't overwrite existing data
       const { error: upsertError } = await supabaseAdmin
         .from("youtube_connections")
         .upsert({
@@ -178,7 +184,7 @@ Deno.serve(async (req) => {
           channel_name: channelName,
           channel_picture_url: channelPictureUrl,
           access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token,
+          refresh_token: refreshToken,
           expires_at: expiresAt,
           updated_at: new Date().toISOString(),
         }, { onConflict: "user_id" });
