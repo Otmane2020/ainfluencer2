@@ -32,8 +32,11 @@ Deno.serve(async (req) => {
     }
 
     // Get user from auth header
+    // ✅ FIX: OAuth callback has NO auth header - detect via ?code param
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader && action !== "callback") {
+    const hasCode = url.searchParams.has("code");
+    
+    if (!authHeader && !hasCode) {
       return new Response(
         JSON.stringify({ error: "Authorization required" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
