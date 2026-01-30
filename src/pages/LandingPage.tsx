@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -5,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PricingPacks } from "@/components/PricingPacks";
 import { TrustedByCarousel } from "@/components/TrustedByCarousel";
 import { SocialPlatformIcons } from "@/components/SocialPlatformIcons";
+import { supabase } from "@/integrations/supabase/client";
 
 import { MobileStickyCta } from "@/components/MobileStickyeCTA";
 import {
@@ -145,6 +147,26 @@ const stats = [
 
 const LandingPage = () => {
   const navigate = useNavigate();
+
+  // Redirect authenticated users to dashboard (handles OAuth callback)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (session?.user) {
+          navigate("/dashboard");
+        }
+      }
+    );
+
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        navigate("/dashboard");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
 
   return (
     <div className="min-h-screen bg-background">
