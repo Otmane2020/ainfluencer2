@@ -221,12 +221,13 @@ serve(async (req) => {
 
     console.log("[scrape-project-url] Scraping URL:", formattedUrl);
 
-    // Try scraping with retry and different options
+    // Try scraping with latest Firecrawl v1 API
     let data: any = null;
     let lastError: string | null = null;
 
-    // Attempt 1: Standard scrape with main content
+    // Attempt 1: Standard scrape with main content + branding
     try {
+      console.log("[scrape-project-url] Attempt 1: Standard scrape with branding");
       const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
         method: "POST",
         headers: {
@@ -237,7 +238,8 @@ serve(async (req) => {
           url: formattedUrl,
           formats: ["markdown", "branding"],
           onlyMainContent: true,
-          waitFor: 3000, // Wait for JS to load
+          waitFor: 3000,
+          timeout: 30000,
         }),
       });
 
@@ -257,7 +259,7 @@ serve(async (req) => {
     // Attempt 2: Try without onlyMainContent if first failed
     if (!data) {
       try {
-        console.log("[scrape-project-url] Trying second attempt without onlyMainContent");
+        console.log("[scrape-project-url] Attempt 2: Full page scrape");
         const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
           method: "POST",
           headers: {
@@ -269,6 +271,7 @@ serve(async (req) => {
             formats: ["markdown"],
             onlyMainContent: false,
             waitFor: 5000,
+            timeout: 45000,
           }),
         });
 
@@ -297,32 +300,47 @@ serve(async (req) => {
 
     console.log("[scrape-project-url] Scrape successful");
 
+    // Access data correctly from Firecrawl v1 response (nested in data.data)
+    const responseData = data.data || data;
+    const markdown = responseData?.markdown || "";
+    const metadata = responseData?.metadata || {};
+    const branding = responseData?.branding || null;
+
     // Combine all text content for language detection
     const textForDetection = [
-      data.data?.metadata?.title || "",
-      data.data?.metadata?.description || "",
-      data.data?.markdown?.substring(0, 2000) || "",
+      metadata?.title || "",
+      metadata?.description || "",
+      markdown.substring(0, 2000) || "",
     ].join(" ");
 
     const detectedLanguage = detectLanguage(textForDetection, formattedUrl);
     console.log("[scrape-project-url] Detected language:", detectedLanguage);
 
     // Extract services/features from markdown content
-    const markdown = data.data?.markdown || "";
     const extractedServices = extractServicesFromMarkdown(markdown);
     console.log("[scrape-project-url] Extracted services:", extractedServices);
+
+    // Extract branding assets with fallbacks
+    const logoUrl = branding?.images?.logo || branding?.logo || null;
+    const colors = branding?.colors || null;
+    const favicon = branding?.images?.favicon || null;
+
+    console.log("[scrape-project-url] Branding - Logo:", logoUrl, "Colors:", colors ? "found" : "none");
 
     // Extract relevant info for project context
     const scrapedData = {
       success: true,
-      title: data.data?.metadata?.title || "",
-      description: data.data?.metadata?.description || "",
+      title: metadata?.title || "",
+      description: metadata?.description || "",
       markdown: markdown,
-      branding: data.data?.branding || null,
-      logo: data.data?.branding?.images?.logo || data.data?.branding?.logo || null,
-      colors: data.data?.branding?.colors || null,
+      branding: branding,
+      logo: logoUrl,
+      favicon: favicon,
+      colors: colors,
       detectedLanguage: detectedLanguage,
       services: extractedServices,
+      sourceURL: metadata?.sourceURL || formattedUrl,
+      statusCode: metadata?.statusCode || 200,
     };
 
     return new Response(
