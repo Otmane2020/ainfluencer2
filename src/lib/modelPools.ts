@@ -43,32 +43,32 @@ export const VIDEO_MODEL_POOLS: Record<string, ModelOption[]> = {
 };
 
 // ============================================================
-// IMAGE MODEL POOLS (via Lovable AI)
-// Standard: Gemini Flash | Pro: Gemini Flash | Cinema: Gemini Pro
+// IMAGE MODEL POOLS (via CometAPI - Flux.1 Pro/Dev/Schnell)
+// Best for text rendering in images (URLs, overlay text)
 // ============================================================
 
 export const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
-  // Standard Image - Gemini Flash (fast, affordable)
+  // Standard Image - Flux Schnell (fast, affordable)
   "standard-image": [
-    { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", costEstimate: 0.01 },
+    { id: "flux-schnell", provider: "lovable", weight: 100, apiModel: "flux-schnell", costEstimate: 0.01 },
   ],
-  // Pro Image - Gemini Flash (high quality)
+  // Pro Image - Flux Dev (high quality)
   "pro-image": [
-    { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", costEstimate: 0.02 },
+    { id: "flux-dev", provider: "lovable", weight: 100, apiModel: "flux-dev", costEstimate: 0.02 },
   ],
-  // Cinema Image - Gemini Pro (premium)
+  // Cinema Image - Flux Pro (premium, best text rendering)
   "cinema-image": [
-    { id: "gemini-pro-image", provider: "lovable", weight: 100, apiModel: "google/gemini-3-pro-image-preview", costEstimate: 0.05 },
+    { id: "flux-pro", provider: "lovable", weight: 100, apiModel: "flux-pro", costEstimate: 0.05 },
   ],
   // Legacy support
   "smart-image": [
-    { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", costEstimate: 0.01 },
+    { id: "flux-schnell", provider: "lovable", weight: 100, apiModel: "flux-schnell", costEstimate: 0.01 },
   ],
   "high-image": [
-    { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", costEstimate: 0.02 },
+    { id: "flux-dev", provider: "lovable", weight: 100, apiModel: "flux-dev", costEstimate: 0.02 },
   ],
   "studio-image": [
-    { id: "gemini-pro-image", provider: "lovable", weight: 100, apiModel: "google/gemini-3-pro-image-preview", costEstimate: 0.05 },
+    { id: "flux-pro", provider: "lovable", weight: 100, apiModel: "flux-pro", costEstimate: 0.05 },
   ],
 };
 

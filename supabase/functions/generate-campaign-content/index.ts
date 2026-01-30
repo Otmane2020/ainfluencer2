@@ -45,42 +45,81 @@ const MARKETING_ANGLES = [
 const BANNED_CLICHES = ["laptop in café", "person smiling at phone", "man in suit with graph", "rocket launch growth"];
 
 // ============================================================
-// CORE FUNCTIONS
+// CORE FUNCTIONS - CometAPI with Flux.1 Pro
 // ============================================================
 
-async function generateAndUploadImage(prompt: string, format: string, LOVABLE_API_KEY: string, supabase: any): Promise<string | null> {
+async function generateAndUploadImage(prompt: string, format: string, supabase: any): Promise<string | null> {
+  const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  
   try {
-    let aspect = "1:1";
-    if (format === "reel" || format === "story") aspect = "9:16";
-    else if (format === "landscape") aspect = "16:9";
+    let size = "1024x1024";
+    if (format === "reel" || format === "story") size = "768x1344";
+    else if (format === "landscape") size = "1344x768";
 
-    const enhancedPrompt = `${prompt}. Professional photography, high-end advertising style, aspect ratio ${aspect}.`;
-    console.log("[Image Gen] Generating with prompt:", enhancedPrompt.slice(0, 100) + "...");
+    const enhancedPrompt = `${prompt}. Professional photography, high-end advertising style.`;
+    console.log("[Image Gen] Generating with CometAPI Flux Pro:", enhancedPrompt.slice(0, 100) + "...");
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3-pro-image-preview",
-        messages: [{ role: "user", content: enhancedPrompt }],
-        modalities: ["image"],
-      }),
-    });
+    let imageBase64: string | null = null;
 
-    if (!response.ok) {
-      console.error("[Image Gen] API error:", response.status);
+    // Try CometAPI first (Flux.1 Pro - best for text rendering)
+    if (COMETAPI_API_KEY) {
+      const response = await fetch("https://api.cometapi.com/v1/images/generations", {
+        method: "POST",
+        headers: { 
+          "Authorization": `Bearer ${COMETAPI_API_KEY}`, 
+          "Content-Type": "application/json" 
+        },
+        body: JSON.stringify({
+          model: "flux-pro",
+          prompt: enhancedPrompt,
+          n: 1,
+          size: size,
+          response_format: "b64_json",
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        imageBase64 = data.data?.[0]?.b64_json;
+        if (imageBase64) {
+          console.log("[Image Gen] CometAPI Flux Pro success");
+        }
+      } else {
+        console.warn("[Image Gen] CometAPI failed:", response.status);
+      }
+    }
+
+    // Fallback to Lovable AI if CometAPI fails
+    if (!imageBase64 && LOVABLE_API_KEY) {
+      console.log("[Image Gen] Falling back to Lovable AI...");
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-3-pro-image-preview",
+          messages: [{ role: "user", content: enhancedPrompt }],
+          modalities: ["image"],
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        if (imageData) {
+          imageBase64 = imageData.replace(/^data:image\/\w+;base64,/, "");
+          console.log("[Image Gen] Lovable AI fallback success");
+        }
+      }
+    }
+
+    if (!imageBase64) {
+      console.error("[Image Gen] All providers failed");
       return null;
     }
 
-    const data = await response.json();
-    const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    if (!imageData) {
-      console.error("[Image Gen] No image in response");
-      return null;
-    }
-
-    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
-    const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+    // Upload to Supabase Storage
+    const imageBytes = Uint8Array.from(atob(imageBase64), (c) => c.charCodeAt(0));
     const fileName = `campaign-gen/${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
 
     const { error: uploadError } = await supabase.storage.from("media").upload(fileName, imageBytes, { contentType: "image/png" });
@@ -247,10 +286,10 @@ Return ONLY valid JSON:
         continue;
       }
 
-      // 5. Image Generation (for non-video posts)
+      // 5. Image Generation (for non-video posts) - CometAPI Flux Pro
       let mediaUrl = null;
       if (!isVideo) {
-        mediaUrl = await generateAndUploadImage(parsed.aiPrompt, effectiveFormat, LOVABLE_API_KEY, supabase);
+        mediaUrl = await generateAndUploadImage(parsed.aiPrompt, effectiveFormat, supabase);
       }
 
       // 6. Scheduling
