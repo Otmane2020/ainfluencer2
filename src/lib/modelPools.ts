@@ -15,48 +15,59 @@ export interface ModelOption {
 }
 
 // ============================================================
-// VIDEO MODEL POOLS (via Replicate)
-// ============================================================
-
-// ============================================================
-// VIDEO MODEL POOLS - Unified Sora-2 for all tiers
+// VIDEO MODEL POOLS (via Replicate/CometAPI)
+// Fast: Sora Pro | Medium: Sora 2 Pro (20s) | High: Nano Banana
 // ============================================================
 
 export const VIDEO_MODEL_POOLS: Record<string, ModelOption[]> = {
-  // Pro Video - Sora-2 (4-20s)
+  // Standard Video - Sora Pro (fast, 10s max)
+  "standard-video": [
+    { id: "sora-pro", provider: "replicate", weight: 100, apiModel: "sora-2", maxDuration: 10, costEstimate: 0.48 },
+  ],
+  // Pro Video - Sora 2 Pro (high quality, 20s)
   "pro-video": [
-    { id: "sora-2", provider: "replicate", weight: 100, apiModel: "sora-2", maxDuration: 20, costEstimate: 0.96 },
+    { id: "sora-2-pro", provider: "replicate", weight: 100, apiModel: "sora-2", maxDuration: 20, costEstimate: 0.96 },
+  ],
+  // Cinema Video - Nano Banana (premium quality)
+  "cinema-video": [
+    { id: "nano-banana-video", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", maxDuration: 10, costEstimate: 0.05 },
   ],
   // Legacy support
   "smart-video": [
-    { id: "sora-2", provider: "replicate", weight: 100, apiModel: "sora-2", maxDuration: 20, costEstimate: 0.96 },
+    { id: "sora-pro", provider: "replicate", weight: 100, apiModel: "sora-2", maxDuration: 10, costEstimate: 0.48 },
   ],
   "high-video": [
-    { id: "sora-2", provider: "replicate", weight: 100, apiModel: "sora-2", maxDuration: 20, costEstimate: 0.96 },
-  ],
-  "cinema-video": [
-    { id: "sora-2", provider: "replicate", weight: 100, apiModel: "sora-2", maxDuration: 20, costEstimate: 0.96 },
+    { id: "sora-2-pro", provider: "replicate", weight: 100, apiModel: "sora-2", maxDuration: 20, costEstimate: 0.96 },
   ],
 };
 
 // ============================================================
-// IMAGE MODEL POOLS - Unified Gemini Flash
+// IMAGE MODEL POOLS
+// Standard: Gemini Flash | Pro: Nano Banana | Cinema: Gemini Pro
 // ============================================================
 
 export const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
-  // Pro Image - Gemini 2.5 Flash
-  "pro-image": [
+  // Standard Image - Gemini Flash (fast, affordable)
+  "standard-image": [
     { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", costEstimate: 0.01 },
+  ],
+  // Pro Image - Nano Banana (high quality)
+  "pro-image": [
+    { id: "nano-banana-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", costEstimate: 0.02 },
+  ],
+  // Cinema Image - Gemini Pro (premium)
+  "cinema-image": [
+    { id: "gemini-pro-image", provider: "lovable", weight: 100, apiModel: "google/gemini-3-pro-image-preview", costEstimate: 0.05 },
   ],
   // Legacy support
   "smart-image": [
     { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", costEstimate: 0.01 },
   ],
   "high-image": [
-    { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", costEstimate: 0.01 },
+    { id: "nano-banana-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", costEstimate: 0.02 },
   ],
   "studio-image": [
-    { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", costEstimate: 0.01 },
+    { id: "gemini-pro-image", provider: "lovable", weight: 100, apiModel: "google/gemini-3-pro-image-preview", costEstimate: 0.05 },
   ],
 };
 

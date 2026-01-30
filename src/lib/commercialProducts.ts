@@ -32,8 +32,8 @@ export interface QualityTierConfig {
 export const QUALITY_TIERS: Record<QualityTier, QualityTierConfig> = {
   standard: {
     id: "standard",
-    name: "Standard",
-    description: "Fast & affordable",
+    name: "Fast",
+    description: "Sora Pro • Quick",
     icon: "⚡",
     gradient: "from-slate-500 to-zinc-600",
     costs: {
@@ -43,14 +43,14 @@ export const QUALITY_TIERS: Record<QualityTier, QualityTierConfig> = {
     },
     models: {
       image: "gemini-flash-image",
-      video: "kling-video",
-      reel: "kling-video",
+      video: "sora-pro",
+      reel: "sora-pro",
     },
   },
   pro: {
     id: "pro",
-    name: "Pro",
-    description: "High quality",
+    name: "Medium",
+    description: "Sora 2 Pro • 20s",
     icon: "✨",
     gradient: "from-blue-500 to-indigo-600",
     costs: {
@@ -59,15 +59,15 @@ export const QUALITY_TIERS: Record<QualityTier, QualityTierConfig> = {
       reel: 8,
     },
     models: {
-      image: "flux-2-pro",
-      video: "sora-2",
-      reel: "sora-2",
+      image: "nano-banana-image",
+      video: "sora-2-pro",
+      reel: "sora-2-pro",
     },
   },
   cinema: {
     id: "cinema",
-    name: "Cinema",
-    description: "Premium quality",
+    name: "High",
+    description: "Nano Banana • Premium",
     icon: "🎬",
     gradient: "from-amber-500 to-orange-600",
     costs: {
@@ -76,9 +76,9 @@ export const QUALITY_TIERS: Record<QualityTier, QualityTierConfig> = {
       reel: 15,
     },
     models: {
-      image: "gpt-image-1",
-      video: "sora-2-pro",
-      reel: "sora-2-pro",
+      image: "gemini-pro-image",
+      video: "nano-banana-video",
+      reel: "nano-banana-video",
     },
   },
 };
