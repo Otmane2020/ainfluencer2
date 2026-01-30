@@ -31,35 +31,35 @@ function getCreditCost(quality: string): number {
 }
 
 // ============================================================
-// MODEL POOL CONFIGURATION - All via Lovable AI
+// MODEL POOL CONFIGURATION - CometAPI with Flux.1 Pro
 // ============================================================
 
 interface ModelOption {
   id: string;
-  provider: "lovable";
+  provider: "cometapi" | "lovable";
   weight: number;
   apiModel: string;
 }
 
 const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
   standard: [
-    { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image" },
+    { id: "flux-schnell", provider: "cometapi", weight: 100, apiModel: "flux-schnell" },
   ],
   pro: [
-    { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image" },
+    { id: "flux-dev", provider: "cometapi", weight: 100, apiModel: "flux-dev" },
   ],
   cinema: [
-    { id: "gemini-pro-image", provider: "lovable", weight: 100, apiModel: "google/gemini-3-pro-image-preview" },
+    { id: "flux-pro", provider: "cometapi", weight: 100, apiModel: "flux-pro" },
   ],
   // Legacy mappings
   "smart-image": [
-    { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image" },
+    { id: "flux-schnell", provider: "cometapi", weight: 100, apiModel: "flux-schnell" },
   ],
   "high-image": [
-    { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image" },
+    { id: "flux-dev", provider: "cometapi", weight: 100, apiModel: "flux-dev" },
   ],
   "studio-image": [
-    { id: "gemini-pro-image", provider: "lovable", weight: 100, apiModel: "google/gemini-3-pro-image-preview" },
+    { id: "flux-pro", provider: "cometapi", weight: 100, apiModel: "flux-pro" },
   ],
 };
 
@@ -204,9 +204,72 @@ const TONE_CONTEXT: Record<string, string> = {
 };
 
 // ============================================================
-// LOVABLE AI IMAGE GENERATION (Nano Banana)
+// COMETAPI IMAGE GENERATION (Flux.1 Pro/Dev/Schnell)
+// Best for text rendering in images (URLs, overlay text)
 // ============================================================
 
+async function generateWithCometAPI(
+  prompt: string,
+  model: string,
+  aspectRatio: string = "1:1"
+): Promise<{ imageData: string | null; error?: string }> {
+  const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
+  if (!COMETAPI_API_KEY) {
+    console.error("[CometAPI] No API key configured, falling back to Lovable AI");
+    return generateWithLovableAI(prompt, "google/gemini-3-pro-image-preview");
+  }
+
+  try {
+    console.log(`[CometAPI] Generating image with model: ${model}, aspect: ${aspectRatio}`);
+
+    const response = await fetch("https://api.cometapi.com/v1/images/generations", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${COMETAPI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: model,
+        prompt: prompt,
+        n: 1,
+        size: aspectRatio === "9:16" ? "768x1344" : aspectRatio === "16:9" ? "1344x768" : "1024x1024",
+        response_format: "b64_json",
+      }),
+    });
+
+    if (!response.ok) {
+      const status = response.status;
+      const errorText = await response.text();
+      console.error(`[CometAPI] Error ${status}:`, errorText.slice(0, 300));
+
+      if (status === 429) {
+        return { imageData: null, error: "Rate limit exceeded. Please try again later." };
+      }
+      if (status === 402 || status === 401) {
+        return { imageData: null, error: "CometAPI authentication failed. Check API key." };
+      }
+      return { imageData: null, error: `CometAPI error: ${status}` };
+    }
+
+    const data = await response.json();
+    const base64Image = data.data?.[0]?.b64_json;
+
+    if (!base64Image) {
+      console.error("[CometAPI] No image in response:", JSON.stringify(data).slice(0, 200));
+      return { imageData: null, error: "No image generated" };
+    }
+
+    // Return as data URL
+    const imageData = `data:image/png;base64,${base64Image}`;
+    console.log("[CometAPI] Image generated successfully");
+    return { imageData };
+  } catch (error) {
+    console.error("[CometAPI] Exception:", error);
+    return { imageData: null, error: String(error) };
+  }
+}
+
+// Fallback to Lovable AI if CometAPI fails
 async function generateWithLovableAI(
   prompt: string,
   model: string
@@ -217,7 +280,7 @@ async function generateWithLovableAI(
   }
 
   try {
-    console.log(`[LovableAI] Generating image with model: ${model}`);
+    console.log(`[LovableAI] Fallback - Generating image with model: ${model}`);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -236,13 +299,6 @@ async function generateWithLovableAI(
       const status = response.status;
       const errorText = await response.text();
       console.error(`[LovableAI] Error ${status}:`, errorText.slice(0, 200));
-
-      if (status === 429) {
-        return { imageData: null, error: "Rate limit exceeded. Please try again later." };
-      }
-      if (status === 402) {
-        return { imageData: null, error: "Credits required. Please add credits to continue." };
-      }
       return { imageData: null, error: "Image generation failed" };
     }
 
@@ -262,35 +318,39 @@ async function generateWithLovableAI(
 }
 
 // ============================================================
-// FALLBACK GENERATION
+// FALLBACK GENERATION - CometAPI primary, Lovable AI fallback
 // ============================================================
 
 async function generateWithFallback(
   prompt: string,
   selectedModel: ModelOption,
-  qualityId: string
+  qualityId: string,
+  aspectRatio: string = "1:1"
 ): Promise<{ imageData: string | null; error?: string; usedModel: ModelOption }> {
-  const result = await generateWithLovableAI(prompt, selectedModel.apiModel);
-  
-  if (result.imageData) {
-    return { ...result, usedModel: selectedModel };
-  }
-  
-  console.log(`[Fallback] Primary model ${selectedModel.id} failed, trying fallback...`);
-  const pool = IMAGE_MODEL_POOLS[qualityId] || IMAGE_MODEL_POOLS["standard"];
-  const fallbackModels = pool.filter(m => m.id !== selectedModel.id);
-  
-  for (const fallbackModel of fallbackModels) {
-    console.log(`[Fallback] Trying ${fallbackModel.id}...`);
-    const fallbackResult = await generateWithLovableAI(prompt, fallbackModel.apiModel);
-    
-    if (fallbackResult.imageData) {
-      console.log(`[Fallback] Success with ${fallbackModel.id}`);
-      return { ...fallbackResult, usedModel: fallbackModel };
+  // Try CometAPI first (Flux models)
+  if (selectedModel.provider === "cometapi") {
+    const result = await generateWithCometAPI(prompt, selectedModel.apiModel, aspectRatio);
+    if (result.imageData) {
+      return { ...result, usedModel: selectedModel };
     }
+    console.log(`[Fallback] CometAPI ${selectedModel.id} failed, trying Lovable AI...`);
   }
   
-  return { imageData: null, error: result.error || "All models failed", usedModel: selectedModel };
+  // Fallback to Lovable AI (Gemini)
+  const fallbackModel: ModelOption = {
+    id: "gemini-pro-image",
+    provider: "lovable",
+    weight: 100,
+    apiModel: "google/gemini-3-pro-image-preview"
+  };
+  
+  const fallbackResult = await generateWithLovableAI(prompt, fallbackModel.apiModel);
+  if (fallbackResult.imageData) {
+    console.log(`[Fallback] Success with Lovable AI Gemini`);
+    return { ...fallbackResult, usedModel: fallbackModel };
+  }
+  
+  return { imageData: null, error: fallbackResult.error || "All models failed", usedModel: selectedModel };
 }
 
 // ============================================================
@@ -558,11 +618,15 @@ LOGO SPACE REQUIREMENT (MANDATORY):
 
     console.log("Final prompt length:", finalPrompt.length);
 
-    // Generate image
+    // Determine aspect ratio for CometAPI
+    const effectiveAspect = aspectRatio || (format === "vertical" ? "9:16" : format === "landscape" ? "16:9" : "1:1");
+
+    // Generate image with CometAPI (Flux) primary, Lovable AI fallback
     const { imageData, error, usedModel } = await generateWithFallback(
       finalPrompt,
       selectedModel,
-      effectiveQuality
+      effectiveQuality,
+      effectiveAspect
     );
 
     if (!imageData) {
