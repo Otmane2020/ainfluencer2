@@ -1,8 +1,8 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 // ============================================================
@@ -188,9 +188,49 @@ function extractServicesFromMarkdown(markdown: string): string[] {
   return cleanedServices;
 }
 
+// Generate fallback data when Firecrawl fails
+function generateFallbackFromUrl(url: string): {
+  title: string;
+  description: string;
+  detectedLanguage: string;
+  services: string[];
+} {
+  try {
+    const parsedUrl = new URL(url);
+    const hostname = parsedUrl.hostname.replace(/^www\./, "");
+    const domain = hostname.split(".")[0];
+    
+    // Capitalize domain name as title
+    const title = domain.charAt(0).toUpperCase() + domain.slice(1);
+    
+    // Detect language from TLD
+    let detectedLanguage = "en";
+    for (const [tld, lang] of Object.entries(TLD_LANG_MAP)) {
+      if (hostname.includes(tld.replace(".", ""))) {
+        detectedLanguage = lang;
+        break;
+      }
+    }
+    
+    return {
+      title,
+      description: `Website: ${hostname}`,
+      detectedLanguage,
+      services: [], // Empty - user will add manually
+    };
+  } catch {
+    return {
+      title: "Website",
+      description: "",
+      detectedLanguage: "en",
+      services: [],
+    };
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
@@ -206,9 +246,19 @@ serve(async (req) => {
     const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
     if (!apiKey) {
       console.error("FIRECRAWL_API_KEY not configured");
+      // Return fallback data instead of error
+      const fallback = generateFallbackFromUrl(url);
       return new Response(
-        JSON.stringify({ success: false, error: "Firecrawl connector not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ 
+          success: true, 
+          ...fallback,
+          markdown: "",
+          branding: null,
+          logo: null,
+          colors: null,
+          fallback: true,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -218,35 +268,93 @@ serve(async (req) => {
       formattedUrl = `https://${formattedUrl}`;
     }
 
-    console.log("Scraping URL:", formattedUrl);
+    console.log("[scrape-project-url] Scraping URL:", formattedUrl);
 
-    const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        url: formattedUrl,
-        formats: ["markdown", "branding"],
-        onlyMainContent: true,
-      }),
-    });
+    // Try scraping with retry and different options
+    let data: any = null;
+    let lastError: string | null = null;
 
-    const data = await response.json();
+    // Attempt 1: Standard scrape with main content
+    try {
+      const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url: formattedUrl,
+          formats: ["markdown", "branding"],
+          onlyMainContent: true,
+          waitFor: 3000, // Wait for JS to load
+        }),
+      });
 
-    if (!response.ok) {
-      console.error("Firecrawl API error:", data);
+      const result = await response.json();
+      if (response.ok && result.success) {
+        data = result;
+        console.log("[scrape-project-url] First attempt successful");
+      } else {
+        lastError = result.error || `Status ${response.status}`;
+        console.log("[scrape-project-url] First attempt failed:", lastError);
+      }
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : "Network error";
+      console.log("[scrape-project-url] First attempt exception:", lastError);
+    }
+
+    // Attempt 2: Try without onlyMainContent if first failed
+    if (!data) {
+      try {
+        console.log("[scrape-project-url] Trying second attempt without onlyMainContent");
+        const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            url: formattedUrl,
+            formats: ["markdown"],
+            onlyMainContent: false,
+            waitFor: 5000,
+          }),
+        });
+
+        const result = await response.json();
+        if (response.ok && result.success) {
+          data = result;
+          console.log("[scrape-project-url] Second attempt successful");
+        } else {
+          lastError = result.error || `Status ${response.status}`;
+          console.log("[scrape-project-url] Second attempt failed:", lastError);
+        }
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : "Network error";
+        console.log("[scrape-project-url] Second attempt exception:", lastError);
+      }
+    }
+
+    // If all attempts failed, return fallback data
+    if (!data) {
+      console.log("[scrape-project-url] All attempts failed, returning fallback");
+      const fallback = generateFallbackFromUrl(formattedUrl);
       return new Response(
         JSON.stringify({ 
-          success: false, 
-          error: data.error || `Request failed with status ${response.status}` 
+          success: true, 
+          ...fallback,
+          markdown: "",
+          branding: null,
+          logo: null,
+          colors: null,
+          fallback: true,
+          scrapeError: lastError,
         }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("Scrape successful");
+    console.log("[scrape-project-url] Scrape successful");
 
     // Combine all text content for language detection
     const textForDetection = [
@@ -256,12 +364,12 @@ serve(async (req) => {
     ].join(" ");
 
     const detectedLanguage = detectLanguage(textForDetection, formattedUrl);
-    console.log("[SCRAPE] Detected language:", detectedLanguage);
+    console.log("[scrape-project-url] Detected language:", detectedLanguage);
 
     // Extract services/features from markdown content
     const markdown = data.data?.markdown || "";
     const extractedServices = extractServicesFromMarkdown(markdown);
-    console.log("[SCRAPE] Extracted services:", extractedServices);
+    console.log("[scrape-project-url] Extracted services:", extractedServices);
 
     // Extract relevant info for project context
     const scrapedData = {
@@ -281,11 +389,21 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Error scraping:", error);
-    const errorMessage = error instanceof Error ? error.message : "Failed to scrape";
+    console.error("[scrape-project-url] Error:", error);
+    // Return fallback instead of error
+    const fallback = generateFallbackFromUrl("");
     return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ 
+        success: true, 
+        ...fallback,
+        markdown: "",
+        branding: null,
+        logo: null,
+        colors: null,
+        fallback: true,
+        scrapeError: error instanceof Error ? error.message : "Unknown error",
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
