@@ -485,36 +485,26 @@ export const ImageDetailModal = ({
                     <Send className="h-4 w-4" />
                     Publish directly
                   </h4>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 gap-2">
                     <Button
                       variant="default"
-                      className="gap-2 h-10"
+                      className="gap-2 h-10 w-full"
                       onClick={handlePublishAsImage}
-                      disabled={isPublishingImage || isPublishingReel || !imageUrl}
+                      disabled={isPublishingImage || !imageUrl}
                     >
                       {isPublishingImage ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <ImageIcon className="h-4 w-4" />
                       )}
-                      Post Image
-                    </Button>
-                    <Button
-                      variant="default"
-                      className="gap-2 h-10 bg-gradient-to-r from-pink-500 to-orange-500 hover:from-pink-600 hover:to-orange-600"
-                      onClick={handlePublishAsReel}
-                      disabled={isPublishingImage || isPublishingReel || !imageUrl}
-                    >
-                      {isPublishingReel ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Film className="h-4 w-4" />
-                      )}
-                      Post Reel
+                      Post as Image
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground text-center">
-                    Publishes to Facebook & Instagram via API
+                    Posts to Facebook & Instagram feeds
+                  </p>
+                  <p className="text-xs text-muted-foreground/70 text-center italic">
+                    💡 For Reels with music, create a Campaign with ClipMotion enabled
                   </p>
                 </div>
 
