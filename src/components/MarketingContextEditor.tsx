@@ -630,48 +630,56 @@ export const MarketingContextEditor = ({
               {/* Logo URL - extracted from Firecrawl */}
               <div className="space-y-2">
                 <Label>Logo URL</Label>
-                <div className="flex gap-2 items-center">
-                  <Input
-                    value={projectLogoUrl || context.visual_identity.logo_url || ""}
-                    onChange={(e) =>
-                      setContext((prev) => ({
-                        ...prev,
-                        visual_identity: {
-                          ...prev.visual_identity,
-                          logo_url: e.target.value,
-                        },
-                      }))
-                    }
-                    placeholder="https://example.com/logo.png"
-                    className="flex-1"
-                    disabled={!!projectLogoUrl}
-                  />
-                  {(projectLogoUrl || context.visual_identity.logo_url) ? (
+                {projectLogoUrl ? (
+                  <div className="flex gap-3 items-center p-3 rounded-lg border bg-muted/30">
                     <img
-                      src={projectLogoUrl || context.visual_identity.logo_url}
+                      src={projectLogoUrl}
                       alt="Brand logo"
-                      className="h-10 w-10 rounded border object-contain bg-white"
+                      className="h-12 w-12 rounded border object-contain bg-white"
                       onError={(e) => {
-                        // Fallback to favicon if logo fails to load
                         e.currentTarget.src = "/favicon.ico";
                       }}
                     />
-                  ) : (
-                    <img
-                      src="/favicon.ico"
-                      alt="Default logo"
-                      className="h-10 w-10 rounded border object-contain bg-white"
-                    />
-                  )}
-                </div>
-                {projectLogoUrl && (
-                  <p className="text-xs text-muted-foreground">
-                    Logo from project settings. Edit in project identity tab.
-                  </p>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium truncate max-w-xs">{projectLogoUrl.split('/').pop()}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Uploaded logo. Edit in project Identity tab.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        value={context.visual_identity.logo_url || ""}
+                        onChange={(e) =>
+                          setContext((prev) => ({
+                            ...prev,
+                            visual_identity: {
+                              ...prev.visual_identity,
+                              logo_url: e.target.value,
+                            },
+                          }))
+                        }
+                        placeholder="https://example.com/logo.png"
+                        className="flex-1"
+                      />
+                      {context.visual_identity.logo_url && (
+                        <img
+                          src={context.visual_identity.logo_url}
+                          alt="Brand logo"
+                          className="h-10 w-10 rounded border object-contain bg-white"
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                          }}
+                        />
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Upload a logo in the Identity tab, or paste a URL here.
+                    </p>
+                  </>
                 )}
-                <p className="text-xs text-muted-foreground">
-                  Auto-extracted from website branding
-                </p>
               </div>
 
               {/* Fonts - extracted from Firecrawl */}
