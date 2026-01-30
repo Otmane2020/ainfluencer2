@@ -99,6 +99,95 @@ function detectLanguage(content: string, url?: string): string {
   return "en"; // Default to English
 }
 
+// ============================================================
+// SERVICE/FEATURE EXTRACTION - Extracts product names, features, services
+// ============================================================
+
+function extractServicesFromMarkdown(markdown: string): string[] {
+  const services: Set<string> = new Set();
+  
+  // Common noise words to filter out
+  const noiseWords = new Set([
+    "home", "about", "contact", "sign in", "sign up", "login", "register", 
+    "get started", "learn more", "try now", "try free", "start", "watch",
+    "read more", "see more", "view", "click", "here", "now", "free",
+    "pricing", "blog", "faq", "features", "resources", "company", "legal",
+    "privacy", "terms", "support", "help", "demo", "month", "year", "day",
+    "limited", "time", "off", "save", "popular", "new", "pro", "premium",
+    "basic", "starter", "business", "enterprise", "agency", "creator",
+    "plan", "plans", "choose", "current", "upgrade", "subscribe",
+  ]);
+
+  // 1. Extract from markdown headers (## or ### followed by product/service names)
+  const headerMatches = markdown.match(/^#{1,3}\s*(.{3,40})$/gm) || [];
+  for (const match of headerMatches) {
+    const cleanedHeader = match.replace(/^#+\s*/, "").trim();
+    // Filter out navigation/generic headers
+    if (cleanedHeader.length >= 3 && 
+        cleanedHeader.length <= 40 && 
+        !noiseWords.has(cleanedHeader.toLowerCase()) &&
+        !/^\d/.test(cleanedHeader) &&
+        !cleanedHeader.includes("http") &&
+        !/^(step|simple|everything|ready|loved|trusted)/i.test(cleanedHeader)) {
+      services.add(cleanedHeader);
+    }
+  }
+
+  // 2. Extract from bold text patterns (common for feature names)
+  const boldMatches = markdown.match(/\*\*([^*]{3,35})\*\*/g) || [];
+  for (const match of boldMatches) {
+    const cleaned = match.replace(/\*\*/g, "").trim();
+    if (cleaned.length >= 3 && 
+        cleaned.length <= 35 && 
+        !noiseWords.has(cleaned.toLowerCase()) &&
+        !/^\d/.test(cleaned) &&
+        !cleaned.includes("@") &&
+        !/^(join|start|get|try|learn|read|see|view|click)/i.test(cleaned)) {
+      services.add(cleaned);
+    }
+  }
+
+  // 3. Look for common feature list patterns
+  const featurePatterns = [
+    /(?:AI|Smart|Auto|Premium|Pro)\s+\w+(?:\s+\w+)?/gi,  // AI Videos, Smart Images, etc.
+    /\w+(?:Motion|Studio|Generator|Creator|Builder|Manager)/gi, // ClipMotion, etc.
+    /(?:Video|Image|Content|Social|Brand)\s+\w+/gi, // Video Generation, etc.
+  ];
+  
+  for (const pattern of featurePatterns) {
+    const matches = markdown.match(pattern) || [];
+    for (const match of matches) {
+      const cleaned = match.trim();
+      if (cleaned.length >= 4 && 
+          cleaned.length <= 30 && 
+          !noiseWords.has(cleaned.toLowerCase())) {
+        services.add(cleaned);
+      }
+    }
+  }
+
+  // 4. Look for product cards pattern (FLAGSHIP, NEW, etc. followed by name)
+  const cardPatterns = markdown.match(/(?:FLAGSHIP|NEW|PREMIUM|AI SMART|POPULAR)\s*\n+\s*([^\n]{3,30})/gi) || [];
+  for (const match of cardPatterns) {
+    const lines = match.split("\n").filter(l => l.trim());
+    if (lines.length >= 2) {
+      const productName = lines[1].trim();
+      if (productName.length >= 3 && productName.length <= 30) {
+        services.add(productName);
+      }
+    }
+  }
+
+  // Clean and deduplicate
+  const cleanedServices = Array.from(services)
+    .map(s => s.replace(/[#*_]/g, "").trim())
+    .filter(s => s.length >= 3 && s.length <= 35)
+    .filter(s => !noiseWords.has(s.toLowerCase()))
+    .slice(0, 12); // Max 12 suggestions
+
+  return cleanedServices;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -169,16 +258,22 @@ serve(async (req) => {
     const detectedLanguage = detectLanguage(textForDetection, formattedUrl);
     console.log("[SCRAPE] Detected language:", detectedLanguage);
 
+    // Extract services/features from markdown content
+    const markdown = data.data?.markdown || "";
+    const extractedServices = extractServicesFromMarkdown(markdown);
+    console.log("[SCRAPE] Extracted services:", extractedServices);
+
     // Extract relevant info for project context
     const scrapedData = {
       success: true,
       title: data.data?.metadata?.title || "",
       description: data.data?.metadata?.description || "",
-      markdown: data.data?.markdown || "",
+      markdown: markdown,
       branding: data.data?.branding || null,
       logo: data.data?.branding?.images?.logo || data.data?.branding?.logo || null,
       colors: data.data?.branding?.colors || null,
       detectedLanguage: detectedLanguage,
+      services: extractedServices,
     };
 
     return new Response(

@@ -213,31 +213,35 @@ export const CampaignWizardModal = ({
       if (error) throw error;
 
       if (data?.success) {
-        // Extract keywords/services as tags from the scraped content
-        const extractedTags: string[] = [];
-        
-        // Try to extract from title and description
-        if (data.title) {
-          const titleWords = data.title.split(/[\s,|·-]+/).filter((w: string) => w.length > 3 && w.length < 25);
-          extractedTags.push(...titleWords.slice(0, 3));
-        }
-        
-        if (data.description) {
-          // Extract key phrases (capitalized words, product-like terms)
-          const descWords = data.description
-            .split(/[\s,.|·-]+/)
-            .filter((w: string) => w.length > 4 && w.length < 20 && /^[A-Z]/.test(w));
-          extractedTags.push(...descWords.slice(0, 4));
-        }
-
-        // Deduplicate and clean
-        const uniqueTags = [...new Set(extractedTags.map(t => t.trim()).filter(t => t.length > 2))].slice(0, 6);
-
-        if (uniqueTags.length > 0) {
-          setServiceTags(prev => [...new Set([...prev, ...uniqueTags])].slice(0, 8));
-          toast({ title: "Services detected!", description: `${uniqueTags.length} tags added` });
+        // Use services extracted by the edge function (from markdown parsing)
+        if (data.services && Array.isArray(data.services) && data.services.length > 0) {
+          const newTags = data.services.slice(0, 8);
+          setServiceTags(prev => [...new Set([...prev, ...newTags])].slice(0, 8));
+          toast({ title: "Services detected!", description: `${newTags.length} services found from your website` });
         } else {
-          toast({ title: "No services found", description: "Add tags manually", variant: "destructive" });
+          // Fallback: extract from title/description
+          const extractedTags: string[] = [];
+          
+          if (data.title) {
+            const titleWords = data.title.split(/[\s,|·-]+/).filter((w: string) => w.length > 3 && w.length < 25);
+            extractedTags.push(...titleWords.slice(0, 3));
+          }
+          
+          if (data.description) {
+            const descWords = data.description
+              .split(/[\s,.|·-]+/)
+              .filter((w: string) => w.length > 4 && w.length < 20 && /^[A-Z]/.test(w));
+            extractedTags.push(...descWords.slice(0, 4));
+          }
+
+          const uniqueTags = [...new Set(extractedTags.map(t => t.trim()).filter(t => t.length > 2))].slice(0, 6);
+
+          if (uniqueTags.length > 0) {
+            setServiceTags(prev => [...new Set([...prev, ...uniqueTags])].slice(0, 8));
+            toast({ title: "Services detected!", description: `${uniqueTags.length} tags added` });
+          } else {
+            toast({ title: "No services found", description: "Add tags manually", variant: "destructive" });
+          }
         }
       }
     } catch (error) {
