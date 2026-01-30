@@ -297,6 +297,8 @@ const CalendarPage = () => {
       .select("*")
       .gte("scheduled_for", weekStart.toISOString())
       .lte("scheduled_for", weekEnd.toISOString())
+      // Calendar only shows pending posts (draft/scheduled), not published
+      .neq("status", "published")
       .order("scheduled_for");
 
     if (selectedProject !== "all") {
