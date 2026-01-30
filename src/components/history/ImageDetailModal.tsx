@@ -14,7 +14,8 @@ import {
   Sparkles,
   Film,
   Loader2,
-  Music,
+  Image as ImageIcon,
+  Send,
 } from "lucide-react";
 import { FaFacebook, FaLinkedin, FaInstagram, FaTiktok } from "react-icons/fa";
 import { format } from "date-fns";
@@ -63,7 +64,8 @@ export const ImageDetailModal = ({
   const [caption, setCaption] = useState("");
   const [copied, setCopied] = useState(false);
   const [isGeneratingCaption, setIsGeneratingCaption] = useState(false);
-  const [isCreatingReel, setIsCreatingReel] = useState(false);
+  const [isPublishingImage, setIsPublishingImage] = useState(false);
+  const [isPublishingReel, setIsPublishingReel] = useState(false);
   const [projectContext, setProjectContext] = useState<ProjectContext | null>(null);
   const { toast } = useToast();
 
@@ -152,57 +154,113 @@ export const ImageDetailModal = ({
     }
   };
 
-  // Post as Reel - converts image to video with music
-  const handlePostAsReel = async () => {
+  // Direct API publish as Image
+  const handlePublishAsImage = async () => {
     if (!imageUrl) {
-      toast({ title: "No image to convert", variant: "destructive" });
+      toast({ title: "No image to publish", variant: "destructive" });
       return;
     }
 
-    setIsCreatingReel(true);
+    setIsPublishingImage(true);
     toast({ 
-      title: "Creating Reel...", 
-      description: "Converting image to video with music" 
+      title: "Publishing...", 
+      description: "Posting image to Facebook & Instagram" 
     });
 
     try {
-      // Open Facebook Reels creator with the image
-      // Facebook allows posting images as Reels through their Creator Studio
-      const reelUrl = `https://business.facebook.com/creatorstudio/home`;
-      
-      // Download the image first for the user
-      const response = await fetch(imageUrl);
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `reel-image-${Date.now()}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      // Copy caption to clipboard
-      if (caption) {
-        await navigator.clipboard.writeText(caption);
-      }
-
-      toast({ 
-        title: "Image downloaded!", 
-        description: "Caption copied. Opening Facebook Creator Studio to create your Reel with music.",
+      const response = await supabase.functions.invoke("publish-image", {
+        body: {
+          imageUrl,
+          caption: caption || "",
+          platforms: ["facebook", "instagram"],
+          publishType: "image",
+        },
       });
 
-      // Open Creator Studio
-      window.open(reelUrl, "_blank");
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      if (response.data?.success) {
+        toast({ 
+          title: "Published!", 
+          description: "Image posted to Facebook & Instagram" 
+        });
+      } else if (response.data?.partial) {
+        const failed = response.data.results?.filter((r: any) => !r.success) || [];
+        toast({ 
+          title: "Partially published", 
+          description: `Failed on: ${failed.map((r: any) => r.platform).join(", ")}`,
+          variant: "destructive"
+        });
+      } else {
+        const errorMsg = response.data?.results?.[0]?.error || response.data?.error || "Publishing failed";
+        toast({ title: "Error", description: errorMsg, variant: "destructive" });
+      }
     } catch (error) {
-      console.error("Error creating reel:", error);
+      console.error("Error publishing image:", error);
       toast({ 
         title: "Error", 
-        description: "Failed to prepare reel. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to publish",
         variant: "destructive" 
       });
     } finally {
-      setIsCreatingReel(false);
+      setIsPublishingImage(false);
+    }
+  };
+
+  // Direct API publish as Reel
+  const handlePublishAsReel = async () => {
+    if (!imageUrl) {
+      toast({ title: "No image to publish", variant: "destructive" });
+      return;
+    }
+
+    setIsPublishingReel(true);
+    toast({ 
+      title: "Publishing as Reel...", 
+      description: "Posting to Facebook & Instagram" 
+    });
+
+    try {
+      const response = await supabase.functions.invoke("publish-image", {
+        body: {
+          imageUrl,
+          caption: caption || "",
+          platforms: ["facebook", "instagram"],
+          publishType: "reel",
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      if (response.data?.success) {
+        toast({ 
+          title: "Published!", 
+          description: "Reel posted to Facebook & Instagram" 
+        });
+      } else if (response.data?.partial) {
+        const failed = response.data.results?.filter((r: any) => !r.success) || [];
+        toast({ 
+          title: "Partially published", 
+          description: `Failed on: ${failed.map((r: any) => r.platform).join(", ")}`,
+          variant: "destructive"
+        });
+      } else {
+        const errorMsg = response.data?.results?.[0]?.error || response.data?.error || "Publishing failed";
+        toast({ title: "Error", description: errorMsg, variant: "destructive" });
+      }
+    } catch (error) {
+      console.error("Error publishing reel:", error);
+      toast({ 
+        title: "Error", 
+        description: error instanceof Error ? error.message : "Failed to publish",
+        variant: "destructive" 
+      });
+    } finally {
+      setIsPublishingReel(false);
     }
   };
 
@@ -376,26 +434,42 @@ export const ImageDetailModal = ({
                 />
               </div>
 
-              {/* Post as Reel */}
+              {/* Direct API Publish buttons */}
               <div className="space-y-2">
-                <Button
-                  variant="default"
-                  className="w-full gap-2 h-11 bg-gradient-to-r from-pink-500 to-orange-500 hover:from-pink-600 hover:to-orange-600"
-                  onClick={handlePostAsReel}
-                  disabled={isCreatingReel || !imageUrl}
-                >
-                  {isCreatingReel ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <>
-                      <Film className="h-5 w-5" />
-                      <Music className="h-4 w-4" />
-                    </>
-                  )}
-                  Post as Reel with Music
-                </Button>
+                <h4 className="text-sm font-medium flex items-center gap-2">
+                  <Send className="h-4 w-4" />
+                  Publish directly
+                </h4>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="default"
+                    className="gap-2 h-11"
+                    onClick={handlePublishAsImage}
+                    disabled={isPublishingImage || isPublishingReel || !imageUrl}
+                  >
+                    {isPublishingImage ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ImageIcon className="h-4 w-4" />
+                    )}
+                    Post Image
+                  </Button>
+                  <Button
+                    variant="default"
+                    className="gap-2 h-11 bg-gradient-to-r from-pink-500 to-orange-500 hover:from-pink-600 hover:to-orange-600"
+                    onClick={handlePublishAsReel}
+                    disabled={isPublishingImage || isPublishingReel || !imageUrl}
+                  >
+                    {isPublishingReel ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Film className="h-4 w-4" />
+                    )}
+                    Post Reel
+                  </Button>
+                </div>
                 <p className="text-xs text-muted-foreground text-center">
-                  Opens Facebook Creator Studio to add music
+                  Publishes to Facebook & Instagram via API
                 </p>
               </div>
 
