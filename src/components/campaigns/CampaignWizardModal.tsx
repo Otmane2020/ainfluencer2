@@ -395,7 +395,7 @@ export const CampaignWizardModal = ({
           format,
           tone,
           subject,
-          ai_context: serviceTags.length > 0 ? serviceTags.join(", ") : null, // Store service tags
+          ai_context: serviceTags.length > 0 ? serviceTags.join(", ") : null,
           posting_hour: postingHour,
           timezone,
           status: "draft",
@@ -409,34 +409,79 @@ export const CampaignWizardModal = ({
       setProgressStatus("scheduling");
       setProgressValue(40);
 
-      // Trigger content generation with platforms and brand options
-      const { data: genResult, error: genError } = await supabase.functions.invoke(
-        "generate-campaign-content",
-        { 
-          body: { 
-            campaignId: newCampaign.id, 
-            platforms: selectedPlatforms,
-            // Brand options
-            includeLogo: brandOptions.includeLogo,
-            includeUrl: brandOptions.includeUrl,
-            includeAvatar: brandOptions.includeAvatar,
-            includeText: brandOptions.includeText,
-            // Content options
-            format: format,
-            tone: tone,
-            subject: subject || null,
-            imageAsReel: imageAsReel,
-            audioCategory: audioCategory,
-            clipmotion: clipmotion,
-            serviceTags: serviceTags.length > 0 ? serviceTags : null,
-          }
-        }
-      );
+      // Generate content in batches (edge function handles 15 posts at a time to avoid timeout)
+      let totalGenerated = 0;
+      let totalVideos = 0;
+      let totalImages = 0;
+      let batchCount = 0;
+      const maxBatches = 5; // Safety limit
 
-      if (genError) {
-        console.error("Content generation error:", genError);
+      const generateBatch = async (): Promise<boolean> => {
+        batchCount++;
+        if (batchCount > maxBatches) {
+          console.log("Max batch limit reached");
+          return true;
+        }
+
+        const { data: genResult, error: genError } = await supabase.functions.invoke(
+          "generate-campaign-content",
+          { 
+            body: { 
+              campaignId: newCampaign.id, 
+              platforms: selectedPlatforms,
+              includeLogo: brandOptions.includeLogo,
+              includeUrl: brandOptions.includeUrl,
+              includeAvatar: brandOptions.includeAvatar,
+              includeText: brandOptions.includeText,
+              format: format,
+              tone: tone,
+              subject: subject || null,
+              imageAsReel: imageAsReel,
+              audioCategory: audioCategory,
+              clipmotion: clipmotion,
+              serviceTags: serviceTags.length > 0 ? serviceTags : null,
+            }
+          }
+        );
+
+        if (genError) {
+          console.error("Content generation error:", genError);
+          // If we already generated some posts, consider it a partial success
+          if (totalGenerated > 0) {
+            return true;
+          }
+          throw new Error(genError.message || "Content generation failed");
+        }
+
+        if (genResult) {
+          totalGenerated += genResult.generated || 0;
+          totalVideos += genResult.videos || 0;
+          totalImages += genResult.images || 0;
+          
+          // Update progress (40-90% range for scheduling)
+          const progressPct = 40 + Math.min(50, (totalGenerated / (videosPerMonth + imagesPerMonth)) * 50);
+          setProgressValue(Math.round(progressPct));
+        }
+
+        // If batch is complete or no remaining, we're done
+        return genResult?.batchComplete || (genResult?.remaining || 0) <= 0;
+      };
+
+      // Run batches until complete
+      let isComplete = false;
+      while (!isComplete) {
+        isComplete = await generateBatch();
+        
+        // Small delay between batches to avoid rate limiting
+        if (!isComplete) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      // If no posts were generated at all, show error
+      if (totalGenerated === 0) {
         setProgressStatus("error");
-        setProgressError("Content generation failed. Please try again.");
+        setProgressError("No content was generated. Please try again.");
         setIsSubmitting(false);
         return;
       }
@@ -445,9 +490,9 @@ export const CampaignWizardModal = ({
       setProgressValue(100);
       setProgressStatus("completed");
       setProgressStats({
-        videos: genResult?.videos || 0,
-        images: genResult?.images || 0,
-        total: genResult?.generated || 0,
+        videos: totalVideos,
+        images: totalImages,
+        total: totalGenerated,
       });
       
       onSuccess();
