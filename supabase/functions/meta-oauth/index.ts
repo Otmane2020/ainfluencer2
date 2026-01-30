@@ -102,23 +102,11 @@ serve(async (req) => {
 
         if (error) {
           const errorMsg = errorDescription || error;
-          return new Response(
-            `<!DOCTYPE html><html><body><script>
-              window.opener.postMessage({type:'meta-oauth-error',error:'${errorMsg.replace(/'/g, "\\'")}'},'*');
-              window.close();
-            </script></body></html>`,
-            { headers: { "Content-Type": "text/html" } }
-          );
+          return new Response(generateErrorHtml(errorMsg), { headers: { "Content-Type": "text/html" } });
         }
 
         if (!code || !META_APP_ID || !META_APP_SECRET) {
-          return new Response(
-            `<!DOCTYPE html><html><body><script>
-              window.opener.postMessage({type:'meta-oauth-error',error:'missing_credentials'},'*');
-              window.close();
-            </script></body></html>`,
-            { headers: { "Content-Type": "text/html" } }
-          );
+          return new Response(generateErrorHtml("Missing credentials"), { headers: { "Content-Type": "text/html" } });
         }
 
         // Extract userId from state if present
@@ -131,13 +119,7 @@ serve(async (req) => {
 
         if (!tokenResponse.ok || !tokenData.access_token) {
           console.error("[meta-oauth] Token exchange failed:", tokenData);
-          return new Response(
-            `<!DOCTYPE html><html><body><script>
-              window.opener.postMessage({type:'meta-oauth-error',error:'token_exchange_failed'},'*');
-              window.close();
-            </script></body></html>`,
-            { headers: { "Content-Type": "text/html" } }
-          );
+          return new Response(generateErrorHtml("Token exchange failed"), { headers: { "Content-Type": "text/html" } });
         }
 
         // Get user profile
@@ -237,34 +219,7 @@ serve(async (req) => {
         console.log(`[meta-oauth] Success for ${profile.name}, Pages: ${allPages.length}, Instagram: ${instagramUsername || "none"}`);
 
         // Close popup and notify opener, then redirect
-        return new Response(
-          `<!DOCTYPE html>
-          <html>
-          <head><title>Connecting...</title></head>
-          <body style="font-family: system-ui; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f5f5f5;">
-            <div style="text-align: center;">
-              <div style="font-size: 24px; margin-bottom: 16px;">✅</div>
-              <p style="color: #333; font-size: 16px;">Connected successfully!</p>
-              <p style="color: #666; font-size: 14px;">This window will close automatically...</p>
-            </div>
-            <script>
-              try {
-                if (window.opener) {
-                  window.opener.postMessage(${JSON.stringify(result)},'*');
-                  setTimeout(() => window.close(), 500);
-                } else {
-                  // No opener, redirect to app
-                  window.location.href = '/integrations';
-                }
-              } catch(e) {
-                console.error('PostMessage error:', e);
-                window.close();
-              }
-            </script>
-          </body>
-          </html>`,
-          { headers: { "Content-Type": "text/html" } }
-        );
+        return new Response(generateSuccessHtml(result), { headers: { "Content-Type": "text/html" } });
       }
 
       case "status": {
@@ -737,3 +692,64 @@ serve(async (req) => {
     );
   }
 });
+
+function generateErrorHtml(errorMessage: string): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <title>Meta Authorization</title>
+  <style>
+    body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #1877f2; color: white; }
+    .container { text-align: center; padding: 2rem; }
+    .icon { font-size: 4rem; margin-bottom: 1rem; }
+    h1 { margin: 0 0 0.5rem; }
+    p { color: rgba(255,255,255,0.8); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">❌</div>
+    <h1>Connection Failed</h1>
+    <p>${errorMessage}</p>
+    <p>This window will close automatically...</p>
+  </div>
+  <script>
+    if (window.opener) {
+      window.opener.postMessage({"type":"meta-oauth-error","error":"${errorMessage.replace(/"/g, '\\"')}"}, "*");
+    }
+    setTimeout(() => window.close(), 2000);
+  </script>
+</body>
+</html>`;
+}
+
+function generateSuccessHtml(result: Record<string, unknown>): string {
+  const userName = (result.user as { name?: string })?.name || "Unknown";
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <title>Meta Authorization</title>
+  <style>
+    body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #1877f2; color: white; }
+    .container { text-align: center; padding: 2rem; }
+    .icon { font-size: 4rem; margin-bottom: 1rem; }
+    h1 { margin: 0 0 0.5rem; }
+    p { color: rgba(255,255,255,0.8); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">✅</div>
+    <h1>Connected!</h1>
+    <p>Account: ${userName}</p>
+    <p>This window will close automatically...</p>
+  </div>
+  <script>
+    if (window.opener) {
+      window.opener.postMessage(${JSON.stringify(result)}, "*");
+    }
+    setTimeout(() => window.close(), 2000);
+  </script>
+</body>
+</html>`;
+}
