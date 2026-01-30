@@ -196,6 +196,19 @@ export const MarketingContextEditor = ({
   const [newTag, setNewTag] = useState("");
   const [activeTagInput, setActiveTagInput] = useState<string | null>(null);
 
+  // Sync project logo URL to marketing context
+  useEffect(() => {
+    if (projectLogoUrl && projectLogoUrl !== context.visual_identity.logo_url) {
+      setContext((prev) => ({
+        ...prev,
+        visual_identity: {
+          ...prev.visual_identity,
+          logo_url: projectLogoUrl,
+        },
+      }));
+    }
+  }, [projectLogoUrl]);
+
   // Track completion percentage
   const getCompletionPercentage = (): number => {
     let filled = 0;
