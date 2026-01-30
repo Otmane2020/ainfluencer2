@@ -9,7 +9,6 @@ const corsHeaders = {
 // LANGUAGE DETECTION - Improved with contextual hints & TLD fallback
 // ============================================================
 
-// Contextual hints for more accurate detection (avoid FR/ES/PT confusion)
 const LANG_HINTS: Record<string, string[]> = {
   fr: ["nous", "notre", "clients", "entreprise", "équipe", "bienvenue", "accueil", "société"],
   en: ["we", "our", "customers", "business", "team", "welcome", "company", "about us"],
@@ -19,24 +18,13 @@ const LANG_HINTS: Record<string, string[]> = {
   pt: ["nosso", "nossa", "clientes", "empresa", "equipe", "bem-vindo", "sobre nós"],
 };
 
-// TLD to language mapping for fallback
 const TLD_LANG_MAP: Record<string, string> = {
-  ".fr": "fr",
-  ".es": "es",
-  ".de": "de",
-  ".it": "it",
-  ".pt": "pt",
-  ".br": "pt",
-  ".mx": "es",
-  ".ar": "es",
-  ".be": "fr",
-  ".ch": "de",
-  ".at": "de",
+  ".fr": "fr", ".es": "es", ".de": "de", ".it": "it", ".pt": "pt",
+  ".br": "pt", ".mx": "es", ".ar": "es", ".be": "fr", ".ch": "de", ".at": "de",
 };
 
 function detectLanguage(content: string, url?: string): string {
   if (!content) {
-    // If no content, try TLD fallback
     if (url) {
       for (const [tld, lang] of Object.entries(TLD_LANG_MAP)) {
         if (url.toLowerCase().includes(tld)) return lang;
@@ -45,7 +33,6 @@ function detectLanguage(content: string, url?: string): string {
     return "en";
   }
   
-  // Common patterns for each language
   const frenchPatterns = /\b(le|la|les|de|du|des|un|une|et|est|que|pour|avec|dans|sur|par|pas|plus|nous|vous|ils|elles|ce|cette|sont|ont|fait|peut|tout|bien|très|même|aussi|comme)\b/gi;
   const englishPatterns = /\b(the|is|are|was|were|have|has|had|will|would|could|should|been|being|their|there|they|this|that|with|from|about|which|when|what|your|more|also|just|like|into|some|than)\b/gi;
   const spanishPatterns = /\b(el|la|los|las|de|del|un|una|que|en|es|por|con|para|su|sus|son|han|este|esta|como|más|pero|muy|también|todos|puede|hay|sin|sobre)\b/gi;
@@ -64,29 +51,21 @@ function detectLanguage(content: string, url?: string): string {
     { lang: "pt", score: (text.match(portuguesePatterns) || []).length },
   ];
 
-  // Apply contextual hints bonus (avoids FR/ES/PT confusion)
   for (const langScore of scores) {
     const hints = LANG_HINTS[langScore.lang] || [];
     for (const hint of hints) {
       if (text.includes(hint)) {
-        langScore.score += 3; // Strong contextual bonus
+        langScore.score += 3;
       }
     }
   }
 
   scores.sort((a, b) => b.score - a.score);
   
-  // Debug logging only when enabled
-  if (Deno.env.get("DEBUG_LANG") === "true") {
-    console.log("[LANG] Detection scores:", scores);
-  }
-  
-  // Return detected language if confident (at least 5 matches)
   if (scores[0].score >= 5) {
     return scores[0].lang;
   }
   
-  // TLD fallback for short/empty content
   if (url) {
     for (const [tld, lang] of Object.entries(TLD_LANG_MAP)) {
       if (url.toLowerCase().includes(tld)) {
@@ -96,98 +75,73 @@ function detectLanguage(content: string, url?: string): string {
     }
   }
   
-  return "en"; // Default to English
+  return "en";
 }
 
 // ============================================================
-// SERVICE/FEATURE EXTRACTION - Extracts product names, features, services
+// AI-POWERED SERVICE EXTRACTION - Calls extract-services-ai function
 // ============================================================
 
-function extractServicesFromMarkdown(markdown: string): string[] {
+async function extractServicesWithAI(markdown: string, url: string): Promise<string[]> {
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error("[scrape-project-url] Missing Supabase env vars for AI extraction");
+      return [];
+    }
+
+    console.log("[scrape-project-url] Calling AI service extraction...");
+    
+    const response = await fetch(`${supabaseUrl}/functions/v1/extract-services-ai`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${supabaseKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ markdown, url }),
+    });
+
+    if (!response.ok) {
+      console.error("[scrape-project-url] AI extraction failed:", response.status);
+      return [];
+    }
+
+    const result = await response.json();
+    console.log("[scrape-project-url] AI extraction result:", result);
+    
+    return result.services || [];
+  } catch (error) {
+    console.error("[scrape-project-url] AI extraction error:", error);
+    return [];
+  }
+}
+
+// ============================================================
+// FALLBACK: Minimal heuristic extraction for navigation/footer
+// ============================================================
+
+function extractServicesFallback(markdown: string): string[] {
   const services: Set<string> = new Set();
   
-  // Common noise words to filter out
-  const noiseWords = new Set([
-    "home", "about", "contact", "sign in", "sign up", "login", "register", 
-    "get started", "learn more", "try now", "try free", "start", "watch",
-    "read more", "see more", "view", "click", "here", "now", "free",
-    "pricing", "blog", "faq", "features", "resources", "company", "legal",
-    "privacy", "terms", "support", "help", "demo", "month", "year", "day",
-    "limited", "time", "off", "save", "popular", "new", "pro", "premium",
-    "basic", "starter", "business", "enterprise", "agency", "creator",
-    "plan", "plans", "choose", "current", "upgrade", "subscribe",
-  ]);
-
-  // 1. Extract from markdown headers (## or ### followed by product/service names)
-  const headerMatches = markdown.match(/^#{1,3}\s*(.{3,40})$/gm) || [];
-  for (const match of headerMatches) {
-    const cleanedHeader = match.replace(/^#+\s*/, "").trim();
-    // Filter out navigation/generic headers
-    if (cleanedHeader.length >= 3 && 
-        cleanedHeader.length <= 40 && 
-        !noiseWords.has(cleanedHeader.toLowerCase()) &&
-        !/^\d/.test(cleanedHeader) &&
-        !cleanedHeader.includes("http") &&
-        !/^(step|simple|everything|ready|loved|trusted)/i.test(cleanedHeader)) {
-      services.add(cleanedHeader);
-    }
-  }
-
-  // 2. Extract from bold text patterns (common for feature names)
-  const boldMatches = markdown.match(/\*\*([^*]{3,35})\*\*/g) || [];
-  for (const match of boldMatches) {
-    const cleaned = match.replace(/\*\*/g, "").trim();
-    if (cleaned.length >= 3 && 
-        cleaned.length <= 35 && 
-        !noiseWords.has(cleaned.toLowerCase()) &&
-        !/^\d/.test(cleaned) &&
-        !cleaned.includes("@") &&
-        !/^(join|start|get|try|learn|read|see|view|click)/i.test(cleaned)) {
-      services.add(cleaned);
-    }
-  }
-
-  // 3. Look for common feature list patterns
-  const featurePatterns = [
-    /(?:AI|Smart|Auto|Premium|Pro)\s+\w+(?:\s+\w+)?/gi,  // AI Videos, Smart Images, etc.
-    /\w+(?:Motion|Studio|Generator|Creator|Builder|Manager)/gi, // ClipMotion, etc.
-    /(?:Video|Image|Content|Social|Brand)\s+\w+/gi, // Video Generation, etc.
-  ];
+  // Only look for explicit "Services" or "Products" sections
+  const servicesSectionMatch = markdown.match(/(?:^|\n)#{1,3}\s*(?:Services|Products|Solutions|What We Offer|Our Services)\s*\n([\s\S]{0,500})/i);
   
-  for (const pattern of featurePatterns) {
-    const matches = markdown.match(pattern) || [];
-    for (const match of matches) {
-      const cleaned = match.trim();
-      if (cleaned.length >= 4 && 
-          cleaned.length <= 30 && 
-          !noiseWords.has(cleaned.toLowerCase())) {
+  if (servicesSectionMatch) {
+    const sectionContent = servicesSectionMatch[1];
+    // Extract list items or sub-headers
+    const items = sectionContent.match(/(?:^|\n)[-*]\s*(.{3,30})(?:\n|$)/g) || [];
+    for (const item of items) {
+      const cleaned = item.replace(/^[-*\n\s]+/, "").trim();
+      if (cleaned.length >= 3 && cleaned.length <= 30) {
         services.add(cleaned);
       }
     }
   }
-
-  // 4. Look for product cards pattern (FLAGSHIP, NEW, etc. followed by name)
-  const cardPatterns = markdown.match(/(?:FLAGSHIP|NEW|PREMIUM|AI SMART|POPULAR)\s*\n+\s*([^\n]{3,30})/gi) || [];
-  for (const match of cardPatterns) {
-    const lines = match.split("\n").filter(l => l.trim());
-    if (lines.length >= 2) {
-      const productName = lines[1].trim();
-      if (productName.length >= 3 && productName.length <= 30) {
-        services.add(productName);
-      }
-    }
-  }
-
-  // Clean and deduplicate
-  const cleanedServices = Array.from(services)
-    .map(s => s.replace(/[#*_]/g, "").trim())
-    .filter(s => s.length >= 3 && s.length <= 35)
-    .filter(s => !noiseWords.has(s.toLowerCase()))
-    .slice(0, 12); // Max 12 suggestions
-
-  return cleanedServices;
+  
+  return Array.from(services).slice(0, 8);
 }
-
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -213,7 +167,6 @@ serve(async (req) => {
       );
     }
 
-    // Format URL
     let formattedUrl = url.trim();
     if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
       formattedUrl = `https://${formattedUrl}`;
@@ -221,7 +174,6 @@ serve(async (req) => {
 
     console.log("[scrape-project-url] Scraping URL:", formattedUrl);
 
-    // Try scraping with latest Firecrawl v1 API
     let data: any = null;
     let lastError: string | null = null;
 
@@ -289,7 +241,6 @@ serve(async (req) => {
       }
     }
 
-    // If all attempts failed, return error
     if (!data) {
       console.error("[scrape-project-url] All attempts failed:", lastError);
       return new Response(
@@ -300,13 +251,11 @@ serve(async (req) => {
 
     console.log("[scrape-project-url] Scrape successful");
 
-    // Access data correctly from Firecrawl v1 response (nested in data.data)
     const responseData = data.data || data;
     const markdown = responseData?.markdown || "";
     const metadata = responseData?.metadata || {};
     const branding = responseData?.branding || null;
 
-    // Combine all text content for language detection
     const textForDetection = [
       metadata?.title || "",
       metadata?.description || "",
@@ -316,31 +265,35 @@ serve(async (req) => {
     const detectedLanguage = detectLanguage(textForDetection, formattedUrl);
     console.log("[scrape-project-url] Detected language:", detectedLanguage);
 
-    // Extract services/features from markdown content
-    const extractedServices = extractServicesFromMarkdown(markdown);
-    console.log("[scrape-project-url] Extracted services:", extractedServices);
+    // AI-powered service extraction (primary method)
+    let extractedServices = await extractServicesWithAI(markdown, formattedUrl);
+    
+    // Fallback to minimal heuristic if AI returns empty
+    if (extractedServices.length === 0) {
+      console.log("[scrape-project-url] AI returned empty, trying fallback...");
+      extractedServices = extractServicesFallback(markdown);
+    }
+    
+    console.log("[scrape-project-url] Final extracted services:", extractedServices);
 
-    // Extract branding assets with fallbacks
     const logoUrl = branding?.images?.logo || branding?.logo || null;
     const colors = branding?.colors || null;
     const favicon = branding?.images?.favicon || null;
 
     console.log("[scrape-project-url] Branding - Logo:", logoUrl, "Colors:", colors ? "found" : "none");
 
-    // Extract clean brand name from title (remove SEO suffixes like " – Description" or " | Tagline")
     const rawTitle = metadata?.title || "";
     const cleanBrandName = rawTitle
-      .split(/\s*[–—|\-:•]\s*/)[0] // Split on common separators
+      .split(/\s*[–—|\-:•]\s*/)[0]
       .trim()
-      .substring(0, 50); // Max 50 chars for brand name
+      .substring(0, 50);
 
     console.log("[scrape-project-url] Clean brand name:", cleanBrandName, "from:", rawTitle);
 
-    // Extract relevant info for project context
     const scrapedData = {
       success: true,
-      title: cleanBrandName || rawTitle, // Use clean brand name as title
-      fullTitle: rawTitle, // Keep full title for reference
+      title: cleanBrandName || rawTitle,
+      fullTitle: rawTitle,
       description: metadata?.description || "",
       markdown: markdown,
       branding: branding,
