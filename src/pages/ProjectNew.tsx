@@ -31,6 +31,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { WizardProgress, WizardStep as WizardStepType } from "@/components/wizard/WizardProgress";
 import { WizardStep, WizardStepContainer } from "@/components/wizard/WizardStep";
+import { CreateFirstCampaignModal } from "@/components/CreateFirstCampaignModal";
 
 // Validation schema
 const projectSchema = z.object({
@@ -120,6 +121,10 @@ const ProjectNew = () => {
   } | null>(null);
   const [marketingContext, setMarketingContext] = useState<any>(null);
   const [isGeneratingContext, setIsGeneratingContext] = useState(false);
+  
+  // Campaign prompt modal state
+  const [showCampaignPrompt, setShowCampaignPrompt] = useState(false);
+  const [createdProject, setCreatedProject] = useState<{ id: string; name: string } | null>(null);
 
   // Fetch existing project data in edit mode
   useEffect(() => {
@@ -491,7 +496,9 @@ const ProjectNew = () => {
           description: "You can now create campaigns to generate content",
         });
 
-        navigate(`/projects/${data.id}`);
+        // Show campaign creation prompt instead of navigating directly
+        setCreatedProject({ id: data.id, name: data.name });
+        setShowCampaignPrompt(true);
       }
     } catch (error) {
       console.error("Save project error:", error);
@@ -984,6 +991,19 @@ const ProjectNew = () => {
           )}
         </motion.div>
       </div>
+
+      {/* Create First Campaign Modal */}
+      {createdProject && (
+        <CreateFirstCampaignModal
+          isOpen={showCampaignPrompt}
+          onClose={() => {
+            setShowCampaignPrompt(false);
+            navigate(`/projects/${createdProject.id}`);
+          }}
+          projectId={createdProject.id}
+          projectName={createdProject.name}
+        />
+      )}
     </div>
   );
 };
