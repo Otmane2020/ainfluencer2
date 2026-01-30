@@ -137,6 +137,7 @@ export const CampaignWizardModal = ({
   const [serviceTags, setServiceTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
   const [isSuggestingProduct, setIsSuggestingProduct] = useState(false);
+  const [autoSuggestedProjectId, setAutoSuggestedProjectId] = useState<string | null>(null);
   const [postingHour, setPostingHour] = useState(10);
   const [timezone, setTimezone] = useState("Europe/Paris");
   const [imageAsReel, setImageAsReel] = useState(false); // NEW: Convert images to reels with audio
@@ -173,6 +174,7 @@ export const CampaignWizardModal = ({
       setSubject("");
       setServiceTags([]);
       setNewTag("");
+      setAutoSuggestedProjectId(null);
       setPostingHour(10);
       setTimezone("Europe/Paris");
       setImageAsReel(false);
@@ -196,7 +198,45 @@ export const CampaignWizardModal = ({
     }
   };
 
-  // Suggest product/service from project URL
+  // Auto-suggest services when project changes (and has URL)
+  useEffect(() => {
+    const selectedProject = projects.find(p => p.id === projectId);
+    // Only auto-suggest if:
+    // 1. Project has a URL
+    // 2. We haven't already auto-suggested for this project
+    // 3. Service tags are empty (don't override user input)
+    if (selectedProject?.url && autoSuggestedProjectId !== projectId && serviceTags.length === 0) {
+      setAutoSuggestedProjectId(projectId);
+      handleAutoSuggestServices(selectedProject.url);
+    }
+  }, [projectId, projects]);
+
+  // Auto-suggest services from project URL (silent, no toast on failure)
+  const handleAutoSuggestServices = async (url: string) => {
+    setIsSuggestingProduct(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("scrape-project-url", {
+        body: { url },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        if (data.services && Array.isArray(data.services) && data.services.length > 0) {
+          const newTags = data.services.slice(0, 8);
+          setServiceTags(newTags);
+          toast({ title: "Services detected!", description: `${newTags.length} services found from your website` });
+        }
+      }
+    } catch (error) {
+      console.error("Auto-suggest services error:", error);
+      // Silent fail for auto-suggest
+    } finally {
+      setIsSuggestingProduct(false);
+    }
+  };
+
+  // Manual suggest product/service from project URL
   const handleSuggestProduct = async () => {
     const selectedProject = projects.find(p => p.id === projectId);
     if (!selectedProject?.url) {
