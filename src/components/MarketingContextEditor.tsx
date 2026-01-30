@@ -79,6 +79,7 @@ interface MarketingContextEditorProps {
   projectId: string;
   projectName: string;
   projectUrl?: string | null;
+  projectDescription?: string | null;
   scrapedMarkdown?: string | null;
   initialContext?: MarketingContext | null;
   onSave: (context: MarketingContext) => Promise<void>;
@@ -179,6 +180,7 @@ export const MarketingContextEditor = ({
   projectId,
   projectName,
   projectUrl,
+  projectDescription,
   scrapedMarkdown,
   initialContext,
   onSave,
@@ -447,6 +449,45 @@ export const MarketingContextEditor = ({
 
       <ScrollArea className="h-[500px] pr-4">
         <div className="space-y-6">
+          {/* Project Info - Name, URL, Description */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <FileText className="h-4 w-4" />
+                Project Info
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Name</Label>
+                  <p className="font-medium">{projectName || "—"}</p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Website</Label>
+                  {projectUrl ? (
+                    <a 
+                      href={projectUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline text-sm truncate block"
+                    >
+                      {projectUrl}
+                    </a>
+                  ) : (
+                    <p className="text-muted-foreground text-sm">—</p>
+                  )}
+                </div>
+              </div>
+              {projectDescription && (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Description</Label>
+                  <p className="text-sm text-muted-foreground">{projectDescription}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Visual Identity */}
           <Card>
             <CardHeader className="pb-3">

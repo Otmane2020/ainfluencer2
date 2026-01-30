@@ -93,7 +93,7 @@ serve(async (req) => {
   }
 
   try {
-    const { projectName, scrapedMarkdown, projectUrl } = await req.json();
+    const { projectName, projectDescription, scrapedMarkdown, projectUrl } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -176,6 +176,8 @@ RULES:
     const userPrompt = `Analyze this business and create a complete marketing context:
 
 BRAND NAME: ${projectName || "Unknown"}
+WEBSITE URL: ${projectUrl || "Not provided"}
+DESCRIPTION: ${projectDescription || "No description provided"}
 ${brandingContext}
 WEBSITE CONTENT:
 ${scrapedMarkdown?.substring(0, 8000) || "No content provided - make reasonable inferences based on the brand name."}
