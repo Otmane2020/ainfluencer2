@@ -6,36 +6,37 @@ const corsHeaders = {
 };
 
 // ============================================================
-// MODEL POOL CONFIGURATION - Kling 2.x for Reels
-// Using kling-video as stable model with 1080p quality
+// CREDIT COSTS BY QUALITY
 // ============================================================
 
-interface ModelOption {
-  id: string;
-  apiModel: string;
-  weight: number;
-  durations: number[];
+const CREDIT_COSTS: Record<string, number> = {
+  standard: 3,
+  pro: 8,
+  cinema: 15,
+};
+
+function getCreditCost(quality: string): number {
+  return CREDIT_COSTS[quality] || CREDIT_COSTS["standard"];
 }
 
-// Kling 2.x standard for reels - stable and cost-effective
-const REEL_MODEL_POOL: ModelOption[] = [
-  { id: "kling-2", apiModel: "kling-video", weight: 100, durations: [5, 10] },
-];
+// ============================================================
+// MODEL SELECTION BY QUALITY
+// ============================================================
 
-function selectReelModel(): ModelOption {
-  const totalWeight = REEL_MODEL_POOL.reduce((sum, m) => sum + m.weight, 0);
-  let random = Math.random() * totalWeight;
-  
-  for (const model of REEL_MODEL_POOL) {
-    random -= model.weight;
-    if (random <= 0) return model;
+function getReelModel(quality: string): { model: string; durations: number[] } {
+  switch (quality) {
+    case "cinema":
+      return { model: "sora-2", durations: [4, 5, 8, 10, 12, 15, 20] };
+    case "pro":
+      return { model: "sora-2", durations: [4, 5, 8, 10, 12, 15, 20] };
+    case "standard":
+    default:
+      return { model: "kling-video", durations: [5, 10] };
   }
-  
-  return REEL_MODEL_POOL[0];
 }
 
 // ============================================================
-// REEL VIDEO via Replicate - Low cost video generation
+// REEL VIDEO via CometAPI
 // ============================================================
 
 interface ReelRequest {
@@ -43,6 +44,8 @@ interface ReelRequest {
   brandName?: string;
   duration?: number;
   imageUrl?: string;
+  quality?: string;
+  skipCreditDeduction?: boolean;
 }
 
 async function pollForVideo(
@@ -137,6 +140,20 @@ Deno.serve(async (req) => {
       throw new Error("REPLICATE_API_KEY is not configured");
     }
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get user from auth header
+    const authHeader = req.headers.get("Authorization");
+    let userId: string | null = null;
+    
+    if (authHeader) {
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user } } = await supabase.auth.getUser(token);
+      userId = user?.id || null;
+    }
+
     const url = new URL(req.url);
     const action = url.searchParams.get("action") || "create";
 
@@ -194,7 +211,14 @@ Deno.serve(async (req) => {
     // CREATE VIDEO
     // ============================================================
     const body: ReelRequest = await req.json();
-    const { prompt, brandName, duration = 5, imageUrl } = body;
+    const { 
+      prompt, 
+      brandName, 
+      duration = 5, 
+      imageUrl, 
+      quality = "standard",
+      skipCreditDeduction = false,
+    } = body;
 
     if (!prompt) {
       return new Response(
@@ -203,18 +227,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // ============================================================
-    // WEIGHTED RANDOM MODEL SELECTION
-    // ============================================================
-    const selectedModel = selectReelModel();
-    const apiModel = selectedModel.apiModel;
+    // Get model config
+    const modelConfig = getReelModel(quality);
+    const creditCost = getCreditCost(quality);
 
     // Clamp duration to valid values for selected model
-    const validDurations = selectedModel.durations;
+    const validDurations = modelConfig.durations;
     const clampedDuration = validDurations.includes(duration)
       ? duration
       : validDurations.reduce((prev, curr) =>
@@ -222,26 +240,87 @@ Deno.serve(async (req) => {
         );
 
     console.log("=== GENERATE REEL VIDEO ===");
-    console.log("Selected Model:", selectedModel.id, "(", apiModel, ")");
+    console.log(`User: ${userId || "anonymous"}`);
+    console.log(`Quality: ${quality} | Credit Cost: ${creditCost}`);
+    console.log("Selected Model:", modelConfig.model);
     console.log("Prompt:", prompt.slice(0, 100));
     console.log("Brand:", brandName || "N/A");
     console.log("Duration:", clampedDuration, "s (requested:", duration, "s)");
-    console.log("Starting frame:", imageUrl ? "Yes" : "No");
+    console.log("Skip credit deduction:", skipCreditDeduction ? "Yes" : "No");
 
-    // Build enhanced prompt - RESPECT USER PROMPT, keep additions minimal
+    // ============================================================
+    // CREDIT VALIDATION & DEDUCTION
+    // ============================================================
+    if (userId && !skipCreditDeduction) {
+      // Check current balance
+      const { data: creditsData, error: creditsError } = await supabase
+        .from("credits")
+        .select("balance")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (creditsError) {
+        console.error("Credits fetch error:", creditsError);
+      }
+
+      const currentBalance = creditsData?.balance || 0;
+      console.log(`Current balance: ${currentBalance} | Required: ${creditCost}`);
+
+      if (currentBalance < creditCost) {
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            error: "Insufficient credits", 
+            code: "INSUFFICIENT_CREDITS",
+            required: creditCost,
+            balance: currentBalance,
+          }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Deduct credits
+      const { data: deductSuccess, error: deductError } = await supabase.rpc("deduct_credits", {
+        p_user_id: userId,
+        p_amount: creditCost,
+      });
+
+      if (deductError || !deductSuccess) {
+        console.error("Credit deduction failed:", deductError);
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            error: "Failed to deduct credits", 
+            code: "DEDUCTION_FAILED" 
+          }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Log transaction
+      await supabase.from("credit_transactions").insert({
+        user_id: userId,
+        amount: -creditCost,
+        type: "consumption",
+        description: `Reel generation (${quality}, ${clampedDuration}s)`,
+      });
+
+      console.log(`✓ Deducted ${creditCost} credits for reel generation`);
+    }
+
+    // Build enhanced prompt
     let enhancedPrompt = prompt;
     if (brandName) {
       enhancedPrompt = `${prompt} (for ${brandName})`;
     }
-    // Keep style hints concise to not dilute the user's actual request
     enhancedPrompt += " | Vertical 9:16, 1080x1920, professional quality.";
 
     // Create video task
     const formData = new FormData();
     formData.append("prompt", enhancedPrompt);
-    formData.append("model", apiModel);
+    formData.append("model", modelConfig.model);
     formData.append("seconds", clampedDuration.toString());
-    formData.append("size", "1080x1920"); // UPGRADED from 720x1280 to 1080p
+    formData.append("size", "1080x1920"); // 1080p vertical
 
     if (imageUrl) {
       formData.append("image_url", imageUrl);
@@ -256,18 +335,34 @@ Deno.serve(async (req) => {
 
     if (!createResponse.ok) {
       const errorText = await createResponse.text();
-      console.error("[REEL] Replicate error:", createResponse.status, errorText.slice(0, 200));
-      throw new Error(`Replicate error: ${createResponse.status}`);
+      console.error("[REEL] CometAPI error:", createResponse.status, errorText.slice(0, 200));
+      
+      // Refund credits on failure
+      if (userId && !skipCreditDeduction) {
+        await supabase.rpc("add_credits", {
+          p_user_id: userId,
+          p_amount: creditCost,
+        });
+        await supabase.from("credit_transactions").insert({
+          user_id: userId,
+          amount: creditCost,
+          type: "refund",
+          description: `Refund: Reel generation failed (${quality})`,
+        });
+        console.log(`✓ Refunded ${creditCost} credits due to API error`);
+      }
+      
+      throw new Error(`CometAPI error: ${createResponse.status}`);
     }
 
     const createData = await createResponse.json();
     const taskId = createData.id;
 
     if (!taskId) {
-      throw new Error("No task ID returned from Replicate");
+      throw new Error("No task ID returned from CometAPI");
     }
 
-    console.log("[REEL] Task created:", taskId, "| Model:", selectedModel.id);
+    console.log("[REEL] Task created:", taskId, "| Model:", modelConfig.model);
 
     const waitForCompletion = url.searchParams.get("wait") === "true";
 
@@ -275,6 +370,21 @@ Deno.serve(async (req) => {
       const videoUrl = await pollForVideo(taskId, REPLICATE_API_KEY, 60);
 
       if (!videoUrl) {
+        // Refund credits on failure
+        if (userId && !skipCreditDeduction) {
+          await supabase.rpc("add_credits", {
+            p_user_id: userId,
+            p_amount: creditCost,
+          });
+          await supabase.from("credit_transactions").insert({
+            user_id: userId,
+            amount: creditCost,
+            type: "refund",
+            description: `Refund: Reel generation timeout (${quality})`,
+          });
+          console.log(`✓ Refunded ${creditCost} credits due to timeout`);
+        }
+        
         return new Response(
           JSON.stringify({ success: false, error: "Video generation timeout or failed" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -306,7 +416,9 @@ Deno.serve(async (req) => {
             format: "video",
             aspectRatio: "9:16",
             duration: clampedDuration,
-            model: selectedModel.id,
+            model: modelConfig.model,
+            quality,
+            creditCost: skipCreditDeduction ? 0 : creditCost,
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
@@ -324,7 +436,9 @@ Deno.serve(async (req) => {
           format: "video",
           aspectRatio: "9:16",
           duration: clampedDuration,
-          model: selectedModel.id,
+          model: modelConfig.model,
+          quality,
+          creditCost: skipCreditDeduction ? 0 : creditCost,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -339,7 +453,9 @@ Deno.serve(async (req) => {
         format: "video",
         aspectRatio: "9:16",
         duration: clampedDuration,
-        model: selectedModel.id,
+        model: modelConfig.model,
+        quality,
+        creditCost: skipCreditDeduction ? 0 : creditCost,
         message: "Video generation started. Poll status endpoint for completion.",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
