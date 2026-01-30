@@ -20,8 +20,11 @@ export type Database = {
           campaign_type: string
           created_at: string
           ends_at: string | null
+          estimated_cost: number | null
           format: string | null
           id: string
+          image_quality: string | null
+          images_per_day: number | null
           images_per_month: number | null
           name: string
           posting_hour: number | null
@@ -37,6 +40,8 @@ export type Database = {
           total_published: number | null
           updated_at: string
           user_id: string
+          video_quality: string | null
+          videos_per_day: number | null
           videos_per_month: number | null
         }
         Insert: {
@@ -44,8 +49,11 @@ export type Database = {
           campaign_type: string
           created_at?: string
           ends_at?: string | null
+          estimated_cost?: number | null
           format?: string | null
           id?: string
+          image_quality?: string | null
+          images_per_day?: number | null
           images_per_month?: number | null
           name: string
           posting_hour?: number | null
@@ -61,6 +69,8 @@ export type Database = {
           total_published?: number | null
           updated_at?: string
           user_id: string
+          video_quality?: string | null
+          videos_per_day?: number | null
           videos_per_month?: number | null
         }
         Update: {
@@ -68,8 +78,11 @@ export type Database = {
           campaign_type?: string
           created_at?: string
           ends_at?: string | null
+          estimated_cost?: number | null
           format?: string | null
           id?: string
+          image_quality?: string | null
+          images_per_day?: number | null
           images_per_month?: number | null
           name?: string
           posting_hour?: number | null
@@ -85,6 +98,8 @@ export type Database = {
           total_published?: number | null
           updated_at?: string
           user_id?: string
+          video_quality?: string | null
+          videos_per_day?: number | null
           videos_per_month?: number | null
         }
         Relationships: [

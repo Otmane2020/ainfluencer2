@@ -1,127 +1,134 @@
 // ============================================================
 // COMMERCIAL PRODUCTS CONFIGURATION
 // Quality-based system - clients see quality levels, not AI model names
-// "ClipMotion uses quality levels instead of AI model names.
-//  We automatically select the best engine for performance, quality, and cost."
+// NEW: Subscription = Access only | Credits = All generation
 // ============================================================
 
 // ============================================================
-// QUALITY LEVELS (Client-Facing)
+// QUALITY TIERS (Client-Facing)
 // ============================================================
 
-export type ImageQuality = "smart" | "high" | "studio";
-export type VideoQuality = "smart" | "high" | "cinema";
-export type ContentType = "image" | "video";
+export type QualityTier = "standard" | "pro" | "cinema";
+export type ContentType = "image" | "video" | "reel";
 
-export interface QualityLevel {
-  id: string;
+export interface QualityTierConfig {
+  id: QualityTier;
   name: string;
-  internalModel: string;
-  price: number;
   description: string;
-  features: string[];
-  supportedDurations?: number[]; // Available durations in seconds
+  icon: string;
+  gradient: string;
+  costs: {
+    image: number;
+    video: number;
+    reel: number;
+  };
+  models: {
+    image: string;
+    video: string;
+    reel: string;
+  };
 }
 
-// Single unified image quality using Gemini 2.5 Flash
-export const IMAGE_QUALITY_LEVELS: QualityLevel[] = [
-  {
-    id: "pro-image",
-    name: "Pro Image",
-    internalModel: "gemini-flash-image", // Gemini 2.5 Flash via Lovable AI
-    price: 2.00,
-    description: "Professional AI image generation",
-    features: ["Ultra HD", "Photorealistic", "All styles", "Fast generation"],
-  },
-];
-
-// Single unified video quality using Sora-2 (up to 20s)
-export const VIDEO_QUALITY_LEVELS: QualityLevel[] = [
-  {
-    id: "pro-video",
-    name: "Pro Video",
-    internalModel: "sora-2", // Sora-2 via CometAPI
-    price: 12.90,
-    description: "Professional AI video generation",
-    features: ["Full HD 1080p", "4-20s", "AI Voice included", "Smooth motion"],
-    supportedDurations: [4, 5, 8, 10, 12, 15, 20],
-  },
-];
-
-// ============================================================
-// COMETAPI MODEL ROUTING (Internal - Never exposed to clients)
-// ============================================================
-
-// ============================================================
-// COMETAPI MODEL ROUTING (Internal - Legacy mappings)
-// Now handled by model pools in Edge Functions
-// ============================================================
-
-export const COMETAPI_MODEL_ROUTING: Record<string, string> = {
-  // Images - Now using pool system
-  "flux-2-flex": "flux-2-flex",
-  "nano-banana-pro": "nano-banana-pro",
-  "flux-2-pro": "flux-2-pro",
-  "gpt-image": "gpt-image-1",
-  "gpt-image-hq": "gpt-image-1",
-  // Videos - Now using pool system
-  "kling-std": "kling-video",
-  "kling-v2": "kling-video",
-  "veo-fast": "veo-2",
-  "veo-3.1": "veo-2",
-  "veo-3.1-pro": "veo-2",
-  "veo-3.1-ultra": "veo-2",
-  "sora-2": "sora-2",
-  "sora-2-pro": "sora-2",
-  "veo-pro": "veo-2",
-  "minimax-02": "minimax-video-01",
-  // Legacy mappings
-  "kling-v2-master": "kling-video",
-  "minimax-hailuo": "minimax-video-01",
-};
-
-// ============================================================
-// PLAN ACCESS CONTROL
-// ============================================================
-
-export interface PlanQualityAccess {
-  image: string[];
-  video: string[];
-  maxProjects: number;
-  maxCampaigns: number;
-  autopostImagesPerDay: number;
-  autopostVideosPerDay: number;
-}
-
-export const PLAN_QUALITY_ACCESS: Record<string, PlanQualityAccess> = {
-  starter: {
-    image: ["pro-image"],
-    video: [], // NO video access
-    maxProjects: 3,
-    maxCampaigns: 1,
-    autopostImagesPerDay: 30,
-    autopostVideosPerDay: 0,
+export const QUALITY_TIERS: Record<QualityTier, QualityTierConfig> = {
+  standard: {
+    id: "standard",
+    name: "Standard",
+    description: "Fast & affordable",
+    icon: "⚡",
+    gradient: "from-slate-500 to-zinc-600",
+    costs: {
+      image: 1,
+      video: 5,
+      reel: 3,
+    },
+    models: {
+      image: "gemini-flash-image",
+      video: "kling-video",
+      reel: "kling-video",
+    },
   },
   pro: {
-    image: ["pro-image"],
-    video: ["pro-video"],
-    maxProjects: 10,
-    maxCampaigns: -1, // Unlimited
-    autopostImagesPerDay: -1, // Unlimited
-    autopostVideosPerDay: 1,
+    id: "pro",
+    name: "Pro",
+    description: "High quality",
+    icon: "✨",
+    gradient: "from-blue-500 to-indigo-600",
+    costs: {
+      image: 3,
+      video: 10,
+      reel: 8,
+    },
+    models: {
+      image: "flux-2-pro",
+      video: "sora-2",
+      reel: "sora-2",
+    },
   },
-  business: {
-    image: ["pro-image"],
-    video: ["pro-video"],
-    maxProjects: -1, // Unlimited
-    maxCampaigns: -1,
-    autopostImagesPerDay: -1,
-    autopostVideosPerDay: 3,
+  cinema: {
+    id: "cinema",
+    name: "Cinema",
+    description: "Premium quality",
+    icon: "🎬",
+    gradient: "from-amber-500 to-orange-600",
+    costs: {
+      image: 5,
+      video: 20,
+      reel: 15,
+    },
+    models: {
+      image: "gpt-image-1",
+      video: "sora-2-pro",
+      reel: "sora-2-pro",
+    },
   },
 };
 
 // ============================================================
-// SUBSCRIPTION PLANS
+// CREDIT COSTS - Quick accessors
+// ============================================================
+
+export const getCreditCost = (contentType: ContentType, quality: QualityTier): number => {
+  return QUALITY_TIERS[quality]?.costs[contentType] || 1;
+};
+
+export const getModelForQuality = (contentType: ContentType, quality: QualityTier): string => {
+  return QUALITY_TIERS[quality]?.models[contentType] || QUALITY_TIERS.standard.models[contentType];
+};
+
+// Legacy CREDIT_COSTS for backwards compatibility
+export const CREDIT_COSTS: Record<string, number> = {
+  // Standard tier
+  "standard-image": 1,
+  "standard-video": 5,
+  "standard-reel": 3,
+  // Pro tier
+  "pro-image": 3,
+  "pro-video": 10,
+  "pro-reel": 8,
+  // Cinema tier
+  "cinema-image": 5,
+  "cinema-video": 20,
+  "cinema-reel": 15,
+  // Legacy mappings
+  "smart-image": 1,
+  "high-image": 3,
+  "studio-image": 5,
+  "smart-video": 5,
+  "high-video": 10,
+  "cinema-video-legacy": 20,
+  "ai-image-smart": 1,
+  "ai-image-standard": 1,
+  "ai-image-pro": 3,
+  "ai-image-studio": 5,
+  "ai-reel": 8,
+  "ai-reel-pro": 15,
+  "ai-cinema": 20,
+  "ai-influencer-standard": 39,
+  "ai-influencer-pro": 69,
+};
+
+// ============================================================
+// SUBSCRIPTION PLANS - Access Only (No generation included)
 // ============================================================
 
 export interface PricingPlan {
@@ -134,11 +141,7 @@ export interface PricingPlan {
   limits: {
     projects: number;
     campaigns: number;
-    autopostImages: number; // per day (-1 = unlimited)
-    autopostVideos: number; // per day (-1 = unlimited)
   };
-  imageQualities: string[];
-  videoQualities: string[];
   popular?: boolean;
   badge?: string;
 }
@@ -152,19 +155,15 @@ export const PRICING_PLANS: PricingPlan[] = [
     description: "Perfect for creators getting started",
     features: [
       "3 projects",
-      "1 campaign max",
-      "AutoPost AI Images (up to 30/day)",
-      "Pro quality images",
+      "1 campaign",
+      "AutoPost scheduling",
+      "All quality tiers",
       "Email support",
     ],
     limits: {
       projects: 3,
       campaigns: 1,
-      autopostImages: 30,
-      autopostVideos: 0,
     },
-    imageQualities: ["pro-image"],
-    videoQualities: [],
   },
   {
     id: "pro",
@@ -175,19 +174,15 @@ export const PRICING_PLANS: PricingPlan[] = [
     features: [
       "10 projects",
       "Unlimited campaigns",
-      "AutoPost AI Images (unlimited)",
-      "AutoPost AI Videos (1/day)",
-      "Pro quality images & videos",
+      "AutoPost scheduling",
+      "All quality tiers",
       "Priority support",
+      "Analytics dashboard",
     ],
     limits: {
       projects: 10,
-      campaigns: -1,
-      autopostImages: -1,
-      autopostVideos: 1,
+      campaigns: -1, // Unlimited
     },
-    imageQualities: ["pro-image"],
-    videoQualities: ["pro-video"],
     popular: true,
     badge: "POPULAR",
   },
@@ -200,85 +195,22 @@ export const PRICING_PLANS: PricingPlan[] = [
     features: [
       "Unlimited projects",
       "Unlimited campaigns",
-      "AutoPost AI Images (unlimited)",
-      "AutoPost AI Videos (3/day)",
-      "Pro quality",
+      "AutoPost scheduling",
+      "All quality tiers",
       "Priority queue",
       "API access",
+      "Dedicated support",
     ],
     limits: {
-      projects: -1,
+      projects: -1, // Unlimited
       campaigns: -1,
-      autopostImages: -1,
-      autopostVideos: 3,
     },
-    imageQualities: ["pro-image"],
-    videoQualities: ["pro-video"],
     badge: "PRO",
   },
 ];
 
 // ============================================================
-// PACKS CONFIGURATION
-// ============================================================
-
-export interface Pack {
-  id: string;
-  name: string;
-  packType: "image" | "video";
-  quality: string; // Quality ID (e.g., "smart-image", "high-video")
-  quantity: number;
-  price: number;
-  popular?: boolean;
-}
-
-export const IMAGE_PACKS: Pack[] = [
-  { id: "img-s-smart", name: "Pack S", packType: "image", quality: "smart-image", quantity: 10, price: 15 },
-  { id: "img-m-smart", name: "Pack M", packType: "image", quality: "smart-image", quantity: 50, price: 65 },
-  { id: "img-l-smart", name: "Pack L", packType: "image", quality: "smart-image", quantity: 200, price: 220 },
-  { id: "img-s-high", name: "Pack S High", packType: "image", quality: "high-image", quantity: 10, price: 25 },
-  { id: "img-m-high", name: "Pack M High", packType: "image", quality: "high-image", quantity: 50, price: 110 },
-  { id: "img-studio", name: "Pack Studio", packType: "image", quality: "studio-image", quantity: 50, price: 180 },
-];
-
-export const VIDEO_PACKS: Pack[] = [
-  { id: "vid-s-smart", name: "Pack Video S", packType: "video", quality: "smart-video", quantity: 10, price: 99 },
-  { id: "vid-m-mixed", name: "Pack Video M", packType: "video", quality: "high-video", quantity: 30, price: 249, popular: true },
-  { id: "vid-l-smart", name: "Pack Video L", packType: "video", quality: "smart-video", quantity: 100, price: 699 },
-  { id: "vid-cinema", name: "Pack Cinema", packType: "video", quality: "cinema-video", quantity: 20, price: 399 },
-];
-
-export const ALL_PACKS = [...IMAGE_PACKS, ...VIDEO_PACKS];
-
-// ============================================================
-// CREDIT COSTS (per generation - fallback system)
-// ============================================================
-
-export const CREDIT_COSTS: Record<string, number> = {
-  // Unified Pro quality
-  "pro-image": 2,
-  "pro-video": 10,
-  
-  // Legacy support (backwards compatibility)
-  "smart-image": 2,
-  "high-image": 2,
-  "studio-image": 2,
-  "smart-video": 10,
-  "high-video": 10,
-  "cinema-video": 10,
-  "ai-image-smart": 2,
-  "ai-image-standard": 2,
-  "ai-image-pro": 2,
-  "ai-image-studio": 2,
-  "ai-reel": 10,
-  "ai-reel-pro": 10,
-  "ai-cinema": 10,
-  "ai-influencer-standard": 39,
-  "ai-influencer-pro": 69,
-};
-
-// ============================================================
-// CREDIT PACKS (for purchase - fallback system)
+// CREDIT PACKS - For purchase
 // ============================================================
 
 export interface CreditPack {
@@ -298,8 +230,187 @@ export const CREDIT_PACKS: CreditPack[] = [
 ];
 
 // ============================================================
-// LEGACY SUPPORT - CommercialProduct interface
+// CAMPAIGN COST CALCULATOR
 // ============================================================
+
+export interface CampaignCostConfig {
+  videosPerDay: number;
+  imagesPerDay: number;
+  videoQuality: QualityTier;
+  imageQuality: QualityTier;
+  campaignDays: number;
+}
+
+export const calculateCampaignCost = (config: CampaignCostConfig): number => {
+  const videoCostPerDay = config.videosPerDay * getCreditCost("video", config.videoQuality);
+  const imageCostPerDay = config.imagesPerDay * getCreditCost("image", config.imageQuality);
+  const dailyCost = videoCostPerDay + imageCostPerDay;
+  return dailyCost * config.campaignDays;
+};
+
+export const getCampaignCostBreakdown = (config: CampaignCostConfig) => {
+  const videoUnitCost = getCreditCost("video", config.videoQuality);
+  const imageUnitCost = getCreditCost("image", config.imageQuality);
+  
+  const totalVideos = config.videosPerDay * config.campaignDays;
+  const totalImages = config.imagesPerDay * config.campaignDays;
+  
+  const videoCost = totalVideos * videoUnitCost;
+  const imageCost = totalImages * imageUnitCost;
+  
+  return {
+    totalVideos,
+    totalImages,
+    videoUnitCost,
+    imageUnitCost,
+    videoCost,
+    imageCost,
+    totalCost: videoCost + imageCost,
+  };
+};
+
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================
+
+export const getPlanById = (planId: string): PricingPlan | undefined => {
+  return PRICING_PLANS.find(p => p.id === planId);
+};
+
+export const getQualityTierById = (quality: QualityTier): QualityTierConfig => {
+  return QUALITY_TIERS[quality] || QUALITY_TIERS.standard;
+};
+
+export const formatPrice = (price: number, unit: string = "") => {
+  return `$${price}${unit}`;
+};
+
+// ============================================================
+// PLAN ACCESS CONTROL - Subscription grants feature access
+// ============================================================
+
+export interface PlanAccess {
+  maxProjects: number;
+  maxCampaigns: number;
+  canAutopost: boolean;
+  hasPriorityQueue: boolean;
+  hasApiAccess: boolean;
+}
+
+export const PLAN_ACCESS: Record<string, PlanAccess> = {
+  starter: {
+    maxProjects: 3,
+    maxCampaigns: 1,
+    canAutopost: true,
+    hasPriorityQueue: false,
+    hasApiAccess: false,
+  },
+  pro: {
+    maxProjects: 10,
+    maxCampaigns: -1,
+    canAutopost: true,
+    hasPriorityQueue: false,
+    hasApiAccess: false,
+  },
+  business: {
+    maxProjects: -1,
+    maxCampaigns: -1,
+    canAutopost: true,
+    hasPriorityQueue: true,
+    hasApiAccess: true,
+  },
+};
+
+export const getPlanAccess = (planId: string): PlanAccess => {
+  return PLAN_ACCESS[planId] || {
+    maxProjects: 0,
+    maxCampaigns: 0,
+    canAutopost: false,
+    hasPriorityQueue: false,
+    hasApiAccess: false,
+  };
+};
+
+// ============================================================
+// LEGACY COMPATIBILITY
+// ============================================================
+
+// Legacy quality access - now all tiers available to all subscribers
+export const PLAN_QUALITY_ACCESS: Record<string, { image: string[]; video: string[]; maxProjects: number; maxCampaigns: number; autopostImagesPerDay: number; autopostVideosPerDay: number }> = {
+  starter: {
+    image: ["standard-image", "pro-image", "cinema-image"],
+    video: ["standard-video", "pro-video", "cinema-video"],
+    maxProjects: 3,
+    maxCampaigns: 1,
+    autopostImagesPerDay: -1, // Unlimited (credits-based)
+    autopostVideosPerDay: -1, // Unlimited (credits-based)
+  },
+  pro: {
+    image: ["standard-image", "pro-image", "cinema-image"],
+    video: ["standard-video", "pro-video", "cinema-video"],
+    maxProjects: 10,
+    maxCampaigns: -1,
+    autopostImagesPerDay: -1,
+    autopostVideosPerDay: -1,
+  },
+  business: {
+    image: ["standard-image", "pro-image", "cinema-image"],
+    video: ["standard-video", "pro-video", "cinema-video"],
+    maxProjects: -1,
+    maxCampaigns: -1,
+    autopostImagesPerDay: -1,
+    autopostVideosPerDay: -1,
+  },
+};
+
+// Legacy types for backward compatibility
+export type ImageQuality = "smart" | "high" | "studio";
+export type VideoQuality = "smart" | "high" | "cinema";
+
+export interface QualityLevel {
+  id: string;
+  name: string;
+  internalModel: string;
+  price: number;
+  description: string;
+  features: string[];
+  supportedDurations?: number[];
+}
+
+export const IMAGE_QUALITY_LEVELS: QualityLevel[] = [
+  {
+    id: "pro-image",
+    name: "Pro Image",
+    internalModel: "gemini-flash-image",
+    price: 2.00,
+    description: "Professional AI image generation",
+    features: ["Ultra HD", "Photorealistic", "All styles", "Fast generation"],
+  },
+];
+
+export const VIDEO_QUALITY_LEVELS: QualityLevel[] = [
+  {
+    id: "pro-video",
+    name: "Pro Video",
+    internalModel: "sora-2",
+    price: 12.90,
+    description: "Professional AI video generation",
+    features: ["Full HD 1080p", "4-20s", "AI Voice included", "Smooth motion"],
+    supportedDurations: [4, 5, 8, 10, 12, 15, 20],
+  },
+];
+
+export const COMETAPI_MODEL_ROUTING: Record<string, string> = {
+  "flux-2-flex": "flux-2-flex",
+  "nano-banana-pro": "nano-banana-pro",
+  "flux-2-pro": "flux-2-pro",
+  "gpt-image": "gpt-image-1",
+  "gpt-image-hq": "gpt-image-1",
+  "kling-std": "kling-video",
+  "kling-v2": "kling-video",
+  "sora-2": "sora-2",
+  "sora-2-pro": "sora-2",
+};
 
 export interface CommercialProduct {
   id: string;
@@ -318,29 +429,25 @@ export interface CommercialProduct {
   popular?: boolean;
 }
 
-// Map quality levels to legacy CommercialProduct format
 export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
-  // Images
   ...IMAGE_QUALITY_LEVELS.map((q, i) => ({
     id: q.id,
     name: q.name,
     category: "image" as const,
-    tier: (i === 0 ? "standard" : i === 1 ? "pro" : "ultra") as CommercialProduct["tier"],
+    tier: "pro" as CommercialProduct["tier"],
     salePrice: q.price,
     salePriceUnit: "/image",
     description: q.description,
     features: q.features,
     internalModels: [q.internalModel],
     needsVoice: false,
-    badge: i === 2 ? "STUDIO" : undefined,
-    popular: i === 1,
+    popular: true,
   })),
-  // Videos
-  ...VIDEO_QUALITY_LEVELS.map((q, i) => ({
+  ...VIDEO_QUALITY_LEVELS.map((q) => ({
     id: q.id,
     name: q.name,
     category: "video" as const,
-    tier: (i === 0 ? "standard" : i === 1 ? "pro" : "cinema") as CommercialProduct["tier"],
+    tier: "pro" as CommercialProduct["tier"],
     salePrice: q.price,
     salePriceUnit: "/video",
     description: q.description,
@@ -348,14 +455,9 @@ export const COMMERCIAL_PRODUCTS: CommercialProduct[] = [
     internalModels: [q.internalModel],
     needsVoice: true,
     supportedDurations: q.supportedDurations || [5, 10],
-    badge: i === 2 ? "CINEMA" : undefined,
-    popular: i === 1,
+    popular: true,
   })),
 ];
-
-// ============================================================
-// HELPER FUNCTIONS
-// ============================================================
 
 export const getQualityById = (qualityId: string): QualityLevel | undefined => {
   return [...IMAGE_QUALITY_LEVELS, ...VIDEO_QUALITY_LEVELS].find(q => q.id === qualityId);
@@ -378,21 +480,13 @@ export const canAccessQuality = (planId: string, qualityId: string): boolean => 
 
 export const canAccessVideo = (planId: string): boolean => {
   const access = PLAN_QUALITY_ACCESS[planId];
-  return access?.video.length > 0;
+  return (access?.video.length || 0) > 0;
 };
 
 export const getAutopostLimit = (planId: string, contentType: "image" | "video"): number => {
   const access = PLAN_QUALITY_ACCESS[planId];
   if (!access) return 0;
   return contentType === "image" ? access.autopostImagesPerDay : access.autopostVideosPerDay;
-};
-
-export const getPlanById = (planId: string): PricingPlan | undefined => {
-  return PRICING_PLANS.find(p => p.id === planId);
-};
-
-export const getCreditCost = (qualityId: string): number => {
-  return CREDIT_COSTS[qualityId] || 0;
 };
 
 export const getTierColor = (tier: CommercialProduct["tier"]) => {
@@ -423,11 +517,6 @@ export const getProductsByCategory = (category: CommercialProduct["category"]) =
   return COMMERCIAL_PRODUCTS.filter((p) => p.category === category);
 };
 
-export const formatPrice = (price: number, unit: string) => {
-  return `$${price}${unit}`;
-};
-
-// Legacy compatibility - Import AIModel type for backwards compat
 import { AI_MODELS, type AIModel } from "@/components/ModelSelector";
 
 export const getInternalModels = (productId: string): AIModel[] => {
@@ -451,7 +540,21 @@ export const getCommercialName = (internalModelId: string): string => {
   return product?.name || "AI Generation";
 };
 
-// Legacy pricing packs compatibility
+// Legacy packs
+export interface Pack {
+  id: string;
+  name: string;
+  packType: "image" | "video";
+  quality: string;
+  quantity: number;
+  price: number;
+  popular?: boolean;
+}
+
+export const IMAGE_PACKS: Pack[] = [];
+export const VIDEO_PACKS: Pack[] = [];
+export const ALL_PACKS = [...IMAGE_PACKS, ...VIDEO_PACKS];
+
 export interface PricingPack {
   id: string;
   name: string;
@@ -476,9 +579,9 @@ export const PRICING_PACKS: PricingPack[] = PRICING_PLANS.map(plan => ({
   description: plan.description,
   features: plan.features,
   included: {
-    images: plan.limits.autopostImages,
-    videos: plan.limits.autopostVideos,
-    influencerVideos: plan.id === "business" ? 3 : plan.id === "pro" ? 1 : 0,
+    images: -1, // Credits-based
+    videos: -1,
+    influencerVideos: 0,
   },
   popular: plan.popular,
   badge: plan.badge,

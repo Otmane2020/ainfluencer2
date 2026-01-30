@@ -8,11 +8,11 @@ import { useSubscription } from "@/hooks/useSubscription";
 
 const ClipMotionPage = () => {
   const [showPaywall, setShowPaywall] = useState(false);
-  const { canAccessFeature } = useSubscription();
+  const { isSubscribed } = useSubscription();
 
   // Check if user can generate before proceeding
   const handleBeforeGenerate = (): boolean => {
-    if (!canAccessFeature("video")) {
+    if (!isSubscribed) {
       setShowPaywall(true);
       return false;
     }

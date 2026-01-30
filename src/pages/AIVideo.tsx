@@ -1,17 +1,21 @@
 import { AIVideoGenerator } from "@/components/AIVideoGenerator";
 import { PaywallModal } from "@/components/PaywallModal";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useCredits } from "@/hooks/useCredits";
 import { useState } from "react";
 
 const AIVideo = () => {
   const [showPaywall, setShowPaywall] = useState(false);
-  const { canAccessFeature } = useSubscription();
+  const { isSubscribed } = useSubscription();
+  const { balance } = useCredits();
 
   const handleBeforeGenerate = (): boolean => {
-    if (!canAccessFeature("video")) {
+    // Check subscription first, then credits
+    if (!isSubscribed) {
       setShowPaywall(true);
       return false;
     }
+    // Credits are checked in the generator component
     return true;
   };
 
@@ -32,7 +36,7 @@ const AIVideo = () => {
         open={showPaywall}
         onOpenChange={setShowPaywall}
         feature="video"
-        requiredPlan="pro"
+        requiredPlan="starter"
       />
     </>
   );

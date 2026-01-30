@@ -39,7 +39,7 @@ const Videos = () => {
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const [showPaywall, setShowPaywall] = useState(false);
   const { toast } = useToast();
-  const { subscription, canAccessFeature } = useSubscription();
+  const { isSubscribed } = useSubscription();
 
   // Get starting frame URL from search params (for video continuation)
   const startingFrameUrl = searchParams.get("continueFrom") || undefined;
@@ -83,7 +83,7 @@ const Videos = () => {
 
   // Check if user can generate before proceeding
   const handleBeforeGenerate = (): boolean => {
-    if (!canAccessFeature("video")) {
+    if (!isSubscribed) {
       setShowPaywall(true);
       return false;
     }

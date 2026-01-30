@@ -1,7 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { PRICING_PLANS, CREDIT_COSTS, PricingPlan } from "@/lib/commercialProducts";
+import { 
+  PRICING_PLANS, 
+  PricingPlan, 
+  QualityTier,
+  ContentType,
+  getCreditCost,
+  calculateCampaignCost,
+  CampaignCostConfig,
+} from "@/lib/commercialProducts";
 
 interface Subscription {
   id: string;
@@ -53,7 +61,6 @@ export const useCredits = () => {
         .eq("user_id", user.id)
         .maybeSingle();
 
-      // If no subscription, create default starter
       if (!subData) {
         const { data: newSub } = await supabase
           .from("subscriptions")
@@ -69,16 +76,14 @@ export const useCredits = () => {
         setSubscription(subData);
       }
 
-      // Fetch credits - use a transaction check to prevent duplicates
+      // Fetch credits
       const { data: creditsData } = await supabase
         .from("credits")
         .select("*")
         .eq("user_id", user.id)
         .maybeSingle();
 
-      // If no credits, create with default 10 (but check for race condition)
       if (!creditsData) {
-        // First check if a transaction already exists (prevents duplicate bonus)
         const { data: existingBonus } = await supabase
           .from("credit_transactions")
           .select("id")
@@ -89,7 +94,6 @@ export const useCredits = () => {
           .maybeSingle();
 
         if (!existingBonus) {
-          // No existing bonus, safe to create
           const { data: newCredits, error: insertError } = await supabase
             .from("credits")
             .insert({ user_id: user.id, balance: 10 })
@@ -98,7 +102,6 @@ export const useCredits = () => {
 
           if (!insertError && newCredits) {
             setCredits(newCredits);
-            // Log welcome bonus only if credits were created
             await supabase.from("credit_transactions").insert({
               user_id: user.id,
               amount: 10,
@@ -106,7 +109,6 @@ export const useCredits = () => {
               description: "Welcome bonus credits",
             });
           } else {
-            // Insert failed (likely duplicate), try fetching again
             const { data: retryCredits } = await supabase
               .from("credits")
               .select("*")
@@ -115,7 +117,6 @@ export const useCredits = () => {
             setCredits(retryCredits);
           }
         } else {
-          // Bonus already exists, just fetch credits again (might have been created by race)
           const { data: retryCredits } = await supabase
             .from("credits")
             .select("*")
@@ -147,24 +148,26 @@ export const useCredits = () => {
     fetchData();
   }, [fetchData]);
 
-  const deductCredits = async (productId: string, description: string): Promise<boolean> => {
+  // Deduct credits for a generation
+  const deductCredits = async (
+    contentType: ContentType, 
+    quality: QualityTier, 
+    description: string
+  ): Promise<boolean> => {
     if (!user || !credits) return false;
 
-    const cost = CREDIT_COSTS[productId];
-    if (!cost) return false;
-
+    const cost = getCreditCost(contentType, quality);
+    
     if (credits.balance < cost) {
       return false;
     }
 
-    // Use RPC function for atomic deduction
     const { data: success } = await supabase.rpc("deduct_credits", {
       p_user_id: user.id,
       p_amount: cost,
     });
 
     if (success) {
-      // Log transaction
       await supabase.from("credit_transactions").insert({
         user_id: user.id,
         amount: -cost,
@@ -172,7 +175,6 @@ export const useCredits = () => {
         description,
       });
 
-      // Refresh data
       await fetchData();
       return true;
     }
@@ -180,6 +182,31 @@ export const useCredits = () => {
     return false;
   };
 
+  // Deduct by raw amount (for campaigns)
+  const deductCreditsRaw = async (amount: number, description: string): Promise<boolean> => {
+    if (!user || !credits || credits.balance < amount) return false;
+
+    const { data: success } = await supabase.rpc("deduct_credits", {
+      p_user_id: user.id,
+      p_amount: amount,
+    });
+
+    if (success) {
+      await supabase.from("credit_transactions").insert({
+        user_id: user.id,
+        amount: -amount,
+        type: "consumption",
+        description,
+      });
+
+      await fetchData();
+      return true;
+    }
+
+    return false;
+  };
+
+  // Add credits
   const addCredits = async (amount: number, description: string): Promise<boolean> => {
     if (!user) return false;
 
@@ -189,7 +216,6 @@ export const useCredits = () => {
         p_amount: amount,
       });
 
-      // Log transaction
       await supabase.from("credit_transactions").insert({
         user_id: user.id,
         amount: amount,
@@ -197,7 +223,6 @@ export const useCredits = () => {
         description,
       });
 
-      // Refresh data
       await fetchData();
       return true;
     } catch (error) {
@@ -206,42 +231,26 @@ export const useCredits = () => {
     }
   };
 
-  const canAfford = (productId: string): boolean => {
-    const cost = CREDIT_COSTS[productId];
+  // Check if user can afford a specific generation
+  const canAfford = (contentType: ContentType, quality: QualityTier): boolean => {
+    const cost = getCreditCost(contentType, quality);
     return credits ? credits.balance >= cost : false;
   };
 
-  const checkDailyLimit = async (contentType: "image" | "video"): Promise<{ allowed: boolean; reason?: string }> => {
-    if (!user || !currentPlan) return { allowed: false, reason: "no_subscription" };
+  // Check if user can afford a campaign
+  const canAffordCampaign = (config: CampaignCostConfig): boolean => {
+    const totalCost = calculateCampaignCost(config);
+    return credits ? credits.balance >= totalCost : false;
+  };
 
-    const limit = contentType === "image" 
-      ? currentPlan.limits.autopostImages 
-      : currentPlan.limits.autopostVideos;
+  // Get cost for a generation
+  const getGenerationCost = (contentType: ContentType, quality: QualityTier): number => {
+    return getCreditCost(contentType, quality);
+  };
 
-    // -1 means unlimited
-    if (limit === -1) return { allowed: true };
-
-    // For Starter plan, no videos allowed
-    if (contentType === "video" && limit === 0) {
-      return { allowed: false, reason: "plan_limit" };
-    }
-
-    // Count today's generations
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const { count } = await supabase
-      .from("scheduled_posts")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("content_type", contentType)
-      .gte("created_at", today.toISOString());
-
-    if ((count || 0) >= limit) {
-      return { allowed: false, reason: "daily_limit_reached" };
-    }
-
-    return { allowed: true };
+  // Get campaign cost
+  const getCampaignCost = (config: CampaignCostConfig): number => {
+    return calculateCampaignCost(config);
   };
 
   return {
@@ -251,10 +260,15 @@ export const useCredits = () => {
     currentPlan,
     isLoading,
     balance: credits?.balance || 0,
+    // Actions
     deductCredits,
+    deductCreditsRaw,
     addCredits,
-    canAfford,
-    checkDailyLimit,
     refresh: fetchData,
+    // Checks
+    canAfford,
+    canAffordCampaign,
+    getGenerationCost,
+    getCampaignCost,
   };
 };
