@@ -148,9 +148,8 @@ const Auth = () => {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
-      const redirectUrl = `${window.location.origin}/dashboard`;
       const { error } = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: redirectUrl,
+        redirect_uri: window.location.origin,
       });
       if (error) {
         console.error("[Auth] Google OAuth error:", error);
@@ -176,9 +175,8 @@ const Auth = () => {
   const handleAppleSignIn = async () => {
     setIsAppleLoading(true);
     try {
-      const redirectUrl = `${window.location.origin}/dashboard`;
       const { error } = await lovable.auth.signInWithOAuth("apple", {
-        redirect_uri: redirectUrl,
+        redirect_uri: window.location.origin,
       });
       if (error) {
         console.error("[Auth] Apple OAuth error:", error);
