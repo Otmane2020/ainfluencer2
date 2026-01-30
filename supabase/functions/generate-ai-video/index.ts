@@ -221,6 +221,8 @@ Deno.serve(async (req) => {
         }
 
         const result = await response.json();
+        console.log("[AI-VIDEO] CometAPI full response:", JSON.stringify(result));
+        
         const videoData = result.data || result;
         const innerData = videoData.data || {};
         const rawStatus = (videoData.status || innerData.status || "processing").toLowerCase();
@@ -233,12 +235,65 @@ Deno.serve(async (req) => {
           status = "completed";
           progress = 100;
           
-          if (videoData.fail_reason && typeof videoData.fail_reason === "string" && videoData.fail_reason.startsWith("http")) {
+          // Try standard extraction paths first
+          videoUrl = 
+            innerData.output_video || videoData.output_video ||
+            videoData.video_url || innerData.video_url ||
+            videoData.url || innerData.url ||
+            videoData.output || innerData.output ||
+            videoData.result || innerData.result ||
+            videoData.file_url || innerData.file_url ||
+            videoData.download_url || innerData.download_url;
+            
+          // Sometimes URL is in fail_reason (weird but documented)
+          if (!videoUrl && videoData.fail_reason && typeof videoData.fail_reason === "string" && videoData.fail_reason.startsWith("http")) {
             videoUrl = videoData.fail_reason;
-          } else {
-            videoUrl = innerData.output_video || videoData.output_video || 
-                       videoData.video_url || innerData.url || videoData.url;
           }
+          
+          // CometAPI Sora-2: the /content endpoint returns the video file directly
+          // We need to download it and upload to Supabase Storage
+          if (!videoUrl && taskId) {
+            console.log("[AI-VIDEO] Downloading video from CometAPI and uploading to storage...");
+            try {
+              const contentResponse = await fetch(`https://api.cometapi.com/v1/videos/${taskId}/content`, {
+                headers: { Authorization: `Bearer ${COMETAPI_API_KEY}` },
+              });
+              
+              if (contentResponse.ok) {
+                const videoBlob = await contentResponse.blob();
+                console.log("[AI-VIDEO] Downloaded video size:", videoBlob.size);
+                
+                // Upload to Supabase storage
+                const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+                const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+                const supabase = createClient(supabaseUrl, supabaseServiceKey);
+                
+                const fileName = `ai-videos/${taskId}.mp4`;
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                  .from("media")
+                  .upload(fileName, videoBlob, {
+                    contentType: "video/mp4",
+                    upsert: true,
+                  });
+                  
+                if (uploadError) {
+                  console.error("[AI-VIDEO] Upload error:", uploadError);
+                } else {
+                  const { data: publicUrlData } = supabase.storage
+                    .from("media")
+                    .getPublicUrl(fileName);
+                  videoUrl = publicUrlData.publicUrl;
+                  console.log("[AI-VIDEO] Uploaded to storage:", videoUrl);
+                }
+              } else {
+                console.error("[AI-VIDEO] Failed to download from CometAPI:", contentResponse.status);
+              }
+            } catch (downloadError) {
+              console.error("[AI-VIDEO] Download/upload error:", downloadError);
+            }
+          }
+          
+          console.log("[AI-VIDEO] Final extracted videoUrl:", videoUrl);
         } else if (rawStatus === "failed" || rawStatus === "error") {
           status = "failed";
         }
