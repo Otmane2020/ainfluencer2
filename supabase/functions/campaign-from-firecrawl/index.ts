@@ -31,6 +31,7 @@ async function firecrawl(url: string): Promise<string> {
       formats: ["markdown"],
       onlyMainContent: true,
       waitFor: 3000,
+      timeout: 30000,
     }),
   });
 
@@ -38,7 +39,10 @@ async function firecrawl(url: string): Promise<string> {
   if (!res.ok || !json?.success) {
     throw new Error(`Firecrawl failed for ${url}: ${json?.error || res.status}`);
   }
-  return json.data?.markdown || "";
+  
+  // Access data correctly from v1 response
+  const responseData = json.data || json;
+  return responseData?.markdown || "";
 }
 
 // ============================================================
