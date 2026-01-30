@@ -424,11 +424,40 @@ export const ScheduledPostModal = ({
   const handlePublishNow = async () => {
     if (!onPublishNow) return;
     
-    // For video content, we need to generate first
-    if (post.content_type === "video" && !post.media_url) {
-      // Need to generate video + social content first
+    // Check if we need media first (Instagram requires it)
+    const needsMedia = selectedPlatforms.includes("instagram") && !post.media_url && !localMediaUrl;
+    
+    // For video content without media, generate first
+    if (post.content_type === "video" && !post.media_url && !localMediaUrl) {
       await handleGenerateAndPublish();
       return;
+    }
+    
+    // For image content without media, generate first before publishing
+    if (post.content_type === "image" && needsMedia) {
+      setIsPublishing(true);
+      setPublishingStatus("Generating image first...");
+      
+      try {
+        // Generate image first
+        await handleGenerate();
+        
+        // Wait a moment for state to update
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Now the media should be ready, proceed with publish
+        setPublishingStatus("Publishing to platforms...");
+      } catch (error) {
+        console.error("Failed to generate image before publish:", error);
+        toast({
+          title: "Generation failed",
+          description: "Unable to generate image. Please try again.",
+          variant: "destructive",
+        });
+        setIsPublishing(false);
+        setPublishingStatus("");
+        return;
+      }
     }
     
     setIsPublishing(true);
@@ -441,7 +470,9 @@ export const ScheduledPostModal = ({
         setPublishingStatus(`Publishing to ${metaPlatforms.join(" & ")}...`);
       }
       
-      await onPublishNow(post);
+      // Pass updated post with localMediaUrl if we just generated it
+      const postToPublish = localMediaUrl ? { ...post, media_url: localMediaUrl } : post;
+      await onPublishNow(postToPublish);
       setPublishingStatus("Published successfully!");
       
       // CalendarPage already shows the success toast, don't duplicate
