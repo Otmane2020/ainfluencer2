@@ -306,9 +306,14 @@ serve(async (req) => {
         index: i,
       });
     }
-    // FIX 7: Rate limit protection - prevent excessive API calls
-    if (scheduledPosts.length > 60) {
-      throw new Error("Too many posts requested for one generation cycle (max 60)");
+    // FIX 7: Rate limit protection - limit to prevent timeout
+    // Edge functions have 60s timeout, each AI call ~3-5s, so limit to 15 posts per batch
+    const MAX_BATCH_SIZE = 15;
+    if (scheduledPosts.length > MAX_BATCH_SIZE) {
+      console.log(`Trimming batch from ${scheduledPosts.length} to ${MAX_BATCH_SIZE} posts to prevent timeout`);
+      scheduledPosts.length = MAX_BATCH_SIZE;
+      videoCount = scheduledPosts.filter(p => p.contentType === "video").length;
+      imageCount = scheduledPosts.filter(p => p.contentType === "image").length;
     }
 
     console.log(`Will generate ${scheduledPosts.length} posts (${videoCount} videos, ${imageCount} images)`);
@@ -502,12 +507,28 @@ CRITICAL REQUIREMENTS:
 4. Be creative and unexpected - NO generic content`
               }
             ],
-            temperature: 0.95, // Higher temperature for more creative variety
+            temperature: 0.9, // Slightly lower for more consistent output
+            max_tokens: 1024, // Ensure complete response
           }),
         });
 
         if (!aiResponse.ok) {
           console.error(`AI generation failed for post ${post.index + 1}:`, await aiResponse.text());
+          // Use fallback prompt instead of skipping
+          generatedPosts.push({
+            user_id: campaign.user_id,
+            project_id: campaign.project_id,
+            campaign_id: campaign.id,
+            content_type: post.contentType,
+            scheduled_for: post.scheduledFor,
+            ai_prompt: `Professional ${post.contentType === "video" ? "video" : "image"} for ${project.name}. ${diversity.scene.desc}. Style: ${effectiveTone}. High quality.`,
+            text_content: `✨ ${project.name} #${diversity.angle.id} #marketing #content`,
+            media_url: null,
+            thumbnail_url: null,
+            status: "scheduled",
+            platforms: targetPlatforms,
+          });
+          promptsGenerated++;
           continue;
         }
 
@@ -529,6 +550,21 @@ CRITICAL REQUIREMENTS:
         const parsed = safeJsonParse(content);
         if (!parsed) {
           console.error(`Failed to parse AI response for post ${post.index + 1}:`, content.slice(0, 200));
+          // Use fallback instead of skipping
+          generatedPosts.push({
+            user_id: campaign.user_id,
+            project_id: campaign.project_id,
+            campaign_id: campaign.id,
+            content_type: post.contentType,
+            scheduled_for: post.scheduledFor,
+            ai_prompt: `Professional ${post.contentType === "video" ? "video" : "image"} for ${project.name}. ${diversity.scene.desc}. Style: ${effectiveTone}. High quality marketing content.`,
+            text_content: `✨ Discover ${project.name} #${diversity.angle.id} #marketing #business`,
+            media_url: null,
+            thumbnail_url: null,
+            status: "scheduled",
+            platforms: targetPlatforms,
+          });
+          promptsGenerated++;
           continue;
         }
 
@@ -582,12 +618,17 @@ CRITICAL REQUIREMENTS:
       console.log(`Successfully created ${generatedPosts.length} scheduled posts`);
     }
 
+    // Calculate remaining posts to generate
+    const remainingPosts = totalPosts - generatedPosts.length;
+    
     return new Response(
       JSON.stringify({ 
         success: true,
         generated: generatedPosts.length,
         videos: videoCount,
         images: imageCount,
+        remaining: remainingPosts > 0 ? remainingPosts : 0,
+        batchComplete: remainingPosts <= 0,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
