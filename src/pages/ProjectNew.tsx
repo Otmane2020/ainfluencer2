@@ -282,7 +282,11 @@ const ProjectNew = () => {
         const scrapedMarkdown = data.markdown?.substring(0, 5000) || null;
         setScrapedData({
           markdown: scrapedMarkdown,
-          branding: data.branding || null,
+          branding: {
+            ...data.branding,
+            logo: data.logo, // Store REAL logo URL from Firecrawl
+            colors: data.colors, // Store REAL colors from Firecrawl
+          },
           services: data.services || [],
         });
 
