@@ -34,7 +34,10 @@ interface VisualIdentity {
   secondary_colors: string[];
   aesthetic_style: string;
   logo_description: string;
+  logo_url?: string;
   mood: string;
+  fonts?: string[];
+  color_scheme?: string;
 }
 
 interface BrandPersonality {
@@ -75,6 +78,7 @@ export interface MarketingContext {
 interface MarketingContextEditorProps {
   projectId: string;
   projectName: string;
+  projectUrl?: string | null;
   scrapedMarkdown?: string | null;
   initialContext?: MarketingContext | null;
   onSave: (context: MarketingContext) => Promise<void>;
@@ -86,7 +90,10 @@ const DEFAULT_CONTEXT: MarketingContext = {
     secondary_colors: [],
     aesthetic_style: "modern-minimal",
     logo_description: "",
+    logo_url: "",
     mood: "professional",
+    fonts: [],
+    color_scheme: "light",
   },
   brand_personality: {
     tone: "professional",
@@ -171,6 +178,7 @@ const mergeWithDefaults = (partial: Partial<MarketingContext> | null | undefined
 export const MarketingContextEditor = ({
   projectId,
   projectName,
+  projectUrl,
   scrapedMarkdown,
   initialContext,
   onSave,
@@ -228,6 +236,7 @@ export const MarketingContextEditor = ({
           },
           body: JSON.stringify({
             projectName,
+            projectUrl,
             scrapedMarkdown,
           }),
         }
@@ -556,6 +565,52 @@ export const MarketingContextEditor = ({
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              {/* Logo URL - extracted from Firecrawl */}
+              <div className="space-y-2">
+                <Label>Logo URL</Label>
+                <div className="flex gap-2 items-center">
+                  <Input
+                    value={context.visual_identity.logo_url || ""}
+                    onChange={(e) =>
+                      setContext((prev) => ({
+                        ...prev,
+                        visual_identity: {
+                          ...prev.visual_identity,
+                          logo_url: e.target.value,
+                        },
+                      }))
+                    }
+                    placeholder="https://example.com/logo.png"
+                    className="flex-1"
+                  />
+                  {context.visual_identity.logo_url && (
+                    <img
+                      src={context.visual_identity.logo_url}
+                      alt="Brand logo"
+                      className="h-10 w-10 rounded border object-contain bg-white"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Auto-extracted from website branding
+                </p>
+              </div>
+
+              {/* Fonts - extracted from Firecrawl */}
+              <div className="space-y-2">
+                <Label>Brand Fonts</Label>
+                <TagInput
+                  field="visual_identity.fonts"
+                  placeholder="Add font (e.g., Inter, Roboto)"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Typography detected from your website
+                </p>
               </div>
             </CardContent>
           </Card>

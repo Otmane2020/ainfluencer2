@@ -718,6 +718,7 @@ const ProjectDetail = () => {
                 <MarketingContextEditor
                   projectId={project.id}
                   projectName={project.name}
+                  projectUrl={project.url}
                   scrapedMarkdown={project.scraped_markdown}
                   initialContext={project.marketing_context as MarketingContext | null}
                   onSave={async (context) => {

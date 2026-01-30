@@ -17,33 +17,124 @@ function safeParseJSON<T>(text: string): T | null {
   }
 }
 
+// Fetch branding from Firecrawl
+async function fetchBrandingFromFirecrawl(url: string): Promise<{
+  logo?: string;
+  colors?: {
+    primary?: string;
+    secondary?: string;
+    accent?: string;
+    background?: string;
+  };
+  fonts?: string[];
+  colorScheme?: string;
+} | null> {
+  const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
+  if (!FIRECRAWL_API_KEY) {
+    console.log("[generate-marketing-context] Firecrawl API key not configured, skipping branding extraction");
+    return null;
+  }
+
+  try {
+    console.log("[generate-marketing-context] Fetching branding from:", url);
+    
+    const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        url,
+        formats: ["branding"],
+        waitFor: 2000,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[generate-marketing-context] Firecrawl error:", response.status, errorText.slice(0, 200));
+      return null;
+    }
+
+    const data = await response.json();
+    console.log("[generate-marketing-context] Firecrawl branding response keys:", Object.keys(data));
+    
+    // Handle nested data structure
+    const branding = data.data?.branding || data.branding;
+    
+    if (!branding) {
+      console.log("[generate-marketing-context] No branding data found in response");
+      return null;
+    }
+
+    console.log("[generate-marketing-context] Branding extracted:", {
+      hasLogo: !!branding.logo || !!branding.images?.logo,
+      hasColors: !!branding.colors,
+      hasFonts: !!branding.fonts,
+      colorScheme: branding.colorScheme,
+    });
+
+    return {
+      logo: branding.logo || branding.images?.logo,
+      colors: branding.colors,
+      fonts: branding.fonts?.map((f: any) => f.family || f) || [],
+      colorScheme: branding.colorScheme,
+    };
+  } catch (error) {
+    console.error("[generate-marketing-context] Firecrawl branding error:", error);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { projectName, scrapedMarkdown } = await req.json();
+    const { projectName, scrapedMarkdown, projectUrl } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("[generate-marketing-context] Analyzing:", projectName);
+    console.log("[generate-marketing-context] Analyzing:", projectName, "URL:", projectUrl);
+
+    // Step 1: Fetch branding from Firecrawl if URL provided
+    let branding: Awaited<ReturnType<typeof fetchBrandingFromFirecrawl>> = null;
+    if (projectUrl) {
+      branding = await fetchBrandingFromFirecrawl(projectUrl);
+    }
+
+    // Step 2: Build enhanced prompt with branding info
+    const brandingContext = branding ? `
+EXTRACTED BRANDING (from actual website):
+- Logo URL: ${branding.logo || "Not found"}
+- Primary Color: ${branding.colors?.primary || "Not found"}
+- Secondary Color: ${branding.colors?.secondary || "Not found"}
+- Accent Color: ${branding.colors?.accent || "Not found"}
+- Background Color: ${branding.colors?.background || "Not found"}
+- Color Scheme: ${branding.colorScheme || "Not detected"}
+- Fonts: ${branding.fonts?.join(", ") || "Not detected"}
+` : "";
 
     const systemPrompt = `You are an expert marketing strategist and brand analyst. Your task is to analyze website content and extract a comprehensive marketing context that can be used to generate highly targeted, on-brand content.
 
 IMPORTANT: Extract REAL information from the provided content. DO NOT invent or assume details.
+${branding ? "CRITICAL: Use the EXTRACTED BRANDING data provided - these are real values from the website!" : ""}
 
 You must return a valid JSON object with this exact structure:
 {
   "visual_identity": {
-    "primary_color": "#hexcode (extract from brand colors or infer from description)",
+    "primary_color": "#hexcode (${branding?.colors?.primary ? `USE: ${branding.colors.primary}` : "extract from brand colors or infer from description"})",
     "secondary_colors": ["#hex1", "#hex2"],
     "aesthetic_style": "modern-minimal|bold-vibrant|luxurious-elegant|playful-fun|corporate-professional|organic-natural|tech-futuristic|vintage-retro",
-    "logo_description": "Brief visual description of logo if mentioned",
-    "mood": "professional|approachable|energetic|calm|premium|innovative|trustworthy|creative"
+    "logo_description": "Brief visual description of logo${branding?.logo ? ` (Logo found at: ${branding.logo})` : ""}",
+    "logo_url": "${branding?.logo || "URL of logo if found"}",
+    "mood": "professional|approachable|energetic|calm|premium|innovative|trustworthy|creative",
+    "fonts": ${JSON.stringify(branding?.fonts || [])}
   },
   "brand_personality": {
     "tone": "professional|friendly-expert|casual-approachable|authoritative|playful|inspiring|urgent|luxurious",
@@ -78,12 +169,14 @@ RULES:
 3. Infer brand tone from the writing style
 4. Be specific - avoid generic marketing speak
 5. If something is not mentioned, make an educated inference based on the industry
-6. Return ONLY the JSON object, no explanations`;
+6. Return ONLY the JSON object, no explanations
+7. ${branding?.colors?.primary ? `USE "${branding.colors.primary}" as primary_color - this is from the actual website!` : ""}
+8. ${branding?.logo ? `Include logo_url: "${branding.logo}" - this is the real logo!` : ""}`;
 
     const userPrompt = `Analyze this business and create a complete marketing context:
 
 BRAND NAME: ${projectName || "Unknown"}
-
+${brandingContext}
 WEBSITE CONTENT:
 ${scrapedMarkdown?.substring(0, 8000) || "No content provided - make reasonable inferences based on the brand name."}
 
@@ -92,7 +185,8 @@ Extract and structure the marketing context as specified. Focus on:
 2. Who are their REAL customers?
 3. What problems do they solve?
 4. What makes them different?
-5. What's their brand personality?`;
+5. What's their brand personality?
+${branding ? "6. USE the extracted branding colors and logo - they are REAL data!" : ""}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -148,14 +242,21 @@ Extract and structure the marketing context as specified. Focus on:
       throw new Error("Failed to parse AI response");
     }
 
-    // Validate and ensure all required fields exist
+    // Validate and ensure all required fields exist, preferring Firecrawl data
     const context = {
       visual_identity: {
-        primary_color: parsed.visual_identity?.primary_color || "#3B82F6",
-        secondary_colors: parsed.visual_identity?.secondary_colors || [],
+        primary_color: branding?.colors?.primary || parsed.visual_identity?.primary_color || "#3B82F6",
+        secondary_colors: [
+          branding?.colors?.secondary,
+          branding?.colors?.accent,
+          ...(parsed.visual_identity?.secondary_colors || [])
+        ].filter(Boolean).slice(0, 3),
         aesthetic_style: parsed.visual_identity?.aesthetic_style || "modern-minimal",
         logo_description: parsed.visual_identity?.logo_description || "",
+        logo_url: branding?.logo || parsed.visual_identity?.logo_url || "",
         mood: parsed.visual_identity?.mood || "professional",
+        fonts: branding?.fonts || parsed.visual_identity?.fonts || [],
+        color_scheme: branding?.colorScheme || parsed.visual_identity?.color_scheme || "light",
       },
       brand_personality: {
         tone: parsed.brand_personality?.tone || "professional",
@@ -178,10 +279,15 @@ Extract and structure the marketing context as specified. Focus on:
       },
     };
 
-    console.log("[generate-marketing-context] Success! Products found:", context.products_services.length);
+    console.log("[generate-marketing-context] Success!", {
+      products: context.products_services.length,
+      primaryColor: context.visual_identity.primary_color,
+      hasLogo: !!context.visual_identity.logo_url,
+      fonts: context.visual_identity.fonts.length,
+    });
 
     return new Response(
-      JSON.stringify({ context }),
+      JSON.stringify({ context, branding_source: branding ? "firecrawl" : "ai_inferred" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
