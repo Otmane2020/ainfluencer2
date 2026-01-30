@@ -114,10 +114,19 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6 md:space-y-8">
+      {/* AI Creation Studio - Feature Showcase (Top Priority) */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <FeatureShowcase />
+      </motion.div>
+
       {/* Welcome Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
       >
         <h1 className="font-display text-2xl md:text-3xl font-bold mb-1 md:mb-2">
           Hello, <span className="text-gradient">{profile?.display_name || "Creator"}</span>
@@ -134,7 +143,7 @@ const Dashboard = () => {
             key={stat.title}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
+            transition={{ delay: 0.2 + index * 0.1 }}
           >
             <Card className="hover:shadow-lg transition-shadow">
               <CardContent className="p-4 md:p-6">
@@ -152,15 +161,6 @@ const Dashboard = () => {
           </motion.div>
         ))}
       </div>
-
-      {/* AI Creation Studio - Feature Showcase */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-      >
-        <FeatureShowcase />
-      </motion.div>
 
       {/* Recent Projects */}
       <motion.div
