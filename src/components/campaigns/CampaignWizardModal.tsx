@@ -465,7 +465,7 @@ export const CampaignWizardModal = ({
 
   const totalSteps = 5;
 
-  const WizardContent = () => (
+  const wizardContent = (
     <>
       {/* Progress */}
       <div className="flex gap-1 mb-4 px-1">
@@ -989,7 +989,7 @@ export const CampaignWizardModal = ({
               </DrawerTitle>
             </DrawerHeader>
             <div className="px-4 pb-6">
-              <WizardContent />
+              {wizardContent}
             </div>
           </DrawerContent>
         </Drawer>
@@ -1017,7 +1017,7 @@ export const CampaignWizardModal = ({
               Create Campaign
             </DialogTitle>
           </DialogHeader>
-          <WizardContent />
+          {wizardContent}
         </DialogContent>
       </Dialog>
 
