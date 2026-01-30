@@ -67,11 +67,10 @@ Deno.serve(async (req) => {
       // Generate state with user ID for callback
       const state = btoa(JSON.stringify({ userId }));
       
-      // LinkedIn OpenID Connect scopes (r_liteprofile is deprecated)
+      // ✅ Classic LinkedIn API scopes (NOT OpenID - requires manual activation)
       const scopes = [
-        "openid",
-        "profile",
-        "w_member_social", // Required for posting
+        "r_liteprofile",     // Read basic profile
+        "w_member_social",   // Post content
       ].join(" ");
 
       const authUrl = new URL("https://www.linkedin.com/oauth/v2/authorization");
@@ -145,13 +144,12 @@ Deno.serve(async (req) => {
 
       console.log("[linkedin-oauth] Token exchange successful");
 
-      // Get LinkedIn profile info using OpenID Connect userinfo endpoint
+      // ✅ Classic LinkedIn API - use /v2/me (NOT /v2/userinfo which requires OpenID)
       const profileResponse = await fetch(
-        "https://api.linkedin.com/v2/userinfo",
+        "https://api.linkedin.com/v2/me",
         {
           headers: { 
             Authorization: `Bearer ${tokens.access_token}`,
-            Accept: "application/json",
           },
         }
       );
@@ -166,10 +164,11 @@ Deno.serve(async (req) => {
         });
       }
 
-      // OpenID userinfo returns: sub, name, given_name, family_name, picture, email
-      const linkedinId = profile.sub;
-      const displayName = profile.name || `${profile.given_name || ""} ${profile.family_name || ""}`.trim() || "LinkedIn User";
-      const avatarUrl = profile.picture || null;
+      // Classic API returns: id, localizedFirstName, localizedLastName
+      const linkedinId = profile.id;
+      const displayName = `${profile.localizedFirstName ?? ""} ${profile.localizedLastName ?? ""}`.trim() || "LinkedIn User";
+      // Note: Profile picture requires additional API call with projection, skip for now
+      const avatarUrl: string | null = null;
 
       console.log(`[linkedin-oauth] Profile found: ${displayName} (${linkedinId})`);
 
