@@ -45,7 +45,16 @@ export const ImageDetailModal = ({
   isProductShot,
   onDelete,
 }: ImageDetailModalProps) => {
-  const [caption, setCaption] = useState(prompt || "");
+  // Generate caption from prompt with sparkles
+  const generateCaption = () => {
+    if (prompt) {
+      const shortPrompt = prompt.length > 120 ? prompt.substring(0, 120) + "..." : prompt;
+      return `✨ AI Generated Post\n\n${shortPrompt}\n\n#AI #AIGenerated #CreativeContent`;
+    }
+    return `✨ Created with AI\n\n#AI #AIGenerated #CreativeContent`;
+  };
+  
+  const [caption, setCaption] = useState(generateCaption());
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
