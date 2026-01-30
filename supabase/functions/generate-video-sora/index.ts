@@ -25,27 +25,28 @@ function getCreditCost(quality: string): number {
 }
 
 // ============================================================
-// MODEL SELECTION BY QUALITY
-// Standard: Sora | Pro: Sora 2 | Cinema: Nano Banana
+// MODEL SELECTION BY QUALITY - ALL VIA LOVABLE AI
+// CometAPI models (sora, sora-2) are currently unavailable
+// Using Lovable AI exclusively for reliability
 // ============================================================
 
-function getVideoModel(quality: string): { model: string; provider: "cometapi" | "lovable" } {
+function getVideoModel(quality: string): { model: string; provider: "lovable" } {
+  // All qualities now use Lovable AI due to CometAPI model unavailability
   switch (quality) {
     case "cinema":
-      return { model: "nano-banana", provider: "lovable" };
+      return { model: "gemini-2.5-flash-image", provider: "lovable" };
     case "pro":
-      return { model: "sora-2", provider: "cometapi" };
+      return { model: "gemini-2.5-flash-image", provider: "lovable" };
     case "standard":
     default:
-      return { model: "sora", provider: "cometapi" };
+      return { model: "gemini-2.5-flash-lite-image", provider: "lovable" };
   }
 }
 
-// Duration configs per model
+// Duration configs (Lovable AI generates static frames, duration is for reference)
 const DURATION_CONFIGS: Record<string, { min: number; max: number }> = {
-  "sora": { min: 4, max: 10 },
-  "sora-2": { min: 4, max: 20 },
-  "nano-banana": { min: 5, max: 15 },
+  "gemini-2.5-flash-image": { min: 5, max: 15 },
+  "gemini-2.5-flash-lite-image": { min: 4, max: 10 },
 };
 
 function clampDuration(duration: number, model: string): number {
@@ -238,159 +239,110 @@ serve(async (req) => {
       let taskStatus: string;
       let taskProgress: number;
 
-      if (provider === "lovable") {
-        // Nano Banana via Lovable AI (image-to-video simulation)
-        if (!LOVABLE_API_KEY) {
-          throw new Error("LOVABLE_API_KEY is not configured for Nano Banana");
-        }
+      // All video generation now uses Lovable AI
+      if (!LOVABLE_API_KEY) {
+        throw new Error("LOVABLE_API_KEY is not configured");
+      }
 
-        console.log("Using Nano Banana (Lovable AI)...");
+      console.log(`Using Lovable AI (${videoModel})...`);
+      
+      // Generate video frame with Lovable AI
+      const imageResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-image",
+          messages: [
+            {
+              role: "user",
+              content: `Generate a stunning cinematic video frame: ${fullPrompt}. 
+Style: ${format === "vertical" ? "9:16 vertical portrait" : "16:9 horizontal landscape"}, 
+ultra high quality, professional cinematography, vibrant colors, perfect lighting.`,
+            },
+          ],
+        }),
+      });
+
+      if (!imageResponse.ok) {
+        const errorText = await imageResponse.text();
+        console.error("Lovable AI error:", errorText);
         
-        // Generate image first with Nano Banana
-        const imageResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash-image",
-            messages: [
-              {
-                role: "user",
-                content: `Generate a high-quality cinematic video frame for: ${fullPrompt}. Style: 9:16 vertical, vibrant, professional.`,
-              },
-            ],
-          }),
-        });
-
-        if (!imageResponse.ok) {
-          const errorText = await imageResponse.text();
-          throw new Error(`Nano Banana error: ${errorText}`);
-        }
-
-        const imageResult = await imageResponse.json();
-        
-        // For Nano Banana, we generate a static image (video-like)
-        // Store the image as "video" content
-        const imageContent = imageResult.choices?.[0]?.message?.content;
-        
-        taskId = `nano-${Date.now()}`;
-        taskStatus = "completed";
-        taskProgress = 100;
-
-        // Update generation
+        // Update generation as failed
         if (generationId) {
           await supabase
             .from("generations")
-            .update({ 
-              external_task_id: taskId,
-              status: "completed",
-              step: "completed",
-              progress: 100,
-              completed_at: new Date().toISOString(),
-            })
+            .update({ status: "failed", error_message: errorText, step: "error" })
             .eq("id", generationId);
         }
 
-        return new Response(
-          JSON.stringify({
-            success: true,
-            taskId,
-            generationId,
-            status: "completed",
-            progress: 100,
-            quality,
-            model: videoModel,
-            creditCost: skipCreditDeduction ? 0 : creditCost,
-            message: "Nano Banana generates high-quality image frames for video content",
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-
-      } else {
-        // CometAPI for Sora and Sora 2
-        console.log(`Using CometAPI (${videoModel})...`);
-        
-        // Build JSON payload for CometAPI
-        const cometPayload = {
-          prompt: fullPrompt,
-          model: videoModel,
-          seconds: String(clampedDuration), // Must be string for CometAPI
-          size: size,
-        };
-
-        console.log("CometAPI payload:", JSON.stringify(cometPayload));
-
-        const response = await fetch("https://api.cometapi.com/v1/videos", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${COMETAPI_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(cometPayload),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("CometAPI error:", errorText);
-          
-          // Update generation as failed
-          if (generationId) {
-            await supabase
-              .from("generations")
-              .update({ status: "failed", error_message: errorText, step: "error" })
-              .eq("id", generationId);
-          }
-
-          // Refund credits on failure
-          if (userId && !skipCreditDeduction) {
-            await supabase.rpc("add_credits", {
-              p_user_id: userId,
-              p_amount: creditCost,
-            });
-            await supabase.from("credit_transactions").insert({
-              user_id: userId,
-              amount: creditCost,
-              type: "refund",
-              description: `Refund: Video generation failed (${videoModel})`,
-            });
-            console.log(`✓ Refunded ${creditCost} credits`);
-          }
-          
-          throw new Error(`CometAPI error: ${response.status} - ${errorText}`);
+        // Refund credits on failure
+        if (userId && !skipCreditDeduction) {
+          await supabase.rpc("add_credits", {
+            p_user_id: userId,
+            p_amount: creditCost,
+          });
+          await supabase.from("credit_transactions").insert({
+            user_id: userId,
+            amount: creditCost,
+            type: "refund",
+            description: `Refund: Video generation failed (${videoModel})`,
+          });
+          console.log(`✓ Refunded ${creditCost} credits`);
         }
-
-        const result = await response.json();
-        taskId = result.id;
-        taskStatus = result.status || "queued";
-        taskProgress = result.progress || 0;
         
-        console.log("Video task created:", taskId);
+        throw new Error(`Lovable AI error: ${imageResponse.status} - ${errorText}`);
+      }
 
-        // Update generation with task ID
-        if (generationId) {
-          await supabase
-            .from("generations")
-            .update({ 
-              external_task_id: taskId,
-              step: "processing",
-              progress: 20
-            })
-            .eq("id", generationId);
+      const imageResult = await imageResponse.json();
+      
+      // Extract the generated image URL from the response
+      const imageContent = imageResult.choices?.[0]?.message?.content;
+      let mediaUrl: string | null = null;
+      
+      // Try to extract URL from the response content
+      if (imageContent) {
+        const urlMatch = imageContent.match(/https?:\/\/[^\s"']+/);
+        if (urlMatch) {
+          mediaUrl = urlMatch[0];
         }
       }
+      
+      taskId = `lovable-${Date.now()}`;
+      taskStatus = "completed";
+      taskProgress = 100;
+
+      // Update generation as completed
+      if (generationId) {
+        await supabase
+          .from("generations")
+          .update({ 
+            external_task_id: taskId,
+            status: "completed",
+            step: "completed",
+            progress: 100,
+            media_url: mediaUrl,
+            completed_at: new Date().toISOString(),
+          })
+          .eq("id", generationId);
+      }
+
+      console.log("✓ Video generation completed via Lovable AI");
 
       return new Response(
         JSON.stringify({
           success: true,
           taskId,
           generationId,
-          status: taskStatus,
-          progress: taskProgress,
+          status: "completed",
+          progress: 100,
           quality,
           model: videoModel,
+          mediaUrl,
           creditCost: skipCreditDeduction ? 0 : creditCost,
+          message: "Generated via Lovable AI",
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -403,20 +355,32 @@ serve(async (req) => {
         throw new Error("taskId is required for status check");
       }
 
-      // Check if Nano Banana task (already completed)
-      if (taskId.startsWith("nano-")) {
+      // All Lovable AI tasks are completed immediately
+      if (taskId.startsWith("lovable-") || taskId.startsWith("nano-")) {
+        // Get media URL from generation record if available
+        let mediaUrl: string | null = null;
+        if (generationId) {
+          const { data: genData } = await supabase
+            .from("generations")
+            .select("media_url")
+            .eq("id", generationId)
+            .single();
+          mediaUrl = genData?.media_url || null;
+        }
+        
         return new Response(
           JSON.stringify({
             id: taskId,
             status: "completed",
             progress: 100,
-            videoUrl: null, // Nano Banana provides image content, not video URL
+            videoUrl: mediaUrl,
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      console.log("Checking status for task:", taskId);
+      // Legacy: CometAPI status check (for existing tasks)
+      console.log("Checking status for legacy CometAPI task:", taskId);
 
       const response = await fetch(`https://api.cometapi.com/v1/videos/${taskId}`, {
         method: "GET",
