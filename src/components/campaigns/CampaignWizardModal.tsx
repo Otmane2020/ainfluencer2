@@ -216,6 +216,25 @@ export const CampaignWizardModal = ({
     }
   };
 
+  // Reset serviceTags when project changes - critical for showing correct project services
+  const previousProjectIdRef = useRef<string | null>(null);
+  
+  useEffect(() => {
+    // Skip on initial mount
+    if (previousProjectIdRef.current === null) {
+      previousProjectIdRef.current = projectId;
+      return;
+    }
+    
+    // If project changed, reset tags and allow re-fetch
+    if (previousProjectIdRef.current !== projectId) {
+      setServiceTags([]);
+      autoSuggestedProjectIdRef.current = null; // Allow re-fetch for new project
+      isLoadingServicesRef.current = false;
+      previousProjectIdRef.current = projectId;
+    }
+  }, [projectId]);
+
   // Auto-suggest services when project changes (and has URL)
   // PRIORITY: Use cached scraped_data from DB, only call API if not cached
   useEffect(() => {
