@@ -399,6 +399,7 @@ export type Database = {
           updated_at: string
           url: string | null
           user_id: string
+          youtube_enabled: boolean | null
         }
         Insert: {
           ai_context_summary?: string | null
@@ -419,6 +420,7 @@ export type Database = {
           updated_at?: string
           url?: string | null
           user_id: string
+          youtube_enabled?: boolean | null
         }
         Update: {
           ai_context_summary?: string | null
@@ -439,6 +441,7 @@ export type Database = {
           updated_at?: string
           url?: string | null
           user_id?: string
+          youtube_enabled?: boolean | null
         }
         Relationships: []
       }
