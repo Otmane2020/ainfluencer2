@@ -44,6 +44,13 @@ const coreProducts = [
     link: "/clipmotion",
   },
   {
+    icon: Zap,
+    title: "Nano Banana Video",
+    description: "Ultra-fast AI video generation for short-form content. Create TikTok & Reels videos in seconds.",
+    badge: "FAST",
+    link: "/nanobananavideo",
+  },
+  {
     icon: Image,
     title: "Smart Images",
     description: "Generate stunning AI images in seconds with our Smart, High, and Studio quality tiers.",
@@ -63,13 +70,6 @@ const coreProducts = [
     description: "Create cinematic AI videos with Sora 2 quality for professional brand content.",
     badge: "PREMIUM",
     link: "/videos",
-  },
-  {
-    icon: User,
-    title: "AI Avatars",
-    description: "Generate realistic AI influencers and brand ambassadors that represent your brand perfectly.",
-    badge: null,
-    link: "/settings",
   },
   {
     icon: Megaphone,
@@ -313,6 +313,8 @@ const LandingPage = () => {
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                           product.badge === "FLAGSHIP" 
                             ? "bg-gradient-to-r from-primary to-secondary text-white" 
+                            : product.badge === "FAST"
+                            ? "bg-yellow-500/20 text-yellow-400"
                             : product.badge === "AI SMART"
                             ? "bg-accent/20 text-accent"
                             : product.badge === "PREMIUM"

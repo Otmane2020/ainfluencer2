@@ -272,6 +272,14 @@ export const seoPages = {
     keywords: "contact ClipMotion, AI video support, customer service",
     canonical: `${SITE_URL}/contact`,
   },
+  nanoBananaVideo: {
+    title: "Nano Banana Video – Ultra-Fast AI Video Generator for TikTok & Reels | ClipMotion",
+    description:
+      "Nano Banana Video creates AI-powered short-form videos in seconds. Generate TikTok videos, Instagram Reels, and YouTube Shorts 10x faster with advanced neural network technology.",
+    keywords:
+      "nano banana video, AI video generator, TikTok video maker, Instagram Reels generator, YouTube Shorts AI, fast video creation, short-form video AI, text to video, AI video maker, vertical video generator",
+    canonical: `${SITE_URL}/nanobananavideo`,
+  },
 };
 
 // Blog article ideas for SEO
