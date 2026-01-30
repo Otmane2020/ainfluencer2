@@ -142,6 +142,32 @@ const MOOD_OPTIONS = [
   { value: "creative", label: "Creative" },
 ];
 
+// Deep merge helper to ensure all nested objects have defaults
+const mergeWithDefaults = (partial: Partial<MarketingContext> | null | undefined): MarketingContext => {
+  if (!partial) return DEFAULT_CONTEXT;
+  
+  return {
+    visual_identity: {
+      ...DEFAULT_CONTEXT.visual_identity,
+      ...(partial.visual_identity || {}),
+    },
+    brand_personality: {
+      ...DEFAULT_CONTEXT.brand_personality,
+      ...(partial.brand_personality || {}),
+    },
+    target_audience: {
+      ...DEFAULT_CONTEXT.target_audience,
+      ...(partial.target_audience || {}),
+    },
+    products_services: partial.products_services || DEFAULT_CONTEXT.products_services,
+    competitive_positioning: partial.competitive_positioning || DEFAULT_CONTEXT.competitive_positioning,
+    content_guidelines: {
+      ...DEFAULT_CONTEXT.content_guidelines,
+      ...(partial.content_guidelines || {}),
+    },
+  };
+};
+
 export const MarketingContextEditor = ({
   projectId,
   projectName,
@@ -150,8 +176,8 @@ export const MarketingContextEditor = ({
   onSave,
 }: MarketingContextEditorProps) => {
   const { toast } = useToast();
-  const [context, setContext] = useState<MarketingContext>(
-    initialContext || DEFAULT_CONTEXT
+  const [context, setContext] = useState<MarketingContext>(() =>
+    mergeWithDefaults(initialContext)
   );
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
