@@ -64,11 +64,9 @@ Deno.serve(async (req) => {
       // Generate state with user ID for callback
       const state = btoa(JSON.stringify({ userId }));
       
-      // LinkedIn OpenID Connect scopes for posting
+      // LinkedIn OAuth 2.0 scopes for posting (without OpenID Connect)
       const scopes = [
-        "openid",
         "profile",
-        "email",
         "w_member_social", // Required for posting
       ].join(" ");
 
@@ -141,10 +139,13 @@ Deno.serve(async (req) => {
 
       console.log("[linkedin-oauth] Token exchange successful");
 
-      // Get LinkedIn profile info using OpenID userinfo endpoint
-      const profileResponse = await fetch("https://api.linkedin.com/v2/userinfo", {
-        headers: { Authorization: `Bearer ${tokens.access_token}` },
-      });
+      // Get LinkedIn profile info using the /v2/me endpoint (legacy, works without openid)
+      const profileResponse = await fetch(
+        "https://api.linkedin.com/v2/me?projection=(id,localizedFirstName,localizedLastName,profilePicture(displayImage~:playableStreams))",
+        {
+          headers: { Authorization: `Bearer ${tokens.access_token}` },
+        }
+      );
 
       const profile = await profileResponse.json();
 
@@ -155,9 +156,10 @@ Deno.serve(async (req) => {
         });
       }
 
-      const linkedinId = profile.sub;
-      const displayName = profile.name || `${profile.given_name || ""} ${profile.family_name || ""}`.trim();
-      const avatarUrl = profile.picture || null;
+      const linkedinId = profile.id;
+      const displayName = `${profile.localizedFirstName || ""} ${profile.localizedLastName || ""}`.trim() || "LinkedIn User";
+      // Extract profile picture from LinkedIn's nested structure
+      const avatarUrl = profile.profilePicture?.["displayImage~"]?.elements?.[0]?.identifiers?.[0]?.identifier || null;
 
       console.log(`[linkedin-oauth] Profile found: ${displayName} (${linkedinId})`);
 
