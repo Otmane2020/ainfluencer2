@@ -1,4 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { 
+  validateAndBuildContext, 
+  fetchProjectContext, 
+  logContextValidation,
+  type MarketingContext,
+  type GenerationGuardInput 
+} from "../_shared/generation-context-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -413,104 +420,70 @@ Deno.serve(async (req) => {
 
     // Determine output language
     const outputLanguage = detectedLanguage || "en";
-    const languageMap: Record<string, string> = {
-      en: "English",
-      fr: "French",
-      es: "Spanish",
-      de: "German",
-      it: "Italian",
-      pt: "Portuguese",
-    };
-    const languageName = languageMap[outputLanguage] || "English";
-
-    // Build enhanced prompt
-    const enhancedParts: string[] = [];
     
-    // Add language instruction if not English
-    if (outputLanguage !== "en") {
-      enhancedParts.push(`[LANGUAGE: All text in this image MUST be in ${languageName}. NO English text allowed.]`);
+    // ============================================================
+    // GENERATION CONTEXT GUARD - Validate & Build Enhanced Prompt
+    // ============================================================
+    
+    const guardInput: GenerationGuardInput = {
+      projectName: brandName,
+      projectUrl: projectUrl,
+      themeColor: undefined, // Will be extracted from marketing context
+      detectedLanguage: outputLanguage,
+      marketingContext: marketingContext as MarketingContext || null,
+      aiContextSummary: aiContextSummary,
+      generationPrompt: prompt,
+      generationType: "image",
+    };
+    
+    const contextGuard = validateAndBuildContext(guardInput);
+    logContextValidation(contextGuard, "ImageGeneration");
+    
+    // Log warnings but don't block generation
+    if (contextGuard.warnings.length > 0) {
+      console.warn("[ImageGen] Context warnings:", contextGuard.warnings.join("; "));
     }
 
-    // Add scenario context
-    if (sectorId && SECTOR_CONTEXT[sectorId]) {
-      enhancedParts.push(`Sector style: ${SECTOR_CONTEXT[sectorId]}`);
-    }
-    if (styleId && STYLE_CONTEXT[styleId]) {
-      enhancedParts.push(`Visual style: ${STYLE_CONTEXT[styleId]}`);
-    }
-    if (toneId && TONE_CONTEXT[toneId]) {
-      enhancedParts.push(`Tone: ${TONE_CONTEXT[toneId]}`);
-    }
-
-    // Add brand context
-    if (brandName) {
-      enhancedParts.push(`Brand: ${brandName}`);
-    }
-
-    // Add rich marketing context if available
-    if (marketingContext && typeof marketingContext === "object") {
-      const mc = marketingContext as any;
-      const marketingParts: string[] = [];
+    // Use the enhanced prompt from the guard if context score is good
+    let finalPrompt: string;
+    if (contextGuard.contextScore >= 40) {
+      // Good context - use full enhanced prompt
+      finalPrompt = contextGuard.enhancedPrompt;
+      console.log(`[ImageGen] Using enhanced prompt (score: ${contextGuard.contextScore})`);
+    } else {
+      // Fallback to basic enhancement
+      console.log(`[ImageGen] Low context score (${contextGuard.contextScore}), using basic prompt`);
+      const enhancedParts: string[] = [];
       
-      // Target audience context
-      if (mc.target_audience?.primary) {
-        marketingParts.push(`TARGET AUDIENCE: ${mc.target_audience.primary}`);
-      }
-      if (mc.target_audience?.pain_points?.length > 0) {
-        marketingParts.push(`Their pain points: ${mc.target_audience.pain_points.join(", ")}`);
-      }
-      if (mc.target_audience?.desires?.length > 0) {
-        marketingParts.push(`Their desires: ${mc.target_audience.desires.join(", ")}`);
+      // Add language instruction
+      const languageMap: Record<string, string> = {
+        en: "English", fr: "French", es: "Spanish", de: "German", it: "Italian", pt: "Portuguese",
+      };
+      const languageName = languageMap[outputLanguage] || "English";
+      if (outputLanguage !== "en") {
+        enhancedParts.push(`[LANGUAGE: All text in this image MUST be in ${languageName}. NO English text allowed.]`);
       }
       
-      // Brand personality
-      if (mc.brand_personality?.tone) {
-        marketingParts.push(`BRAND TONE: ${mc.brand_personality.tone}`);
+      // Add scenario context
+      if (sectorId && SECTOR_CONTEXT[sectorId]) {
+        enhancedParts.push(`Sector style: ${SECTOR_CONTEXT[sectorId]}`);
       }
-      if (mc.brand_personality?.values?.length > 0) {
-        marketingParts.push(`Brand values: ${mc.brand_personality.values.join(", ")}`);
+      if (styleId && STYLE_CONTEXT[styleId]) {
+        enhancedParts.push(`Visual style: ${STYLE_CONTEXT[styleId]}`);
       }
-      
-      // Products to showcase
-      if (mc.products_services?.length > 0) {
-        const productsList = mc.products_services
-          .slice(0, 3)
-          .map((p: any) => `${p.name}: ${p.key_benefit}`)
-          .join("; ");
-        marketingParts.push(`PRODUCTS TO SHOWCASE: ${productsList}`);
+      if (toneId && TONE_CONTEXT[toneId]) {
+        enhancedParts.push(`Tone: ${TONE_CONTEXT[toneId]}`);
       }
-      
-      // Visual style
-      if (mc.visual_identity?.aesthetic_style) {
-        marketingParts.push(`VISUAL STYLE: ${mc.visual_identity.aesthetic_style}`);
+      if (brandName) {
+        enhancedParts.push(`Brand: ${brandName}`);
       }
-      if (mc.visual_identity?.mood) {
-        marketingParts.push(`Mood: ${mc.visual_identity.mood}`);
-      }
-      if (mc.visual_identity?.logo_description) {
-        marketingParts.push(`Logo description: ${mc.visual_identity.logo_description}`);
+      if (aiContextSummary) {
+        enhancedParts.push(`Brand context: ${aiContextSummary.substring(0, 200)}`);
       }
       
-      // Content guidelines
-      if (mc.content_guidelines?.visual_banned?.length > 0) {
-        marketingParts.push(`AVOID visually: ${mc.content_guidelines.visual_banned.join(", ")}`);
-      }
-      if (mc.content_guidelines?.visual_preferred?.length > 0) {
-        marketingParts.push(`PREFER visually: ${mc.content_guidelines.visual_preferred.join(", ")}`);
-      }
-      
-      if (marketingParts.length > 0) {
-        enhancedParts.push(`MARKETING CONTEXT:\n${marketingParts.join("\n")}`);
-      }
-    } else if (aiContextSummary) {
-      // Fallback to old context summary
-      enhancedParts.push(`Brand context: ${aiContextSummary.substring(0, 200)}`);
-    }
-
-    // Build final prompt
-    let finalPrompt = prompt;
-    if (enhancedParts.length > 0) {
-      finalPrompt = `${enhancedParts.join(". ")}. ${prompt}`;
+      finalPrompt = enhancedParts.length > 0 
+        ? `${enhancedParts.join(". ")}. ${prompt}`
+        : prompt;
     }
 
     // Add format specifications

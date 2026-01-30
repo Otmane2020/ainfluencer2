@@ -1,4 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { 
+  validateAndBuildContext, 
+  logContextValidation,
+  type MarketingContext,
+  type GenerationGuardInput 
+} from "../_shared/generation-context-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -209,6 +215,7 @@ serve(async (req) => {
       styleId,
       toneId,
       detectedLanguage,
+      marketingContext, // NEW: Accept marketing context
     } = await req.json();
 
     // Validate script type
@@ -253,6 +260,27 @@ serve(async (req) => {
     const scenarioContext = buildScenarioContext();
 
     // ============================================
+    // GENERATION CONTEXT GUARD - Build enhanced context
+    // ============================================
+    const guardInput: GenerationGuardInput = {
+      projectName: projectName,
+      projectDescription: projectDescription,
+      projectUrl: projectUrl,
+      detectedLanguage: language,
+      marketingContext: marketingContext as MarketingContext || null,
+      scrapedMarkdown: scrapedContent,
+      generationPrompt: `Script for ${productName || projectName || "brand"}`,
+      generationType: "script",
+    };
+    
+    const contextGuard = validateAndBuildContext(guardInput);
+    logContextValidation(contextGuard, "ScriptGeneration");
+    
+    // Use brand context in prompts
+    const brandContextBlock = contextGuard.brandContext;
+    console.log(`[Script] Context Score: ${contextGuard.contextScore}/100`);
+
+    // ============================================
     // USE LOVABLE AI (Gemini) for script generation
     // ============================================
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -283,7 +311,10 @@ Duration: ${duration} seconds
 Human and credible tone. Specific details and real results.`,
     };
 
+    // Build system prompt with brand context
     const systemPrompt = `${langConfig.system}
+
+${brandContextBlock}
 
 ⚠️ RULE #1 MOST IMPORTANT - SCRIPT LENGTH:
 The script MUST contain between ${minWords} and ${maxWords} words for a ${duration} second duration.
@@ -300,13 +331,8 @@ ${langConfig.tone}
 
 FINAL REMINDER: Each script MUST be ${minWords}-${maxWords} words for ${duration} seconds of video!`;
 
-    const userPrompt = `Generate 5 different scripts for this project:
-
-PROJECT: ${projectName || "Not specified"}
-DESCRIPTION: ${projectDescription || "Not specified"}
-${projectUrl ? `WEBSITE: ${projectUrl}` : ""}
-${scrapedContent ? `WEBSITE CONTENT (excerpt):\n${scrapedContent.substring(0, 800)}` : ""}
-${productName ? `PRODUCT/SERVICE: ${productName}` : ""}
+    const userPrompt = `Generate 5 different scripts for this project.
+${productName ? `Focus on promoting: ${productName}` : ""}
 
 Respond ONLY with valid JSON:
 {

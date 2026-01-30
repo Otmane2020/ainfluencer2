@@ -1,5 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { 
+  validateAndBuildContext, 
+  logContextValidation,
+  type MarketingContext,
+  type GenerationGuardInput 
+} from "../_shared/generation-context-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -262,6 +268,39 @@ serve(async (req) => {
     console.log(`Image as Reel mode: ${imageAsReel}, Audio: ${audioCategory}, ClipMotion: ${clipmotion}`);
     console.log(`Brand options: logo=${includeLogo}, url=${includeUrl}, avatar=${includeAvatar}, text=${includeText}`);
     console.log(`Product to promote: ${productDescription ? productDescription.slice(0, 100) + "..." : campaign.ai_context || "Not specified"}`);
+
+    // ============================================================
+    // GENERATION CONTEXT GUARD - Validate Marketing Context
+    // ============================================================
+    const marketingContext = project.marketing_context as MarketingContext || null;
+    
+    const guardInput: GenerationGuardInput = {
+      projectId: project.id,
+      projectName: project.name,
+      projectDescription: project.description,
+      projectUrl: project.url,
+      logoUrl: project.logo_url,
+      avatarUrl: project.avatar_url,
+      themeColor: project.theme_color,
+      detectedLanguage: project.detected_language || "en",
+      marketingContext: marketingContext,
+      aiContextSummary: project.ai_context_summary,
+      scrapedMarkdown: project.scraped_markdown,
+      generationPrompt: productDescription || campaign.ai_context || `Content for ${project.name}`,
+      generationType: "image",
+    };
+    
+    const contextGuard = validateAndBuildContext(guardInput);
+    logContextValidation(contextGuard, "CampaignGeneration");
+    
+    console.log(`[Campaign] Context Score: ${contextGuard.contextScore}/100`);
+    if (contextGuard.warnings.length > 0) {
+      console.warn(`[Campaign] Context warnings: ${contextGuard.warnings.join("; ")}`);
+    }
+    
+    // Build enhanced brand context block for all prompts
+    const brandContextBlock = contextGuard.brandContext;
+
     // Calculate how many posts to generate
     const totalVideos = campaign.campaign_type === "image" ? 0 : (campaign.videos_per_month || 4);
     const totalImages = campaign.campaign_type === "video" ? 0 : (campaign.images_per_month || 12);
@@ -370,8 +409,10 @@ serve(async (req) => {
               {
                 role: "system",
                 content: isVideo ? 
-                  // VIDEO SCRIPT PROMPT with diversity
+                  // VIDEO SCRIPT PROMPT with diversity and brand context
                   `You are an expert video script writer for ${project.name}. ${langInstruction}
+
+${brandContextBlock}
 
 🎬 MANDATORY CREATIVE DIRECTION FOR THIS POST:
 - VISUAL SCENE: ${diversity.scene.desc}
@@ -379,13 +420,6 @@ serve(async (req) => {
 
 🚫 BANNED CLICHÉS (NEVER use these):
 ${diversity.bannedList}
-
-PROJECT CONTEXT:
-- Name: ${project.name}
-- Description: ${project.description || "Not specified"}
-- Website: ${project.url || "Not specified"}
-- Brand colors: ${project.theme_color || "Not specified"}
-${project.logo_url ? `- Logo URL: ${project.logo_url}` : ""}
 
 ${productDescription || campaign.ai_context ? `PRODUCT/SERVICE TO PROMOTE (CRITICAL - Focus on this!):
 ${productDescription || campaign.ai_context}
@@ -436,8 +470,10 @@ Respond ONLY with valid JSON:
   "angle": "${diversity.angle.id}"
 }` 
                   :
-                  // IMAGE PROMPT with diversity
+                  // IMAGE PROMPT with diversity and brand context
                   `You are an expert AI IMAGE prompt engineer creating UNIQUE, HIGH-IMPACT visuals. ${langInstruction}
+
+${brandContextBlock}
 
 🎨 MANDATORY CREATIVE DIRECTION FOR THIS POST:
 - VISUAL SCENE: ${diversity.scene.desc}
@@ -460,7 +496,7 @@ REQUIRED - Build your prompt using the SCENE and ANGLE above:
 - Setting: MUST be "${diversity.scene.id}" style (${diversity.scene.desc})
 - Lighting: Creative lighting that matches the scene mood
 - Composition: How is it framed (close-up, wide shot, flat lay)
-- Colors: Color palette aligned with brand (mention ${project.theme_color || "brand colors"})
+- Colors: Color palette aligned with brand
 - Style: Photography style (professional, editorial, lifestyle, product photography)
 - Text overlay: Any text in the image MUST be in ${languageName || "the project's language"}, never English
 - Quality: End with "Ultra high resolution, professional quality"
@@ -476,13 +512,6 @@ ${effectiveTone === "professional" ? "- Polished, corporate aesthetic. Clean lin
 ${effectiveTone === "urgent" ? "- Bold colors, dynamic composition. Call-to-action emphasis." : ""}
 ${effectiveTone === "luxurious" ? "- Elegant, high-end aesthetic. Rich textures, premium feel." : ""}
 ${effectiveTone === "playful" ? "- Vibrant, energetic visuals. Fun compositions." : ""}
-
-PROJECT CONTEXT:
-- Brand: ${project.name}
-- Description: ${project.description || "Not specified"}
-- Website: ${project.url || "Not specified"}
-- Brand color: ${project.theme_color || "#6366F1"}
-- Language: ${outputLanguage.toUpperCase()} - All image text MUST be in this language
 
 ${productDescription || campaign.ai_context ? `PRODUCT/SERVICE TO PROMOTE (CRITICAL - Focus on this!):
 ${productDescription || campaign.ai_context}
