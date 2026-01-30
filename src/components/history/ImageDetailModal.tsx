@@ -1,14 +1,12 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Download,
   Trash2,
   X,
   Share2,
-  Info,
   Calendar,
   ExternalLink,
   Copy,
@@ -240,168 +238,159 @@ export const ImageDetailModal = ({
 
           {/* Details Panel */}
           <div className="w-full md:w-80 border-t md:border-t-0 md:border-l border-border flex flex-col">
-            <Tabs defaultValue="details" className="flex-1 flex flex-col">
-              <TabsList className="grid w-full grid-cols-2 rounded-none border-b border-border bg-transparent h-12">
-                <TabsTrigger value="details" className="gap-2 rounded-none data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                  <Info className="h-4 w-4" />
-                  Details
-                </TabsTrigger>
-                <TabsTrigger value="share" className="gap-2 rounded-none data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                  <Share2 className="h-4 w-4" />
-                  Share
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="details" className="flex-1 p-4 space-y-4 mt-0 overflow-y-auto">
-                {/* Meta info */}
-                <div className="space-y-3">
-                  {createdAt && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span>{format(createdAt, "PPP", { locale: enUS })}</span>
-                    </div>
-                  )}
-                  
-                  <div className="flex flex-wrap gap-2">
-                    {isProductShot && (
-                      <Badge variant="secondary">Product Shot</Badge>
-                    )}
-                    {projectName && (
-                      <Badge variant="outline">{projectName}</Badge>
-                    )}
-                    {campaignName && (
-                      <Badge variant="outline">{campaignName}</Badge>
-                    )}
-                  </div>
-                </div>
-
-                {/* Prompt */}
-                {prompt && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium">Prompt</h4>
-                    <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
-                      {prompt}
-                    </p>
+            {/* Header with date and action buttons */}
+            <div className="p-4 border-b border-border space-y-3">
+              {/* Date and badges */}
+              <div className="flex items-center justify-between">
+                {createdAt && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    <span>{format(createdAt, "PPP", { locale: enUS })}</span>
                   </div>
                 )}
+              </div>
+              
+              <div className="flex flex-wrap gap-2">
+                {isProductShot && (
+                  <Badge variant="secondary">Product Shot</Badge>
+                )}
+                {projectName && (
+                  <Badge variant="outline">{projectName}</Badge>
+                )}
+                {campaignName && (
+                  <Badge variant="outline">{campaignName}</Badge>
+                )}
+              </div>
 
-                {/* Actions */}
-                <div className="flex gap-2 pt-4 border-t border-border">
-                  <Button variant="outline" className="flex-1 gap-2" onClick={handleDownload}>
-                    <Download className="h-4 w-4" />
-                    Download
+              {/* Action buttons bar */}
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="flex-1 gap-2" onClick={handleDownload}>
+                  <Download className="h-4 w-4" />
+                  Download
+                </Button>
+                {imageUrl && (
+                  <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => window.open(imageUrl, "_blank")}>
+                    <ExternalLink className="h-4 w-4" />
                   </Button>
-                  {imageUrl && (
-                    <Button variant="outline" size="icon" onClick={() => window.open(imageUrl, "_blank")}>
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                  )}
-                  {onDelete && (
-                    <Button variant="destructive" size="icon" onClick={onDelete}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="share" className="flex-1 p-4 space-y-4 mt-0 overflow-y-auto">
-                {/* Caption editor */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-medium">Caption</h4>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-7 px-2 gap-1 text-primary hover:text-primary/80"
-                        onClick={handleGenerateCaption}
-                        disabled={isGeneratingCaption}
-                      >
-                        {isGeneratingCaption ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Sparkles className="h-3.5 w-3.5" />
-                        )}
-                        Generate
-                      </Button>
-                    </div>
-                    <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={handleCopyCaption}>
-                      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                      {copied ? "Copied" : "Copy"}
-                    </Button>
-                  </div>
-                  <Textarea
-                    value={caption}
-                    onChange={(e) => setCaption(e.target.value)}
-                    placeholder="Add a caption..."
-                    className="min-h-[100px] resize-none"
-                  />
-                </div>
-
-                {/* Post as Reel */}
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium">Create Reel</h4>
-                  <Button
-                    variant="default"
-                    className="w-full gap-2 h-12 bg-gradient-to-r from-pink-500 to-orange-500 hover:from-pink-600 hover:to-orange-600"
-                    onClick={handlePostAsReel}
-                    disabled={isCreatingReel || !imageUrl}
-                  >
-                    {isCreatingReel ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <>
-                        <Film className="h-5 w-5" />
-                        <Music className="h-4 w-4" />
-                      </>
-                    )}
-                    Post as Reel with Music
+                )}
+                {onDelete && (
+                  <Button variant="destructive" size="icon" className="h-9 w-9" onClick={onDelete}>
+                    <Trash2 className="h-4 w-4" />
                   </Button>
-                  <p className="text-xs text-muted-foreground text-center">
-                    Opens Facebook Creator Studio to add music
+                )}
+              </div>
+            </div>
+
+            {/* Scrollable content */}
+            <div className="flex-1 p-4 space-y-4 overflow-y-auto">
+              {/* Prompt */}
+              {prompt && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium">Prompt</h4>
+                  <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                    {prompt}
                   </p>
                 </div>
+              )}
 
-                {/* Share buttons */}
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium">Share to</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      variant="outline"
-                      className="gap-2 h-12"
-                      onClick={() => handleShareToSocial("facebook")}
+              {/* Caption editor */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-medium">Caption</h4>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-7 px-2 gap-1 text-primary hover:text-primary/80"
+                      onClick={handleGenerateCaption}
+                      disabled={isGeneratingCaption}
                     >
-                      <FaFacebook className="h-5 w-5 text-primary" />
-                      Facebook
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="gap-2 h-12"
-                      onClick={() => handleShareToSocial("linkedin")}
-                    >
-                      <FaLinkedin className="h-5 w-5 text-primary" />
-                      LinkedIn
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="gap-2 h-12"
-                      onClick={() => handleShareToSocial("instagram")}
-                    >
-                      <FaInstagram className="h-5 w-5 text-accent-foreground" />
-                      Instagram
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="gap-2 h-12"
-                      onClick={() => handleShareToSocial("tiktok")}
-                    >
-                      <FaTiktok className="h-5 w-5 text-foreground" />
-                      TikTok
+                      {isGeneratingCaption ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5" />
+                      )}
+                      Generate
                     </Button>
                   </div>
+                  <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={handleCopyCaption}>
+                    {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                    {copied ? "Copied" : "Copy"}
+                  </Button>
                 </div>
-              </TabsContent>
-            </Tabs>
+                <Textarea
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                  placeholder="Add a caption..."
+                  className="min-h-[80px] resize-none"
+                />
+              </div>
+
+              {/* Post as Reel */}
+              <div className="space-y-2">
+                <Button
+                  variant="default"
+                  className="w-full gap-2 h-11 bg-gradient-to-r from-pink-500 to-orange-500 hover:from-pink-600 hover:to-orange-600"
+                  onClick={handlePostAsReel}
+                  disabled={isCreatingReel || !imageUrl}
+                >
+                  {isCreatingReel ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <>
+                      <Film className="h-5 w-5" />
+                      <Music className="h-4 w-4" />
+                    </>
+                  )}
+                  Post as Reel with Music
+                </Button>
+                <p className="text-xs text-muted-foreground text-center">
+                  Opens Facebook Creator Studio to add music
+                </p>
+              </div>
+
+              {/* Share buttons */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium flex items-center gap-2">
+                  <Share2 className="h-4 w-4" />
+                  Share to
+                </h4>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    className="gap-2 h-10"
+                    onClick={() => handleShareToSocial("facebook")}
+                  >
+                    <FaFacebook className="h-4 w-4 text-primary" />
+                    Facebook
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="gap-2 h-10"
+                    onClick={() => handleShareToSocial("linkedin")}
+                  >
+                    <FaLinkedin className="h-4 w-4 text-primary" />
+                    LinkedIn
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="gap-2 h-10"
+                    onClick={() => handleShareToSocial("instagram")}
+                  >
+                    <FaInstagram className="h-4 w-4 text-accent-foreground" />
+                    Instagram
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="gap-2 h-10"
+                    onClick={() => handleShareToSocial("tiktok")}
+                  >
+                    <FaTiktok className="h-4 w-4 text-foreground" />
+                    TikTok
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </DialogContent>
