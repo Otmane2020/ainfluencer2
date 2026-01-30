@@ -399,6 +399,15 @@ export const CampaignWizardModal = ({
           posting_hour: postingHour,
           timezone,
           status: "draft",
+          // Brand options - now stored in DB
+          include_logo: brandOptions.includeLogo,
+          include_url: brandOptions.includeUrl,
+          include_avatar: brandOptions.includeAvatar,
+          include_text: brandOptions.includeText,
+          // Content options
+          image_as_reel: imageAsReel,
+          audio_category: audioCategory,
+          clipmotion: clipmotion,
         })
         .select()
         .single();

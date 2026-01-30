@@ -17,16 +17,24 @@ export type Database = {
       campaigns: {
         Row: {
           ai_context: string | null
+          audio_category: string | null
           campaign_type: string
+          clipmotion: boolean | null
           created_at: string
           ends_at: string | null
           estimated_cost: number | null
           format: string | null
           id: string
+          image_as_reel: boolean | null
           image_quality: string | null
           images_per_day: number | null
           images_per_month: number | null
+          include_avatar: boolean | null
+          include_logo: boolean | null
+          include_text: boolean | null
+          include_url: boolean | null
           name: string
+          overlay_text: string | null
           posting_hour: number | null
           posts_per_week: number | null
           project_id: string
@@ -46,16 +54,24 @@ export type Database = {
         }
         Insert: {
           ai_context?: string | null
+          audio_category?: string | null
           campaign_type: string
+          clipmotion?: boolean | null
           created_at?: string
           ends_at?: string | null
           estimated_cost?: number | null
           format?: string | null
           id?: string
+          image_as_reel?: boolean | null
           image_quality?: string | null
           images_per_day?: number | null
           images_per_month?: number | null
+          include_avatar?: boolean | null
+          include_logo?: boolean | null
+          include_text?: boolean | null
+          include_url?: boolean | null
           name: string
+          overlay_text?: string | null
           posting_hour?: number | null
           posts_per_week?: number | null
           project_id: string
@@ -75,16 +91,24 @@ export type Database = {
         }
         Update: {
           ai_context?: string | null
+          audio_category?: string | null
           campaign_type?: string
+          clipmotion?: boolean | null
           created_at?: string
           ends_at?: string | null
           estimated_cost?: number | null
           format?: string | null
           id?: string
+          image_as_reel?: boolean | null
           image_quality?: string | null
           images_per_day?: number | null
           images_per_month?: number | null
+          include_avatar?: boolean | null
+          include_logo?: boolean | null
+          include_text?: boolean | null
+          include_url?: boolean | null
           name?: string
+          overlay_text?: string | null
           posting_hour?: number | null
           posts_per_week?: number | null
           project_id?: string
