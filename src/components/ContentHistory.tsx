@@ -37,6 +37,7 @@ interface ContentItem {
   campaign_id: string | null;
   campaign?: { name: string } | null;
   error_message?: string | null;
+  external_post_id?: string | null;
 }
 
 interface ContentHistoryProps {
@@ -140,7 +141,7 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
     try {
       let query = supabase
         .from("scheduled_posts")
-        .select("id, content_type, text_content, media_url, thumbnail_url, ai_prompt, status, created_at, published_at, platforms, campaign_id, error_message, campaigns(name)")
+        .select("id, content_type, text_content, media_url, thumbnail_url, ai_prompt, status, created_at, published_at, platforms, campaign_id, error_message, external_post_id, campaigns(name)")
         .order("created_at", { ascending: false });
 
       // IMPORTANT: Post History only shows PUBLISHED posts (completed/archived)
@@ -547,13 +548,21 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Content</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this content? This action cannot be undone.
+              {deleteItem?.status === "published" && deleteItem?.external_post_id ? (
+                <>
+                  This will delete the post from your database <strong>and from Facebook/Instagram</strong>.
+                  <br /><br />
+                  This action cannot be undone.
+                </>
+              ) : (
+                "Are you sure you want to delete this content? This action cannot be undone."
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
-              {isDeleting ? "Deleting..." : "Delete"}
+              {isDeleting ? "Deleting..." : deleteItem?.external_post_id ? "Delete Everywhere" : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
