@@ -306,6 +306,34 @@ serve(async (req) => {
     const totalImages = campaign.campaign_type === "video" ? 0 : (campaign.images_per_month || 12);
     const totalPosts = totalVideos + totalImages;
 
+    // FIX: Check how many posts already exist for this campaign
+    const { count: existingPostsCount } = await supabase
+      .from("scheduled_posts")
+      .select("*", { count: "exact", head: true })
+      .eq("campaign_id", campaignId);
+    
+    const alreadyGenerated = existingPostsCount || 0;
+    const remainingToGenerate = Math.max(0, totalPosts - alreadyGenerated);
+    
+    console.log(`Campaign target: ${totalPosts} posts, Already generated: ${alreadyGenerated}, Remaining: ${remainingToGenerate}`);
+    
+    // If all posts are already generated, return early
+    if (remainingToGenerate === 0) {
+      console.log("All posts already generated for this campaign");
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          generated: 0,
+          videos: 0,
+          images: 0,
+          remaining: 0,
+          batchComplete: true,
+          message: "Campaign already complete"
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Distribute posts over 30 days
     const scheduledPosts: any[] = [];
     const now = new Date();
@@ -314,7 +342,10 @@ serve(async (req) => {
     let videoCount = 0;
     let imageCount = 0;
     
-    for (let i = 0; i < totalPosts; i++) {
+    // Start from where we left off
+    for (let i = 0; i < remainingToGenerate; i++) {
+      const globalIndex = alreadyGenerated + i; // Track global position for diversity
+      
       // Determine content type for this post
       let contentType: "video" | "image";
       
@@ -333,8 +364,8 @@ serve(async (req) => {
       if (contentType === "video") videoCount++;
       else imageCount++;
 
-      // Calculate scheduled date - spread across the month
-      const dayOffset = Math.floor(i * (30 / totalPosts));
+      // Calculate scheduled date - spread across the month, accounting for already scheduled posts
+      const dayOffset = Math.floor(globalIndex * (30 / totalPosts));
       const scheduledDate = new Date(now);
       scheduledDate.setDate(scheduledDate.getDate() + dayOffset + 1); // Start tomorrow
       
@@ -348,9 +379,10 @@ serve(async (req) => {
       scheduledPosts.push({
         contentType,
         scheduledFor: scheduledDate.toISOString(),
-        index: i,
+        index: globalIndex, // Use global index for diversity tracking
       });
     }
+    
     // FIX 7: Rate limit protection - limit to prevent timeout
     // Edge functions have 60s timeout, each AI call ~3-5s, so limit to 15 posts per batch
     const MAX_BATCH_SIZE = 15;
@@ -681,8 +713,8 @@ CRITICAL REQUIREMENTS:
       console.log(`Successfully created ${generatedPosts.length} scheduled posts`);
     }
 
-    // Calculate remaining posts to generate
-    const remainingPosts = totalPosts - generatedPosts.length;
+    // Calculate remaining posts to generate based on what we actually generated this batch
+    const newRemainingToGenerate = remainingToGenerate - generatedPosts.length;
     
     return new Response(
       JSON.stringify({ 
@@ -690,8 +722,8 @@ CRITICAL REQUIREMENTS:
         generated: generatedPosts.length,
         videos: videoCount,
         images: imageCount,
-        remaining: remainingPosts > 0 ? remainingPosts : 0,
-        batchComplete: remainingPosts <= 0,
+        remaining: newRemainingToGenerate > 0 ? newRemainingToGenerate : 0,
+        batchComplete: newRemainingToGenerate <= 0,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
