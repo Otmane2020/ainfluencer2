@@ -64,9 +64,10 @@ Deno.serve(async (req) => {
       // Generate state with user ID for callback
       const state = btoa(JSON.stringify({ userId }));
       
-      // LinkedIn valid scopes - "profile" is deprecated, use r_liteprofile
+      // LinkedIn OpenID Connect scopes (r_liteprofile is deprecated)
       const scopes = [
-        "r_liteprofile",
+        "openid",
+        "profile",
         "w_member_social", // Required for posting
       ].join(" ");
 
@@ -77,7 +78,7 @@ Deno.serve(async (req) => {
       authUrl.searchParams.set("scope", scopes);
       authUrl.searchParams.set("state", state);
 
-      console.log("[linkedin-oauth] Generated auth URL");
+      console.log("[linkedin-oauth] Generated auth URL with OpenID scopes");
 
       return new Response(
         JSON.stringify({ authUrl: authUrl.toString() }),
@@ -141,28 +142,31 @@ Deno.serve(async (req) => {
 
       console.log("[linkedin-oauth] Token exchange successful");
 
-      // Get LinkedIn profile info using the /v2/me endpoint (legacy, works without openid)
+      // Get LinkedIn profile info using OpenID Connect userinfo endpoint
       const profileResponse = await fetch(
-        "https://api.linkedin.com/v2/me?projection=(id,localizedFirstName,localizedLastName,profilePicture(displayImage~:playableStreams))",
+        "https://api.linkedin.com/v2/userinfo",
         {
-          headers: { Authorization: `Bearer ${tokens.access_token}` },
+          headers: { 
+            Authorization: `Bearer ${tokens.access_token}`,
+            Accept: "application/json",
+          },
         }
       );
 
       const profile = await profileResponse.json();
+      console.log("[linkedin-oauth] Profile response status:", profileResponse.status);
 
       if (!profileResponse.ok) {
-        console.error("[linkedin-oauth] Profile fetch error:", profile);
-        return new Response(generateCallbackHtml({ error: "Failed to fetch LinkedIn profile" }), {
+        console.error("[linkedin-oauth] Profile fetch error:", JSON.stringify(profile));
+        return new Response(generateCallbackHtml({ error: profile.message || "Failed to fetch LinkedIn profile" }), {
           headers: { ...corsHeaders, "Content-Type": "text/html" },
         });
       }
 
-      const linkedinId = profile.id;
-      const displayName = `${profile.localizedFirstName || ""} ${profile.localizedLastName || ""}`.trim() || "LinkedIn User";
-      // Extract profile picture - use LAST element for highest quality
-      const elements = profile.profilePicture?.["displayImage~"]?.elements;
-      const avatarUrl = elements?.[elements.length - 1]?.identifiers?.[0]?.identifier || null;
+      // OpenID userinfo returns: sub, name, given_name, family_name, picture, email
+      const linkedinId = profile.sub;
+      const displayName = profile.name || `${profile.given_name || ""} ${profile.family_name || ""}`.trim() || "LinkedIn User";
+      const avatarUrl = profile.picture || null;
 
       console.log(`[linkedin-oauth] Profile found: ${displayName} (${linkedinId})`);
 
