@@ -53,7 +53,9 @@ interface Project {
   url: string | null;
   detected_language: string | null;
   avatar_url: string | null;
+  logo_url: string | null;
   ai_context_summary: string | null;
+  marketing_context: any | null;
 }
 interface VideoSegment {
   id: string;
@@ -152,6 +154,7 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
   const [isGeneratingScript, setIsGeneratingScript] = useState<string | null>(null);
   const [showProductSelector, setShowProductSelector] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projectSelectorOpen, setProjectSelectorOpen] = useState<string | null>(null);
   const [showProgressModal, setShowProgressModal] = useState(false);
   const { addTask, updateTask } = useGenerationTasks();
@@ -291,7 +294,7 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
     const fetchProjects = async () => {
       const { data } = await supabase
         .from("projects")
-        .select("id, name, description, theme_color, url, detected_language, avatar_url, ai_context_summary")
+        .select("id, name, description, theme_color, url, detected_language, avatar_url, logo_url, ai_context_summary, marketing_context")
         .order("name");
       if (data) setProjects(data as Project[]);
     };
@@ -334,6 +337,7 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
     setIsGeneratingScript(segmentId);
     setProjectSelectorOpen(null);
     setPendingScenarioSegmentId(segmentId);
+    setSelectedProject(project); // Track selected project for video generation context
     
     // Get the segment's duration for script length adaptation
     const segment = segments.find(s => s.id === segmentId);
@@ -653,6 +657,14 @@ ${formattedHashtags}`;
                 startingFrameUrl: startingFrameUrl,
                 model: getInternalModel()?.id || "sora-2",
                 videoMode, // Pass ClipMotion mode to edge function
+                // Project context for brand-aligned generation
+                projectId: selectedProject?.id,
+                projectName: selectedProject?.name,
+                projectUrl: selectedProject?.url,
+                logoUrl: selectedProject?.logo_url,
+                detectedLanguage: selectedProject?.detected_language,
+                aiContextSummary: selectedProject?.ai_context_summary,
+                marketingContext: selectedProject?.marketing_context,
               }),
             }
           );
