@@ -49,6 +49,7 @@ import {
   Sparkles,
   Globe,
   Package,
+  X,
 } from "lucide-react";
 import { CampaignProgressModal } from "./CampaignProgressModal";
 
@@ -133,7 +134,8 @@ export const CampaignWizardModal = ({
   const [format, setFormat] = useState("reel");
   const [tone, setTone] = useState("professional");
   const [subject, setSubject] = useState("");
-  const [productDescription, setProductDescription] = useState("");
+  const [serviceTags, setServiceTags] = useState<string[]>([]);
+  const [newTag, setNewTag] = useState("");
   const [isSuggestingProduct, setIsSuggestingProduct] = useState(false);
   const [postingHour, setPostingHour] = useState(10);
   const [timezone, setTimezone] = useState("Europe/Paris");
@@ -169,7 +171,8 @@ export const CampaignWizardModal = ({
       setFormat("reel");
       setTone("professional");
       setSubject("");
-      setProductDescription("");
+      setServiceTags([]);
+      setNewTag("");
       setPostingHour(10);
       setTimezone("Europe/Paris");
       setImageAsReel(false);
@@ -210,27 +213,31 @@ export const CampaignWizardModal = ({
       if (error) throw error;
 
       if (data?.success) {
-        // Extract product/service info from description and markdown
-        let suggestion = "";
+        // Extract keywords/services as tags from the scraped content
+        const extractedTags: string[] = [];
+        
+        // Try to extract from title and description
+        if (data.title) {
+          const titleWords = data.title.split(/[\s,|·-]+/).filter((w: string) => w.length > 3 && w.length < 25);
+          extractedTags.push(...titleWords.slice(0, 3));
+        }
         
         if (data.description) {
-          suggestion = data.description;
-        }
-        
-        // If we have markdown, try to extract key product info
-        if (data.markdown && !suggestion) {
-          // Take first meaningful paragraph
-          const paragraphs = data.markdown.split("\n").filter((p: string) => p.trim().length > 50);
-          if (paragraphs.length > 0) {
-            suggestion = paragraphs[0].slice(0, 300);
-          }
+          // Extract key phrases (capitalized words, product-like terms)
+          const descWords = data.description
+            .split(/[\s,.|·-]+/)
+            .filter((w: string) => w.length > 4 && w.length < 20 && /^[A-Z]/.test(w));
+          extractedTags.push(...descWords.slice(0, 4));
         }
 
-        if (suggestion) {
-          setProductDescription(suggestion);
-          toast({ title: "Product info detected!", description: "Review and edit if needed" });
+        // Deduplicate and clean
+        const uniqueTags = [...new Set(extractedTags.map(t => t.trim()).filter(t => t.length > 2))].slice(0, 6);
+
+        if (uniqueTags.length > 0) {
+          setServiceTags(prev => [...new Set([...prev, ...uniqueTags])].slice(0, 8));
+          toast({ title: "Services detected!", description: `${uniqueTags.length} tags added` });
         } else {
-          toast({ title: "No product info found", description: "Please enter manually", variant: "destructive" });
+          toast({ title: "No services found", description: "Add tags manually", variant: "destructive" });
         }
       }
     } catch (error) {
@@ -269,7 +276,7 @@ export const CampaignWizardModal = ({
           format,
           tone,
           subject,
-          ai_context: productDescription || null, // Store product/service description
+          ai_context: serviceTags.length > 0 ? serviceTags.join(", ") : null, // Store service tags
           posting_hour: postingHour,
           timezone,
           status: "draft",
@@ -302,7 +309,7 @@ export const CampaignWizardModal = ({
             imageAsReel: imageAsReel,
             audioCategory: audioCategory,
             clipmotion: clipmotion,
-            productDescription: productDescription || null,
+            serviceTags: serviceTags.length > 0 ? serviceTags : null,
           }
         }
       );
@@ -483,15 +490,62 @@ export const CampaignWizardModal = ({
                     </Button>
                   )}
                 </div>
-                <Textarea
-                  value={productDescription}
-                  onChange={(e) => setProductDescription(e.target.value)}
-                  placeholder="Describe the product or service you want to promote (e.g., 'Premium leather handbags handcrafted in Italy, featuring minimalist designs for modern professionals')"
-                  rows={3}
-                  className="resize-none"
-                />
+                {/* Tag Input */}
+                <div className="flex gap-2">
+                  <Input
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    placeholder="Add a service or product..."
+                    className="flex-1"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && newTag.trim()) {
+                        e.preventDefault();
+                        if (!serviceTags.includes(newTag.trim())) {
+                          setServiceTags(prev => [...prev, newTag.trim()].slice(0, 8));
+                        }
+                        setNewTag("");
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      if (newTag.trim() && !serviceTags.includes(newTag.trim())) {
+                        setServiceTags(prev => [...prev, newTag.trim()].slice(0, 8));
+                        setNewTag("");
+                      }
+                    }}
+                    disabled={!newTag.trim() || serviceTags.length >= 8}
+                  >
+                    Add
+                  </Button>
+                </div>
+
+                {/* Tags Display */}
+                {serviceTags.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {serviceTags.map((tag, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-sm"
+                      >
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => setServiceTags(prev => prev.filter((_, i) => i !== index))}
+                          className="hover:bg-primary/20 rounded-full p-0.5"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 <p className="text-xs text-muted-foreground">
-                  This helps AI generate more targeted and relevant content
+                  Add up to 8 tags to help AI focus on your products/services
                 </p>
               </div>
 
