@@ -214,44 +214,18 @@ export const CampaignWizardModal = ({
     }
   };
 
-  // Auto-suggest services when project changes (only if project hasn't been scraped before)
+  // Auto-suggest services when project changes (and has URL)
   useEffect(() => {
-    // Skip if already suggested for this project in this session
-    if (autoSuggestedProjectId === projectId) return;
-    // Skip if user has already entered tags
-    if (serviceTags.length > 0) return;
-    
     const selectedProject = projects.find(p => p.id === projectId);
-    if (!selectedProject?.url) return;
-
-    // Check if project already has scraped data (don't re-scrape)
-    const checkAndSuggest = async () => {
-      const { data: projectData } = await supabase
-        .from("projects")
-        .select("scraped_markdown, scraped_data")
-        .eq("id", projectId)
-        .single();
-
-      // If already scraped, extract services from existing data instead of re-crawling
-      if (projectData?.scraped_markdown || projectData?.scraped_data) {
-        setAutoSuggestedProjectId(projectId);
-        // Try to extract from existing scraped_data if it has services
-        const existingData = projectData.scraped_data as any;
-        if (existingData?.services && Array.isArray(existingData.services)) {
-          setServiceTags(existingData.services.slice(0, 8));
-          toast({ title: "Services loaded", description: `${Math.min(existingData.services.length, 8)} services from project` });
-        }
-        return;
-      }
-
-      // Only call Firecrawl if no scraped data exists
+    // Only auto-suggest if:
+    // 1. Project has a URL
+    // 2. We haven't already auto-suggested for this project
+    // 3. Service tags are empty (don't override user input)
+    if (selectedProject?.url && autoSuggestedProjectId !== projectId && serviceTags.length === 0) {
       setAutoSuggestedProjectId(projectId);
-      handleAutoSuggestServices(selectedProject.url!);
-    };
-
-    checkAndSuggest();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]); // Only trigger on projectId change, not on projects array change
+      handleAutoSuggestServices(selectedProject.url);
+    }
+  }, [projectId, projects]);
 
   // Auto-suggest services from project URL (silent, no toast on failure)
   const handleAutoSuggestServices = async (url: string) => {
@@ -288,24 +262,6 @@ export const CampaignWizardModal = ({
 
     setIsSuggestingProduct(true);
     try {
-      // First check if project already has scraped data
-      const { data: projectData } = await supabase
-        .from("projects")
-        .select("scraped_markdown, scraped_data")
-        .eq("id", projectId)
-        .single();
-
-      // Use existing data if available
-      const existingData = projectData?.scraped_data as any;
-      if (existingData?.services && Array.isArray(existingData.services) && existingData.services.length > 0) {
-        const newTags = existingData.services.slice(0, 8);
-        setServiceTags(prev => [...new Set([...prev, ...newTags])].slice(0, 8));
-        toast({ title: "Services loaded!", description: `${newTags.length} services from existing data` });
-        setIsSuggestingProduct(false);
-        return;
-      }
-
-      // Only call Firecrawl if no existing data
       const { data, error } = await supabase.functions.invoke("scrape-project-url", {
         body: { url: selectedProject.url },
       });
@@ -469,8 +425,7 @@ export const CampaignWizardModal = ({
 
   const totalSteps = 5;
 
-  // WizardContent as JSX variable (not a function component) to prevent remounting
-  const wizardContent = (
+  const WizardContent = () => (
     <>
       {/* Progress */}
       <div className="flex gap-1 mb-4 px-1">
@@ -601,43 +556,45 @@ export const CampaignWizardModal = ({
                     value={newTag}
                     onChange={(e) => setNewTag(e.target.value)}
                     placeholder="Add a service or product..."
+                    className="flex-1"
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && newTag.trim() && serviceTags.length < 8) {
+                      if (e.key === "Enter" && newTag.trim()) {
                         e.preventDefault();
-                        setServiceTags([...serviceTags, newTag.trim()]);
+                        if (!serviceTags.includes(newTag.trim())) {
+                          setServiceTags(prev => [...prev, newTag.trim()].slice(0, 8));
+                        }
                         setNewTag("");
                       }
                     }}
-                    disabled={serviceTags.length >= 8}
                   />
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     onClick={() => {
-                      if (newTag.trim() && serviceTags.length < 8) {
-                        setServiceTags([...serviceTags, newTag.trim()]);
+                      if (newTag.trim() && !serviceTags.includes(newTag.trim())) {
+                        setServiceTags(prev => [...prev, newTag.trim()].slice(0, 8));
                         setNewTag("");
                       }
                     }}
                     disabled={!newTag.trim() || serviceTags.length >= 8}
-                    className="shrink-0"
                   >
                     Add
                   </Button>
                 </div>
+
                 {/* Tags Display */}
                 {serviceTags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
+                  <div className="flex flex-wrap gap-2">
                     {serviceTags.map((tag, index) => (
                       <span
                         key={index}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-xs"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-sm"
                       >
                         {tag}
                         <button
                           type="button"
-                          onClick={() => setServiceTags(serviceTags.filter((_, i) => i !== index))}
+                          onClick={() => setServiceTags(prev => prev.filter((_, i) => i !== index))}
                           className="hover:bg-primary/20 rounded-full p-0.5"
                         >
                           <X className="h-3 w-3" />
@@ -646,47 +603,61 @@ export const CampaignWizardModal = ({
                     ))}
                   </div>
                 )}
+
                 <p className="text-xs text-muted-foreground">
                   Add up to 8 tags to help AI focus on your products/services
                 </p>
               </div>
+
+              {projects.length === 0 && (
+                <p className="text-sm text-amber-500">
+                  You need to create a project first before creating a campaign.
+                </p>
+              )}
             </motion.div>
           )}
 
-          {/* Step 3: Volume & Format */}
+          {/* Step 3: Volume */}
           {step === 3 && (
             <motion.div
               key="step3"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="space-y-5"
+              className="space-y-6"
             >
-              {/* Videos Per Month */}
-              {campaignType !== "image" && (
+              {(campaignType === "video" || campaignType === "mixed") && (
                 <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <Label className="flex items-center gap-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
                       <Video className="h-4 w-4 text-violet-500" />
-                      Videos per month
-                    </Label>
-                    <span className="text-lg font-bold">{videosPerMonth}</span>
+                      <Label>Videos / Reels per month</Label>
+                    </div>
+                    <span className="text-xl font-bold text-primary">{videosPerMonth}</span>
                   </div>
                   <Slider
                     value={[videosPerMonth]}
                     onValueChange={([v]) => setVideosPerMonth(v)}
                     min={1}
-                    max={30}
+                    max={20}
                     step={1}
-                    className="w-full"
+                    className="py-2"
                   />
-                  {/* ClipMotion toggle */}
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-violet-500" />
+                  <p className="text-xs text-muted-foreground">Recommended: 4-8 videos/month for optimal engagement</p>
+                </div>
+              )}
+
+              {/* ClipMotion Toggle for Video Campaigns */}
+              {(campaignType === "video" || campaignType === "mixed") && (
+                <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-lg p-2 bg-gradient-to-br from-violet-500 to-purple-600 text-white">
+                        <Sparkles className="h-5 w-5" />
+                      </div>
                       <div>
-                        <p className="text-sm font-medium">ClipMotion Mode</p>
-                        <p className="text-xs text-muted-foreground">Generate animated clips with effects</p>
+                        <p className="font-medium">ClipMotion Mode</p>
+                        <p className="text-xs text-muted-foreground">Fast-paced, social-optimized videos</p>
                       </div>
                     </div>
                     <Switch
@@ -694,34 +665,49 @@ export const CampaignWizardModal = ({
                       onCheckedChange={setClipmotion}
                     />
                   </div>
+                  
+                  {clipmotion && (
+                    <div className="pt-2 border-t border-border/50">
+                      <p className="text-xs text-violet-600 dark:text-violet-400">
+                        Videos will use fast cuts, zoom effects, animated text overlays, and TikTok/Reels aesthetic for maximum engagement.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Images Per Month */}
-              {campaignType !== "video" && (
+              {(campaignType === "image" || campaignType === "mixed") && (
                 <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <Label className="flex items-center gap-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
                       <ImageIcon className="h-4 w-4 text-cyan-500" />
-                      Images per month
-                    </Label>
-                    <span className="text-lg font-bold">{imagesPerMonth}</span>
+                      <Label>Image posts per month</Label>
+                    </div>
+                    <span className="text-xl font-bold text-primary">{imagesPerMonth}</span>
                   </div>
                   <Slider
                     value={[imagesPerMonth]}
                     onValueChange={([v]) => setImagesPerMonth(v)}
                     min={1}
-                    max={60}
+                    max={30}
                     step={1}
-                    className="w-full"
+                    className="py-2"
                   />
-                  {/* Convert to Reel toggle */}
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
-                    <div className="flex items-center gap-2">
-                      <Music className="h-4 w-4 text-cyan-500" />
+                  <p className="text-xs text-muted-foreground">Recommended: 12-16 images/month for consistent presence</p>
+                </div>
+              )}
+
+              {/* Image as Reel Option */}
+              {(campaignType === "image" || campaignType === "mixed") && (
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-lg p-2 bg-gradient-to-br from-pink-500 to-orange-400 text-white">
+                        <Music className="h-5 w-5" />
+                      </div>
                       <div>
-                        <p className="text-sm font-medium">Post as Reels</p>
-                        <p className="text-xs text-muted-foreground">Convert images to reels with music</p>
+                        <p className="font-medium">Post Images as Reels</p>
+                        <p className="text-xs text-muted-foreground">Convert images to video reels with music</p>
                       </div>
                     </div>
                     <Switch
@@ -729,68 +715,39 @@ export const CampaignWizardModal = ({
                       onCheckedChange={setImageAsReel}
                     />
                   </div>
-                  {/* Audio Category (only if imageAsReel is enabled) */}
+                  
                   {imageAsReel && (
-                    <div className="space-y-2 pl-6 border-l-2 border-cyan-500/30">
-                      <Label className="text-sm">Audio Style</Label>
-                      <Select value={audioCategory} onValueChange={setAudioCategory}>
-                        <SelectTrigger className="h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-card">
-                          {AUDIO_CATEGORIES.map((cat) => (
-                            <SelectItem key={cat.id} value={cat.id}>
-                              {cat.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="pt-2 border-t border-border/50">
+                      <Label className="text-xs mb-2 block">Background Music Style</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {AUDIO_CATEGORIES.slice(0, 4).map((cat) => (
+                          <button
+                            key={cat.id}
+                            onClick={() => setAudioCategory(cat.id)}
+                            className={`p-2 rounded-lg text-xs text-left transition-all ${
+                              audioCategory === cat.id 
+                                ? "bg-primary text-primary-foreground" 
+                                : "bg-muted hover:bg-muted/80"
+                            }`}
+                          >
+                            <span className="mr-1">{cat.emoji}</span>
+                            {cat.label.split(" ")[0]}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Posts Per Week */}
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <Label>Posts per week</Label>
-                  <span className="text-lg font-bold">{postsPerWeek}</span>
-                </div>
-                <Slider
-                  value={[postsPerWeek]}
-                  onValueChange={([v]) => setPostsPerWeek(v)}
-                  min={1}
-                  max={14}
-                  step={1}
-                  className="w-full"
-                />
+              {/* Summary */}
+              <div className="rounded-lg bg-muted/50 p-3 mt-4">
+                <p className="text-sm text-muted-foreground">
+                  Content will be automatically distributed across the month
+                  {imageAsReel && " • Images will be converted to reels with music"}
+                  {clipmotion && " • ClipMotion style enabled"}
+                </p>
               </div>
-
-              {/* Format Selection */}
-              <div className="space-y-2">
-                <Label>Format</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {FORMATS.map((f) => (
-                    <button
-                      key={f.id}
-                      onClick={() => setFormat(f.id)}
-                      className={`p-3 rounded-lg border-2 transition-all text-sm ${
-                        format === f.id
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/50"
-                      }`}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Brand Options */}
-              <BrandOptions
-                options={brandOptions}
-                onChange={setBrandOptions}
-              />
             </motion.div>
           )}
 
@@ -804,39 +761,50 @@ export const CampaignWizardModal = ({
               className="space-y-4"
             >
               <div>
-                <Label className="text-base">Select Platforms</Label>
-                <p className="text-sm text-muted-foreground">Choose where to publish your content</p>
+                <Label className="text-base">Target Platforms</Label>
+                <p className="text-sm text-muted-foreground">Select where to publish your content</p>
               </div>
 
-              <div className="grid gap-3">
+              <div className="space-y-3">
                 {PLATFORMS.map((platform) => {
                   const Icon = platform.icon;
                   const isEnabled = platforms[platform.id as keyof typeof platforms];
                   return (
-                    <button
+                    <div
                       key={platform.id}
-                      onClick={() => setPlatforms(prev => ({ ...prev, [platform.id]: !prev[platform.id as keyof typeof platforms] }))}
-                      className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
-                        isEnabled
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/50"
+                      className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+                        isEnabled ? "border-primary bg-primary/5" : "border-border"
                       }`}
                     >
-                      <div className={`rounded-lg p-2 ${platform.color} text-white`}>
-                        <Icon className="h-5 w-5" />
+                      <div className="flex items-center gap-3">
+                        <div className={`rounded-lg p-2 ${platform.color} text-white`}>
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{platform.label}</p>
+                          {(platform.id === "linkedin" || platform.id === "tiktok") && (
+                            <p className="text-xs text-muted-foreground">Manual share / download</p>
+                          )}
+                        </div>
                       </div>
-                      <span className="font-medium">{platform.label}</span>
-                      <div className="ml-auto">
-                        <Switch checked={isEnabled} />
-                      </div>
-                    </button>
+                      <Switch
+                        checked={isEnabled}
+                        onCheckedChange={(checked) => 
+                          setPlatforms(prev => ({ ...prev, [platform.id]: checked }))
+                        }
+                      />
+                    </div>
                   );
                 })}
               </div>
+
+              {!Object.values(platforms).some(Boolean) && (
+                <p className="text-sm text-amber-500">Select at least one platform</p>
+              )}
             </motion.div>
           )}
 
-          {/* Step 5: Tone & Schedule */}
+          {/* Step 5: Content Settings */}
           {step === 5 && (
             <motion.div
               key="step5"
@@ -845,71 +813,86 @@ export const CampaignWizardModal = ({
               exit={{ opacity: 0, x: -20 }}
               className="space-y-4"
             >
-              {/* Tone Selection */}
               <div className="space-y-2">
-                <Label>Content Tone</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {TONES.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => setTone(t.id)}
-                      className={`p-2 rounded-lg border-2 transition-all text-xs ${
-                        tone === t.id
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/50"
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Subject/Theme */}
-              <div className="space-y-2">
-                <Label>Specific Theme (optional)</Label>
-                <Textarea
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  placeholder="e.g., Summer sale, new product launch..."
-                  rows={2}
-                />
-              </div>
-
-              {/* Timezone */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Timezone
-                </Label>
-                <Select value={timezone} onValueChange={setTimezone}>
+                <Label>Format</Label>
+                <Select value={format} onValueChange={setFormat}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-card">
-                    {TIMEZONES.map((tz) => (
-                      <SelectItem key={tz.id} value={tz.id}>
-                        {tz.label}
-                      </SelectItem>
+                    {FORMATS.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>{f.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Posting Hour */}
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <Label>Preferred Posting Hour</Label>
-                  <span className="font-medium">{postingHour.toString().padStart(2, "0")}:00</span>
-                </div>
-                <Slider
-                  value={[postingHour]}
-                  onValueChange={([v]) => setPostingHour(v)}
-                  min={6}
-                  max={22}
-                  step={1}
-                  className="w-full"
+              <div className="space-y-2">
+                <Label>Tone</Label>
+                <Select value={tone} onValueChange={setTone}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card">
+                    {TONES.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Subject / Topic (optional)</Label>
+                <Textarea
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="E.g., Product launches, behind the scenes, customer testimonials..."
+                  rows={3}
                 />
+              </div>
+
+              {/* Brand Options */}
+              <BrandOptions options={brandOptions} onChange={setBrandOptions} />
+
+              {/* Posting Schedule */}
+              <div className="rounded-xl border border-border p-4 space-y-4">
+                <h4 className="text-sm font-medium flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-primary" />
+                  Posting Schedule
+                </h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label className="text-xs">Posting Hour</Label>
+                    <Select value={postingHour.toString()} onValueChange={(v) => setPostingHour(parseInt(v))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card max-h-48">
+                        {Array.from({ length: 24 }, (_, i) => (
+                          <SelectItem key={i} value={i.toString()}>
+                            {i.toString().padStart(2, "0")}:00
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-xs">Timezone</Label>
+                    <Select value={timezone} onValueChange={setTimezone}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card">
+                        {TIMEZONES.map((tz) => (
+                          <SelectItem key={tz.id} value={tz.id}>{tz.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
                 <p className="text-xs text-muted-foreground">
                   Posts will be scheduled around {postingHour.toString().padStart(2, "0")}:00 in the selected timezone
                 </p>
@@ -966,7 +949,7 @@ export const CampaignWizardModal = ({
               </DrawerTitle>
             </DrawerHeader>
             <div className="px-4 pb-6">
-              {wizardContent}
+              <WizardContent />
             </div>
           </DrawerContent>
         </Drawer>
@@ -994,7 +977,7 @@ export const CampaignWizardModal = ({
               Create Campaign
             </DialogTitle>
           </DialogHeader>
-          {wizardContent}
+          <WizardContent />
         </DialogContent>
       </Dialog>
 
