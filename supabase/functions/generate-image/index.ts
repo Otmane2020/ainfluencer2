@@ -317,6 +317,7 @@ Deno.serve(async (req) => {
       includeAvatar,
       avatarUrl,
       aiContextSummary,
+      marketingContext, // NEW: Rich marketing context
       skipCreditDeduction,
     } = await req.json();
 
@@ -445,7 +446,64 @@ Deno.serve(async (req) => {
     if (brandName) {
       enhancedParts.push(`Brand: ${brandName}`);
     }
-    if (aiContextSummary) {
+
+    // Add rich marketing context if available
+    if (marketingContext && typeof marketingContext === "object") {
+      const mc = marketingContext as any;
+      const marketingParts: string[] = [];
+      
+      // Target audience context
+      if (mc.target_audience?.primary) {
+        marketingParts.push(`TARGET AUDIENCE: ${mc.target_audience.primary}`);
+      }
+      if (mc.target_audience?.pain_points?.length > 0) {
+        marketingParts.push(`Their pain points: ${mc.target_audience.pain_points.join(", ")}`);
+      }
+      if (mc.target_audience?.desires?.length > 0) {
+        marketingParts.push(`Their desires: ${mc.target_audience.desires.join(", ")}`);
+      }
+      
+      // Brand personality
+      if (mc.brand_personality?.tone) {
+        marketingParts.push(`BRAND TONE: ${mc.brand_personality.tone}`);
+      }
+      if (mc.brand_personality?.values?.length > 0) {
+        marketingParts.push(`Brand values: ${mc.brand_personality.values.join(", ")}`);
+      }
+      
+      // Products to showcase
+      if (mc.products_services?.length > 0) {
+        const productsList = mc.products_services
+          .slice(0, 3)
+          .map((p: any) => `${p.name}: ${p.key_benefit}`)
+          .join("; ");
+        marketingParts.push(`PRODUCTS TO SHOWCASE: ${productsList}`);
+      }
+      
+      // Visual style
+      if (mc.visual_identity?.aesthetic_style) {
+        marketingParts.push(`VISUAL STYLE: ${mc.visual_identity.aesthetic_style}`);
+      }
+      if (mc.visual_identity?.mood) {
+        marketingParts.push(`Mood: ${mc.visual_identity.mood}`);
+      }
+      if (mc.visual_identity?.logo_description) {
+        marketingParts.push(`Logo description: ${mc.visual_identity.logo_description}`);
+      }
+      
+      // Content guidelines
+      if (mc.content_guidelines?.visual_banned?.length > 0) {
+        marketingParts.push(`AVOID visually: ${mc.content_guidelines.visual_banned.join(", ")}`);
+      }
+      if (mc.content_guidelines?.visual_preferred?.length > 0) {
+        marketingParts.push(`PREFER visually: ${mc.content_guidelines.visual_preferred.join(", ")}`);
+      }
+      
+      if (marketingParts.length > 0) {
+        enhancedParts.push(`MARKETING CONTEXT:\n${marketingParts.join("\n")}`);
+      }
+    } else if (aiContextSummary) {
+      // Fallback to old context summary
       enhancedParts.push(`Brand context: ${aiContextSummary.substring(0, 200)}`);
     }
 

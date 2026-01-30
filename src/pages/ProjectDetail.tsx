@@ -32,6 +32,7 @@ import {
   Check,
   AlertCircle,
   Link2,
+  Brain,
 } from "lucide-react";
 import { format } from "date-fns";
 import { enUS } from "date-fns/locale";
@@ -53,6 +54,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MarketingContextEditor, MarketingContext } from "@/components/MarketingContextEditor";
 
 // TikTok icon
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -87,6 +89,8 @@ interface Project {
   automation_mode: string;
   detected_language: string | null;
   ai_context_summary: string | null;
+  scraped_markdown: string | null;
+  marketing_context: unknown;
   created_at: string;
 }
 
@@ -421,6 +425,10 @@ const ProjectDetail = () => {
               <Palette className="h-4 w-4 mr-2" />
               Visual identity
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openEditModal("context")}>
+              <Brain className="h-4 w-4 mr-2" />
+              Marketing Context
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => openEditModal("platforms")}>
               <Share2 className="h-4 w-4 mr-2" />
               Platforms
@@ -583,15 +591,16 @@ const ProjectDetail = () => {
 
       {/* Quick Edit Modal */}
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className={editTab === "context" ? "sm:max-w-2xl max-h-[90vh]" : "sm:max-w-lg"}>
           <DialogHeader>
             <DialogTitle>Edit project</DialogTitle>
           </DialogHeader>
           
           <Tabs value={editTab} onValueChange={setEditTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="info">Info</TabsTrigger>
               <TabsTrigger value="branding">Style</TabsTrigger>
+              <TabsTrigger value="context">Context</TabsTrigger>
               <TabsTrigger value="platforms">Platforms</TabsTrigger>
             </TabsList>
 
@@ -702,6 +711,24 @@ const ProjectDetail = () => {
                   </p>
                 </div>
               </div>
+            </TabsContent>
+
+            <TabsContent value="context" className="mt-4">
+              {project && (
+                <MarketingContextEditor
+                  projectId={project.id}
+                  projectName={project.name}
+                  scrapedMarkdown={project.scraped_markdown}
+                  initialContext={project.marketing_context as MarketingContext | null}
+                  onSave={async (context) => {
+                    await supabase
+                      .from("projects")
+                      .update({ marketing_context: JSON.parse(JSON.stringify(context)) })
+                      .eq("id", project.id);
+                    fetchProject();
+                  }}
+                />
+              )}
             </TabsContent>
 
             <TabsContent value="platforms" className="space-y-4 mt-4">

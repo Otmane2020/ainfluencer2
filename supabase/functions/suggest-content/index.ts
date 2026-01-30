@@ -178,6 +178,7 @@ serve(async (req) => {
       // NEW: Project branding
       logoUrl,
       detectedLanguage, // Language detected from Firecrawl
+      marketingContext, // NEW: Rich marketing context
     } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -204,6 +205,58 @@ serve(async (req) => {
 
     // Logo context for branding
     const logoContext = logoUrl ? `\nBRAND LOGO URL: ${logoUrl} (Consider incorporating brand logo in visual descriptions when appropriate)` : "";
+
+    // Build marketing context injection
+    let marketingContextBlock = "";
+    if (marketingContext && typeof marketingContext === "object") {
+      const mc = marketingContext as any;
+      const parts: string[] = [];
+      
+      if (mc.target_audience?.primary) {
+        parts.push(`TARGET AUDIENCE: ${mc.target_audience.primary}`);
+      }
+      if (mc.target_audience?.pain_points?.length > 0) {
+        parts.push(`Pain points to address: ${mc.target_audience.pain_points.join(", ")}`);
+      }
+      if (mc.target_audience?.desires?.length > 0) {
+        parts.push(`Desires to fulfill: ${mc.target_audience.desires.join(", ")}`);
+      }
+      if (mc.brand_personality?.tone) {
+        parts.push(`BRAND TONE: ${mc.brand_personality.tone}`);
+      }
+      if (mc.brand_personality?.values?.length > 0) {
+        parts.push(`Brand values: ${mc.brand_personality.values.join(", ")}`);
+      }
+      if (mc.brand_personality?.voice_keywords?.length > 0) {
+        parts.push(`Voice keywords: ${mc.brand_personality.voice_keywords.join(", ")}`);
+      }
+      if (mc.products_services?.length > 0) {
+        const productsList = mc.products_services
+          .slice(0, 5)
+          .map((p: any) => `- ${p.name}: ${p.key_benefit}`)
+          .join("\n");
+        parts.push(`PRODUCTS TO SHOWCASE:\n${productsList}`);
+      }
+      if (mc.competitive_positioning) {
+        parts.push(`UNIQUE SELLING POINT: ${mc.competitive_positioning}`);
+      }
+      if (mc.content_guidelines?.banned_terms?.length > 0) {
+        parts.push(`NEVER use these words: ${mc.content_guidelines.banned_terms.join(", ")}`);
+      }
+      if (mc.content_guidelines?.preferred_terms?.length > 0) {
+        parts.push(`PREFER these words: ${mc.content_guidelines.preferred_terms.join(", ")}`);
+      }
+      if (mc.content_guidelines?.visual_banned?.length > 0) {
+        parts.push(`AVOID visually: ${mc.content_guidelines.visual_banned.join(", ")}`);
+      }
+      if (mc.content_guidelines?.visual_preferred?.length > 0) {
+        parts.push(`PREFER visually: ${mc.content_guidelines.visual_preferred.join(", ")}`);
+      }
+      
+      if (parts.length > 0) {
+        marketingContextBlock = `\n\n=== MARKETING CONTEXT (CRITICAL - USE THIS!) ===\n${parts.join("\n")}\n=== END MARKETING CONTEXT ===\n`;
+      }
+    }
 
     // Different prompts based on content type
     let systemPrompt: string;
@@ -263,6 +316,7 @@ ${MARKETING_ANGLES.map((a, i) => `${i + 1}. ${a.id}: ${a.desc}`).join("\n")}
 - What they ACTUALLY SELL (FOCUS ON THIS): ${projectDescription || "Products/services to promote"}
 ${projectUrl ? `- Sales page: ${projectUrl}` : ""}
 ${brandContext}
+${marketingContextBlock}
 ${sector ? `- Market: ${sector.name} - Visual hooks: ${sector.visualContext}` : ""}
 ${style ? `- Visual approach: ${style.name} - ${style.visualInstructions}` : ""}
 ${tone ? `- Emotional trigger: ${tone.name} - ${tone.atmosphereNotes}` : ""}
