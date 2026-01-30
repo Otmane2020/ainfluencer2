@@ -53,9 +53,7 @@ const contentNavItems = [
 ];
 
 const historyNavItems = [
-  { title: "AI Video History", url: "/history/ai-videos", icon: Sparkles },
-  { title: "Video History", url: "/history/videos", icon: Clock },
-  { title: "Image History", url: "/history/images", icon: Image },
+  { title: "History", url: "/history", icon: Clock },
   { title: "Post History", url: "/history/posts", icon: FileText },
 ];
 
