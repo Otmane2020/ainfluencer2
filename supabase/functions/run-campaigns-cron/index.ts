@@ -559,26 +559,53 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log("[cron] Starting AutoPost processing (Quality Tiers)...");
+    // Parse request body for optional params
+    let campaignId: string | null = null;
+    let forceRun = false;
+    
+    try {
+      const body = await req.json();
+      campaignId = body.campaignId || null;
+      forceRun = body.forceRun === true;
+    } catch {
+      // No body or invalid JSON - that's fine for cron calls
+    }
+
+    console.log(`[cron] Starting AutoPost processing ${forceRun ? "(FORCED)" : "(Quality Tiers)"}...`);
+    if (campaignId) {
+      console.log(`[cron] Targeting campaign: ${campaignId}`);
+    }
 
     const now = new Date();
     let totalGenerated = 0;
     let totalPublished = 0;
 
-    // Process all due posts (scheduled or draft with past scheduled_for)
-    const { data: duePosts, error: postsError } = await supabase
+    // Build query for due posts
+    let postsQuery = supabase
       .from("scheduled_posts")
       .select("*, projects(name, detected_language, description, logo_url, url)")
       .in("status", ["scheduled", "draft"])
-      .lte("scheduled_for", now.toISOString())
       .order("scheduled_for", { ascending: true })
-      .limit(20) as { data: (ScheduledPost & { projects: any })[] | null; error: any };
+      .limit(20);
+
+    // If forceRun with campaignId, get posts for that campaign regardless of time
+    if (forceRun && campaignId) {
+      postsQuery = postsQuery.eq("campaign_id", campaignId);
+    } else {
+      // Normal cron: only get posts that are due
+      postsQuery = postsQuery.lte("scheduled_for", now.toISOString());
+    }
+
+    const { data: duePosts, error: postsError } = await postsQuery as { 
+      data: (ScheduledPost & { projects: any })[] | null; 
+      error: any 
+    };
 
     if (postsError) throw postsError;
 
     if (!duePosts?.length) {
       console.log("[cron] No posts due for processing");
-      return new Response(JSON.stringify({ message: "No posts due", generated: 0, published: 0 }), {
+      return new Response(JSON.stringify({ message: "No posts due", generated: 0, published: 0, processed: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
