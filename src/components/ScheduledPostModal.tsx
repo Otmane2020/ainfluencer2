@@ -173,6 +173,10 @@ export const ScheduledPostModal = ({
   const [editedPrompt, setEditedPrompt] = useState("");
   const [editedContent, setEditedContent] = useState("");
   
+  // Local state to track saved values (so UI reflects changes immediately after save)
+  const [savedPrompt, setSavedPrompt] = useState<string | null>(null);
+  const [savedContent, setSavedContent] = useState<string | null>(null);
+  
   // Local state to track generated media (updates immediately after generation)
   const [localMediaUrl, setLocalMediaUrl] = useState<string | null>(null);
   const [localMusicUrl, setLocalMusicUrl] = useState<string | null>(null);
@@ -237,6 +241,9 @@ export const ScheduledPostModal = ({
     setExpandContent(false);
     setIsEditingPrompt(false);
     setIsEditingContent(false);
+    // Reset saved values to use fresh post data
+    setSavedPrompt(null);
+    setSavedContent(null);
     
     // Fetch FULL project context for brand-aware generation via Generation Context Guard
     const fetchProjectContext = async () => {
@@ -340,6 +347,10 @@ export const ScheduledPostModal = ({
     }
   };
 
+  // Get current display values (prefer saved local state, then post prop)
+  const displayPrompt = savedPrompt !== null ? savedPrompt : post?.ai_prompt;
+  const displayContent = savedContent !== null ? savedContent : post?.text_content;
+
   // Save edited prompt
   const handleSavePrompt = async () => {
     if (!editedPrompt.trim()) return;
@@ -352,6 +363,9 @@ export const ScheduledPostModal = ({
 
       if (error) throw error;
 
+      // Update local state immediately so UI reflects the change
+      setSavedPrompt(editedPrompt);
+      
       toast({
         title: "Prompt updated ✓",
         description: "AI prompt has been saved",
@@ -382,6 +396,9 @@ export const ScheduledPostModal = ({
 
       if (error) throw error;
 
+      // Update local state immediately so UI reflects the change
+      setSavedContent(editedContent);
+      
       toast({
         title: "Content updated ✓",
         description: "Post content has been saved",
@@ -1092,7 +1109,7 @@ export const ScheduledPostModal = ({
             )}
 
             {/* AI Prompt / Subject - Editable */}
-            {(post.ai_prompt || isEditingPrompt) && (
+            {(displayPrompt || isEditingPrompt) && (
               <div className="rounded-xl bg-muted/50 p-3 sm:p-4">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-xs sm:text-sm font-medium text-muted-foreground">
@@ -1104,7 +1121,7 @@ export const ScheduledPostModal = ({
                       size="sm"
                       className="h-7 px-2 gap-1"
                       onClick={() => {
-                        setEditedPrompt(post.ai_prompt || "");
+                        setEditedPrompt(displayPrompt || "");
                         setIsEditingPrompt(true);
                       }}
                     >
@@ -1141,11 +1158,11 @@ export const ScheduledPostModal = ({
                 ) : (
                   <>
                     {(() => {
-                      const { text, truncated } = truncateText(post.ai_prompt || "", 150);
+                      const { text, truncated } = truncateText(displayPrompt || "", 150);
                       return (
                         <>
                           <p className="text-xs sm:text-sm">
-                            {expandPrompt ? post.ai_prompt : text}
+                            {expandPrompt ? displayPrompt : text}
                           </p>
                           {truncated && (
                             <button
@@ -1164,7 +1181,7 @@ export const ScheduledPostModal = ({
             )}
 
             {/* Text Content - Editable */}
-            {(post.text_content || isEditingContent) && (
+            {(displayContent || isEditingContent) && (
               <div className="rounded-xl border border-border p-3 sm:p-4">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-xs sm:text-sm font-medium text-muted-foreground">
@@ -1176,7 +1193,7 @@ export const ScheduledPostModal = ({
                       size="sm"
                       className="h-7 px-2 gap-1"
                       onClick={() => {
-                        setEditedContent(post.text_content || "");
+                        setEditedContent(displayContent || "");
                         setIsEditingContent(true);
                       }}
                     >
@@ -1213,11 +1230,11 @@ export const ScheduledPostModal = ({
                 ) : (
                   <>
                     {(() => {
-                      const { text, truncated } = truncateText(post.text_content || "", 200);
+                      const { text, truncated } = truncateText(displayContent || "", 200);
                       return (
                         <>
                           <p className="whitespace-pre-wrap text-xs sm:text-sm">
-                            {expandContent ? post.text_content : text}
+                            {expandContent ? displayContent : text}
                           </p>
                           {truncated && (
                             <button
