@@ -731,6 +731,7 @@ const ProjectDetail = () => {
                   projectName={project.name}
                   projectUrl={project.url}
                   projectDescription={project.description}
+                  projectLogoUrl={project.logo_url}
                   scrapedMarkdown={project.scraped_markdown}
                   initialContext={project.marketing_context as MarketingContext | null}
                   onSave={async (context) => {

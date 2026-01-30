@@ -80,6 +80,7 @@ interface MarketingContextEditorProps {
   projectName: string;
   projectUrl?: string | null;
   projectDescription?: string | null;
+  projectLogoUrl?: string | null;
   scrapedMarkdown?: string | null;
   initialContext?: MarketingContext | null;
   onSave: (context: MarketingContext) => Promise<void>;
@@ -181,6 +182,7 @@ export const MarketingContextEditor = ({
   projectName,
   projectUrl,
   projectDescription,
+  projectLogoUrl,
   scrapedMarkdown,
   initialContext,
   onSave,
@@ -630,14 +632,21 @@ export const MarketingContextEditor = ({
                     placeholder="https://example.com/logo.png"
                     className="flex-1"
                   />
-                  {context.visual_identity.logo_url && (
+                  {(projectLogoUrl || context.visual_identity.logo_url) ? (
                     <img
-                      src={context.visual_identity.logo_url}
+                      src={projectLogoUrl || context.visual_identity.logo_url}
                       alt="Brand logo"
                       className="h-10 w-10 rounded border object-contain bg-white"
                       onError={(e) => {
-                        e.currentTarget.style.display = "none";
+                        // Fallback to favicon if logo fails to load
+                        e.currentTarget.src = "/favicon.ico";
                       }}
+                    />
+                  ) : (
+                    <img
+                      src="/favicon.ico"
+                      alt="Default logo"
+                      className="h-10 w-10 rounded border object-contain bg-white"
                     />
                   )}
                 </div>
