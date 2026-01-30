@@ -38,6 +38,11 @@ interface Project {
   avatar_url: string | null;
   logo_url: string | null;
   ai_context_summary: string | null;
+  scraped_markdown: string | null;
+  scraped_data: {
+    branding?: any;
+    services?: string[];
+  } | null;
 }
 
 interface GeneratedImage {
@@ -90,7 +95,7 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
 
   const [prompt, setPrompt] = useState("");
   const [selectedProduct, setSelectedProductState] = useState<CommercialProduct>(defaultProduct);
-  const [selectedFormat, setSelectedFormatState] = useState<ContentFormat>(storedPrefs.format || "reel");
+  const [selectedFormat, setSelectedFormatState] = useState<ContentFormat>(storedPrefs.format || "vertical");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
   const [showProductSelector, setShowProductSelector] = useState(false);
@@ -126,7 +131,7 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
     const fetchProjects = async () => {
       const { data } = await supabase
         .from("projects")
-        .select("id, name, description, theme_color, url, detected_language, avatar_url, logo_url, ai_context_summary")
+        .select("id, name, description, theme_color, url, detected_language, avatar_url, logo_url, ai_context_summary, scraped_markdown, scraped_data")
         .order("name");
       if (data) setProjects(data as Project[]);
     };
@@ -139,23 +144,9 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
     setSelectedProject(project);
 
     try {
-      let scrapedContent: string | undefined;
-      let scrapedLanguage: string | undefined;
-      
-      if (project.url) {
-        try {
-          const { data: scrapeData } = await supabase.functions.invoke("scrape-project-url", {
-            body: { url: project.url },
-          });
-          scrapedContent = scrapeData?.markdown?.slice(0, 3000);
-          scrapedLanguage = scrapeData?.detectedLanguage;
-        } catch (scrapeError) {
-          console.log("Scraping skipped:", scrapeError);
-        }
-      }
-
-      // Priority: scraped language > project setting > default
-      const finalLanguage = scrapedLanguage || project.detected_language || "en";
+      // Use stored scraped data instead of re-scraping
+      const scrapedContent = project.scraped_markdown?.slice(0, 3000);
+      const finalLanguage = project.detected_language || "en";
       console.log("[ImageGenerator] Using language:", finalLanguage);
 
       const { data, error } = await supabase.functions.invoke("suggest-content", {
@@ -173,6 +164,7 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
           toneId: selectedTone?.id,
           detectedLanguage: finalLanguage,
           logoUrl: project.avatar_url,
+          services: project.scraped_data?.services,
         },
       });
 

@@ -191,7 +191,7 @@ export const ScheduledPostModal = ({
   const [selectedLanguage, setSelectedLanguage] = useState<VoiceLanguage>("en");
   const [selectedVoice, setSelectedVoice] = useState<Voice | null>(null);
   const [avatarUrl, setAvatarUrl] = useState("");
-  const [videoFormat, setVideoFormat] = useState<"reel" | "story" | "landscape" | "mix">("reel");
+  const [videoFormat, setVideoFormat] = useState<"vertical" | "story" | "landscape" | "mix">("vertical");
   
   // Share modal
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -506,51 +506,7 @@ export const ScheduledPostModal = ({
 
       // Step 3: Generate video if needed
       if (post.content_type === "video" && !post.media_url) {
-        if (isImageAsReel) {
-          // Use Kling Video via CometAPI for real MP4
-          setPublishingStatus("Generating video (Kling)...");
-          
-          toast({
-            title: "Generating video...",
-            description: "Creating MP4 with Kling (~2-3 min)",
-          });
-
-          // Call with ?wait=true for sync mode
-          const response = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-reel-video?wait=true`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                "Authorization": `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-              },
-              body: JSON.stringify({
-                prompt: post.ai_prompt || "Create an eye-catching social media reel",
-                brandName: projectContext?.name || undefined,
-                duration: 5,
-              }),
-            }
-          );
-
-          const reelData = await response.json();
-
-          if (!response.ok || !reelData?.success) {
-            console.warn("Reel generation error:", reelData?.error);
-          } else if (reelData?.videoUrl) {
-            await supabase
-              .from("scheduled_posts")
-              .update({ 
-                media_url: reelData.videoUrl,
-                thumbnail_url: reelData.videoUrl,
-                status: "scheduled",
-              })
-              .eq("id", post.id);
-            
-            // Update local reference for publishing
-            post.media_url = reelData.videoUrl;
-          }
-        } else if (selectedProduct) {
+        if (selectedProduct) {
           // Actual video generation with CometAPI
           setPublishingStatus(`Generating video with ${selectedProduct.name}...`);
           
@@ -567,7 +523,7 @@ export const ScheduledPostModal = ({
               prompt: post.ai_prompt || "Create an engaging social media video",
               duration: 8,
               orientation,
-              format: videoFormat === "mix" ? "reel" : videoFormat,
+              format: videoFormat === "mix" ? "vertical" : videoFormat,
               model: modelId,
               avatarUrl: avatarUrl || undefined,
             },
@@ -670,7 +626,7 @@ export const ScheduledPostModal = ({
           prompt: enhancedPrompt,
           duration: 5,
           orientation,
-          format: videoFormat === "mix" ? "reel" : videoFormat,
+          format: videoFormat === "mix" ? "vertical" : videoFormat,
           model: modelId,
           avatarUrl: avatarUrl || undefined,
         },
