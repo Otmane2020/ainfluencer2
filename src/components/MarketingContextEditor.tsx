@@ -163,16 +163,16 @@ export const MarketingContextEditor = ({
     let filled = 0;
     let total = 10;
 
-    if (context.visual_identity.primary_color) filled++;
-    if (context.visual_identity.logo_description) filled++;
-    if (context.brand_personality.values.length > 0) filled++;
-    if (context.brand_personality.voice_keywords.length > 0) filled++;
-    if (context.target_audience.primary) filled++;
-    if (context.target_audience.pain_points.length > 0) filled++;
-    if (context.target_audience.desires.length > 0) filled++;
-    if (context.products_services.length > 0) filled++;
+    if (context.visual_identity?.primary_color) filled++;
+    if (context.visual_identity?.logo_description) filled++;
+    if (context.brand_personality?.values?.length > 0) filled++;
+    if (context.brand_personality?.voice_keywords?.length > 0) filled++;
+    if (context.target_audience?.primary) filled++;
+    if (context.target_audience?.pain_points?.length > 0) filled++;
+    if (context.target_audience?.desires?.length > 0) filled++;
+    if (context.products_services?.length > 0) filled++;
     if (context.competitive_positioning) filled++;
-    if (context.content_guidelines.preferred_terms.length > 0) filled++;
+    if (context.content_guidelines?.preferred_terms?.length > 0) filled++;
 
     return Math.round((filled / total) * 100);
   };
