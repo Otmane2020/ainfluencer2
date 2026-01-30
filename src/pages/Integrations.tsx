@@ -6,6 +6,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useMetaOAuth } from "@/hooks/useMetaOAuth";
+import { useYouTubeOAuth } from "@/hooks/useYouTubeOAuth";
+import { useLinkedInOAuth } from "@/hooks/useLinkedInOAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { enUS } from "date-fns/locale";
@@ -42,23 +44,27 @@ interface Project {
   facebook_enabled: boolean;
 }
 
-// Placeholder connection states for other platforms
-interface OtherConnections {
-  youtube: { connected: boolean; channelName?: string };
-  linkedin: { connected: boolean; profileName?: string };
-  tiktok: { connected: boolean; username?: string };
-}
-
 const Integrations = () => {
   const { toast } = useToast();
   const { connection, isConnecting, connect, disconnect, isConnected, isLoading } = useMetaOAuth();
+  const { 
+    isConnected: isYouTubeConnected, 
+    isConnecting: isYouTubeConnecting, 
+    connect: connectYouTube, 
+    disconnect: disconnectYouTube, 
+    channelName: youtubeChannelName,
+    isLoading: isYouTubeLoading 
+  } = useYouTubeOAuth();
+  const { 
+    isConnected: isLinkedInConnected, 
+    isConnecting: isLinkedInConnecting, 
+    connect: connectLinkedIn, 
+    disconnect: disconnectLinkedIn, 
+    profileName: linkedinProfileName,
+    isLoading: isLinkedInLoading 
+  } = useLinkedInOAuth();
   const [metaConnectionData, setMetaConnectionData] = useState<MetaConnectionData | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [otherConnections, setOtherConnections] = useState<OtherConnections>({
-    youtube: { connected: false },
-    linkedin: { connected: false },
-    tiktok: { connected: false },
-  });
   const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
 
   useEffect(() => {
@@ -100,30 +106,9 @@ const Integrations = () => {
     }
   };
 
-  // Placeholder connect functions for other platforms
-  const handleConnectYouTube = async () => {
-    setConnectingPlatform("youtube");
-    // Simulate OAuth flow - in production, this would redirect to Google OAuth
-    toast({
-      title: "YouTube Integration",
-      description: "YouTube OAuth integration coming soon. Stay tuned!",
-    });
-    setTimeout(() => setConnectingPlatform(null), 1500);
-  };
-
-  const handleConnectLinkedIn = async () => {
-    setConnectingPlatform("linkedin");
-    // Simulate OAuth flow - in production, this would redirect to LinkedIn OAuth
-    toast({
-      title: "LinkedIn Integration",
-      description: "LinkedIn OAuth integration coming soon. Stay tuned!",
-    });
-    setTimeout(() => setConnectingPlatform(null), 1500);
-  };
-
+  // TikTok placeholder (still coming soon)
   const handleConnectTikTok = async () => {
     setConnectingPlatform("tiktok");
-    // Simulate OAuth flow - in production, this would redirect to TikTok OAuth
     toast({
       title: "TikTok Integration",
       description: "TikTok OAuth integration coming soon. Stay tuned!",
@@ -433,24 +418,36 @@ const Integrations = () => {
       {/* YouTube Integration */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 to-red-600">
-              <YouTubeIcon className="h-5 w-5 text-white" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 to-red-600">
+                <YouTubeIcon className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-base">YouTube</CardTitle>
+                <CardDescription>Upload Shorts & Videos automatically</CardDescription>
+              </div>
             </div>
-            <div>
-              <CardTitle className="text-base">YouTube</CardTitle>
-              <CardDescription>Upload Shorts & Videos automatically</CardDescription>
-            </div>
+            {isYouTubeConnected && (
+              <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
+                <Check className="h-3 w-3 mr-1" />
+                Connected
+              </Badge>
+            )}
           </div>
         </CardHeader>
         <CardContent>
-          {otherConnections.youtube.connected ? (
+          {isYouTubeLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : isYouTubeConnected ? (
             <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
               <div className="flex items-center gap-3">
                 <Check className="h-4 w-4 text-green-500" />
-                <span className="text-sm">{otherConnections.youtube.channelName}</span>
+                <span className="text-sm">{youtubeChannelName || "YouTube Channel"}</span>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setOtherConnections(prev => ({ ...prev, youtube: { connected: false } }))}>
+              <Button variant="outline" size="sm" onClick={disconnectYouTube}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Disconnect
               </Button>
@@ -461,11 +458,11 @@ const Integrations = () => {
                 Connect your YouTube channel to auto-publish Shorts and videos
               </p>
               <Button 
-                onClick={handleConnectYouTube} 
-                disabled={connectingPlatform === "youtube"}
+                onClick={connectYouTube} 
+                disabled={isYouTubeConnecting}
                 className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
               >
-                {connectingPlatform === "youtube" ? (
+                {isYouTubeConnecting ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
                   <YouTubeIcon className="h-4 w-4 mr-2" />
@@ -480,24 +477,36 @@ const Integrations = () => {
       {/* LinkedIn Integration */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-3">
-            <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${platformConfig.linkedin.gradient}`}>
-              <Linkedin className="h-5 w-5 text-white" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${platformConfig.linkedin.gradient}`}>
+                <Linkedin className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-base">LinkedIn</CardTitle>
+                <CardDescription>Share posts & articles to your network</CardDescription>
+              </div>
             </div>
-            <div>
-              <CardTitle className="text-base">LinkedIn</CardTitle>
-              <CardDescription>Share posts & articles to your network</CardDescription>
-            </div>
+            {isLinkedInConnected && (
+              <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
+                <Check className="h-3 w-3 mr-1" />
+                Connected
+              </Badge>
+            )}
           </div>
         </CardHeader>
         <CardContent>
-          {otherConnections.linkedin.connected ? (
+          {isLinkedInLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : isLinkedInConnected ? (
             <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
               <div className="flex items-center gap-3">
                 <Check className="h-4 w-4 text-green-500" />
-                <span className="text-sm">{otherConnections.linkedin.profileName}</span>
+                <span className="text-sm">{linkedinProfileName || "LinkedIn Profile"}</span>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setOtherConnections(prev => ({ ...prev, linkedin: { connected: false } }))}>
+              <Button variant="outline" size="sm" onClick={disconnectLinkedIn}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Disconnect
               </Button>
@@ -508,11 +517,11 @@ const Integrations = () => {
                 Connect your LinkedIn profile to share content with your professional network
               </p>
               <Button 
-                onClick={handleConnectLinkedIn} 
-                disabled={connectingPlatform === "linkedin"}
+                onClick={connectLinkedIn} 
+                disabled={isLinkedInConnecting}
                 className="bg-[#0A66C2] hover:bg-[#004182]"
               >
-                {connectingPlatform === "linkedin" ? (
+                {isLinkedInConnecting ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
                   <Linkedin className="h-4 w-4 mr-2" />
@@ -538,36 +547,24 @@ const Integrations = () => {
           </div>
         </CardHeader>
         <CardContent>
-          {otherConnections.tiktok.connected ? (
-            <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-              <div className="flex items-center gap-3">
-                <Check className="h-4 w-4 text-green-500" />
-                <span className="text-sm">@{otherConnections.tiktok.username}</span>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setOtherConnections(prev => ({ ...prev, tiktok: { connected: false } }))}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Disconnect
-              </Button>
-            </div>
-          ) : (
-            <div className="text-center py-4">
-              <p className="text-sm text-muted-foreground mb-4">
-                Connect your TikTok account to auto-publish viral video content
-              </p>
-              <Button 
-                onClick={handleConnectTikTok} 
-                disabled={connectingPlatform === "tiktok"}
-                className="bg-gradient-to-r from-pink-500 to-cyan-400 hover:from-pink-600 hover:to-cyan-500"
-              >
-                {connectingPlatform === "tiktok" ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <TikTokIcon className="h-4 w-4 mr-2" />
-                )}
-                Connect TikTok
-              </Button>
-            </div>
-          )}
+          <div className="text-center py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              Connect your TikTok account to auto-publish viral video content
+            </p>
+            <Button 
+              onClick={handleConnectTikTok} 
+              disabled={connectingPlatform === "tiktok"}
+              className="bg-gradient-to-r from-pink-500 to-cyan-400 hover:from-pink-600 hover:to-cyan-500"
+            >
+              {connectingPlatform === "tiktok" ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <TikTokIcon className="h-4 w-4 mr-2" />
+              )}
+              Connect TikTok
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2">Coming soon</p>
+          </div>
         </CardContent>
       </Card>
 
