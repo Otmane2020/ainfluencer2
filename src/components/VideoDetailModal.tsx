@@ -84,8 +84,8 @@ export const VideoDetailModal = ({
   useEffect(() => {
     if (isOpen && prompt && !socialCaption) {
       // Create a short caption from the prompt
-      const shortPrompt = prompt.length > 200 ? prompt.substring(0, 200) + "..." : prompt;
-      setSocialCaption(`✨ ${shortPrompt}\n\n#AI #AIVideo #CreativeContent`);
+      const shortPrompt = prompt.length > 150 ? prompt.substring(0, 150) + "..." : prompt;
+      setSocialCaption(`✨ AI Generated Content\n\n${shortPrompt}\n\n#AI #AIVideo #CreativeContent`);
     }
   }, [isOpen, prompt]);
 
@@ -303,6 +303,23 @@ export const VideoDetailModal = ({
                       <Download className="h-4 w-4" />
                     </Button>
                   </div>
+                </div>
+
+                {/* Social Share Icons Row */}
+                <div className="flex items-center justify-center gap-3 pt-3 border-t border-white/20">
+                  <span className="text-xs text-white/60">Share:</span>
+                  {platforms.map((platform) => {
+                    const Icon = platform.icon;
+                    return (
+                      <button
+                        key={platform.id}
+                        onClick={() => handleShareToSocial(platform.id)}
+                        className={`h-8 w-8 rounded-full bg-gradient-to-br ${platform.color} flex items-center justify-center hover:scale-110 transition-transform`}
+                      >
+                        <Icon className="h-4 w-4 text-white" />
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
