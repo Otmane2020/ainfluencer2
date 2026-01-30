@@ -1,91 +1,169 @@
 
-
-# Fix Service Detection: Extract Real Business Services
+# Fix Image Generation Context in Scheduled Post Modal
 
 ## Problem Identified
-The current extraction logic captures **marketing slogans** instead of **real sellable services**:
-- **Currently detected**: "Deep Research on YOUR Business", "Write 1 Expert Article Daily", "Watch Traffic Explode" (marketing copy)
-- **Should detect**: "AEO", "SEO", "Autoblogging", "Autoposting" (actual services)
 
-## Root Cause Analysis
-The `scrape-project-url` edge function uses generic pattern matching:
-1. Captures ALL markdown headers (H1-H3) regardless of context
-2. Grabs bold text patterns `**text**` which often contain marketing copy
-3. Has insufficient noise filtering for promotional language
+The **ScheduledPostModal** generates mediocre images because it passes **minimal context** to the generation function:
 
-## Solution: AI-Powered Service Extraction
+| What Modal Sends | What's Needed |
+|------------------|---------------|
+| name, logo_url, url, description | ✅ Marketing Context (audiences, products, colors) |
+| ❌ No `marketing_context` | ✅ `ai_context_summary` |
+| ❌ No `detected_language` | ✅ `theme_color` |
+| ❌ No `scraped_markdown` | ✅ All branding data |
 
-Replace heuristic extraction with AI analysis using Lovable AI (`google/gemini-2.5-flash`) to intelligently identify real services.
+The **Campaign Generator** works well because it fetches the **full project** with `select("*")` and passes everything to the Generation Context Guard.
 
 ---
 
-## Implementation Plan
+## Solution Overview
 
-### Step 1: Create New `extract-services-ai` Edge Function
-Create a dedicated edge function that uses AI to extract services intelligently.
+Update `ScheduledPostModal.tsx` to:
+1. Fetch the **complete project data** including `marketing_context`
+2. Pass **all context** to `generate-image` function
+3. Let the Context Guard build **rich, brand-aligned prompts**
 
-**Logic:**
-```text
-1. Receive markdown content from website scrape
-2. Send to Gemini with specific prompt:
-   - "Extract ONLY the sellable products/services from this content"
-   - "Ignore marketing slogans, CTAs, and promotional text"
-   - "Return as JSON array of 3-8 concise service names"
-3. Parse response and return clean service list
+---
+
+## Implementation Steps
+
+### Step 1: Expand Project Context Interface
+
+Update the `projectContext` state to include all necessary fields:
+
+```typescript
+const [projectContext, setProjectContext] = useState<{
+  name: string;
+  logo_url: string | null;
+  url: string | null;
+  description: string | null;
+  // NEW fields for rich context
+  marketing_context: any | null;
+  ai_context_summary: string | null;
+  detected_language: string | null;
+  theme_color: string | null;
+  avatar_url: string | null;
+  scraped_markdown: string | null;
+} | null>(null);
 ```
 
-### Step 2: Update `scrape-project-url` Function
-Modify to call the AI extraction instead of heuristic parsing.
+### Step 2: Fetch Full Project Data
 
-**Changes:**
-- Remove `extractServicesFromMarkdown()` function
-- After scraping, call `extract-services-ai` with the markdown
-- Store AI-extracted services in response
+Change the project query to retrieve all needed fields:
 
-### Step 3: Add Fallback Logic
-If AI extraction fails, use minimal heuristic fallback:
-- Extract only from navigation menus or footer links
-- Look for explicit "Services" or "Products" sections only
+```typescript
+const { data } = await supabase
+  .from("projects")
+  .select(`
+    name, logo_url, url, description,
+    marketing_context, ai_context_summary,
+    detected_language, theme_color, 
+    avatar_url, scraped_markdown
+  `)
+  .eq("id", post.project_id)
+  .single();
+```
+
+### Step 3: Pass Full Context to generate-image
+
+Update the `handleGenerate` function to send complete branding data:
+
+```typescript
+const { data, error } = await supabase.functions.invoke("generate-image", {
+  body: {
+    prompt: post.ai_prompt || "Create engaging social media image",
+    aspectRatio: "1:1",
+    quality: imageQuality.id === "fast-image" ? "standard" : 
+             imageQuality.id === "medium-image" ? "pro" : "cinema",
+    // Full brand context (NEW)
+    logoUrl: projectContext?.logo_url,
+    brandName: projectContext?.name,
+    projectUrl: projectContext?.url,
+    detectedLanguage: projectContext?.detected_language || "en",
+    marketingContext: projectContext?.marketing_context,
+    aiContextSummary: projectContext?.ai_context_summary,
+    themeColor: projectContext?.theme_color,
+    avatarUrl: projectContext?.avatar_url,
+  },
+});
+```
+
+### Step 4: Remove Manual Prompt Enhancement
+
+The current code manually builds a basic prompt:
+```typescript
+if (projectContext) {
+  const brandInfo = [];
+  if (projectContext.name) brandInfo.push(`Brand: ${projectContext.name}`);
+  // ...
+  enhancedPrompt = `${enhancedPrompt}\n\nBrand Context:\n${brandInfo.join('\n')}`;
+}
+```
+
+This should be **removed** because the `generate-image` Edge Function already has the **Generation Context Guard** which builds a much richer prompt with:
+- Target audience pain points and desires
+- Products/services to showcase
+- Visual identity and color palette
+- Brand personality and tone
+- Content guidelines
+
+---
+
+## Expected Results
+
+### Before (Current - Poor Context)
+```
+Prompt: "Create a promotional social media post"
+Brand Context:
+  Brand: MyBrand
+  About: We sell products...
+```
+→ Generic, bland images
+
+### After (With Full Context)
+```
+=== BRAND CONTEXT FOR MYBRAND ===
+[OUTPUT LANGUAGE: FRENCH]
+BRAND NAME: MyBrand
+WEBSITE: https://mybrand.com
+PRIMARY COLOR: #3B82F6
+
+=== TARGET AUDIENCE ===
+WHO: Small business owners
+THEIR PAIN POINTS: Lack of time, no marketing skills
+THEIR DESIRES: More customers, professional content
+
+=== PRODUCTS/SERVICES TO SHOWCASE ===
+1. AEO - Get found on AI search engines
+2. Autoblogging - Daily expert articles
+
+=== VISUAL STYLE ===
+AESTHETIC: Modern, tech-forward
+MOOD: Professional yet approachable
+
+=== GENERATION TASK (IMAGE) ===
+Create a promotional social media post
+
+=== MANDATORY VISUAL BRANDING RULES ===
+DOMINANT COLOR (CRITICAL): bright blue (#3B82F6) MUST be visible...
+```
+→ Rich, on-brand, conversion-focused images
+
+---
+
+## Files to Modify
+
+| File | Changes |
+|------|---------|
+| `src/components/ScheduledPostModal.tsx` | Expand project fetch & pass full context to generate-image |
 
 ---
 
 ## Technical Details
 
-### AI Prompt Structure
-```
-Analyze this business website content and extract ONLY the actual products or services being sold.
+The `generate-image` Edge Function already has:
+- `generation-context-guard.ts` integration
+- `validateAndBuildContext()` function
+- Support for all marketing context fields
 
-RULES:
-- Return ONLY sellable services/products (e.g., "SEO", "AEO", "Autoblogging")
-- IGNORE marketing slogans (e.g., "Watch Traffic Explode", "Your Only Risk is NOT Trying")
-- IGNORE CTAs (e.g., "Get Started", "Try Free", "Learn More")
-- IGNORE testimonials, FAQ, pricing plan names
-- Return 3-8 items maximum
-- Keep names concise (1-4 words each)
-
-Website content:
-{markdown}
-
-Return JSON array only: ["Service 1", "Service 2", ...]
-```
-
-### Files to Modify
-
-| File | Action |
-|------|--------|
-| `supabase/functions/extract-services-ai/index.ts` | CREATE - AI-powered extraction |
-| `supabase/functions/scrape-project-url/index.ts` | MODIFY - Use AI extraction |
-| `supabase/config.toml` | UPDATE - Add new function |
-
-### Expected Results
-For the website mentioned:
-- **Before**: "Deep Research on YOUR Business", "Write 1 Expert Article Daily"...
-- **After**: "AEO for Companies", "SEO", "Autoblogging", "Autoposting"
-
----
-
-## Cost & Performance
-- Uses `google/gemini-2.5-flash` (fast, low-cost)
-- Adds ~500ms to scrape time
-- No additional API keys required (uses Lovable AI)
-
+The only change needed is on the **frontend** to send this data that's already being fetched but not passed.
