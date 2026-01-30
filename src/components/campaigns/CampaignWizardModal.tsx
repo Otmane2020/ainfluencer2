@@ -215,42 +215,57 @@ export const CampaignWizardModal = ({
   };
 
   // Auto-suggest services when project changes (and has URL)
-  // Only run when user explicitly changes project selection (step 2)
+  // PRIORITY: Use cached scraped_data from DB, only call API if not cached
   useEffect(() => {
     // Only auto-suggest when on step 2 (project selection step)
     if (step !== 2) return;
+    if (!projectId || autoSuggestedProjectId === projectId || serviceTags.length > 0) return;
     
     const selectedProject = projects.find(p => p.id === projectId);
-    // Only auto-suggest if:
-    // 1. Project has a URL
-    // 2. We haven't already auto-suggested for this project
-    // 3. Service tags are empty (don't override user input)
-    if (selectedProject?.url && autoSuggestedProjectId !== projectId && serviceTags.length === 0) {
-      setAutoSuggestedProjectId(projectId);
-      handleAutoSuggestServices(selectedProject.url);
-    }
+    if (!selectedProject?.url) return;
+
+    setAutoSuggestedProjectId(projectId);
+    loadServicesFromCache(projectId, selectedProject.url);
   }, [projectId, step]);
 
-  // Auto-suggest services from project URL (silent, no toast on failure)
-  const handleAutoSuggestServices = async (url: string) => {
+  // Load services from DB cache first, fallback to API scrape
+  const loadServicesFromCache = async (projId: string, url: string) => {
     setIsSuggestingProduct(true);
     try {
+      // 1. Check if project has cached scraped_data
+      const { data: projectData } = await supabase
+        .from("projects")
+        .select("scraped_markdown, scraped_data")
+        .eq("id", projId)
+        .single();
+
+      // 2. If cached data exists, extract services from ai_context or scraped_data
+      if (projectData?.scraped_data) {
+        const scraped = projectData.scraped_data as { services?: string[]; metadata?: { title?: string } };
+        if (scraped.services && Array.isArray(scraped.services) && scraped.services.length > 0) {
+          const cachedTags = scraped.services.slice(0, 8);
+          setServiceTags(cachedTags);
+          toast({ title: "Services loaded!", description: `${cachedTags.length} services from cached data` });
+          setIsSuggestingProduct(false);
+          return;
+        }
+      }
+
+      // 3. No cache — call Firecrawl API (only happens once per project)
       const { data, error } = await supabase.functions.invoke("scrape-project-url", {
         body: { url },
       });
 
       if (error) throw error;
 
-      if (data?.success) {
-        if (data.services && Array.isArray(data.services) && data.services.length > 0) {
-          const newTags = data.services.slice(0, 8);
-          setServiceTags(newTags);
-          toast({ title: "Services detected!", description: `${newTags.length} services found from your website` });
-        }
+      if (data?.success && data.services?.length > 0) {
+        const newTags = data.services.slice(0, 8);
+        setServiceTags(newTags);
+        toast({ title: "Services detected!", description: `${newTags.length} services found from your website` });
       }
     } catch (error) {
-      console.error("Auto-suggest services error:", error);
-      // Silent fail for auto-suggest
+      console.error("Load services error:", error);
+      // Silent fail
     } finally {
       setIsSuggestingProduct(false);
     }
