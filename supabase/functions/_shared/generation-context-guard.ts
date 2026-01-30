@@ -58,6 +58,11 @@ export interface GenerationGuardInput {
   generationPrompt: string;
   // Type of generation
   generationType: "image" | "video" | "script" | "social_post";
+  // Brand overlay options
+  includeLogo?: boolean;
+  includeUrl?: boolean;
+  includeText?: boolean;
+  overlayText?: string;
 }
 
 export interface GuardedContext {
@@ -295,12 +300,41 @@ export function validateAndBuildContext(input: GenerationGuardInput): GuardedCon
 
   // Add type-specific enhancements
   if (input.generationType === "image") {
+    // === MANDATORY VISUAL BRANDING RULES ===
+    enhancedPromptParts.push("");
+    enhancedPromptParts.push("=== MANDATORY VISUAL BRANDING RULES ===");
+    
+    // Color enforcement - DOMINANT
+    if (mc?.visual_identity?.primary_color) {
+      const colorDesc = getColorDescription(mc.visual_identity.primary_color);
+      enhancedPromptParts.push(`DOMINANT COLOR (CRITICAL): The primary brand color ${colorDesc} (${mc.visual_identity.primary_color}) MUST be prominently visible in the image - use it for backgrounds, key objects, accents, clothing, or UI elements. The image should "feel" this color.`);
+    }
+    if (mc?.visual_identity?.secondary_colors?.length) {
+      enhancedPromptParts.push(`ACCENT COLORS: Use these as secondary/complementary colors: ${mc.visual_identity.secondary_colors.join(", ")}`);
+    }
+    if (input.themeColor && !mc?.visual_identity?.primary_color) {
+      const themeColorDesc = getColorDescription(input.themeColor);
+      enhancedPromptParts.push(`BRAND COLOR (CRITICAL): The theme color ${themeColorDesc} (${input.themeColor}) MUST be prominently visible in backgrounds, accents, or key elements.`);
+    }
+    
+    // Text/Logo placement enforcement
+    if (input.includeLogo || input.includeUrl || input.includeText) {
+      enhancedPromptParts.push("");
+      enhancedPromptParts.push("TEXT/LOGO PLACEMENT (CRITICAL):");
+      enhancedPromptParts.push("- Reserve the bottom 20% of the image for text and logo overlay");
+      enhancedPromptParts.push("- Keep the bottom-right corner UNCLUTTERED with simple background (solid or gradient)");
+      enhancedPromptParts.push("- Do NOT place important subjects in the bottom 20% of the image");
+    }
+    
     enhancedPromptParts.push("");
     enhancedPromptParts.push("IMAGE REQUIREMENTS:");
-    enhancedPromptParts.push("- Ultra high resolution, professional quality");
-    enhancedPromptParts.push("- Must reflect the brand's visual style and mood");
-    enhancedPromptParts.push("- Showcase actual products/services when relevant");
-    enhancedPromptParts.push(`- Any text in image MUST be in ${langName}`);
+    enhancedPromptParts.push("- Ultra high resolution, professional advertising photography quality");
+    enhancedPromptParts.push("- Must reflect the brand's visual style, mood, and COLOR PALETTE");
+    enhancedPromptParts.push("- Showcase actual products/services prominently when relevant");
+    enhancedPromptParts.push(`- Any text in image MUST be in ${langName}, LARGE, BOLD, READABLE`);
+    enhancedPromptParts.push("- Typography: Modern bold sans-serif, high contrast with shadow or outline for visibility");
+    enhancedPromptParts.push("- Text placement: Mobile-safe zones (not in top 10% or extreme edges)");
+    enhancedPromptParts.push("- Text SIZE: Minimum 8% of image height for readability");
   } else if (input.generationType === "video") {
     enhancedPromptParts.push("");
     enhancedPromptParts.push("VIDEO REQUIREMENTS:");
@@ -376,6 +410,40 @@ export async function fetchProjectContext(
 /**
  * Log the context validation for debugging
  */
+/**
+ * Helper to convert hex color to descriptive name for better AI understanding
+ */
+function getColorDescription(hex: string): string {
+  const colorMap: Record<string, string> = {
+    "#3B82F6": "bright blue",
+    "#2563EB": "royal blue",
+    "#1D4ED8": "deep blue",
+    "#EF4444": "vibrant red",
+    "#DC2626": "bold red",
+    "#F97316": "bright orange",
+    "#F59E0B": "warm amber",
+    "#EAB308": "golden yellow",
+    "#84CC16": "lime green",
+    "#22C55E": "fresh green",
+    "#10B981": "emerald green",
+    "#14B8A6": "teal",
+    "#06B6D4": "cyan",
+    "#0EA5E9": "sky blue",
+    "#8B5CF6": "violet purple",
+    "#A855F7": "bright purple",
+    "#D946EF": "magenta",
+    "#EC4899": "hot pink",
+    "#F43F5E": "rose red",
+    "#6B7280": "neutral gray",
+    "#1F2937": "dark charcoal",
+    "#111827": "near black",
+    "#FFFFFF": "pure white",
+    "#000000": "pure black",
+  };
+  const upperHex = hex.toUpperCase();
+  return colorMap[upperHex] || `${hex} color`;
+}
+
 export function logContextValidation(guard: GuardedContext, context: string = "Generation"): void {
   console.log(`[${context}] Context Score: ${guard.contextScore}/100`);
   

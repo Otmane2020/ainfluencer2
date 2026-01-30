@@ -428,12 +428,18 @@ Deno.serve(async (req) => {
     const guardInput: GenerationGuardInput = {
       projectName: brandName,
       projectUrl: projectUrl,
-      themeColor: undefined, // Will be extracted from marketing context
+      logoUrl: logoUrl,
+      themeColor: marketingContext?.visual_identity?.primary_color || undefined,
       detectedLanguage: outputLanguage,
       marketingContext: marketingContext as MarketingContext || null,
       aiContextSummary: aiContextSummary,
       generationPrompt: prompt,
       generationType: "image",
+      // Brand overlay options for enhanced prompt building
+      includeLogo: includeLogo,
+      includeUrl: includeUrl,
+      includeText: includeText,
+      overlayText: overlayText,
     };
     
     const contextGuard = validateAndBuildContext(guardInput);
@@ -496,16 +502,58 @@ Deno.serve(async (req) => {
     }
 
     // Add quality enhancements
-    finalPrompt += " Ultra high resolution, professional quality, stunning composition, perfect lighting.";
+    finalPrompt += " Ultra high resolution, professional advertising quality, stunning composition, perfect lighting.";
 
-    // Add text overlay instructions if needed
+    // === MANDATORY TEXT OVERLAY REQUIREMENTS ===
     if (includeText && overlayText) {
-      finalPrompt += ` Include this text prominently in the image: "${overlayText}". Make the text bold, readable, and well-integrated into the design.`;
+      const themeColor = marketingContext?.visual_identity?.primary_color || guardInput.themeColor;
+      finalPrompt += `
+
+TEXT OVERLAY REQUIREMENTS (MANDATORY - CRITICAL):
+- Display this EXACT text in the image: "${overlayText}"
+- SIZE: LARGE, occupying at least 15-20% of image width
+- FONT: Bold modern sans-serif (like Helvetica Bold, Montserrat Bold), highly readable
+- COLOR: High contrast - white text with dark shadow/outline, or ${themeColor || 'brand color'} on light backgrounds
+- POSITION: Center-bottom or lower-third of image (mobile-safe zone)
+- STYLE: Clean, professional, eye-catching typography
+- CRITICAL: The text must be the FIRST thing viewers notice - make it IMPOSSIBLE to miss
+- Add subtle drop shadow or outline to ensure readability on any background`;
     }
 
-    // Add URL if requested
+    // === MANDATORY URL REQUIREMENTS ===
     if (includeUrl && projectUrl) {
-      finalPrompt += ` Subtly include the website URL "${projectUrl}" in the composition.`;
+      finalPrompt += `
+
+WEBSITE URL REQUIREMENTS (MANDATORY):
+- Display this URL clearly: "${projectUrl}"
+- POSITION: Bottom of image, clearly visible
+- SIZE: Readable but not dominant (5-8% of image height)
+- COLOR: White text with subtle dark shadow for visibility on any background
+- FONT: Clean, modern sans-serif font
+- Must be LEGIBLE - do not let it blend into the background`;
+    }
+
+    // === MANDATORY BRAND COLOR REQUIREMENTS ===
+    const primaryColor = marketingContext?.visual_identity?.primary_color || guardInput.themeColor;
+    if (primaryColor) {
+      finalPrompt += `
+
+BRAND COLOR REQUIREMENTS (MANDATORY):
+- Primary brand color: ${primaryColor}
+- This color MUST appear PROMINENTLY in the image (backgrounds, key objects, accents, clothing, or UI elements)
+- The overall image should "feel" on-brand with this color dominating the palette
+- Do NOT use conflicting or clashing color schemes`;
+    }
+
+    // === LOGO SPACE RESERVATION ===
+    if (includeLogo && logoUrl) {
+      finalPrompt += `
+
+LOGO SPACE REQUIREMENT (MANDATORY):
+- Reserve a CLEAR, UNCLUTTERED area in the bottom-right corner (approximately 15% of image)
+- This space will be used for brand logo overlay
+- Ensure the background in that corner is SIMPLE (solid color or subtle gradient)
+- Do NOT place important subjects, text, or busy patterns in the bottom-right corner`;
     }
 
     console.log("Final prompt length:", finalPrompt.length);
