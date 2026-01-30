@@ -258,28 +258,28 @@ Video duration: ${duration} seconds
 Script type: ${scriptType}
 Target word count: ${minWords}-${maxWords} words`;
 
-    // Call CometAPI with NanoBanana Pro (cheap model)
-    const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
-    if (!COMETAPI_API_KEY) {
-      throw new Error("Missing COMETAPI_API_KEY");
+    // Call Lovable AI (built-in, no API key needed)
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("Missing LOVABLE_API_KEY");
     }
 
-    console.log("[generate-video-scenario] Calling NanoBanana Pro (cheap)...");
+    console.log("[generate-video-scenario] Calling Lovable AI (Gemini Flash)...");
 
-    const aiResponse = await fetch("https://api.cometapi.com/v1/chat/completions", {
+    const aiResponse = await fetch("https://ai.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${COMETAPI_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "nanobanana-pro", // ✅ CHEAP MODEL
+        model: "google/gemini-2.5-flash-lite", // Fast & cheap Lovable AI model
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage },
         ],
-        temperature: 0.45, // more stable for JSON
-        max_tokens: 1800,
+        temperature: 0.45,
+        max_tokens: 2000,
       }),
     });
 
