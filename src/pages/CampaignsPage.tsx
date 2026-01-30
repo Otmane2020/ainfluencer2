@@ -131,6 +131,29 @@ const CampaignsPage = () => {
   };
 
   const handleDelete = async (campaignId: string) => {
+    // 1. Detach published posts from campaign (preserve history)
+    const { error: detachError } = await supabase
+      .from("scheduled_posts")
+      .update({ campaign_id: null })
+      .eq("campaign_id", campaignId)
+      .eq("status", "published");
+
+    if (detachError) {
+      console.error("Error detaching published posts:", detachError);
+    }
+
+    // 2. Delete only non-published posts (draft/scheduled)
+    const { error: deletePostsError } = await supabase
+      .from("scheduled_posts")
+      .delete()
+      .eq("campaign_id", campaignId)
+      .neq("status", "published");
+
+    if (deletePostsError) {
+      console.error("Error deleting scheduled posts:", deletePostsError);
+    }
+
+    // 3. Delete the campaign itself
     const { error } = await supabase
       .from("campaigns")
       .delete()
@@ -141,7 +164,10 @@ const CampaignsPage = () => {
       return;
     }
 
-    toast({ title: "Campaign deleted", description: "All associated scheduled posts have been removed" });
+    toast({ 
+      title: "Campaign deleted", 
+      description: "Published posts have been preserved in history" 
+    });
     fetchCampaigns();
   };
 
