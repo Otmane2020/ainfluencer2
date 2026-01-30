@@ -44,7 +44,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 import { ProductSelector } from "./ProductSelector";
-import { COMMERCIAL_PRODUCTS, CommercialProduct } from "@/lib/commercialProducts";
+import { COMMERCIAL_PRODUCTS, CommercialProduct, IMAGE_QUALITY_LEVELS, QualityLevel } from "@/lib/commercialProducts";
 import { AVAILABLE_VOICES, AVAILABLE_LANGUAGES, Voice, VoiceLanguage, getVoicesByLanguage, getDefaultVoiceForLanguage } from "@/lib/voices";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -192,6 +192,9 @@ export const ScheduledPostModal = ({
   const [selectedVoice, setSelectedVoice] = useState<Voice | null>(null);
   const [avatarUrl, setAvatarUrl] = useState("");
   const [videoFormat, setVideoFormat] = useState<"vertical" | "story" | "landscape" | "mix">("vertical");
+  
+  // Image generation options
+  const [imageQuality, setImageQuality] = useState<QualityLevel>(IMAGE_QUALITY_LEVELS[1]); // Default to Medium
   
   // Share modal
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -901,6 +904,7 @@ export const ScheduledPostModal = ({
           body: {
             prompt: enhancedPrompt,
             aspectRatio: "1:1",
+            quality: imageQuality.id === "fast-image" ? "standard" : imageQuality.id === "medium-image" ? "pro" : "cinema",
             logoUrl: projectContext?.logo_url || undefined,
             brandName: projectContext?.name || undefined,
           },
@@ -1183,6 +1187,48 @@ export const ScheduledPostModal = ({
                     })()}
                   </>
                 )}
+              </div>
+            )}
+
+            {/* Image Quality Selector - Only show for image content type */}
+            {post.content_type === "image" && (
+              <div className="rounded-xl border border-border p-3 sm:p-4">
+                <h4 className="mb-3 text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4" />
+                  Image Quality
+                </h4>
+                <div className="grid grid-cols-3 gap-2">
+                  {IMAGE_QUALITY_LEVELS.map((level) => {
+                    const isSelected = imageQuality.id === level.id;
+                    return (
+                      <motion.button
+                        key={level.id}
+                        type="button"
+                        onClick={() => setImageQuality(level)}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className={`relative flex flex-col items-center gap-1 rounded-xl border-2 p-2 sm:p-3 transition-all ${
+                          isSelected
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        {isSelected && (
+                          <div className="absolute right-1 top-1">
+                            <div className="flex h-4 w-4 items-center justify-center rounded-full bg-primary">
+                              <Check className="h-2.5 w-2.5 text-primary-foreground" />
+                            </div>
+                          </div>
+                        )}
+                        <span className="text-lg">
+                          {level.id === "fast-image" ? "⚡" : level.id === "medium-image" ? "✨" : "🎬"}
+                        </span>
+                        <span className="text-xs font-medium">{level.name}</span>
+                        <span className="text-[10px] text-muted-foreground">${level.price.toFixed(0)}</span>
+                      </motion.button>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
