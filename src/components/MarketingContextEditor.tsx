@@ -356,7 +356,11 @@ export const MarketingContextEditor = ({
     const path = field.split(".");
     let tags: string[] = context as any;
     for (const p of path) {
-      tags = tags[p as keyof typeof tags] as any;
+      tags = tags?.[p as keyof typeof tags] as any;
+    }
+    // Ensure tags is always an array
+    if (!Array.isArray(tags)) {
+      tags = [];
     }
 
     return (
