@@ -67,10 +67,56 @@ export const VideoDetailModal = ({
   const [copiedState, setCopiedState] = useState(false);
   const [socialCaption, setSocialCaption] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isGeneratingCaption, setIsGeneratingCaption] = useState(false);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(["instagram", "facebook"]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+
+  // Generate caption with AI
+  const handleGenerateCaption = async () => {
+    setIsGeneratingCaption(true);
+    try {
+      const contextText = prompt 
+        ? `AI-generated video based on: ${prompt}`
+        : "AI-generated video content";
+
+      const response = await supabase.functions.invoke("suggest-content", {
+        body: {
+          contentType: "social_post",
+          projectName: title || "AI Video",
+          projectDescription: contextText,
+        },
+      });
+
+      console.log("Generate caption response:", response);
+
+      if (response.data?.suggestion?.content) {
+        const content = response.data.suggestion.content;
+        const hashtags = response.data.suggestion.hashtags || [];
+        const hashtagString = hashtags.length > 0 
+          ? "\n\n" + hashtags.map((h: string) => `#${h.replace(/^#/, '')}`).join(" ")
+          : "";
+        setSocialCaption(`✨ AI Generated Post\n\n${content}${hashtagString}`);
+        toast({ title: "Caption generated!" });
+      } else {
+        // Fallback
+        const shortPrompt = prompt && prompt.length > 120 ? prompt.substring(0, 120) + "..." : prompt;
+        setSocialCaption(prompt 
+          ? `✨ AI Generated Post\n\n${shortPrompt}\n\n#AI #AIVideo #CreativeContent`
+          : `✨ Created with AI\n\n#AI #AIVideo #CreativeContent`);
+        toast({ title: "Caption generated (local)" });
+      }
+    } catch (error) {
+      console.error("Error generating caption:", error);
+      const shortPrompt = prompt && prompt.length > 120 ? prompt.substring(0, 120) + "..." : prompt;
+      setSocialCaption(prompt 
+        ? `✨ AI Generated Post\n\n${shortPrompt}\n\n#AI #AIVideo #CreativeContent`
+        : `✨ Created with AI\n\n#AI #AIVideo #CreativeContent`);
+    } finally {
+      setIsGeneratingCaption(false);
+    }
+  };
 
   // Auto-play when modal opens
   useEffect(() => {
@@ -421,16 +467,14 @@ export const VideoDetailModal = ({
                         variant="ghost" 
                         size="sm" 
                         className="h-7 px-2 gap-1 text-primary hover:text-primary/80"
-                        onClick={() => {
-                          if (prompt) {
-                            const shortPrompt = prompt.length > 120 ? prompt.substring(0, 120) + "..." : prompt;
-                            setSocialCaption(`✨ AI Generated Post\n\n${shortPrompt}\n\n#AI #AIVideo #CreativeContent #Generated`);
-                          } else {
-                            setSocialCaption(`✨ Created with AI\n\n#AI #AIVideo #CreativeContent`);
-                          }
-                        }}
+                        onClick={handleGenerateCaption}
+                        disabled={isGeneratingCaption}
                       >
-                        <Sparkles className="h-3.5 w-3.5" />
+                        {isGeneratingCaption ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3.5 w-3.5" />
+                        )}
                         Generate
                       </Button>
                     </div>

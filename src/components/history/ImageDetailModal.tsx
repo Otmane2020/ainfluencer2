@@ -60,44 +60,43 @@ export const ImageDetailModal = ({
   const handleGenerateCaption = async () => {
     setIsGeneratingCaption(true);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
-      
-      if (!accessToken) {
-        // Fallback to local generation
-        const shortPrompt = prompt && prompt.length > 120 ? prompt.substring(0, 120) + "..." : prompt;
-        const newCaption = prompt 
-          ? `✨ AI Generated Post\n\n${shortPrompt}\n\n#AI #AIGenerated #CreativeContent`
-          : `✨ Created with AI\n\n#AI #AIGenerated #CreativeContent`;
-        setCaption(newCaption);
-        return;
-      }
+      // Build context from prompt and project info
+      const contextText = prompt 
+        ? `AI-generated image based on: ${prompt}`
+        : "AI-generated creative content";
 
       const response = await supabase.functions.invoke("suggest-content", {
         body: {
           contentType: "social_post",
-          context: `Create a compelling social media caption for an AI-generated image.${prompt ? ` Original prompt: ${prompt}` : ""}${projectName ? ` Project: ${projectName}` : ""}`,
-          tone: "engaging",
-          format: "short",
+          projectName: projectName || "AI Creation",
+          projectDescription: contextText,
         },
       });
 
-      if (response.data?.suggestion) {
-        setCaption(`✨ AI Generated Post\n\n${response.data.suggestion}`);
+      console.log("Generate caption response:", response);
+
+      // Handle the correct response structure: { suggestion: { content, hashtags } }
+      if (response.data?.suggestion?.content) {
+        const content = response.data.suggestion.content;
+        const hashtags = response.data.suggestion.hashtags || [];
+        const hashtagString = hashtags.length > 0 
+          ? "\n\n" + hashtags.map((h: string) => `#${h.replace(/^#/, '')}`).join(" ")
+          : "";
+        setCaption(`✨ AI Generated Post\n\n${content}${hashtagString}`);
+        toast({ title: "Caption generated!" });
       } else {
-        // Fallback
+        // Fallback to local generation
         const shortPrompt = prompt && prompt.length > 120 ? prompt.substring(0, 120) + "..." : prompt;
         setCaption(prompt 
           ? `✨ AI Generated Post\n\n${shortPrompt}\n\n#AI #AIGenerated #CreativeContent`
           : `✨ Created with AI\n\n#AI #AIGenerated #CreativeContent`);
+        toast({ title: "Caption generated (local)" });
       }
-      
-      toast({ title: "Caption generated!" });
     } catch (error) {
       console.error("Error generating caption:", error);
       // Fallback to local
       const shortPrompt = prompt && prompt.length > 120 ? prompt.substring(0, 120) + "..." : prompt;
-      setCaption(prompt 
+      setCaption(prompt
         ? `✨ AI Generated Post\n\n${shortPrompt}\n\n#AI #AIGenerated #CreativeContent`
         : `✨ Created with AI\n\n#AI #AIGenerated #CreativeContent`);
     } finally {
