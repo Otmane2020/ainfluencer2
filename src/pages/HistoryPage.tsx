@@ -240,11 +240,14 @@ const HistoryPage = () => {
 
       if (scheduledPosts) {
         for (const post of scheduledPosts) {
+          // Only include posts with actual media_url
+          if (!post.media_url) continue;
+          
           media.push({
             id: post.id,
             type: "image",
             title: `Image ${new Date(post.created_at).toLocaleDateString()}`,
-            url: post.media_url || undefined,
+            url: post.media_url,
             createdAt: new Date(post.created_at),
             status: post.status || "draft",
             projectId: post.project_id,
