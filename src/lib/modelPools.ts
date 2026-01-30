@@ -1,49 +1,50 @@
 // ============================================================
 // MODEL POOLS CONFIGURATION
 // Centralized model selection with weighted random rotation
+// All models now via Lovable AI (Nano Banana)
 // ============================================================
 
-export type Provider = "replicate" | "lovable" | "openai" | "elevenlabs" | "suno";
+export type Provider = "lovable" | "openai" | "elevenlabs" | "suno";
 
 export interface ModelOption {
   id: string;
   provider: Provider;
-  weight: number; // Higher = more likely to be selected
+  weight: number;
   apiModel: string;
   maxDuration?: number;
   costEstimate?: number;
 }
 
 // ============================================================
-// VIDEO MODEL POOLS (via CometAPI)
-// Standard: Sora (fast) | Pro: Sora 2 (20s) | Cinema: Nano Banana
+// VIDEO MODEL POOLS (via Lovable AI / Nano Banana)
+// All tiers now use Nano Banana for reliability
 // ============================================================
 
 export const VIDEO_MODEL_POOLS: Record<string, ModelOption[]> = {
-  // Standard Video - Sora (fast, 10s max)
+  // Standard Video - Nano Banana (fast, 10s max)
   "standard-video": [
-    { id: "sora", provider: "replicate", weight: 100, apiModel: "sora", maxDuration: 10, costEstimate: 0.30 },
+    { id: "nano-banana", provider: "lovable", weight: 100, apiModel: "nano-banana", maxDuration: 10, costEstimate: 0.05 },
   ],
-  // Pro Video - Sora 2 (high quality, 20s)
+  // Pro Video - Nano Banana (high quality, 12s)
   "pro-video": [
-    { id: "sora-2", provider: "replicate", weight: 100, apiModel: "sora-2", maxDuration: 20, costEstimate: 0.60 },
+    { id: "nano-banana-pro", provider: "lovable", weight: 100, apiModel: "nano-banana-pro", maxDuration: 12, costEstimate: 0.10 },
   ],
-  // Cinema Video - Nano Banana (premium quality via Lovable AI)
+  // Cinema Video - Nano Banana Premium
   "cinema-video": [
-    { id: "nano-banana", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", maxDuration: 15, costEstimate: 0.05 },
+    { id: "nano-banana-premium", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", maxDuration: 12, costEstimate: 0.05 },
   ],
   // Legacy support
   "smart-video": [
-    { id: "sora", provider: "replicate", weight: 100, apiModel: "sora", maxDuration: 10, costEstimate: 0.30 },
+    { id: "nano-banana", provider: "lovable", weight: 100, apiModel: "nano-banana", maxDuration: 10, costEstimate: 0.05 },
   ],
   "high-video": [
-    { id: "sora-2", provider: "replicate", weight: 100, apiModel: "sora-2", maxDuration: 20, costEstimate: 0.60 },
+    { id: "nano-banana-pro", provider: "lovable", weight: 100, apiModel: "nano-banana-pro", maxDuration: 12, costEstimate: 0.10 },
   ],
 };
 
 // ============================================================
-// IMAGE MODEL POOLS
-// Standard: Gemini Flash | Pro: Nano Banana | Cinema: Gemini Pro
+// IMAGE MODEL POOLS (via Lovable AI)
+// Standard: Gemini Flash | Pro: Gemini Flash | Cinema: Gemini Pro
 // ============================================================
 
 export const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
@@ -51,9 +52,9 @@ export const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
   "standard-image": [
     { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", costEstimate: 0.01 },
   ],
-  // Pro Image - Nano Banana (high quality)
+  // Pro Image - Gemini Flash (high quality)
   "pro-image": [
-    { id: "nano-banana-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", costEstimate: 0.02 },
+    { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", costEstimate: 0.02 },
   ],
   // Cinema Image - Gemini Pro (premium)
   "cinema-image": [
@@ -64,7 +65,7 @@ export const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
     { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", costEstimate: 0.01 },
   ],
   "high-image": [
-    { id: "nano-banana-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", costEstimate: 0.02 },
+    { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", costEstimate: 0.02 },
   ],
   "studio-image": [
     { id: "gemini-pro-image", provider: "lovable", weight: 100, apiModel: "google/gemini-3-pro-image-preview", costEstimate: 0.05 },
@@ -72,22 +73,21 @@ export const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
 };
 
 // ============================================================
-// AUDIO/VOICE MODEL POOLS (Multi-provider with fallback)
+// AUDIO/VOICE MODEL POOLS (ElevenLabs only)
 // ============================================================
 
 export const TTS_MODEL_POOLS: Record<string, ModelOption[]> = {
-  // Standard Voice - OpenAI TTS (reliable) ~$0.015/request
+  // Standard Voice - ElevenLabs
   "standard-voice": [
-    { id: "openai-tts", provider: "openai", weight: 100, apiModel: "tts-1", costEstimate: 0.015 },
+    { id: "elevenlabs-tts", provider: "elevenlabs", weight: 100, apiModel: "eleven_multilingual_v2", costEstimate: 0.024 },
   ],
   
-  // Natural Voice - Mix of OpenAI and ElevenLabs ~$0.018/request avg
+  // Natural Voice - ElevenLabs
   "natural-voice": [
-    { id: "openai-tts", provider: "openai", weight: 70, apiModel: "tts-1", costEstimate: 0.015 },
-    { id: "elevenlabs-tts", provider: "elevenlabs", weight: 30, apiModel: "eleven_multilingual_v2", costEstimate: 0.024 },
+    { id: "elevenlabs-tts", provider: "elevenlabs", weight: 100, apiModel: "eleven_multilingual_v2", costEstimate: 0.024 },
   ],
   
-  // Premium Voice - ElevenLabs highest quality ~$0.024/1K chars
+  // Premium Voice - ElevenLabs highest quality
   "premium-voice": [
     { id: "elevenlabs-tts", provider: "elevenlabs", weight: 100, apiModel: "eleven_multilingual_v2", costEstimate: 0.024 },
   ],
@@ -189,12 +189,10 @@ export function getQualityModels(qualityId: string): ModelOption[] {
 // ============================================================
 
 export const VIDEO_DURATION_CONFIGS: Record<string, { min: number; max: number; step: number }> = {
-  // CometAPI models with actual API limits
-  "sora": { min: 4, max: 10, step: 1 },          // Sora: 4-10s
-  "sora-2": { min: 4, max: 20, step: 1 },        // Sora 2: 4-20s flexible
-  "nano-banana": { min: 5, max: 15, step: 5 },   // Nano Banana: 5, 10, 15s
-  "veo-2": { min: 5, max: 10, step: 5 },         // Veo 3.1: 5s or 10s
-  "kling-video": { min: 5, max: 10, step: 5 },   // Kling v2: 5s or 10s (deprecated)
+  // Nano Banana models with actual API limits
+  "nano-banana": { min: 3, max: 10, step: 1 },
+  "nano-banana-pro": { min: 3, max: 12, step: 1 },
+  "nano-banana-premium": { min: 3, max: 12, step: 1 },
 };
 
 export function getValidDurations(apiModel: string): number[] {
