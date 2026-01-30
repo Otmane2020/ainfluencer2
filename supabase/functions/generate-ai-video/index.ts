@@ -38,6 +38,14 @@ interface VideoRequest {
   taskId?: string;
   quality?: string;
   skipCreditDeduction?: boolean;
+  // Project context for brand-aligned generation
+  projectId?: string;
+  projectName?: string;
+  projectUrl?: string;
+  logoUrl?: string;
+  detectedLanguage?: string;
+  aiContextSummary?: string;
+  marketingContext?: any;
 }
 
 Deno.serve(async (req) => {
@@ -75,6 +83,14 @@ Deno.serve(async (req) => {
       format = "vertical",
       quality = "standard",
       skipCreditDeduction = false,
+      // Project context
+      projectId,
+      projectName,
+      projectUrl,
+      logoUrl,
+      detectedLanguage,
+      aiContextSummary,
+      marketingContext,
     } = body;
 
     // ============================================================
@@ -183,6 +199,51 @@ Deno.serve(async (req) => {
       const aspectRatio = format === "vertical" || format === "portrait" ? "9:16 vertical portrait" : "16:9 horizontal landscape";
       
       console.log("[AI-VIDEO] Generating via Lovable AI (Nano Banana)...");
+      console.log("[AI-VIDEO] Project context:", projectName || "none", "| Language:", detectedLanguage || "en");
+      
+      // Build enhanced prompt with project context
+      let enhancedPrompt = prompt;
+      
+      // Add brand context if available
+      if (projectName || aiContextSummary || marketingContext) {
+        const contextParts: string[] = [];
+        
+        if (projectName) {
+          contextParts.push(`Brand: ${projectName}`);
+        }
+        if (projectUrl) {
+          contextParts.push(`Website: ${projectUrl}`);
+        }
+        if (aiContextSummary) {
+          contextParts.push(`Brand Context: ${aiContextSummary.substring(0, 500)}`);
+        }
+        if (marketingContext?.target_audience?.primary) {
+          contextParts.push(`Target: ${marketingContext.target_audience.primary}`);
+        }
+        if (marketingContext?.brand_personality?.tone) {
+          contextParts.push(`Tone: ${marketingContext.brand_personality.tone}`);
+        }
+        if (marketingContext?.visual_identity?.primary_color) {
+          contextParts.push(`Brand Color: ${marketingContext.visual_identity.primary_color}`);
+        }
+        if (marketingContext?.products_services?.length > 0) {
+          const products = marketingContext.products_services.slice(0, 3).map((p: any) => p.name).join(", ");
+          contextParts.push(`Products to showcase: ${products}`);
+        }
+        
+        if (contextParts.length > 0) {
+          enhancedPrompt = `[BRAND CONTEXT: ${contextParts.join(" | ")}]\n\n${prompt}`;
+        }
+      }
+      
+      // Add language instruction
+      const languageMap: Record<string, string> = {
+        en: "English", fr: "French", es: "Spanish", de: "German", it: "Italian", pt: "Portuguese"
+      };
+      const langName = languageMap[detectedLanguage || "en"] || "English";
+      if (detectedLanguage && detectedLanguage !== "en") {
+        enhancedPrompt = `[OUTPUT IN ${langName.toUpperCase()} - NO ENGLISH TEXT]\n${enhancedPrompt}`;
+      }
       
       const imageResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -195,7 +256,7 @@ Deno.serve(async (req) => {
           messages: [
             {
               role: "user",
-              content: `Generate a stunning cinematic video frame: ${prompt}. 
+              content: `Generate a stunning cinematic video frame: ${enhancedPrompt}. 
 Style: ${aspectRatio}, ultra high quality, professional cinematography, vibrant colors, perfect lighting, 
 cinematic composition, high resolution, social media ready.`,
             },

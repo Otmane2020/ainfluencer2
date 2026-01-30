@@ -65,6 +65,13 @@ interface VideoRequest {
   videoMode?: string;
   quality?: string;
   skipCreditDeduction?: boolean;
+  // Project context for brand-aligned generation
+  projectName?: string;
+  projectUrl?: string;
+  logoUrl?: string;
+  detectedLanguage?: string;
+  aiContextSummary?: string;
+  marketingContext?: any;
 }
 
 interface VideoStatusResponse {
@@ -117,6 +124,13 @@ serve(async (req) => {
         videoMode = "standard",
         quality = "standard",
         skipCreditDeduction = false,
+        // Project context
+        projectName,
+        projectUrl,
+        logoUrl,
+        detectedLanguage,
+        aiContextSummary,
+        marketingContext,
       }: VideoRequest = await req.json();
 
       if (!prompt) {
@@ -193,11 +207,55 @@ serve(async (req) => {
         console.log(`✓ Deducted ${creditCost} credits`);
       }
 
-      // Build enhanced prompt
+      // Build enhanced prompt with project context
       let fullPrompt = prompt;
-      if (avatarUrl) {
-        fullPrompt = `Ultra-realistic cinematic video: ${prompt}. Style: professional, high quality, cinematic lighting, vibrant colors.`;
+      
+      // Add brand context if available
+      if (projectName || aiContextSummary || marketingContext) {
+        const contextParts: string[] = [];
+        
+        if (projectName) {
+          contextParts.push(`Brand: ${projectName}`);
+        }
+        if (projectUrl) {
+          contextParts.push(`Website: ${projectUrl}`);
+        }
+        if (aiContextSummary) {
+          contextParts.push(`Brand Context: ${aiContextSummary.substring(0, 500)}`);
+        }
+        if (marketingContext?.target_audience?.primary) {
+          contextParts.push(`Target: ${marketingContext.target_audience.primary}`);
+        }
+        if (marketingContext?.brand_personality?.tone) {
+          contextParts.push(`Tone: ${marketingContext.brand_personality.tone}`);
+        }
+        if (marketingContext?.visual_identity?.primary_color) {
+          contextParts.push(`Brand Color: ${marketingContext.visual_identity.primary_color}`);
+        }
+        if (marketingContext?.products_services?.length > 0) {
+          const products = marketingContext.products_services.slice(0, 3).map((p: any) => p.name).join(", ");
+          contextParts.push(`Products: ${products}`);
+        }
+        
+        if (contextParts.length > 0) {
+          fullPrompt = `[BRAND CONTEXT: ${contextParts.join(" | ")}]\n\n${prompt}`;
+        }
       }
+      
+      // Add language instruction
+      const languageMap: Record<string, string> = {
+        en: "English", fr: "French", es: "Spanish", de: "German", it: "Italian", pt: "Portuguese"
+      };
+      const langName = languageMap[detectedLanguage || "en"] || "English";
+      if (detectedLanguage && detectedLanguage !== "en") {
+        fullPrompt = `[OUTPUT IN ${langName.toUpperCase()} - NO ENGLISH TEXT]\n${fullPrompt}`;
+      }
+      
+      if (avatarUrl) {
+        fullPrompt = `Ultra-realistic cinematic video: ${fullPrompt}. Style: professional, high quality, cinematic lighting, vibrant colors.`;
+      }
+
+      console.log(`[VIDEO-SORA] Project context: ${projectName || "none"} | Language: ${detectedLanguage || "en"}`);
 
       // Create generation record
       let generationId: string | null = null;
