@@ -174,19 +174,16 @@ serve(async (req) => {
     const { 
       campaignId, 
       platforms: selectedPlatforms, 
-      imageAsReel = false, 
-      audioCategory = "upbeat",
-      // Brand options
-      includeLogo = false,
-      includeUrl = false,
-      includeAvatar = false,
-      includeText = false,
-      overlayText = "",
-      // ClipMotion mode
-      clipmotion = false,
-      // Product/Service description
+      // These can be overridden by request but will fall back to campaign DB values
+      imageAsReel: requestImageAsReel,
+      audioCategory: requestAudioCategory,
+      includeLogo: requestIncludeLogo,
+      includeUrl: requestIncludeUrl,
+      includeAvatar: requestIncludeAvatar,
+      includeText: requestIncludeText,
+      overlayText: requestOverlayText,
+      clipmotion: requestClipmotion,
       productDescription = null,
-      // Campaign settings (override DB values if provided)
       format: requestFormat = null,
       tone: requestTone = null,
       subject: requestSubject = null,
@@ -203,10 +200,6 @@ serve(async (req) => {
     const targetPlatforms = selectedPlatforms && selectedPlatforms.length > 0 
       ? selectedPlatforms 
       : ["instagram", "facebook"];
-    
-    console.log(`Image as Reel mode: ${imageAsReel}, Audio: ${audioCategory}, ClipMotion: ${clipmotion}`);
-    console.log(`Brand options: logo=${includeLogo}, url=${includeUrl}, avatar=${includeAvatar}, text=${includeText}`);
-    console.log(`Product to promote: ${productDescription ? productDescription.slice(0, 100) + "..." : "Not specified"}`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -246,16 +239,29 @@ serve(async (req) => {
       );
     }
 
-    // FIX 1: Use project.name instead of campaign.name for clearer logging
-    console.log(`Generating content for campaign on project: ${project.name} (type: ${campaign.campaign_type})`);
-    console.log(`Project: ${project.name}, Language: ${project.detected_language || "en"}`);
-    
     // Use request values if provided, otherwise fall back to campaign DB values
     const effectiveFormat = requestFormat || campaign.format || "reel";
     const effectiveTone = requestTone || campaign.tone || "professional";
     const effectiveSubject = requestSubject || campaign.subject || null;
     
+    // Brand options - prioritize request values, fall back to campaign DB values
+    const includeLogo = requestIncludeLogo !== undefined ? requestIncludeLogo : (campaign.include_logo || false);
+    const includeUrl = requestIncludeUrl !== undefined ? requestIncludeUrl : (campaign.include_url || false);
+    const includeAvatar = requestIncludeAvatar !== undefined ? requestIncludeAvatar : (campaign.include_avatar || false);
+    const includeText = requestIncludeText !== undefined ? requestIncludeText : (campaign.include_text || false);
+    const overlayText = requestOverlayText || campaign.overlay_text || "";
+    
+    // Content options - prioritize request values, fall back to campaign DB values
+    const imageAsReel = requestImageAsReel !== undefined ? requestImageAsReel : (campaign.image_as_reel || false);
+    const audioCategory = requestAudioCategory || campaign.audio_category || "upbeat";
+    const clipmotion = requestClipmotion !== undefined ? requestClipmotion : (campaign.clipmotion || false);
+
+    console.log(`Generating content for campaign on project: ${project.name} (type: ${campaign.campaign_type})`);
+    console.log(`Project: ${project.name}, Language: ${project.detected_language || "en"}`);
     console.log(`Settings: format=${effectiveFormat}, tone=${effectiveTone}, subject=${effectiveSubject || "none"}`);
+    console.log(`Image as Reel mode: ${imageAsReel}, Audio: ${audioCategory}, ClipMotion: ${clipmotion}`);
+    console.log(`Brand options: logo=${includeLogo}, url=${includeUrl}, avatar=${includeAvatar}, text=${includeText}`);
+    console.log(`Product to promote: ${productDescription ? productDescription.slice(0, 100) + "..." : campaign.ai_context || "Not specified"}`);
     // Calculate how many posts to generate
     const totalVideos = campaign.campaign_type === "image" ? 0 : (campaign.videos_per_month || 4);
     const totalImages = campaign.campaign_type === "video" ? 0 : (campaign.images_per_month || 12);
