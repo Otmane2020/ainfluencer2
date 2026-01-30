@@ -9,7 +9,7 @@
 // ============================================================
 
 export type QualityTier = "standard" | "pro" | "cinema";
-export type ContentType = "image" | "video" | "reel";
+export type ContentType = "image" | "video";
 
 export interface QualityTierConfig {
   id: QualityTier;
@@ -20,12 +20,10 @@ export interface QualityTierConfig {
   costs: {
     image: number;
     video: number;
-    reel: number;
   };
   models: {
     image: string;
     video: string;
-    reel: string;
   };
 }
 
@@ -39,12 +37,10 @@ export const QUALITY_TIERS: Record<QualityTier, QualityTierConfig> = {
     costs: {
       image: 1,
       video: 5,
-      reel: 3,
     },
     models: {
       image: "gemini-flash-image",
       video: "sora",
-      reel: "sora",
     },
   },
   pro: {
@@ -56,12 +52,10 @@ export const QUALITY_TIERS: Record<QualityTier, QualityTierConfig> = {
     costs: {
       image: 3,
       video: 10,
-      reel: 8,
     },
     models: {
       image: "nano-banana-image",
       video: "sora-2",
-      reel: "sora-2",
     },
   },
   cinema: {
@@ -73,12 +67,10 @@ export const QUALITY_TIERS: Record<QualityTier, QualityTierConfig> = {
     costs: {
       image: 5,
       video: 20,
-      reel: 15,
     },
     models: {
       image: "gemini-pro-image",
       video: "nano-banana",
-      reel: "nano-banana",
     },
   },
 };
@@ -100,15 +92,12 @@ export const CREDIT_COSTS: Record<string, number> = {
   // Standard tier
   "standard-image": 1,
   "standard-video": 5,
-  "standard-reel": 3,
   // Pro tier
   "pro-image": 3,
   "pro-video": 10,
-  "pro-reel": 8,
   // Cinema tier
   "cinema-image": 5,
   "cinema-video": 20,
-  "cinema-reel": 15,
   // Legacy mappings
   "smart-image": 1,
   "high-image": 3,
@@ -120,8 +109,6 @@ export const CREDIT_COSTS: Record<string, number> = {
   "ai-image-standard": 1,
   "ai-image-pro": 3,
   "ai-image-studio": 5,
-  "ai-reel": 8,
-  "ai-reel-pro": 15,
   "ai-cinema": 20,
   "ai-influencer-standard": 39,
   "ai-influencer-pro": 69,

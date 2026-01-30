@@ -110,7 +110,7 @@ serve(async (req) => {
         avatarUrl, 
         duration = 8, 
         size = "720x1280",
-        format = "reel",
+        format = "vertical",
         projectId,
         campaignId,
         videoMode = "standard",

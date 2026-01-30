@@ -106,4 +106,4 @@ Generate SHORT, PUNCHY scenarios optimized for social media virality:
 export const CLIPMOTION_DURATIONS = [5, 8, 10, 15];
 
 // ClipMotion always uses vertical format
-export const CLIPMOTION_DEFAULT_FORMAT = "reel";
+export const CLIPMOTION_DEFAULT_FORMAT = "vertical";

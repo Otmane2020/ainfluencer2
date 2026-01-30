@@ -31,7 +31,7 @@ interface RequestBody {
   sectorId?: string;
   styleId?: string;
   toneId?: string;
-  scriptType: "reel" | "ad" | "story" | "testimonial";
+  scriptType: "short" | "ad" | "story" | "testimonial";
   duration: number;
   detectedLanguage?: string;
   logoUrl?: string;
@@ -186,7 +186,7 @@ ${scrapedContent ? `\nWEBSITE CONTENT:\n${scrapedContent.slice(0, 2000)}` : ""}
 
     // Script type specific instructions
     const scriptTypeInstructions: Record<string, string> = {
-      reel: `Create a viral short-form video script. Hook in first 2 seconds. Fast pace. End with call-to-action.`,
+      short: `Create a viral short-form video script. Hook in first 2 seconds. Fast pace. End with call-to-action.`,
       ad: `Create an AGGRESSIVE ad script with STRICT format:
 - Each line MUST have timestamp: [0-1s], [1-3s], [3-5s], etc.
 - Maximum 7-8 words per line

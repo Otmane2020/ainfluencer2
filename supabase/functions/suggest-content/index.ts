@@ -122,7 +122,7 @@ serve(async (req) => {
       sectorId,
       styleId,
       toneId,
-      scriptType, // reel, story, ad, testimonial
+      scriptType, // short, story, ad, testimonial
       duration, // Video duration in seconds
       // NEW: Project branding
       logoUrl,

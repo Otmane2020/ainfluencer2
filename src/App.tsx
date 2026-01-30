@@ -22,7 +22,7 @@ import VideoHistoryPage from "./pages/VideoHistoryPage";
 import AIVideoHistoryPage from "./pages/AIVideoHistoryPage";
 import ImageHistoryPage from "./pages/ImageHistoryPage";
 import PostHistoryPage from "./pages/PostHistoryPage";
-import ReelHistoryPage from "./pages/ReelHistoryPage";
+
 import NotFound from "./pages/NotFound";
 import ProductShotsPage from "./pages/ProductShotsPage";
 import ClipMotionPage from "./pages/ClipMotionPage";
@@ -76,7 +76,7 @@ const App = () => (
             <Route path="/images" element={<Images />} />
             <Route path="/product-shots" element={<ProductShotsPage />} />
             <Route path="/posts" element={<Posts />} />
-            <Route path="/history/reels" element={<ReelHistoryPage />} />
+            
             <Route path="/history/ai-videos" element={<AIVideoHistoryPage />} />
             <Route path="/history/videos" element={<VideoHistoryPage />} />
             <Route path="/history/images" element={<ImageHistoryPage />} />
