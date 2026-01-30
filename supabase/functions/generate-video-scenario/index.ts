@@ -266,7 +266,7 @@ Target word count: ${minWords}-${maxWords} words`;
 
     console.log("[generate-video-scenario] Calling Lovable AI (Gemini Flash)...");
 
-    const aiResponse = await fetch("https://ai.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
