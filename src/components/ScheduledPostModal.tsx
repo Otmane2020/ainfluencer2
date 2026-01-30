@@ -1000,15 +1000,15 @@ export const ScheduledPostModal = ({
 
   // Modal content shared between Dialog and Drawer
   const ModalContent = () => (
-    <>
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+    <div className="flex flex-col h-full min-h-0 overflow-hidden">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <TabsList className="grid w-full grid-cols-3 shrink-0">
           <TabsTrigger value="details" className="text-xs sm:text-sm">Details</TabsTrigger>
           <TabsTrigger value="platforms" className="text-xs sm:text-sm">Platforms</TabsTrigger>
           <TabsTrigger value="models" className="text-xs sm:text-sm">AI</TabsTrigger>
         </TabsList>
 
-        <ScrollArea className="flex-1 mt-4" style={{ height: "calc(70vh - 150px)", maxHeight: "calc(70vh - 150px)" }}>
+        <ScrollArea className="flex-1 mt-4 min-h-0">
           <TabsContent value="details" className="space-y-4 m-0 px-1 pb-4">
             {/* Media Preview - Show from local state or post prop */}
             {(localMediaUrl || post.media_url || post.thumbnail_url) && (
@@ -1420,8 +1420,8 @@ export const ScheduledPostModal = ({
         </ScrollArea>
       </Tabs>
 
-      {/* Actions */}
-      <div className="flex flex-wrap gap-2 sm:gap-3 pt-4 border-t border-border mt-4 shrink-0">
+      {/* Actions - Always visible at bottom */}
+      <div className="flex flex-wrap gap-2 sm:gap-3 pt-3 pb-2 border-t border-border mt-auto shrink-0 bg-background sticky bottom-0">
         {/* Share Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -1535,7 +1535,7 @@ export const ScheduledPostModal = ({
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 
   // Header content shared between Dialog and Drawer
