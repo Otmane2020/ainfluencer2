@@ -215,7 +215,11 @@ export const CampaignWizardModal = ({
   };
 
   // Auto-suggest services when project changes (and has URL)
+  // Only run when user explicitly changes project selection (step 2)
   useEffect(() => {
+    // Only auto-suggest when on step 2 (project selection step)
+    if (step !== 2) return;
+    
     const selectedProject = projects.find(p => p.id === projectId);
     // Only auto-suggest if:
     // 1. Project has a URL
@@ -225,7 +229,7 @@ export const CampaignWizardModal = ({
       setAutoSuggestedProjectId(projectId);
       handleAutoSuggestServices(selectedProject.url);
     }
-  }, [projectId, projects]);
+  }, [projectId, step]);
 
   // Auto-suggest services from project URL (silent, no toast on failure)
   const handleAutoSuggestServices = async (url: string) => {
