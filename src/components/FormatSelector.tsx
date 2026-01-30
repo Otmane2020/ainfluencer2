@@ -7,7 +7,7 @@ import {
 import { Check, MonitorSmartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type ContentFormat = "reel" | "landscape" | "story";
+export type ContentFormat = "vertical" | "landscape" | "story";
 
 export interface FormatOption {
   id: ContentFormat;
@@ -20,9 +20,9 @@ export interface FormatOption {
 
 export const FORMAT_OPTIONS: FormatOption[] = [
   {
-    id: "reel",
-    label: "Reel",
-    description: "9:16 vertical",
+    id: "vertical",
+    label: "Vertical",
+    description: "9:16 mobile",
     aspectRatio: "9:16",
     dimensions: { width: 720, height: 1280 },
     icon: "📱",

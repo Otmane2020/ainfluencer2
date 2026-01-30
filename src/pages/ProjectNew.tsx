@@ -113,6 +113,11 @@ const ProjectNew = () => {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [detectedLanguage, setDetectedLanguage] = useState("en");
+  const [scrapedData, setScrapedData] = useState<{
+    markdown?: string;
+    branding?: any;
+    services?: string[];
+  } | null>(null);
 
   // Fetch existing project data in edit mode
   useEffect(() => {
@@ -266,6 +271,13 @@ const ProjectNew = () => {
           setDetectedLanguage(data.detectedLanguage);
         }
 
+        // Store scraped data for project context
+        setScrapedData({
+          markdown: data.markdown?.substring(0, 5000) || null, // Limit to 5000 chars
+          branding: data.branding || null,
+          services: data.services || [],
+        });
+
         toast({
           title: "Website analyzed!",
           description: "Information extracted successfully",
@@ -370,6 +382,13 @@ const ProjectNew = () => {
         posts_per_week: formData.posts_per_week,
         automation_mode: formData.automation_mode,
         detected_language: detectedLanguage,
+        // Add scraped website data for AI context
+        scraped_data: scrapedData ? {
+          branding: scrapedData.branding,
+          services: scrapedData.services,
+        } : null,
+        scraped_markdown: scrapedData?.markdown || null,
+        scraped_at: scrapedData ? new Date().toISOString() : null,
       };
 
       if (isEditMode && editProjectId) {

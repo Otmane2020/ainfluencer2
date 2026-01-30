@@ -394,6 +394,9 @@ export type Database = {
           logo_url: string | null
           name: string
           posts_per_week: number | null
+          scraped_at: string | null
+          scraped_data: Json | null
+          scraped_markdown: string | null
           theme_color: string | null
           tiktok_enabled: boolean | null
           updated_at: string
@@ -415,6 +418,9 @@ export type Database = {
           logo_url?: string | null
           name: string
           posts_per_week?: number | null
+          scraped_at?: string | null
+          scraped_data?: Json | null
+          scraped_markdown?: string | null
           theme_color?: string | null
           tiktok_enabled?: boolean | null
           updated_at?: string
@@ -436,6 +442,9 @@ export type Database = {
           logo_url?: string | null
           name?: string
           posts_per_week?: number | null
+          scraped_at?: string | null
+          scraped_data?: Json | null
+          scraped_markdown?: string | null
           theme_color?: string | null
           tiktok_enabled?: boolean | null
           updated_at?: string

@@ -267,7 +267,7 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
         body: { 
           prompt: item.ai_prompt,
           productId: "ai-image-standard",
-          format: "reel"
+          format: "vertical"
         },
       });
 

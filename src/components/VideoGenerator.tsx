@@ -167,7 +167,7 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
 
   // Quality, format and continuation state
   const [selectedQuality, setSelectedQualityState] = useState<VideoQuality>("720p");
-  const [selectedFormat, setSelectedFormatState] = useState<ContentFormat>(storedPrefs.format || "reel");
+  const [selectedFormat, setSelectedFormatState] = useState<ContentFormat>(storedPrefs.format || "vertical");
   const [startingFrameUrl, setStartingFrameUrlState] = useState<string | undefined>(storedPrefs.startingFrameUrl);
 
   // Scenario state
