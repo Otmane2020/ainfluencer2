@@ -16,6 +16,8 @@ import {
   Loader2,
   Image as ImageIcon,
   Send,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { FaFacebook, FaLinkedin, FaInstagram, FaTiktok } from "react-icons/fa";
 import { format } from "date-fns";
@@ -46,6 +48,48 @@ interface ImageDetailModalProps {
   isProductShot?: boolean;
   onDelete?: () => void;
 }
+
+// Expandable prompt component with See more/Reduce toggle
+const ExpandablePrompt = ({ prompt }: { prompt: string }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const MAX_LENGTH = 150;
+  const shouldTruncate = prompt.length > MAX_LENGTH;
+  
+  const displayText = shouldTruncate && !isExpanded 
+    ? prompt.slice(0, MAX_LENGTH) + "..." 
+    : prompt;
+
+  return (
+    <div className="space-y-2">
+      <h4 className="text-sm font-medium">Prompt</h4>
+      <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+        <p className={isExpanded ? "" : "line-clamp-3"}>
+          {displayText}
+        </p>
+        {shouldTruncate && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-2 h-7 px-2 text-xs text-primary hover:text-primary/80"
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            {isExpanded ? (
+              <>
+                <ChevronUp className="h-3 w-3 mr-1" />
+                Reduce
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-3 w-3 mr-1" />
+                See more
+              </>
+            )}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export const ImageDetailModal = ({
   isOpen,
@@ -391,14 +435,9 @@ export const ImageDetailModal = ({
 
             {/* Scrollable content */}
             <div className="flex-1 p-4 space-y-4 overflow-y-auto">
-              {/* Prompt */}
+              {/* Prompt with expand/collapse */}
               {prompt && (
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium">Prompt</h4>
-                  <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
-                    {prompt}
-                  </p>
-                </div>
+                <ExpandablePrompt prompt={prompt} />
               )}
 
               {/* Caption editor */}
