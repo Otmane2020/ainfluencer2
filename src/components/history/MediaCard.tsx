@@ -67,9 +67,9 @@ export const MediaCard = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
+      initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
-      className={`group relative ${getAspectClass()} rounded-xl overflow-hidden border border-border bg-card cursor-pointer`}
+      className={`group relative ${getAspectClass()} overflow-hidden bg-card cursor-pointer`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={onClick}
@@ -140,9 +140,6 @@ export const MediaCard = ({
               Shot
             </Badge>
           )}
-          <Badge variant="secondary" className="bg-black/60 text-white border-0 text-[10px] backdrop-blur-sm">
-            {item.type === "video" ? <Video className="h-3 w-3" /> : <ImageIcon className="h-3 w-3" />}
-          </Badge>
         </div>
         <Badge variant="secondary" className="bg-black/60 text-white border-0 text-[10px] backdrop-blur-sm">
           {format(item.createdAt, "MMM d", { locale: enUS })}
@@ -197,7 +194,7 @@ export const MediaCard = ({
           <Button
             variant="secondary"
             size="icon"
-            className="h-9 w-9 rounded-full bg-red-500/80 backdrop-blur-sm text-white hover:bg-red-500"
+            className="h-9 w-9 rounded-full bg-destructive/80 backdrop-blur-sm text-destructive-foreground hover:bg-destructive"
             onClick={(e) => {
               e.stopPropagation();
               onDelete(item.id);
