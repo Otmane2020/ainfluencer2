@@ -118,6 +118,8 @@ const ProjectNew = () => {
     branding?: any;
     services?: string[];
   } | null>(null);
+  const [marketingContext, setMarketingContext] = useState<any>(null);
+  const [isGeneratingContext, setIsGeneratingContext] = useState(false);
 
   // Fetch existing project data in edit mode
   useEffect(() => {
@@ -252,16 +254,21 @@ const ProjectNew = () => {
       if (error) throw error;
 
       if (data?.success) {
+        const projectName = data.title || formData.name;
+        const projectDescription = data.description || formData.description;
+        
         setFormData(prev => ({
           ...prev,
-          name: data.title || prev.name,
-          description: data.description || prev.description,
+          name: projectName,
+          description: projectDescription,
         }));
         
+        // Use REAL logo from website
         if (data.logo) {
           setLogoPreview(data.logo);
         }
         
+        // Use REAL primary color from website
         if (data.colors?.primary) {
           setFormData(prev => ({ ...prev, theme_color: data.colors.primary }));
         }
@@ -272,16 +279,68 @@ const ProjectNew = () => {
         }
 
         // Store scraped data for project context
+        const scrapedMarkdown = data.markdown?.substring(0, 5000) || null;
         setScrapedData({
-          markdown: data.markdown?.substring(0, 5000) || null, // Limit to 5000 chars
+          markdown: scrapedMarkdown,
           branding: data.branding || null,
           services: data.services || [],
         });
 
         toast({
           title: "Website analyzed!",
-          description: "Information extracted successfully",
+          description: "Generating marketing context...",
         });
+        
+        // Automatically generate marketing context in background
+        setIsGeneratingContext(true);
+        try {
+          const { data: contextData, error: contextError } = await supabase.functions.invoke(
+            "generate-marketing-context",
+            {
+              body: {
+                projectName: projectName,
+                projectUrl: formData.url,
+                scrapedMarkdown: scrapedMarkdown,
+              },
+            }
+          );
+
+          if (!contextError && contextData?.context) {
+            // Override with REAL branding data from Firecrawl
+            const enhancedContext = {
+              ...contextData.context,
+              visual_identity: {
+                ...contextData.context.visual_identity,
+                // Use REAL logo from scraped data
+                logo_url: data.logo || contextData.context.visual_identity?.logo_url || "",
+                // Use REAL primary color from scraped data
+                primary_color: data.colors?.primary || contextData.context.visual_identity?.primary_color || "#3B82F6",
+                // Add secondary colors from scraped data
+                secondary_colors: [
+                  data.colors?.secondary,
+                  data.colors?.accent,
+                  ...(contextData.context.visual_identity?.secondary_colors || []),
+                ].filter(Boolean).slice(0, 3),
+              },
+            };
+            
+            setMarketingContext(enhancedContext);
+            console.log("[ProjectNew] Marketing context generated with real branding:", {
+              logo: enhancedContext.visual_identity.logo_url,
+              primaryColor: enhancedContext.visual_identity.primary_color,
+            });
+            
+            toast({
+              title: "Context generated! ✓",
+              description: "Brand identity and marketing context ready",
+            });
+          }
+        } catch (contextErr) {
+          console.error("Context generation error:", contextErr);
+          // Non-blocking - continue without context
+        } finally {
+          setIsGeneratingContext(false);
+        }
         
         // Automatically move to next step
         nextStep();
@@ -389,6 +448,8 @@ const ProjectNew = () => {
         } : null,
         scraped_markdown: scrapedData?.markdown || null,
         scraped_at: scrapedData ? new Date().toISOString() : null,
+        // Add marketing context (auto-generated from URL scrape)
+        marketing_context: marketingContext || null,
       };
 
       if (isEditMode && editProjectId) {
@@ -518,11 +579,19 @@ const ProjectNew = () => {
                       <Button
                         type="button"
                         onClick={handleScrapeUrl}
-                        disabled={isScraping || !formData.url}
-                        className="min-w-[120px]"
+                        disabled={isScraping || isGeneratingContext || !formData.url}
+                        className="min-w-[140px]"
                       >
                         {isScraping ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            Analyzing...
+                          </>
+                        ) : isGeneratingContext ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            Context...
+                          </>
                         ) : (
                           <>
                             <Sparkles className="w-4 h-4 mr-2" />
@@ -532,8 +601,16 @@ const ProjectNew = () => {
                       </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      AI will analyze your website to extract name, description and colors
+                      AI will analyze your website to extract branding, logo, colors, and marketing context
                     </p>
+                    
+                    {/* Show context generation status */}
+                    {marketingContext && (
+                      <div className="flex items-center gap-2 text-sm text-green-600 bg-green-500/10 rounded-lg px-3 py-2">
+                        <Check className="w-4 h-4" />
+                        Marketing context ready ({marketingContext.products_services?.length || 0} products/services detected)
+                      </div>
+                    )}
                   </div>
                 </div>
               </WizardStepContainer>
