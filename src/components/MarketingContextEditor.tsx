@@ -632,7 +632,7 @@ export const MarketingContextEditor = ({
                 <Label>Logo URL</Label>
                 <div className="flex gap-2 items-center">
                   <Input
-                    value={context.visual_identity.logo_url || ""}
+                    value={projectLogoUrl || context.visual_identity.logo_url || ""}
                     onChange={(e) =>
                       setContext((prev) => ({
                         ...prev,
@@ -644,6 +644,7 @@ export const MarketingContextEditor = ({
                     }
                     placeholder="https://example.com/logo.png"
                     className="flex-1"
+                    disabled={!!projectLogoUrl}
                   />
                   {(projectLogoUrl || context.visual_identity.logo_url) ? (
                     <img
@@ -663,6 +664,11 @@ export const MarketingContextEditor = ({
                     />
                   )}
                 </div>
+                {projectLogoUrl && (
+                  <p className="text-xs text-muted-foreground">
+                    Logo from project settings. Edit in project identity tab.
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground">
                   Auto-extracted from website branding
                 </p>
