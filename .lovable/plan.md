@@ -1,78 +1,228 @@
 
 
-# Fix Facebook OAuth Popup Auto-Close Issue
+# Integration of Nano Banana Video API
 
-## Problem Analysis
+## Summary
 
-The Facebook (Meta) OAuth popup should automatically close after successful authentication, but it doesn't close reliably. After reviewing the code, I found the following issues:
+Replace CometAPI and Replicate with the **Nano Banana Video API** for video generation. This API offers a simpler, more reliable solution with direct video URL response (no complex polling) and supports text-to-video and image-to-video generation.
 
-1. **Timing inconsistency**: Meta OAuth uses a 500ms delay before closing, while YouTube and LinkedIn use 2000ms. The 500ms might be too fast for the message to be processed.
+## API Overview
 
-2. **HTML structure differences**: Meta OAuth has a more complex try-catch block that might silently fail.
+| Feature | Nano Banana API |
+|---------|-----------------|
+| **Base URL** | `https://nanobananavideo.com/api/v1/` |
+| **Auth** | `X-API-Key` header |
+| **Text-to-Video** | `POST /text-to-video.php` |
+| **Image-to-Video** | `POST /image-to-video.php` |
+| **Status Check** | `GET /video-status.php?video_id=X` |
+| **Resolutions** | 480p, 720p, 1080p |
+| **Durations** | 3-12 seconds |
+| **Aspect Ratios** | 16:9, 9:16, 1:1, 4:5, etc. |
 
-3. **Error cases close immediately**: Error HTML pages call `window.close()` without any delay, which might prevent the error message from being displayed or sent.
+## Implementation Plan
 
-## Solution
+### Step 1: Add API Key Secret
 
-Update the Meta OAuth callback HTML to match the pattern used successfully in YouTube and LinkedIn OAuth:
-
-1. Increase the timeout to 2000ms for consistency
-2. Simplify the callback HTML structure
-3. Add proper error handling with styled pages like YouTube/LinkedIn
-4. Ensure `window.close()` is called in all cases with appropriate delays
-
-## Technical Changes
-
-### File: `supabase/functions/meta-oauth/index.ts`
-
-**Error cases (lines 106-111, 116-121, 134-139)**:
-Replace inline HTML with styled error pages that include:
-- Visual feedback (error icon)
-- Error message display
-- 2000ms delay before close
-
-**Success case (lines 240-266)**:
-Update the callback script to:
-- Use consistent 2000ms timeout like YouTube/LinkedIn
-- Simplify the try-catch block
+Request the user to add their Nano Banana API key:
 
 ```text
-Before (error case):
-+------------------------------------------+
-| window.close()  <- immediate, no delay   |
-+------------------------------------------+
-
-After (error case):
-+------------------------------------------+
-| setTimeout(() => window.close(), 2000)   |
-| + styled error page with message         |
-+------------------------------------------+
+Secret Name: NANOBANANA_API_KEY
 ```
+
+### Step 2: Update Edge Functions
+
+#### A. Update `generate-video-sora/index.ts`
+
+Replace the current CometAPI/Lovable AI logic with Nano Banana API:
 
 ```text
-Before (success case):
-+------------------------------------------+
-| setTimeout(() => window.close(), 500)    |
-+------------------------------------------+
-
-After (success case):
-+------------------------------------------+
-| setTimeout(() => window.close(), 2000)   |
-+------------------------------------------+
+┌─────────────────────────────────────────────────────────────┐
+│                  VIDEO GENERATION FLOW                       │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌──────────────┐     ┌───────────────────┐                 │
+│  │ Quality Tier │────▶│ Resolution Map    │                 │
+│  └──────────────┘     └────────┬──────────┘                 │
+│                                │                             │
+│    Standard (5 cr) ──────────▶ 720p                         │
+│    Pro (10 cr) ──────────────▶ 1080p                        │
+│    Cinema (20 cr) ───────────▶ 1080p + longer duration      │
+│                                                              │
+│         ┌──────────────────────────────────────────┐        │
+│         ▼                                          │        │
+│  ┌────────────────────────────────────────────────┐│        │
+│  │ POST /text-to-video.php                        ││        │
+│  │ {                                              ││        │
+│  │   "prompt": "...",                             ││        │
+│  │   "resolution": "1080p",                       ││        │
+│  │   "duration": 8,                               ││        │
+│  │   "aspect_ratio": "9:16"                       ││        │
+│  │ }                                              ││        │
+│  └────────────────────────────────────────────────┘│        │
+│                                                     │        │
+│         ┌───────────────────────────────────────────┘        │
+│         ▼                                                    │
+│  ┌────────────────────────────────────────────────┐         │
+│  │ Response:                                       │         │
+│  │ {                                               │         │
+│  │   "success": true,                              │         │
+│  │   "video_id": 123,                              │         │
+│  │   "video_url": "https://...mp4"                 │         │
+│  │ }                                               │         │
+│  └────────────────────────────────────────────────┘         │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Files to Modify
+Key changes:
+- Remove CometAPI and Lovable AI video generation
+- Implement Nano Banana text-to-video endpoint
+- Map quality tiers to resolutions:
+  - **Standard**: 720p, max 10s
+  - **Pro**: 1080p, max 12s
+  - **Cinema**: 1080p, max 12s (extended features)
+- Handle synchronous video URL response (no polling needed for most cases)
+- Add status polling via `/video-status.php` for queued videos
 
-| File | Change |
+#### B. Update `generate-ai-video/index.ts`
+
+Similar refactor for the AI Video MULTI tool:
+- Replace CometAPI with Nano Banana API
+- Support image-to-video via `/image-to-video.php` endpoint
+- Update status checking to use Nano Banana status endpoint
+
+### Step 3: Update Model Configuration
+
+#### A. Update `src/lib/modelPools.ts`
+
+Replace CometAPI model references with Nano Banana:
+
+```typescript
+export const VIDEO_MODEL_POOLS: Record<string, ModelOption[]> = {
+  "standard-video": [
+    { id: "nano-banana-720p", provider: "nanobanana", weight: 100, apiModel: "720p", maxDuration: 10 },
+  ],
+  "pro-video": [
+    { id: "nano-banana-1080p", provider: "nanobanana", weight: 100, apiModel: "1080p", maxDuration: 12 },
+  ],
+  "cinema-video": [
+    { id: "nano-banana-1080p-hq", provider: "nanobanana", weight: 100, apiModel: "1080p", maxDuration: 12 },
+  ],
+};
+```
+
+#### B. Update `src/lib/commercialProducts.ts`
+
+Update quality tier descriptions:
+- Standard: "Nano Banana • 720p (10s max)"
+- Pro: "Nano Banana HD • 1080p (12s max)"
+- Cinema: "Nano Banana Premium • 1080p"
+
+### Step 4: Implement Status Polling
+
+For videos that return `queued` or `processing` status:
+
+```typescript
+// Status check endpoint
+const checkNanoBananaStatus = async (videoId: number): Promise<{
+  status: "queued" | "processing" | "completed" | "failed";
+  video_url?: string;
+}> => {
+  const response = await fetch(
+    `https://nanobananavideo.com/api/v1/video-status.php?video_id=${videoId}`,
+    { headers: { "X-API-Key": apiKey } }
+  );
+  return response.json();
+};
+```
+
+### Step 5: Handle Error Cases
+
+Implement proper error handling:
+- **400**: Invalid parameters → Return validation error
+- **401**: Invalid API key → Log and throw auth error
+- **429**: Rate limit (10/30min) → Queue and retry with backoff
+- **500+**: Server error → Refund credits automatically
+
+## File Changes Summary
+
+| File | Action |
 |------|--------|
-| `supabase/functions/meta-oauth/index.ts` | Update callback HTML with consistent styling and 2000ms timeouts |
+| `supabase/functions/generate-video-sora/index.ts` | Major refactor - replace all API calls |
+| `supabase/functions/generate-ai-video/index.ts` | Major refactor - replace CometAPI |
+| `src/lib/modelPools.ts` | Update video model pool to Nano Banana |
+| `src/lib/commercialProducts.ts` | Update quality tier descriptions |
 
-## Testing
+## Duration & Resolution Mapping
 
-After implementation:
-1. Go to Integrations page
-2. Click "Connect" on Facebook/Instagram
-3. Complete the OAuth flow
-4. Verify the popup shows success/error message briefly
-5. Verify the popup closes automatically after ~2 seconds
+| Quality | Resolution | Max Duration | Credits |
+|---------|------------|--------------|---------|
+| Standard | 720p | 10s | 5 |
+| Pro | 1080p | 12s | 10 |
+| Cinema | 1080p | 12s | 20 |
+
+## Credit Cost Calculation (Per Nano Banana Docs)
+
+The API uses its own credit system internally, but our platform credits remain unchanged:
+- Base: 5 platform credits
+- 1080p: +5 credits (Pro/Cinema tiers)
+- Duration >5s: +1 credit per extra second (built into tier pricing)
+
+## Benefits of This Migration
+
+1. **Reliability**: Direct video URL response reduces polling complexity
+2. **Simplicity**: Single provider instead of CometAPI + Replicate + Lovable AI
+3. **Speed**: 3-12s video generation with immediate URL
+4. **Features**: Native support for aspect ratios (9:16 for reels, 16:9 for landscape)
+5. **Image-to-Video**: Direct support for reference image animation
+
+## Technical Implementation Details
+
+### New Helper Functions
+
+```typescript
+// Resolution mapping
+function getResolutionForQuality(quality: string): string {
+  return quality === "standard" ? "720p" : "1080p";
+}
+
+// Aspect ratio mapping
+function getAspectRatio(format: string): string {
+  switch (format) {
+    case "vertical":
+    case "reel":
+      return "9:16";
+    case "square":
+      return "1:1";
+    default:
+      return "16:9";
+  }
+}
+
+// Duration clamping (API limit: 3-12s)
+function clampDuration(duration: number): number {
+  return Math.max(3, Math.min(12, duration));
+}
+```
+
+### API Request Structure
+
+```typescript
+const response = await fetch("https://nanobananavideo.com/api/v1/text-to-video.php", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "X-API-Key": NANOBANANA_API_KEY,
+  },
+  body: JSON.stringify({
+    prompt: prompt,
+    resolution: getResolutionForQuality(quality),
+    duration: clampDuration(duration),
+    aspect_ratio: getAspectRatio(format),
+  }),
+});
+
+const result = await response.json();
+// result.video_url is immediately available if success=true
+```
 
