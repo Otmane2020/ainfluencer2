@@ -64,7 +64,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { SocialShareModal } from "@/components/SocialShareModal";
 import { PaywallModal } from "@/components/PaywallModal";
-import { ReelVideoPlayer } from "@/components/ReelVideoPlayer";
+
 
 // TikTok icon component
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -264,7 +264,7 @@ export const ScheduledPostModal = ({
 
   // Filter products based on content type
   const getRelevantProducts = () => {
-    if (post.content_type === "video" || post.content_type === "reel") {
+    if (post.content_type === "video") {
       return COMMERCIAL_PRODUCTS.filter((p) => p.category === "video" || p.category === "avatar");
     } else if (post.content_type === "image") {
       return COMMERCIAL_PRODUCTS.filter((p) => p.category === "image");
@@ -403,8 +403,8 @@ export const ScheduledPostModal = ({
   const handlePublishNow = async () => {
     if (!onPublishNow) return;
     
-    // For video/reel content, we need to generate first
-    if ((post.content_type === "video" || post.content_type === "reel") && !post.media_url) {
+    // For video content, we need to generate first
+    if (post.content_type === "video" && !post.media_url) {
       // Need to generate video + social content first
       await handleGenerateAndPublish();
       return;
@@ -504,16 +504,15 @@ export const ScheduledPostModal = ({
 
       if (updateError) throw updateError;
 
-      // Step 3: Generate media based on content type
-      if ((post.content_type === "video" || post.content_type === "reel") && !post.media_url) {
-        // Check if this is a reel (either explicit reel type or Image as Reel)
-        if (post.content_type === "reel" || isImageAsReel) {
+      // Step 3: Generate video if needed
+      if (post.content_type === "video" && !post.media_url) {
+        if (isImageAsReel) {
           // Use Kling Video via CometAPI for real MP4
-          setPublishingStatus("Generating reel video (Kling)...");
+          setPublishingStatus("Generating video (Kling)...");
           
           toast({
-            title: "Generating reel video...",
-            description: "Creating real MP4 with Kling (~2-3 min)",
+            title: "Generating video...",
+            description: "Creating MP4 with Kling (~2-3 min)",
           });
 
           // Call with ?wait=true for sync mode
@@ -901,14 +900,14 @@ export const ScheduledPostModal = ({
     }
   };
 
-  // Generate content (image, video, or reel) based on content type
+  // Generate content (image or video) based on content type
   const handleGenerate = async () => {
     setIsGenerating(true);
     
     try {
-      // Check if this is a reel (either explicit reel type or Image as Reel)
-      if (post.content_type === "reel" || isImageAsReel) {
-        // Use the new Gemini + music reel generation
+      // Check if this is Image as Reel mode (video from image + music)
+      if (isImageAsReel) {
+        // Use the Gemini + music video generation
         await handleGenerateReel();
         return;
       }
@@ -1052,9 +1051,8 @@ export const ScheduledPostModal = ({
                 animate={{ opacity: 1, y: 0 }}
                 className="relative overflow-hidden rounded-xl bg-muted border border-border"
               >
-                {(post.content_type === "video" || post.content_type === "reel") ? (
+                {post.content_type === "video" ? (
                   <div className="aspect-[9/16] max-h-[400px] mx-auto">
-                    {/* Check if we have a real MP4 video */}
                     {(localMediaUrl || post.media_url)?.includes('.mp4') || (localMediaUrl || post.media_url)?.includes('video') ? (
                       <video
                         src={localMediaUrl || post.media_url || undefined}
@@ -1063,12 +1061,10 @@ export const ScheduledPostModal = ({
                         className="h-full w-full object-cover rounded-lg"
                       />
                     ) : (
-                      /* Use ReelVideoPlayer for image + music reel experience */
-                      <ReelVideoPlayer
-                        imageUrl={localMediaUrl || post.media_url || post.thumbnail_url || ""}
-                        audioUrl={localMusicUrl || undefined}
-                        duration={reelDuration}
-                        className="h-full w-full"
+                      <img
+                        src={localMediaUrl || post.media_url || post.thumbnail_url || undefined}
+                        alt="Video thumbnail"
+                        className="h-full w-full object-cover rounded-lg"
                       />
                     )}
                   </div>
@@ -1597,7 +1593,7 @@ export const ScheduledPostModal = ({
           content={{
             text: post.text_content || "",
             mediaUrl: localMediaUrl || post.media_url || undefined,
-            type: post.content_type === "video" || post.content_type === "reel" ? "video" : "image",
+            type: post.content_type === "video" ? "video" : "image",
           }}
         />
       </>
@@ -1622,7 +1618,7 @@ export const ScheduledPostModal = ({
         content={{
           text: post.text_content || "",
           mediaUrl: localMediaUrl || post.media_url || undefined,
-          type: post.content_type === "video" || post.content_type === "reel" ? "video" : "image",
+          type: post.content_type === "video" ? "video" : "image",
         }}
       />
       <PaywallModal

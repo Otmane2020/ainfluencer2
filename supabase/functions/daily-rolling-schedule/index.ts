@@ -131,7 +131,7 @@ serve(async (req) => {
       // Determine content type based on day of week (alternate video/image)
       const dayOfMonth = targetDate.getDate();
       const contentType = dayOfMonth % 3 === 0 ? "video" : "image";
-      const contentTypeLabel = contentType === "video" ? (language === "fr" ? "vidéo/reel" : "video/reel") : (language === "fr" ? "image/post" : "image/post");
+      const contentTypeLabel = contentType === "video" ? (language === "fr" ? "vidéo" : "video") : (language === "fr" ? "image/post" : "image/post");
 
       // Format date based on language
       const dateLocale = language === "fr" ? "fr-FR" : language === "es" ? "es-ES" : language === "de" ? "de-DE" : language === "it" ? "it-IT" : language === "pt" ? "pt-BR" : "en-US";

@@ -63,7 +63,6 @@ const STATUS_COLORS: Record<string, string> = {
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
   video: <Video className="h-5 w-5" />,
-  reel: <Video className="h-5 w-5" />,
   clipmotion: <Film className="h-5 w-5" />,
   image: <ImageIcon className="h-5 w-5" />,
   avatar: <Sparkles className="h-5 w-5" />,
