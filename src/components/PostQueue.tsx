@@ -25,6 +25,9 @@ export const PostQueue = ({ posts, onPublishNow, onDelete }: PostQueueProps) => 
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const { toast } = useToast();
 
+  // Filter out published posts - queue only shows pending posts
+  const pendingPosts = posts.filter(post => post.status !== "published");
+
   const handleCopy = async (post: ScheduledPost) => {
     try {
       await navigator.clipboard.writeText(post.content.text);
@@ -50,15 +53,11 @@ export const PostQueue = ({ posts, onPublishNow, onDelete }: PostQueueProps) => 
     },
     scheduled: {
       label: "Scheduled",
-      className: "bg-accent/20 text-accent",
-    },
-    published: {
-      label: "Published",
-      className: "bg-green-500/20 text-green-600",
+      className: "bg-accent/20 text-accent-foreground",
     },
   };
 
-  if (posts.length === 0) {
+  if (pendingPosts.length === 0) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -98,13 +97,13 @@ export const PostQueue = ({ posts, onPublishNow, onDelete }: PostQueueProps) => 
           <Calendar className="h-5 w-5 text-foreground" />
         </div>
         <div>
-          <h3 className="font-display text-base md:text-lg font-semibold">Queue</h3>
-          <p className="text-xs md:text-sm text-muted-foreground">{posts.length} post(s) pending</p>
+        <h3 className="font-display text-base md:text-lg font-semibold">Queue</h3>
+          <p className="text-xs md:text-sm text-muted-foreground">{pendingPosts.length} post(s) pending</p>
         </div>
       </div>
 
       <div className="space-y-3">
-        {posts.map((post, index) => {
+        {pendingPosts.map((post, index) => {
           const status = statusConfig[post.status];
 
           return (
@@ -153,7 +152,7 @@ export const PostQueue = ({ posts, onPublishNow, onDelete }: PostQueueProps) => 
                   className="h-8 rounded-full text-xs"
                 >
                   {copiedId === post.id ? (
-                    <Check className="h-3 w-3 mr-1 text-green-600" />
+                    <Check className="h-3 w-3 mr-1 text-primary" />
                   ) : (
                     <Copy className="h-3 w-3 mr-1" />
                   )}
