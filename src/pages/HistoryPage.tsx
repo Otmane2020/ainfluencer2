@@ -228,7 +228,7 @@ const HistoryPage = () => {
       const { data: scheduledPosts } = await supabase
         .from("scheduled_posts")
         .select(`
-          id, content_type, status, media_url, platforms, created_at,
+          id, content_type, status, media_url, platforms, created_at, ai_prompt,
           project_id, campaign_id,
           projects!scheduled_posts_project_id_fkey(name),
           campaigns!scheduled_posts_campaign_id_fkey(name)
@@ -249,6 +249,7 @@ const HistoryPage = () => {
             status: post.status || "draft",
             projectName: (post.projects as any)?.name,
             campaignName: (post.campaigns as any)?.name,
+            script: post.ai_prompt || undefined, // Use ai_prompt as the generation prompt
             aspectRatio: "square",
           });
         }
