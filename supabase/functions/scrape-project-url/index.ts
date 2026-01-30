@@ -327,10 +327,20 @@ serve(async (req) => {
 
     console.log("[scrape-project-url] Branding - Logo:", logoUrl, "Colors:", colors ? "found" : "none");
 
+    // Extract clean brand name from title (remove SEO suffixes like " – Description" or " | Tagline")
+    const rawTitle = metadata?.title || "";
+    const cleanBrandName = rawTitle
+      .split(/\s*[–—|\-:•]\s*/)[0] // Split on common separators
+      .trim()
+      .substring(0, 50); // Max 50 chars for brand name
+
+    console.log("[scrape-project-url] Clean brand name:", cleanBrandName, "from:", rawTitle);
+
     // Extract relevant info for project context
     const scrapedData = {
       success: true,
-      title: metadata?.title || "",
+      title: cleanBrandName || rawTitle, // Use clean brand name as title
+      fullTitle: rawTitle, // Keep full title for reference
       description: metadata?.description || "",
       markdown: markdown,
       branding: branding,
