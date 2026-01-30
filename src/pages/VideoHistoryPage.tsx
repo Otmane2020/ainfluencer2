@@ -23,11 +23,19 @@ interface Project {
   theme_color: string;
 }
 
+interface Campaign {
+  id: string;
+  name: string;
+  project_id: string;
+}
+
 const VideoHistoryPage = () => {
   const navigate = useNavigate();
   const [videoHistory, setVideoHistory] = useState<VideoHistoryItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("all");
+  const [selectedCampaign, setSelectedCampaign] = useState<string>("all");
   const { fetchStoredVideos, isLoading: isLoadingVideos } = useStoredVideos();
   const { tasks, getPendingTasks, updateTask } = useGenerationTasks();
   const { toast } = useToast();
@@ -180,6 +188,27 @@ const VideoHistoryPage = () => {
     if (data) setProjects(data);
   };
 
+  const fetchCampaigns = async () => {
+    if (!user) return;
+    let query = supabase
+      .from("campaigns")
+      .select("id, name, project_id")
+      .eq("user_id", user.id)
+      .order("name");
+    
+    if (selectedProject !== "all") {
+      query = query.eq("project_id", selectedProject);
+    }
+    
+    const { data } = await query;
+    if (data) setCampaigns(data);
+  };
+
+  useEffect(() => {
+    fetchCampaigns();
+    setSelectedCampaign("all");
+  }, [selectedProject, user]);
+
   const loadVideos = async () => {
     const storedVideos = await fetchStoredVideos();
     if (storedVideos.length > 0) {
@@ -256,18 +285,23 @@ const VideoHistoryPage = () => {
     });
   };
 
+  // Filter videos by campaign
+  const filteredVideos = selectedCampaign === "all" 
+    ? videoHistory 
+    : videoHistory.filter(v => v.campaignId === selectedCampaign);
+
   return (
     <div className="space-y-4">
       {/* Minimal Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="font-display text-xl font-bold">Videos</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Select value={selectedProject} onValueChange={setSelectedProject}>
-            <SelectTrigger className="h-9 w-[140px] text-sm">
-              <SelectValue placeholder="All" />
+            <SelectTrigger className="h-9 w-[130px] text-sm">
+              <SelectValue placeholder="All Projects" />
             </SelectTrigger>
             <SelectContent className="bg-card border border-border z-50">
-              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="all">All Projects</SelectItem>
               {projects.map((project) => (
                 <SelectItem key={project.id} value={project.id}>
                   <div className="flex items-center gap-2">
@@ -275,8 +309,21 @@ const VideoHistoryPage = () => {
                       className="h-2 w-2 rounded-full"
                       style={{ backgroundColor: project.theme_color }}
                     />
-                    <span className="truncate max-w-[100px]">{project.name}</span>
+                    <span className="truncate max-w-[80px]">{project.name}</span>
                   </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
+            <SelectTrigger className="h-9 w-[130px] text-sm">
+              <SelectValue placeholder="All Campaigns" />
+            </SelectTrigger>
+            <SelectContent className="bg-card border border-border z-50">
+              <SelectItem value="all">All Campaigns</SelectItem>
+              {campaigns.map((campaign) => (
+                <SelectItem key={campaign.id} value={campaign.id}>
+                  <span className="truncate max-w-[100px]">{campaign.name}</span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -294,19 +341,21 @@ const VideoHistoryPage = () => {
       </div>
 
       {/* Video List with Generating Tasks */}
-      {videoHistory.length === 0 && activeTasks.length === 0 ? (
+      {filteredVideos.length === 0 && activeTasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
             <Video className="h-6 w-6 text-muted-foreground" />
           </div>
-          <p className="text-sm text-muted-foreground mb-3">No videos yet</p>
+          <p className="text-sm text-muted-foreground mb-3">
+            {selectedCampaign !== "all" ? "No videos for this campaign" : "No videos yet"}
+          </p>
           <Button size="sm" onClick={() => navigate("/videos")}>
             Create Video
           </Button>
         </div>
       ) : (
         <VideoHistory
-          videos={videoHistory}
+          videos={filteredVideos}
           generatingTasks={activeTasks.map(task => ({
             id: task.id,
             taskId: task.taskId,
