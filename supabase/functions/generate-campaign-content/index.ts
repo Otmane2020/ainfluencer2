@@ -35,6 +35,69 @@ interface Project {
   detected_language: string | null;
 }
 
+// ============================================================
+// CONTENT DIVERSITY SYSTEM - Unique content every time
+// ============================================================
+
+// 12 Visual Scenes - Forces variety in image settings
+const VISUAL_SCENES = [
+  { id: "neon_night", desc: "Neon-lit urban night scene, vibrant city lights, modern nightlife aesthetic" },
+  { id: "golden_hour", desc: "Golden hour outdoor setting, warm sunlight, natural beauty, optimistic mood" },
+  { id: "minimal_studio", desc: "Clean white studio, minimal props, product-focused, high-end photography" },
+  { id: "urban_street", desc: "Busy urban street, diverse crowd, real city life, authentic documentary style" },
+  { id: "luxury_interior", desc: "Upscale interior space, elegant furnishings, rich textures, premium feel" },
+  { id: "nature_outdoor", desc: "Natural outdoor environment, greenery, fresh air, wellness vibes" },
+  { id: "home_cozy", desc: "Cozy home setting, comfortable atmosphere, relatable everyday life" },
+  { id: "industrial_modern", desc: "Industrial modern space, exposed brick, metal accents, trendy startup vibes" },
+  { id: "beach_coastal", desc: "Beach or coastal setting, ocean views, vacation energy, freedom feeling" },
+  { id: "rooftop_skyline", desc: "Rooftop with city skyline, success imagery, aspirational urban lifestyle" },
+  { id: "artsy_creative", desc: "Artistic creative space, colorful, eclectic, unique personality" },
+  { id: "tech_futuristic", desc: "Sleek tech environment, screens, futuristic aesthetic, innovation feel" },
+];
+
+// 8 Marketing Angles - Forces different persuasion approaches
+const MARKETING_ANGLES = [
+  { id: "social_proof", desc: "Show others already using/loving the product. Testimonial energy. FOMO trigger." },
+  { id: "pain_point", desc: "Visualize the PROBLEM customers face. Make them feel the frustration. Then hint at solution." },
+  { id: "transformation", desc: "Dramatic before/after. Show the life change. The glow-up. The upgrade." },
+  { id: "authority", desc: "Expert positioning. Data, stats, credentials. Trust signals. Professional credibility." },
+  { id: "urgency_scarcity", desc: "Limited time/quantity. Act now energy. Countdown vibes. Don't miss out." },
+  { id: "lifestyle_aspiration", desc: "Dream life imagery. The person they want to become. Aspirational but attainable." },
+  { id: "behind_scenes", desc: "Raw, authentic, unfiltered. Real process. Human touch. Transparency builds trust." },
+  { id: "comparison", desc: "Us vs. old way. Better alternative. Clear advantages. Competitive positioning." },
+];
+
+// BANNED CLICHÉS - AI must avoid these overused concepts
+const BANNED_CLICHES = [
+  "laptop in café",
+  "person smiling at phone",
+  "entrepreneur in coffee shop",
+  "woman with laptop",
+  "man in suit with graph",
+  "handshake business deal",
+  "lightbulb idea concept",
+  "rocket launch growth",
+  "puzzle pieces fitting together",
+  "sticky notes on glass wall",
+  "team high-fiving",
+  "person jumping with joy",
+  "clock running out",
+  "money tree growing",
+  "superhero cape businessman",
+];
+
+// Get scene and angle based on post index (ensures variety)
+function getContentDiversity(postIndex: number, totalPosts: number) {
+  const sceneIndex = postIndex % VISUAL_SCENES.length;
+  const angleIndex = postIndex % MARKETING_ANGLES.length;
+  
+  return {
+    scene: VISUAL_SCENES[sceneIndex],
+    angle: MARKETING_ANGLES[angleIndex],
+    bannedList: BANNED_CLICHES.join(", "),
+  };
+}
+
 // Generate image using Lovable AI
 async function generateImage(prompt: string, format: string, LOVABLE_API_KEY: string, supabase: any): Promise<string | null> {
   try {
@@ -279,6 +342,10 @@ serve(async (req) => {
       try {
         const isVideo = post.contentType === "video";
         
+        // Get content diversity based on post index
+        const diversity = getContentDiversity(post.index, scheduledPosts.length);
+        console.log(`Post #${post.index + 1}: Scene="${diversity.scene.id}", Angle="${diversity.angle.id}"`);
+        
         // Generate AI prompt using Lovable AI
         const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
@@ -292,8 +359,15 @@ serve(async (req) => {
               {
                 role: "system",
                 content: isVideo ? 
-                  // VIDEO SCRIPT PROMPT
+                  // VIDEO SCRIPT PROMPT with diversity
                   `You are an expert video script writer for ${project.name}. ${langInstruction}
+
+🎬 MANDATORY CREATIVE DIRECTION FOR THIS POST:
+- VISUAL SCENE: ${diversity.scene.desc}
+- MARKETING ANGLE: ${diversity.angle.desc}
+
+🚫 BANNED CLICHÉS (NEVER use these):
+${diversity.bannedList}
 
 PROJECT CONTEXT:
 - Name: ${project.name}
@@ -341,17 +415,25 @@ VIDEO SCRIPT RULES:
 - Include voiceover text for each scene
 - Focus on the brand's products/services/benefits
 - Format: [0-3s] Scene description. Voiceover: "Text to speak"
+- MUST use the visual scene and marketing angle provided above
 
 Respond ONLY with valid JSON:
 {
   "title": "Short descriptive title",
   "aiPrompt": "The complete video script with timestamps",
   "textContent": "Social media caption with hashtags (8-12 relevant hashtags)",
-  "angle": "problem|benefit|emotion|proof|urgency"
+  "angle": "${diversity.angle.id}"
 }` 
                   :
-                  // IMAGE PROMPT
-                  `You are an expert AI IMAGE prompt engineer. ${langInstruction}
+                  // IMAGE PROMPT with diversity
+                  `You are an expert AI IMAGE prompt engineer creating UNIQUE, HIGH-IMPACT visuals. ${langInstruction}
+
+🎨 MANDATORY CREATIVE DIRECTION FOR THIS POST:
+- VISUAL SCENE: ${diversity.scene.desc}
+- MARKETING ANGLE: ${diversity.angle.desc}
+
+🚫 BANNED CLICHÉS (NEVER use these - they are overused and boring):
+${diversity.bannedList}
 
 CRITICAL: You are generating a prompt for STATIC IMAGE generation, NOT video.
 ALL TEXT IN THE IMAGE MUST BE IN ${languageInstructions[outputLanguage]?.split(".")[0] || "the project language"}. NO ENGLISH TEXT.
@@ -360,11 +442,12 @@ FORBIDDEN:
 - NO motion words: "moving", "walking", "talking", "animation", "video", "motion"
 - NO time references: "then", "next", "after", "scene 1", "0-3s"
 - NO English text in the image (unless brand name)
+- NO generic stock photo compositions
 
-REQUIRED:
-- Subject: What is the main focus (person, product, object)
-- Setting: Where is this taking place (studio, office, outdoors)
-- Lighting: Type of light (soft natural light, studio lighting, golden hour)
+REQUIRED - Build your prompt using the SCENE and ANGLE above:
+- Subject: What is the main focus (must relate to ${diversity.angle.id} angle)
+- Setting: MUST be "${diversity.scene.id}" style (${diversity.scene.desc})
+- Lighting: Creative lighting that matches the scene mood
 - Composition: How is it framed (close-up, wide shot, flat lay)
 - Colors: Color palette aligned with brand (mention ${project.theme_color || "brand colors"})
 - Style: Photography style (professional, editorial, lifestyle, product photography)
@@ -403,17 +486,23 @@ ${effectiveSubject ? `- Focus topic: ${effectiveSubject}` : ""}
 Respond ONLY with valid JSON:
 {
   "title": "Short descriptive title for this image concept",
-  "aiPrompt": "The detailed STATIC IMAGE prompt (no motion, no video, no animation). Include instruction that any text must be in ${languageName}",
+  "aiPrompt": "The detailed STATIC IMAGE prompt using the ${diversity.scene.id} scene and ${diversity.angle.id} angle. Include instruction that any text must be in ${languageName}",
   "textContent": "Social media caption with hashtags (8-12 relevant hashtags) - MUST BE IN ${languageName.toUpperCase()}",
-  "angle": "problem|benefit|emotion|proof|urgency"
+  "angle": "${diversity.angle.id}"
 }`
               },
               {
                 role: "user",
-                content: `Generate unique ${isVideo ? "video script" : "image prompt"} #${post.index + 1} for ${project.name}. Make it different from previous ones - explore different angles, products, or benefits.`
+                content: `Generate UNIQUE ${isVideo ? "video script" : "image prompt"} #${post.index + 1} of ${scheduledPosts.length} for ${project.name}.
+
+CRITICAL REQUIREMENTS:
+1. MUST use visual scene: "${diversity.scene.id}" (${diversity.scene.desc})
+2. MUST use marketing angle: "${diversity.angle.id}" (${diversity.angle.desc})
+3. MUST avoid all banned clichés listed above
+4. Be creative and unexpected - NO generic content`
               }
             ],
-            temperature: 0.8,
+            temperature: 0.95, // Higher temperature for more creative variety
           }),
         });
 
