@@ -288,61 +288,10 @@ const ProjectNew = () => {
 
         toast({
           title: "Website analyzed!",
-          description: "Generating marketing context...",
+          description: "Brand and content detected. Complete the wizard to generate marketing context.",
         });
         
-        // Automatically generate marketing context in background
-        setIsGeneratingContext(true);
-        try {
-          const { data: contextData, error: contextError } = await supabase.functions.invoke(
-            "generate-marketing-context",
-            {
-              body: {
-                projectName: projectName,
-                projectUrl: formData.url,
-                scrapedMarkdown: scrapedMarkdown,
-              },
-            }
-          );
-
-          if (!contextError && contextData?.context) {
-            // Override with REAL branding data from Firecrawl
-            const enhancedContext = {
-              ...contextData.context,
-              visual_identity: {
-                ...contextData.context.visual_identity,
-                // Use REAL logo from scraped data
-                logo_url: data.logo || contextData.context.visual_identity?.logo_url || "",
-                // Use REAL primary color from scraped data
-                primary_color: data.colors?.primary || contextData.context.visual_identity?.primary_color || "#3B82F6",
-                // Add secondary colors from scraped data
-                secondary_colors: [
-                  data.colors?.secondary,
-                  data.colors?.accent,
-                  ...(contextData.context.visual_identity?.secondary_colors || []),
-                ].filter(Boolean).slice(0, 3),
-              },
-            };
-            
-            setMarketingContext(enhancedContext);
-            console.log("[ProjectNew] Marketing context generated with real branding:", {
-              logo: enhancedContext.visual_identity.logo_url,
-              primaryColor: enhancedContext.visual_identity.primary_color,
-            });
-            
-            toast({
-              title: "Context generated! ✓",
-              description: "Brand identity and marketing context ready",
-            });
-          }
-        } catch (contextErr) {
-          console.error("Context generation error:", contextErr);
-          // Non-blocking - continue without context
-        } finally {
-          setIsGeneratingContext(false);
-        }
-        
-        // Automatically move to next step
+        // Automatically move to next step - context generation moved to final submit
         nextStep();
       }
     } catch (error) {
@@ -427,6 +376,51 @@ const ProjectNew = () => {
         logoUrl = logoPreview;
       }
 
+      // Generate marketing context at final step (if URL was scraped)
+      let generatedContext = marketingContext;
+      if (scrapedData?.markdown && !generatedContext) {
+        setIsGeneratingContext(true);
+        try {
+          const { data: contextData, error: contextError } = await supabase.functions.invoke(
+            "generate-marketing-context",
+            {
+              body: {
+                projectName: formData.name,
+                projectUrl: formData.url,
+                projectDescription: formData.description,
+                scrapedMarkdown: scrapedData.markdown,
+              },
+            }
+          );
+
+          if (!contextError && contextData?.context) {
+            // Override with REAL branding data from Firecrawl
+            generatedContext = {
+              ...contextData.context,
+              visual_identity: {
+                ...contextData.context.visual_identity,
+                logo_url: logoUrl || scrapedData.branding?.logo || contextData.context.visual_identity?.logo_url || "",
+                primary_color: scrapedData.branding?.colors?.primary || formData.theme_color || contextData.context.visual_identity?.primary_color || "#3B82F6",
+                secondary_colors: [
+                  scrapedData.branding?.colors?.secondary,
+                  scrapedData.branding?.colors?.accent,
+                  ...(contextData.context.visual_identity?.secondary_colors || []),
+                ].filter(Boolean).slice(0, 3),
+              },
+            };
+            console.log("[ProjectNew] Marketing context generated at final step:", {
+              logo: generatedContext.visual_identity.logo_url,
+              primaryColor: generatedContext.visual_identity.primary_color,
+            });
+          }
+        } catch (contextErr) {
+          console.error("Context generation error:", contextErr);
+          // Non-blocking - continue without context
+        } finally {
+          setIsGeneratingContext(false);
+        }
+      }
+
       const projectData = {
         name: formData.name,
         description: formData.description || null,
@@ -448,8 +442,8 @@ const ProjectNew = () => {
         } : null,
         scraped_markdown: scrapedData?.markdown || null,
         scraped_at: scrapedData ? new Date().toISOString() : null,
-        // Add marketing context (auto-generated from URL scrape)
-        marketing_context: marketingContext || null,
+        // Add marketing context (generated at final step)
+        marketing_context: generatedContext || null,
       };
 
       if (isEditMode && editProjectId) {
