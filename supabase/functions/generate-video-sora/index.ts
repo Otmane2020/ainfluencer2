@@ -25,34 +25,36 @@ function getCreditCost(quality: string): number {
 }
 
 // ============================================================
-// MODEL SELECTION BY QUALITY - VIA COMETAPI VIDEO ENDPOINTS
+// MODEL SELECTION BY QUALITY
+// Standard: Nano Banana (fast, reliable)
+// Pro: Sora (CometAPI)
+// Cinema: Sora 2 (CometAPI - highest quality)
 // ============================================================
 
-function getVideoModel(quality: string): { model: string; endpoint: string } {
+interface VideoModelConfig {
+  model: string;
+  provider: "nanobanana" | "cometapi";
+  maxDuration: number;
+}
+
+function getVideoModel(quality: string): VideoModelConfig {
   switch (quality) {
     case "cinema":
-      // Premium quality - use Kling for best cinematic results
-      return { model: "kling-video/v1.6/pro/image-to-video", endpoint: "image-to-video" };
+      // Premium quality - Sora 2 via CometAPI
+      return { model: "sora-2", provider: "cometapi", maxDuration: 12 };
     case "pro":
-      // High quality - Kling standard
-      return { model: "kling-video/v1.6/standard/text-to-video", endpoint: "text-to-video" };
+      // High quality - Sora via CometAPI
+      return { model: "sora", provider: "cometapi", maxDuration: 12 };
     case "standard":
     default:
-      // Fast generation - MiniMax
-      return { model: "video-01", endpoint: "text-to-video" };
+      // Fast generation - Nano Banana
+      return { model: "nanobanana-standard", provider: "nanobanana", maxDuration: 10 };
   }
 }
 
-// Duration configs per model
-const DURATION_CONFIGS: Record<string, { min: number; max: number }> = {
-  "kling-video/v1.6/pro/image-to-video": { min: 5, max: 10 },
-  "kling-video/v1.6/standard/text-to-video": { min: 5, max: 10 },
-  "video-01": { min: 5, max: 6 },
-};
-
-function clampDuration(duration: number, model: string): number {
-  const config = DURATION_CONFIGS[model] || { min: 5, max: 10 };
-  return Math.max(config.min, Math.min(config.max, duration));
+function clampDuration(duration: number, config: VideoModelConfig): number {
+  const min = 3;
+  return Math.max(min, Math.min(config.maxDuration, duration));
 }
 
 interface VideoRequest {
@@ -137,18 +139,18 @@ serve(async (req) => {
         throw new Error("Prompt is required");
       }
 
-      // Get model and endpoint based on quality
-      const { model: videoModel, endpoint } = getVideoModel(quality);
+      // Get model config based on quality
+      const modelConfig = getVideoModel(quality);
       
       // Clamp duration to model limits
-      const clampedDuration = clampDuration(duration, videoModel);
+      const clampedDuration = clampDuration(duration, modelConfig);
 
       // Determine credit cost
       const creditCost = getCreditCost(quality);
 
       console.log("=== Video Generation ===");
       console.log(`User: ${userId || "anonymous"}`);
-      console.log(`Quality: ${quality} | Model: ${videoModel} | Endpoint: ${endpoint}`);
+      console.log(`Quality: ${quality} | Model: ${modelConfig.model} | Provider: ${modelConfig.provider}`);
       console.log(`Credit Cost: ${creditCost}`);
       console.log("Prompt:", prompt.substring(0, 100) + "...");
       console.log("Duration:", clampedDuration, "s | Size:", size);
@@ -201,7 +203,7 @@ serve(async (req) => {
           user_id: userId,
           amount: -creditCost,
           type: "consumption",
-          description: `Video generation (${videoModel}, ${clampedDuration}s)`,
+          description: `Video generation (${modelConfig.model}, ${clampedDuration}s)`,
         });
 
         console.log(`✓ Deducted ${creditCost} credits`);
@@ -272,7 +274,7 @@ serve(async (req) => {
             prompt: prompt.substring(0, 500),
             format: format,
             duration: clampedDuration,
-            model: videoModel,
+            model: modelConfig.model,
             quality: quality,
             step: "generating",
             progress: 10,
@@ -290,90 +292,128 @@ serve(async (req) => {
       }
 
       // ============================================================
-      // VIDEO GENERATION VIA COMETAPI
+      // VIDEO GENERATION - ROUTE BY PROVIDER
       // ============================================================
       
-      console.log(`Calling CometAPI video generation (${videoModel})...`);
-      
-      // Build request body based on endpoint type
       const aspectRatio = format === "vertical" ? "9:16" : "16:9";
-      
-      let videoRequestBody: Record<string, unknown>;
-      let apiEndpoint: string;
-      
-      if (endpoint === "text-to-video") {
-        apiEndpoint = "https://api.cometapi.com/v1/video/generations";
-        videoRequestBody = {
-          model: videoModel,
-          prompt: fullPrompt,
-          duration: `${clampedDuration}`,
-          aspect_ratio: aspectRatio,
-        };
+      let taskId: string;
+      let initialStatus: string;
+      let mediaUrl: string | null = null;
+
+      if (modelConfig.provider === "nanobanana") {
+        // ============================================================
+        // NANO BANANA VIDEO API
+        // ============================================================
+        console.log(`Calling Nano Banana Video API...`);
+        
+        const nanoBananaResponse = await fetch("https://nanobananavideo.com/api/v1/generate", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${COMETAPI_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prompt: fullPrompt,
+            duration: clampedDuration,
+            aspect_ratio: aspectRatio,
+            resolution: quality === "standard" ? "720p" : "1080p",
+          }),
+        });
+        
+        const nanoBananaText = await nanoBananaResponse.text();
+        console.log("Nano Banana Response:", nanoBananaResponse.status, nanoBananaText.substring(0, 300));
+        
+        if (!nanoBananaResponse.ok) {
+          // Fallback to CometAPI Sora if Nano Banana fails
+          console.log("Nano Banana failed, falling back to CometAPI Sora...");
+          
+          const fallbackResponse = await fetch("https://api.cometapi.com/v1/video/generations", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${COMETAPI_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "sora",
+              prompt: fullPrompt,
+              duration: `${clampedDuration}`,
+              aspect_ratio: aspectRatio,
+            }),
+          });
+          
+          if (!fallbackResponse.ok) {
+            const errorText = await fallbackResponse.text();
+            throw new Error(`Video generation failed: ${errorText}`);
+          }
+          
+          const fallbackResult = await fallbackResponse.json();
+          taskId = fallbackResult.id || fallbackResult.task_id || `comet-${Date.now()}`;
+          initialStatus = fallbackResult.status || "queued";
+          mediaUrl = fallbackResult.video_url || fallbackResult.output || null;
+        } else {
+          const nanoBananaResult = JSON.parse(nanoBananaText);
+          taskId = nanoBananaResult.id || nanoBananaResult.task_id || `nano-${Date.now()}`;
+          initialStatus = nanoBananaResult.status || "queued";
+          mediaUrl = nanoBananaResult.video_url || nanoBananaResult.output || null;
+        }
+        
       } else {
-        // image-to-video - for now fallback to text-to-video
-        apiEndpoint = "https://api.cometapi.com/v1/video/generations";
-        videoRequestBody = {
-          model: "kling-video/v1.6/standard/text-to-video",
-          prompt: fullPrompt,
-          duration: `${clampedDuration}`,
-          aspect_ratio: aspectRatio,
-        };
-      }
-      
-      console.log("CometAPI Request:", JSON.stringify(videoRequestBody));
-      
-      const videoResponse = await fetch(apiEndpoint, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${COMETAPI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(videoRequestBody),
-      });
-      
-      const responseText = await videoResponse.text();
-      console.log("CometAPI Response status:", videoResponse.status);
-      console.log("CometAPI Response:", responseText.substring(0, 500));
-
-      if (!videoResponse.ok) {
-        console.error("CometAPI video error:", responseText);
+        // ============================================================
+        // COMETAPI - SORA / SORA 2
+        // ============================================================
+        console.log(`Calling CometAPI ${modelConfig.model}...`);
         
-        // Update generation as failed
-        if (generationId) {
-          await supabase
-            .from("generations")
-            .update({ status: "failed", error_message: responseText, step: "error" })
-            .eq("id", generationId);
+        const cometResponse = await fetch("https://api.cometapi.com/v1/video/generations", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${COMETAPI_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: modelConfig.model,
+            prompt: fullPrompt,
+            duration: `${clampedDuration}`,
+            aspect_ratio: aspectRatio,
+          }),
+        });
+        
+        const cometText = await cometResponse.text();
+        console.log("CometAPI Response:", cometResponse.status, cometText.substring(0, 300));
+
+        if (!cometResponse.ok) {
+          console.error("CometAPI video error:", cometText);
+          
+          // Update generation as failed
+          if (generationId) {
+            await supabase
+              .from("generations")
+              .update({ status: "failed", error_message: cometText, step: "error" })
+              .eq("id", generationId);
+          }
+
+          // Refund credits on failure
+          if (userId && !skipCreditDeduction) {
+            await supabase.rpc("add_credits", {
+              p_user_id: userId,
+              p_amount: creditCost,
+            });
+            await supabase.from("credit_transactions").insert({
+              user_id: userId,
+              amount: creditCost,
+              type: "refund",
+              description: `Refund: Video generation failed (${modelConfig.model})`,
+            });
+            console.log(`✓ Refunded ${creditCost} credits`);
+          }
+          
+          throw new Error(`CometAPI video error: ${cometResponse.status} - ${cometText}`);
         }
 
-        // Refund credits on failure
-        if (userId && !skipCreditDeduction) {
-          await supabase.rpc("add_credits", {
-            p_user_id: userId,
-            p_amount: creditCost,
-          });
-          await supabase.from("credit_transactions").insert({
-            user_id: userId,
-            amount: creditCost,
-            type: "refund",
-            description: `Refund: Video generation failed (${videoModel})`,
-          });
-          console.log(`✓ Refunded ${creditCost} credits`);
-        }
-        
-        throw new Error(`CometAPI video error: ${videoResponse.status} - ${responseText}`);
+        const cometResult = JSON.parse(cometText);
+        taskId = cometResult.id || cometResult.task_id || `comet-${Date.now()}`;
+        initialStatus = cometResult.status || "queued";
+        mediaUrl = cometResult.video_url || cometResult.output || null;
       }
-
-      let videoResult: Record<string, unknown>;
-      try {
-        videoResult = JSON.parse(responseText);
-      } catch {
-        throw new Error(`Invalid JSON response from CometAPI: ${responseText}`);
-      }
-      
-      // CometAPI returns a task ID for async video generation
-      const taskId = (videoResult.id || videoResult.task_id || `comet-${Date.now()}`) as string;
-      const initialStatus = (videoResult.status || "queued") as string;
       
       console.log(`✓ Video task created: ${taskId} (status: ${initialStatus})`);
 
@@ -386,7 +426,7 @@ serve(async (req) => {
             status: initialStatus === "completed" ? "completed" : "processing",
             step: initialStatus === "completed" ? "completed" : "generating",
             progress: initialStatus === "completed" ? 100 : 30,
-            media_url: videoResult.video_url as string || videoResult.output as string || null,
+            media_url: mediaUrl,
           })
           .eq("id", generationId);
       }
@@ -399,10 +439,11 @@ serve(async (req) => {
           status: initialStatus,
           progress: initialStatus === "completed" ? 100 : 30,
           quality,
-          model: videoModel,
-          mediaUrl: videoResult.video_url || videoResult.output || null,
+          model: modelConfig.model,
+          provider: modelConfig.provider,
+          mediaUrl,
           creditCost: skipCreditDeduction ? 0 : creditCost,
-          message: `Video generation started via CometAPI (${videoModel})`,
+          message: `Video generation started via ${modelConfig.provider === "nanobanana" ? "Nano Banana" : "CometAPI"} (${modelConfig.model})`,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
