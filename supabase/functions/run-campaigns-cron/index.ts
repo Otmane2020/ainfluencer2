@@ -84,10 +84,21 @@ async function verifyAutoPostAccess(
 }
 
 // ============================================================
-// AUTOPOST ALWAYS USES SMART QUALITY FOR COST CONTROL
-// Smart Image: flux-2-flex (1.50€)
-// Smart Video: kling-video (9.90€)
+// AUTOPOST QUALITY CONFIGURATION
+// Uses quality tiers: standard (Fast), pro (Medium), cinema (High)
 // ============================================================
+
+const IMAGE_QUALITY_CONFIG = {
+  standard: { model: "google/gemini-2.5-flash-image", provider: "lovable", cost: 1 },
+  pro: { model: "google/gemini-3-pro-image-preview", provider: "lovable", cost: 3 },
+  cinema: { model: "google/gemini-3-pro-image-preview", provider: "lovable", cost: 5 },
+};
+
+const VIDEO_QUALITY_CONFIG = {
+  standard: { duration: 5, resolution: "720x1280", cost: 5 },
+  pro: { duration: 8, resolution: "1080x1920", cost: 10 },
+  cinema: { duration: 10, resolution: "1080x1920", cost: 20 },
+};
 
 interface Campaign {
   id: string;
@@ -98,6 +109,8 @@ interface Campaign {
   project_id: string;
   total_published: number | null;
   total_generated: number | null;
+  image_quality?: string | null;
+  video_quality?: string | null;
   projects?: { name: string; detected_language: string | null; description: string | null; logo_url: string | null; url: string | null };
 }
 
@@ -114,15 +127,23 @@ interface ScheduledPost {
 }
 
 // ============================================================
-// SMART IMAGE GENERATION (via CometAPI - Flux 2 Flex)
+// IMAGE GENERATION (via Lovable AI - Quality Tiers)
 // ============================================================
 
-async function generateImage(prompt: string, supabase: any, brandName?: string, language?: string): Promise<string | null> {
-  const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
-  if (!COMETAPI_API_KEY) {
-    console.error("[generateImage] COMETAPI_API_KEY not configured");
+async function generateImage(
+  prompt: string, 
+  supabase: any, 
+  brandName?: string, 
+  language?: string,
+  quality: string = "pro"
+): Promise<string | null> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) {
+    console.error("[generateImage] LOVABLE_API_KEY not configured");
     return null;
   }
+
+  const config = IMAGE_QUALITY_CONFIG[quality as keyof typeof IMAGE_QUALITY_CONFIG] || IMAGE_QUALITY_CONFIG.pro;
 
   try {
     // Add language constraint for any text in the image
@@ -131,61 +152,41 @@ async function generateImage(prompt: string, supabase: any, brandName?: string, 
       : "";
     
     const enhancedPrompt = brandName 
-      ? `${langPrefix}${prompt} for ${brandName} brand. Ultra high resolution, professional quality.`
-      : `${langPrefix}${prompt}. Ultra high resolution, professional quality.`;
+      ? `${langPrefix}${prompt} for ${brandName} brand. Ultra high resolution, professional quality, 1:1 square format.`
+      : `${langPrefix}${prompt}. Ultra high resolution, professional quality, 1:1 square format.`;
 
-    console.log("[generateImage] Using Smart Image (flux-2-flex) via CometAPI");
+    console.log(`[generateImage] Using ${quality} quality (${config.model}) via Lovable AI`);
 
-    const response = await fetch("https://api.cometapi.com/v1/images/generations", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${COMETAPI_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "flux-2-flex", // Smart Image model
-        prompt: enhancedPrompt,
-        n: 1,
-        size: "1024x1024",
+        model: config.model,
+        messages: [{ role: "user", content: enhancedPrompt }],
+        modalities: ["image", "text"],
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("[generateImage] CometAPI error:", response.status, errorText.slice(0, 200));
+      console.error("[generateImage] Lovable AI error:", response.status, errorText.slice(0, 200));
       return null;
     }
 
     const data = await response.json();
-    const imageUrl = data.data?.[0]?.url;
+    const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
-    if (!imageUrl) {
-      // If we get base64, upload to storage
-      const base64 = data.data?.[0]?.b64_json;
-      if (base64) {
-        const imageBytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-        const fileName = `images/${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("media")
-          .upload(fileName, imageBytes, { contentType: "image/png", upsert: true });
-
-        if (uploadError) {
-          console.error("[generateImage] Upload error:", uploadError);
-          return null;
-        }
-
-        const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(fileName);
-        return publicUrlData.publicUrl;
-      }
+    if (!imageData) {
+      console.error("[generateImage] No image in response");
       return null;
     }
 
-    // Download and re-upload to our storage for permanence
-    const imgResponse = await fetch(imageUrl);
-    const imgBlob = await imgResponse.blob();
-    const arrayBuffer = await imgBlob.arrayBuffer();
-    const imageBytes = new Uint8Array(arrayBuffer);
+    // Upload base64 to storage
+    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
+    const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
     const fileName = `images/${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
 
     const { error: uploadError } = await supabase.storage
@@ -194,10 +195,11 @@ async function generateImage(prompt: string, supabase: any, brandName?: string, 
 
     if (uploadError) {
       console.error("[generateImage] Upload error:", uploadError);
-      return imageUrl; // Return original URL as fallback
+      return imageData; // Return base64 as fallback
     }
 
     const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(fileName);
+    console.log(`[generateImage] ✅ ${quality} image uploaded`);
     return publicUrlData.publicUrl;
   } catch (error) {
     console.error("[generateImage] Error:", error);
@@ -206,42 +208,52 @@ async function generateImage(prompt: string, supabase: any, brandName?: string, 
 }
 
 // ============================================================
-// SMART VIDEO GENERATION (via CometAPI - Kling)
+// VIDEO GENERATION (via Nano Banana API)
 // ============================================================
 
-async function generateVideo(prompt: string, supabase: any): Promise<string | null> {
-  const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
-  if (!COMETAPI_API_KEY) {
-    console.error("[generateVideo] COMETAPI_API_KEY not configured");
+async function generateVideo(
+  prompt: string, 
+  supabase: any,
+  quality: string = "pro"
+): Promise<string | null> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) {
+    console.error("[generateVideo] LOVABLE_API_KEY not configured");
     return null;
   }
 
-  try {
-    console.log("[generateVideo] Using Smart Video (kling-video) via CometAPI...");
-    
-    // Create video task using FormData (CometAPI format)
-    const formData = new FormData();
-    formData.append("prompt", prompt);
-    formData.append("model", "kling-video"); // Smart Video model
-    formData.append("seconds", "5");
-    formData.append("size", "720x1280"); // Portrait for Reels
+  const config = VIDEO_QUALITY_CONFIG[quality as keyof typeof VIDEO_QUALITY_CONFIG] || VIDEO_QUALITY_CONFIG.pro;
 
-    const createResponse = await fetch("https://api.cometapi.com/v1/videos", {
+  try {
+    console.log(`[generateVideo] Using ${quality} quality (${config.duration}s, ${config.resolution}) via Nano Banana`);
+    
+    // Parse resolution
+    const [width, height] = config.resolution.split("x").map(Number);
+    const aspectRatio = width > height ? "16:9" : "9:16";
+
+    const response = await fetch("https://nanobananavideo.com/api/v1/text-to-video", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${COMETAPI_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
       },
-      body: formData,
+      body: JSON.stringify({
+        prompt: `${prompt}. Vertical 9:16 portrait format, perfect for Instagram Reels and TikTok, eye-catching motion, professional quality.`,
+        duration: config.duration,
+        aspect_ratio: aspectRatio,
+        resolution: height >= 1080 ? "1080p" : "720p",
+      }),
     });
 
-    if (!createResponse.ok) {
-      const errorText = await createResponse.text();
-      console.error("[generateVideo] Create error:", createResponse.status, errorText.slice(0, 200));
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[generateVideo] Nano Banana error:", response.status, errorText.slice(0, 200));
       return null;
     }
 
-    const createData = await createResponse.json();
-    const taskId = createData.id;
+    const data = await response.json();
+    const taskId = data.task_id || data.id;
+    
     if (!taskId) {
       console.error("[generateVideo] No task ID in response");
       return null;
@@ -254,32 +266,46 @@ async function generateVideo(prompt: string, supabase: any): Promise<string | nu
     for (let i = 0; i < maxAttempts; i++) {
       await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10s
 
-      const statusResponse = await fetch(`https://api.cometapi.com/v1/videos/${taskId}`, {
-        headers: { Authorization: `Bearer ${COMETAPI_API_KEY}` },
+      const statusResponse = await fetch(`https://nanobananavideo.com/api/v1/task/${taskId}`, {
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}` },
       });
 
       if (!statusResponse.ok) continue;
 
       const statusData = await statusResponse.json();
-      const videoData = statusData.data || statusData;
-      const innerData = videoData.data || {};
-      const status = (videoData.status || innerData.status || "").toLowerCase();
+      const status = (statusData.status || "").toLowerCase();
 
       console.log(`[generateVideo] Poll ${i + 1}/${maxAttempts}: status=${status}`);
 
-      if (status === "completed" || status === "success" || status === "succeeded" || status === "done") {
-        // CometAPI quirk: video URL sometimes in fail_reason
-        let videoUrl = null;
-        if (videoData.fail_reason && videoData.fail_reason.startsWith("http")) {
-          videoUrl = videoData.fail_reason;
-        } else {
-          videoUrl = innerData.output_video || videoData.output_video || 
-                     videoData.video_url || innerData.url || videoData.url;
-        }
+      if (status === "completed" || status === "success" || status === "done") {
+        const videoUrl = statusData.video_url || statusData.output_url || statusData.url;
 
         if (videoUrl) {
-          console.log("[generateVideo] Video ready:", videoUrl);
-          return videoUrl;
+          console.log("[generateVideo] Video ready, downloading...");
+          
+          // Download and upload to Supabase storage
+          const videoResponse = await fetch(videoUrl);
+          if (!videoResponse.ok) {
+            console.log("[generateVideo] Download failed, using original URL");
+            return videoUrl;
+          }
+
+          const videoBuffer = await videoResponse.arrayBuffer();
+          const videoBytes = new Uint8Array(videoBuffer);
+          const videoPath = `videos/video-${Date.now()}-${Math.random().toString(36).slice(2)}.mp4`;
+
+          const { error: uploadError } = await supabase.storage
+            .from("media")
+            .upload(videoPath, videoBytes, { contentType: "video/mp4", upsert: true });
+
+          if (uploadError) {
+            console.error("[generateVideo] Upload error:", uploadError);
+            return videoUrl; // Return original URL as fallback
+          }
+
+          const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(videoPath);
+          console.log(`[generateVideo] ✅ ${quality} video uploaded`);
+          return publicUrlData.publicUrl;
         }
       } else if (status === "failed" || status === "error") {
         console.error("[generateVideo] Task failed");
@@ -296,132 +322,34 @@ async function generateVideo(prompt: string, supabase: any): Promise<string | nu
 }
 
 // ============================================================
-// REEL GENERATION (Real MP4 via Kling/CometAPI)
-// ~$0.006-0.02 per second - Low cost video for automation
+// REEL GENERATION (Uses same video generator with reel-specific prompt)
 // ============================================================
 
-async function generateReel(prompt: string, supabase: any, brandName?: string, language?: string): Promise<string | null> {
-  const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
-  if (!COMETAPI_API_KEY) {
-    console.error("[generateReel] COMETAPI_API_KEY not configured");
-    return null;
+async function generateReel(
+  prompt: string, 
+  supabase: any, 
+  brandName?: string, 
+  language?: string,
+  quality: string = "pro"
+): Promise<string | null> {
+  // Build enhanced prompt for vertical reel format
+  let enhancedPrompt = prompt;
+  if (brandName) {
+    enhancedPrompt = `${prompt} for ${brandName} brand.`;
   }
-
-  try {
-    // Build enhanced prompt for vertical reel format
-    let enhancedPrompt = prompt;
-    if (brandName) {
-      enhancedPrompt = `${prompt} for ${brandName} brand.`;
-    }
-    
-    // Add language constraint
-    const langMap: Record<string, string> = {
-      fr: "French", es: "Spanish", de: "German", it: "Italian", pt: "Portuguese"
-    };
-    const langName = langMap[language || ""] || "English";
-    if (language && language !== "en") {
-      enhancedPrompt = `[All text MUST be in ${langName}] ${enhancedPrompt}`;
-    }
-    
-    enhancedPrompt += " Vertical 9:16 portrait format, perfect for Instagram Reels and TikTok, eye-catching motion, professional quality, vibrant colors, social media optimized.";
-
-    console.log("[generateReel] Using Kling Video via CometAPI...");
-
-    // Create video task with Kling
-    const formData = new FormData();
-    formData.append("prompt", enhancedPrompt);
-    formData.append("model", "kling-video");
-    formData.append("seconds", "5");
-    formData.append("size", "720x1280"); // Portrait for Reels
-
-    const createResponse = await fetch("https://api.cometapi.com/v1/videos", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${COMETAPI_API_KEY}` },
-      body: formData,
-    });
-
-    if (!createResponse.ok) {
-      const errorText = await createResponse.text();
-      console.error("[generateReel] CometAPI create error:", createResponse.status, errorText.slice(0, 200));
-      return null;
-    }
-
-    const createData = await createResponse.json();
-    const taskId = createData.id;
-    if (!taskId) {
-      console.error("[generateReel] No task ID in response");
-      return null;
-    }
-
-    console.log("[generateReel] Task created:", taskId);
-
-    // Poll for completion (max 5 minutes)
-    const maxAttempts = 30;
-    for (let i = 0; i < maxAttempts; i++) {
-      await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10s
-
-      const statusResponse = await fetch(`https://api.cometapi.com/v1/videos/${taskId}`, {
-        headers: { Authorization: `Bearer ${COMETAPI_API_KEY}` },
-      });
-
-      if (!statusResponse.ok) continue;
-
-      const statusData = await statusResponse.json();
-      const videoData = statusData.data || statusData;
-      const innerData = videoData.data || {};
-      const status = (videoData.status || innerData.status || "").toLowerCase();
-
-      console.log(`[generateReel] Poll ${i + 1}/${maxAttempts}: status=${status}`);
-
-      if (status === "completed" || status === "success" || status === "succeeded" || status === "done") {
-        // CometAPI quirk: video URL sometimes in fail_reason
-        let videoUrl: string | null = null;
-        if (videoData.fail_reason && typeof videoData.fail_reason === "string" && videoData.fail_reason.startsWith("http")) {
-          videoUrl = videoData.fail_reason;
-        } else {
-          videoUrl = innerData.output_video || videoData.output_video || 
-                     videoData.video_url || innerData.url || videoData.url;
-        }
-
-        if (videoUrl) {
-          console.log("[generateReel] Video ready:", videoUrl.slice(0, 60));
-          
-          // Download and upload to Supabase storage
-          const videoResponse = await fetch(videoUrl);
-          if (!videoResponse.ok) {
-            console.log("[generateReel] Download failed, using original URL");
-            return videoUrl;
-          }
-
-          const videoBuffer = await videoResponse.arrayBuffer();
-          const videoBytes = new Uint8Array(videoBuffer);
-          const videoPath = `reels/reel-${Date.now()}-${Math.random().toString(36).slice(2)}.mp4`;
-
-          const { error: uploadError } = await supabase.storage
-            .from("media")
-            .upload(videoPath, videoBytes, { contentType: "video/mp4", upsert: true });
-
-          if (uploadError) {
-            console.error("[generateReel] Upload error:", uploadError);
-            return videoUrl; // Return original URL as fallback
-          }
-
-          const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(videoPath);
-          console.log("[generateReel] ✅ MP4 uploaded:", publicUrlData.publicUrl);
-          return publicUrlData.publicUrl;
-        }
-      } else if (status === "failed" || status === "error") {
-        console.error("[generateReel] Task failed");
-        return null;
-      }
-    }
-
-    console.log("[generateReel] Timeout waiting for video");
-    return null;
-  } catch (error) {
-    console.error("[generateReel] Error:", error);
-    return null;
+  
+  // Add language constraint
+  const langMap: Record<string, string> = {
+    fr: "French", es: "Spanish", de: "German", it: "Italian", pt: "Portuguese"
+  };
+  const langName = langMap[language || ""] || "English";
+  if (language && language !== "en") {
+    enhancedPrompt = `[All text MUST be in ${langName}] ${enhancedPrompt}`;
   }
+  
+  enhancedPrompt += " Vertical 9:16 portrait format, perfect for Instagram Reels and TikTok, eye-catching motion, professional quality, vibrant colors.";
+  
+  return generateVideo(enhancedPrompt, supabase, quality);
 }
 
 // ============================================================
@@ -631,7 +559,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log("[cron] Starting AutoPost processing (Smart Quality)...");
+    console.log("[cron] Starting AutoPost processing (Quality Tiers)...");
 
     const now = new Date();
     let totalGenerated = 0;
@@ -679,7 +607,24 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // STEP 1: Generate media if missing (using Smart quality)
+      // Fetch campaign quality settings if linked
+      let imageQuality = "pro"; // Default to Medium
+      let videoQuality = "pro"; // Default to Medium
+      
+      if (post.campaign_id) {
+        const { data: campaign } = await supabase
+          .from("campaigns")
+          .select("image_quality, video_quality")
+          .eq("id", post.campaign_id)
+          .single();
+        
+        if (campaign) {
+          imageQuality = campaign.image_quality || "pro";
+          videoQuality = campaign.video_quality || "pro";
+        }
+      }
+
+      // STEP 1: Generate media if missing (using quality tiers)
       if (!post.media_url && post.ai_prompt) {
         // Check if this is an "Image as Reel" post:
         // - content_type is "video" 
@@ -690,10 +635,10 @@ Deno.serve(async (req) => {
           !post.ai_prompt.toLowerCase().includes("scene ");
         
         if (isImageAsReel) {
-          // Reel: Use Kling Video via CometAPI for real MP4
-          console.log(`[cron] Generating Reel (Kling Video) for post ${post.id} in ${projectLanguage}`);
+          // Reel: Use Nano Banana Video for real MP4
+          console.log(`[cron] Generating Reel (${videoQuality}) for post ${post.id} in ${projectLanguage}`);
           
-          const videoUrl = await generateReel(post.ai_prompt, supabase, brandName, projectLanguage);
+          const videoUrl = await generateReel(post.ai_prompt, supabase, brandName, projectLanguage, videoQuality);
           if (videoUrl) {
             await supabase.from("scheduled_posts").update({ 
               media_url: videoUrl,
@@ -706,24 +651,24 @@ Deno.serve(async (req) => {
             console.log(`[cron] Reel generation failed for post ${post.id}`);
           }
         } else if (post.content_type === "image") {
-          console.log(`[cron] Generating Smart Image for post ${post.id} in ${projectLanguage}`);
-          const imageUrl = await generateImage(post.ai_prompt, supabase, brandName, projectLanguage);
+          console.log(`[cron] Generating Image (${imageQuality}) for post ${post.id} in ${projectLanguage}`);
+          const imageUrl = await generateImage(post.ai_prompt, supabase, brandName, projectLanguage, imageQuality);
           if (imageUrl) {
             await supabase.from("scheduled_posts").update({ media_url: imageUrl }).eq("id", post.id);
             post.media_url = imageUrl;
             totalGenerated++;
-            console.log(`[cron] Smart Image generated: ${imageUrl.slice(0, 50)}...`);
+            console.log(`[cron] Image generated: ${imageUrl.slice(0, 50)}...`);
           } else {
             console.log(`[cron] Image generation failed for post ${post.id}`);
           }
         } else if (post.content_type === "video") {
-          console.log(`[cron] Generating Smart Video for post ${post.id}`);
-          const videoUrl = await generateVideo(post.ai_prompt, supabase);
+          console.log(`[cron] Generating Video (${videoQuality}) for post ${post.id}`);
+          const videoUrl = await generateVideo(post.ai_prompt, supabase, videoQuality);
           if (videoUrl) {
             await supabase.from("scheduled_posts").update({ media_url: videoUrl }).eq("id", post.id);
             post.media_url = videoUrl;
             totalGenerated++;
-            console.log(`[cron] Smart Video generated: ${videoUrl.slice(0, 50)}...`);
+            console.log(`[cron] Video generated: ${videoUrl.slice(0, 50)}...`);
           } else {
             console.log(`[cron] Video generation failed for post ${post.id}`);
           }
