@@ -4,12 +4,14 @@ import { AUDIO_CATEGORIES } from "@/lib/audioBank";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { BrandOptions, BrandOptionsState } from "@/components/BrandOptions";
 import {
   Dialog,
@@ -17,6 +19,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import {
   Select,
   SelectContent,
@@ -103,6 +111,7 @@ export const CampaignWizardModal = ({
 }: CampaignWizardModalProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -349,28 +358,21 @@ export const CampaignWizardModal = ({
 
   const totalSteps = 5;
 
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Wand2 className="h-5 w-5 text-primary" />
-            Create Campaign
-          </DialogTitle>
-        </DialogHeader>
+  const WizardContent = () => (
+    <>
+      {/* Progress */}
+      <div className="flex gap-1 mb-4 px-1">
+        {Array.from({ length: totalSteps }).map((_, i) => (
+          <div
+            key={i}
+            className={`h-1 flex-1 rounded-full transition-colors ${
+              i < step ? "bg-primary" : "bg-muted"
+            }`}
+          />
+        ))}
+      </div>
 
-        {/* Progress */}
-        <div className="flex gap-1 mb-4">
-          {Array.from({ length: totalSteps }).map((_, i) => (
-            <div
-              key={i}
-              className={`h-1 flex-1 rounded-full transition-colors ${
-                i < step ? "bg-primary" : "bg-muted"
-              }`}
-            />
-          ))}
-        </div>
-
+      <ScrollArea className="flex-1 -mx-1 px-1" style={{ maxHeight: isMobile ? "60vh" : "55vh" }}>
         <AnimatePresence mode="wait">
           {/* Step 1: Campaign Type */}
           {step === 1 && (
@@ -745,7 +747,7 @@ export const CampaignWizardModal = ({
                   Posting Schedule
                 </h4>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label className="text-xs">Posting Hour</Label>
                     <Select value={postingHour.toString()} onValueChange={(v) => setPostingHour(parseInt(v))}>
@@ -784,41 +786,87 @@ export const CampaignWizardModal = ({
             </motion.div>
           )}
         </AnimatePresence>
+      </ScrollArea>
 
-        {/* Navigation */}
-        <div className="flex justify-between pt-4 border-t">
-          <Button
-            variant="outline"
-            onClick={() => step > 1 ? setStep(step - 1) : onClose()}
-          >
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            {step === 1 ? "Cancel" : "Back"}
+      {/* Navigation */}
+      <div className="flex justify-between pt-4 border-t mt-4">
+        <Button
+          variant="outline"
+          onClick={() => step > 1 ? setStep(step - 1) : onClose()}
+          size={isMobile ? "sm" : "default"}
+        >
+          <ChevronLeft className="h-4 w-4 mr-1" />
+          {step === 1 ? "Cancel" : "Back"}
+        </Button>
+
+        {step < totalSteps ? (
+          <Button onClick={() => setStep(step + 1)} disabled={!canProceed()} size={isMobile ? "sm" : "default"}>
+            Next
+            <ChevronRight className="h-4 w-4 ml-1" />
           </Button>
+        ) : (
+          <Button onClick={handleSubmit} disabled={isSubmitting || !canProceed()} size={isMobile ? "sm" : "default"}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <Wand2 className="h-4 w-4 mr-2" />
+                Launch Campaign
+              </>
+            )}
+          </Button>
+        )}
+      </div>
+    </>
+  );
 
-          {step < totalSteps ? (
-            <Button onClick={() => setStep(step + 1)} disabled={!canProceed()}>
-              Next
-              <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
-          ) : (
-            <Button onClick={handleSubmit} disabled={isSubmitting || !canProceed()}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Wand2 className="h-4 w-4 mr-2" />
-                  Launch Campaign
-                </>
-              )}
-            </Button>
-          )}
-        </div>
-      </DialogContent>
+  if (isMobile) {
+    return (
+      <>
+        <Drawer open={isOpen} onOpenChange={onClose}>
+          <DrawerContent className="max-h-[90vh]">
+            <DrawerHeader className="pb-2">
+              <DrawerTitle className="flex items-center gap-2 text-base">
+                <Wand2 className="h-5 w-5 text-primary" />
+                Create Campaign
+              </DrawerTitle>
+            </DrawerHeader>
+            <div className="px-4 pb-6">
+              <WizardContent />
+            </div>
+          </DrawerContent>
+        </Drawer>
 
-      {/* Progress Modal */}
+        <CampaignProgressModal
+          isOpen={showProgress}
+          onClose={handleProgressClose}
+          campaignName={name || `${campaignType.charAt(0).toUpperCase() + campaignType.slice(1)} Campaign`}
+          status={progressStatus}
+          progress={progressValue}
+          stats={progressStats}
+          errorMessage={progressError}
+        />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wand2 className="h-5 w-5 text-primary" />
+              Create Campaign
+            </DialogTitle>
+          </DialogHeader>
+          <WizardContent />
+        </DialogContent>
+      </Dialog>
+
       <CampaignProgressModal
         isOpen={showProgress}
         onClose={handleProgressClose}
@@ -828,6 +876,6 @@ export const CampaignWizardModal = ({
         stats={progressStats}
         errorMessage={progressError}
       />
-    </Dialog>
+    </>
   );
 };
