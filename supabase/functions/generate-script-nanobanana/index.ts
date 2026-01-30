@@ -190,7 +190,7 @@ function generateFallbackScripts(projectName?: string, description?: string, lan
   ];
 }
 
-// Main handler - Now using Lovable AI (Gemini) instead of Replicate
+// Main handler - Using Lovable AI (Gemini)
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -253,11 +253,11 @@ serve(async (req) => {
     const scenarioContext = buildScenarioContext();
 
     // ============================================
-    // USE REPLICATE - NANOBANANA-PRO (CHEAP MODEL)
+    // USE LOVABLE AI (Gemini) for script generation
     // ============================================
-    const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
-    if (!REPLICATE_API_KEY) {
-      throw new Error("REPLICATE_API_KEY is not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     // Calculate optimal word count based on duration (~2.5 words/second)
@@ -320,15 +320,15 @@ Respond ONLY with valid JSON:
   ]
 }`;
 
-    // Call Replicate with nanobanana-pro (cheap & stable for scripts)
-    const response = await fetch("https://api.cometapi.com/v1/chat/completions", {
+    // Call Lovable AI
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${REPLICATE_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "nanobanana-pro", // ✅ CHEAP MODEL
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -341,7 +341,7 @@ Respond ONLY with valid JSON:
     if (!response.ok) {
       const status = response.status;
       const errorText = await response.text();
-      console.error("[generate-script] Replicate error:", status, errorText.slice(0, 200));
+      console.error("[generate-script] Lovable AI error:", status, errorText.slice(0, 200));
       
       if (status === 429) {
         return new Response(
@@ -356,7 +356,7 @@ Respond ONLY with valid JSON:
         );
       }
       
-      throw new Error(`Replicate error: ${status}`);
+      throw new Error(`Lovable AI error: ${status}`);
     }
 
     const aiResponse = await response.json();
@@ -371,66 +371,44 @@ Respond ONLY with valid JSON:
     // Parse JSON response with safe parser
     let scripts;
     try {
-      const parsed = safeParseJSON<{ scripts?: Array<{ id: string; title: string; content: string; angle: string }> }>(content);
-      
-      if (parsed) {
-        scripts = parsed.scripts || [];
-
-        // Quality validation
-        scripts = scripts.filter((s) => {
-          const text = s.content?.trim() || "";
-          
-          // Length check (more permissive for ads with timestamps)
-          const textWithoutTimestamps = text.replace(/\[\d+[–-]\d+s\]/g, "").trim();
-          if (textWithoutTimestamps.length < 30 || textWithoutTimestamps.length > 800) return false;
-          
-          // For ADS: Check sentence length (max 7 words per sentence)
-          if (scriptType === "ad") {
-            const lines = text.split(/\n/).filter(Boolean);
-            for (const line of lines) {
-              const cleanLine = line.replace(/^\[\d+[–-]\d+s\]\s*/, "").trim();
-              if (cleanLine) {
-                const words = cleanLine.split(/\s+/).filter(Boolean);
-                if (words.length > 8) {
-                  console.log("[generate-script] ADS script rejected - line too long:", cleanLine);
-                  return false;
-                }
-              }
-            }
-          }
-          
-          return true;
-        });
-
-        // Ensure we have at least some scripts
-        if (scripts.length === 0) {
-          console.warn("[generate-script] All scripts filtered, using fallbacks");
-          scripts = generateFallbackScripts(projectName, productName, language);
-        }
+      const parsed = safeParseJSON<{ scripts: any[] }>(content);
+      if (parsed?.scripts && Array.isArray(parsed.scripts)) {
+        scripts = parsed.scripts;
       } else {
-        throw new Error("No JSON found in response");
+        throw new Error("Invalid scripts structure");
       }
     } catch (parseError) {
-      console.error("[generate-script] Parse error:", parseError);
+      console.warn("[generate-script] JSON parse failed, using fallback scripts");
       scripts = generateFallbackScripts(projectName, projectDescription, language);
     }
 
-    console.log("[generate-script] ✅ Scripts generated:", scripts.length);
+    // Validate and clean scripts
+    scripts = scripts.map((s: any, i: number) => ({
+      id: s.id || String(i + 1),
+      title: s.title || `Script ${i + 1}`,
+      content: s.content || "",
+      angle: s.angle || "benefit",
+    })).filter((s: any) => s.content && s.content.length > 10);
+
+    if (scripts.length === 0) {
+      console.warn("[generate-script] No valid scripts, using fallback");
+      scripts = generateFallbackScripts(projectName, projectDescription, language);
+    }
+
+    console.log(`[generate-script] Returning ${scripts.length} scripts`);
 
     return new Response(
-      JSON.stringify({ 
-        scripts,
-        model: "gemini-2.5-flash",
-        quality: "premium",
-        language,
-        provider: "lovable-ai",
-      }),
+      JSON.stringify({ scripts }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
+
   } catch (error) {
     console.error("[generate-script] Error:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : "Script generation failed",
+        scripts: generateFallbackScripts(),
+      }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

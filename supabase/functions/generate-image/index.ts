@@ -24,12 +24,12 @@ function getCreditCost(quality: string): number {
 }
 
 // ============================================================
-// MODEL POOL CONFIGURATION - Weighted Random Selection
+// MODEL POOL CONFIGURATION - All via Lovable AI
 // ============================================================
 
 interface ModelOption {
   id: string;
-  provider: "lovable" | "replicate";
+  provider: "lovable";
   weight: number;
   apiModel: string;
 }
@@ -39,19 +39,17 @@ const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
     { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image" },
   ],
   pro: [
-    { id: "flux-2-pro", provider: "replicate", weight: 60, apiModel: "flux-2-pro" },
-    { id: "nano-banana-pro", provider: "replicate", weight: 40, apiModel: "nano-banana-pro" },
+    { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image" },
   ],
   cinema: [
-    { id: "gemini-pro-image", provider: "lovable", weight: 50, apiModel: "google/gemini-3-pro-image-preview" },
-    { id: "flux-2-pro", provider: "replicate", weight: 50, apiModel: "flux-2-pro" },
+    { id: "gemini-pro-image", provider: "lovable", weight: 100, apiModel: "google/gemini-3-pro-image-preview" },
   ],
   // Legacy mappings
   "smart-image": [
     { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image" },
   ],
   "high-image": [
-    { id: "flux-2-pro", provider: "replicate", weight: 100, apiModel: "flux-2-pro" },
+    { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image" },
   ],
   "studio-image": [
     { id: "gemini-pro-image", provider: "lovable", weight: 100, apiModel: "google/gemini-3-pro-image-preview" },
@@ -199,67 +197,7 @@ const TONE_CONTEXT: Record<string, string> = {
 };
 
 // ============================================================
-// REPLICATE IMAGE GENERATION
-// ============================================================
-
-async function generateWithReplicate(
-  prompt: string,
-  model: string,
-  aspectRatio?: string
-): Promise<{ imageData: string | null; error?: string }> {
-  const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
-  if (!REPLICATE_API_KEY) {
-    return { imageData: null, error: "REPLICATE_API_KEY not configured" };
-  }
-
-  try {
-    console.log(`[Replicate] Generating image with model: ${model}`);
-
-    const response = await fetch("https://api.cometapi.com/v1/images/generations", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${REPLICATE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        prompt,
-        n: 1,
-        size: aspectRatio === "16:9" ? "1792x1024" : aspectRatio === "9:16" ? "1024x1792" : "1024x1024",
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[Replicate] Error ${response.status}:`, errorText.slice(0, 200));
-      return { imageData: null, error: `Replicate error: ${response.status}` };
-    }
-
-    const data = await response.json();
-    const imageUrl = data.data?.[0]?.url || data.data?.[0]?.b64_json;
-
-    if (!imageUrl) {
-      console.error("[Replicate] No image in response");
-      return { imageData: null, error: "No image generated" };
-    }
-
-    if (imageUrl.startsWith("http")) {
-      const imgResponse = await fetch(imageUrl);
-      const imgBlob = await imgResponse.blob();
-      const arrayBuffer = await imgBlob.arrayBuffer();
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-      return { imageData: `data:image/png;base64,${base64}` };
-    }
-
-    return { imageData: `data:image/png;base64,${imageUrl}` };
-  } catch (error) {
-    console.error("[Replicate] Exception:", error);
-    return { imageData: null, error: String(error) };
-  }
-}
-
-// ============================================================
-// LOVABLE AI IMAGE GENERATION
+// LOVABLE AI IMAGE GENERATION (Nano Banana)
 // ============================================================
 
 async function generateWithLovableAI(
@@ -323,16 +261,9 @@ async function generateWithLovableAI(
 async function generateWithFallback(
   prompt: string,
   selectedModel: ModelOption,
-  qualityId: string,
-  aspectRatio?: string
+  qualityId: string
 ): Promise<{ imageData: string | null; error?: string; usedModel: ModelOption }> {
-  let result: { imageData: string | null; error?: string };
-  
-  if (selectedModel.provider === "replicate") {
-    result = await generateWithReplicate(prompt, selectedModel.apiModel, aspectRatio);
-  } else {
-    result = await generateWithLovableAI(prompt, selectedModel.apiModel);
-  }
+  const result = await generateWithLovableAI(prompt, selectedModel.apiModel);
   
   if (result.imageData) {
     return { ...result, usedModel: selectedModel };
@@ -344,16 +275,11 @@ async function generateWithFallback(
   
   for (const fallbackModel of fallbackModels) {
     console.log(`[Fallback] Trying ${fallbackModel.id}...`);
+    const fallbackResult = await generateWithLovableAI(prompt, fallbackModel.apiModel);
     
-    if (fallbackModel.provider === "replicate") {
-      result = await generateWithReplicate(prompt, fallbackModel.apiModel, aspectRatio);
-    } else {
-      result = await generateWithLovableAI(prompt, fallbackModel.apiModel);
-    }
-    
-    if (result.imageData) {
+    if (fallbackResult.imageData) {
       console.log(`[Fallback] Success with ${fallbackModel.id}`);
-      return { ...result, usedModel: fallbackModel };
+      return { ...fallbackResult, usedModel: fallbackModel };
     }
   }
   
@@ -374,7 +300,7 @@ Deno.serve(async (req) => {
       prompt,
       productId,
       qualityId,
-      quality, // NEW: Direct quality tier (standard/pro/cinema)
+      quality,
       format, 
       aspectRatio, 
       sectorId, 
@@ -391,7 +317,7 @@ Deno.serve(async (req) => {
       includeAvatar,
       avatarUrl,
       aiContextSummary,
-      skipCreditDeduction, // For campaign-based generation (credits deducted at campaign level)
+      skipCreditDeduction,
     } = await req.json();
 
     if (!prompt) {
@@ -429,7 +355,6 @@ Deno.serve(async (req) => {
     // CREDIT VALIDATION & DEDUCTION (if user is authenticated)
     // ============================================================
     if (userId && !skipCreditDeduction) {
-      // Check current balance
       const { data: creditsData, error: creditsError } = await supabase
         .from("credits")
         .select("balance")
@@ -455,7 +380,6 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Deduct credits
       const { data: deductSuccess, error: deductError } = await supabase.rpc("deduct_credits", {
         p_user_id: userId,
         p_amount: creditCost,
@@ -472,7 +396,6 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Log transaction
       await supabase.from("credit_transactions").insert({
         user_id: userId,
         amount: -creditCost,
@@ -500,78 +423,70 @@ Deno.serve(async (req) => {
     const languageName = languageMap[outputLanguage] || "English";
 
     // Build enhanced prompt
-    let enhancedPrompt = prompt;
-    const contextParts: string[] = [];
-
+    const enhancedParts: string[] = [];
+    
+    // Add language instruction if not English
     if (outputLanguage !== "en") {
-      enhancedPrompt = `[LANGUAGE: All text in this image MUST be in ${languageName}. NO English text allowed.] ${prompt}`;
+      enhancedParts.push(`[LANGUAGE: All text in this image MUST be in ${languageName}. NO English text allowed.]`);
     }
 
-    if (brandName) {
-      contextParts.push(`for ${brandName} brand`);
-    }
-
-    if (format === "reel" || format === "story") {
-      contextParts.push("vertical portrait format 9:16 aspect ratio");
-    } else if (format === "landscape") {
-      contextParts.push("horizontal landscape format 16:9 aspect ratio");
-    }
-
+    // Add scenario context
     if (sectorId && SECTOR_CONTEXT[sectorId]) {
-      contextParts.push(SECTOR_CONTEXT[sectorId]);
+      enhancedParts.push(`Sector style: ${SECTOR_CONTEXT[sectorId]}`);
     }
     if (styleId && STYLE_CONTEXT[styleId]) {
-      contextParts.push(STYLE_CONTEXT[styleId]);
+      enhancedParts.push(`Visual style: ${STYLE_CONTEXT[styleId]}`);
     }
     if (toneId && TONE_CONTEXT[toneId]) {
-      contextParts.push(TONE_CONTEXT[toneId]);
+      enhancedParts.push(`Tone: ${TONE_CONTEXT[toneId]}`);
     }
 
-    if (contextParts.length > 0) {
-      enhancedPrompt = `${enhancedPrompt}. Style: ${contextParts.join(", ")}. Ultra high resolution, professional quality.`;
-    } else {
-      enhancedPrompt = `${enhancedPrompt}. Ultra high resolution, professional quality.`;
+    // Add brand context
+    if (brandName) {
+      enhancedParts.push(`Brand: ${brandName}`);
     }
-
     if (aiContextSummary) {
-      enhancedPrompt += ` Brand context: ${aiContextSummary.slice(0, 500)}.`;
+      enhancedParts.push(`Brand context: ${aiContextSummary.substring(0, 200)}`);
     }
 
-    // Brand elements
-    if (includeLogo && brandName && !logoUrl) {
-      enhancedPrompt += ` IMPORTANT: Include a stylized brand logo area or badge in the bottom-right or top-left corner with the text "${brandName}" in elegant, professional typography that matches the image style.`;
+    // Build final prompt
+    let finalPrompt = prompt;
+    if (enhancedParts.length > 0) {
+      finalPrompt = `${enhancedParts.join(". ")}. ${prompt}`;
     }
-    
+
+    // Add format specifications
+    if (format === "vertical" || aspectRatio === "9:16") {
+      finalPrompt += " Vertical format (9:16), optimized for mobile, Instagram Reels, TikTok.";
+    } else if (format === "square" || aspectRatio === "1:1") {
+      finalPrompt += " Square format (1:1), perfect for Instagram feed.";
+    } else if (format === "landscape" || aspectRatio === "16:9") {
+      finalPrompt += " Landscape format (16:9), optimized for YouTube, presentations.";
+    }
+
+    // Add quality enhancements
+    finalPrompt += " Ultra high resolution, professional quality, stunning composition, perfect lighting.";
+
+    // Add text overlay instructions if needed
+    if (includeText && overlayText) {
+      finalPrompt += ` Include this text prominently in the image: "${overlayText}". Make the text bold, readable, and well-integrated into the design.`;
+    }
+
+    // Add URL if requested
     if (includeUrl && projectUrl) {
-      const cleanUrl = projectUrl.replace(/^https?:\/\//, "").replace(/\/$/, "").split("/")[0];
-      enhancedPrompt += ` Include a subtle website URL watermark "${cleanUrl}" at the bottom of the image in small, readable text.`;
-    }
-    
-    if (includeAvatar && avatarUrl) {
-      enhancedPrompt += ` Feature a professional-looking spokesperson or presenter figure prominently in the image - a confident, friendly person representing the brand, positioned as if speaking directly to the viewer.`;
+      finalPrompt += ` Subtly include the website URL "${projectUrl}" in the composition.`;
     }
 
-    if (includeText) {
-      const textToOverlay = overlayText || brandName || "";
-      if (textToOverlay) {
-        enhancedPrompt += ` CRITICAL: Include bold, eye-catching text overlay. The text MUST be in ${languageName}: "${textToOverlay}". NO English text. The text should be large, readable, placed prominently (top or center), with high contrast against the background. Use modern social media typography style.`;
-      } else {
-        enhancedPrompt += ` CRITICAL: This is a social media image. Include a short, punchy headline or call-to-action text overlay. ALL TEXT MUST BE IN ${languageName.toUpperCase()} ONLY. NO English. Use bold, modern typography that pops against the image.`;
-      }
-    }
+    console.log("Final prompt length:", finalPrompt.length);
 
-    if (outputLanguage !== "en") {
-      enhancedPrompt += ` REMINDER: Any and all text visible in this image must be in ${languageName}, not English.`;
-    }
-    
-    console.log("Enhanced prompt:", enhancedPrompt.slice(0, 200) + "...");
+    // Generate image
+    const { imageData, error, usedModel } = await generateWithFallback(
+      finalPrompt,
+      selectedModel,
+      effectiveQuality
+    );
 
-    // Generate image with fallback system
-    const result = await generateWithFallback(enhancedPrompt, selectedModel, effectiveQuality, aspectRatio);
-
-    if (!result.imageData) {
-      console.error("Image generation failed:", result.error);
-      
+    if (!imageData) {
       // Refund credits on failure
       if (userId && !skipCreditDeduction) {
         await supabase.rpc("add_credits", {
@@ -586,56 +501,27 @@ Deno.serve(async (req) => {
         });
         console.log(`✓ Refunded ${creditCost} credits due to generation failure`);
       }
-      
+
       return new Response(
-        JSON.stringify({ error: result.error || "Image generation failed" }),
+        JSON.stringify({ error: error || "Image generation failed" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`[SUCCESS] Generated with model: ${result.usedModel.id}`);
-
-    // Post-processing: Overlay real logo if provided
-    let finalImageData = result.imageData;
-    
+    // Apply logo overlay if requested
+    let finalImageData = imageData;
     if (includeLogo && logoUrl) {
-      console.log("[PostProcess] Overlaying real logo onto generated image...");
-      finalImageData = await overlayLogoOnImage(result.imageData, logoUrl, "bottom-right");
+      console.log("[Main] Applying logo overlay...");
+      finalImageData = await overlayLogoOnImage(imageData, logoUrl, "bottom-right");
     }
 
-    // Upload to Supabase storage
-    const base64Data = finalImageData.replace(/^data:image\/\w+;base64,/, "");
-    const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
-
-    const fileName = `images/${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
-    
-    const { error: uploadError } = await supabase.storage
-      .from("media")
-      .upload(fileName, imageBytes, {
-        contentType: "image/png",
-        upsert: true,
-      });
-
-    if (uploadError) {
-      console.error("Storage upload error:", uploadError);
-      return new Response(
-        JSON.stringify({ imageUrl: finalImageData }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const { data: publicUrlData } = supabase.storage
-      .from("media")
-      .getPublicUrl(fileName);
-
-    console.log("Image uploaded:", publicUrlData.publicUrl);
+    console.log(`✓ Image generated successfully with ${usedModel.id}`);
 
     return new Response(
       JSON.stringify({
-        imageUrl: publicUrlData.publicUrl,
-        storagePath: fileName,
-        model: result.usedModel.id,
-        provider: result.usedModel.provider,
+        imageData: finalImageData,
+        model: usedModel.id,
+        provider: usedModel.provider,
         quality: effectiveQuality,
         creditCost: skipCreditDeduction ? 0 : creditCost,
       }),
