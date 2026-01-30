@@ -363,195 +363,205 @@ export const ImageDetailModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl p-0 gap-0 bg-card border-border overflow-hidden max-h-[90vh]">
-        <div className="flex flex-col md:flex-row h-full">
-          {/* Image Preview */}
-          <div className="flex-1 bg-black flex items-center justify-center min-h-[300px] md:min-h-[500px] relative">
-            {imageUrl ? (
-              <img
-                src={imageUrl}
-                alt={title}
-                className="max-h-[80vh] max-w-full object-contain"
-              />
-            ) : (
-              <div className="text-muted-foreground">No image available</div>
-            )}
-            
-            {/* Close button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-2 right-2 h-8 w-8 rounded-full bg-black/50 text-white hover:bg-black/70"
-              onClick={onClose}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
+      <DialogContent className="max-w-[95vw] md:max-w-4xl w-full p-0 gap-0 bg-card border-border max-h-[85vh] md:max-h-[90vh] flex flex-col overflow-hidden">
+        {/* Close button - always visible */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute top-2 right-2 z-50 h-8 w-8 rounded-full bg-black/50 text-white hover:bg-black/70"
+          onClick={onClose}
+        >
+          <X className="h-4 w-4" />
+        </Button>
 
-          {/* Details Panel */}
-          <div className="w-full md:w-80 border-t md:border-t-0 md:border-l border-border flex flex-col">
-            {/* Header with date and action buttons */}
-            <div className="p-4 border-b border-border space-y-3">
-              {/* Date and badges */}
-              <div className="flex items-center justify-between">
-                {createdAt && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
-                    <span>{format(createdAt, "PPP", { locale: enUS })}</span>
-                  </div>
-                )}
-              </div>
-              
-              <div className="flex flex-wrap gap-2">
-                {isProductShot && (
-                  <Badge variant="secondary">Product Shot</Badge>
-                )}
-                {projectName && (
-                  <Badge variant="outline">{projectName}</Badge>
-                )}
-                {campaignName && (
-                  <Badge variant="outline">{campaignName}</Badge>
-                )}
-              </div>
-
-              {/* Action buttons bar */}
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="flex-1 gap-2" onClick={handleDownload}>
-                  <Download className="h-4 w-4" />
-                  Download
-                </Button>
-                {imageUrl && (
-                  <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => window.open(imageUrl, "_blank")}>
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                )}
-                {onDelete && (
-                  <Button variant="destructive" size="icon" className="h-9 w-9" onClick={onDelete}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
+        {/* Scrollable container for entire content */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Mobile-first: Stack vertically, side-by-side on desktop */}
+          <div className="flex flex-col md:flex-row md:h-full">
+            {/* Image Preview - Compact on mobile, larger on desktop */}
+            <div className="w-full md:flex-1 bg-black flex items-center justify-center min-h-[200px] md:min-h-[400px] max-h-[40vh] md:max-h-none relative shrink-0">
+              {imageUrl ? (
+                <img
+                  src={imageUrl}
+                  alt={title}
+                  className="w-full h-full object-contain max-h-[40vh] md:max-h-[80vh]"
+                />
+              ) : (
+                <div className="text-muted-foreground flex flex-col items-center gap-2 py-8">
+                  <ImageIcon className="h-12 w-12 opacity-50" />
+                  <span className="text-sm">No image available</span>
+                </div>
+              )}
             </div>
 
-            {/* Scrollable content */}
-            <div className="flex-1 p-4 space-y-4 overflow-y-auto">
-              {/* Prompt with expand/collapse */}
-              {prompt && (
-                <ExpandablePrompt prompt={prompt} />
-              )}
-
-              {/* Caption editor */}
-              <div className="space-y-2">
+            {/* Details Panel - Full width on mobile, sidebar on desktop */}
+            <div className="w-full md:w-80 md:border-l border-border flex flex-col shrink-0">
+              {/* Header with date and action buttons */}
+              <div className="p-3 md:p-4 border-b border-border space-y-3">
+                {/* Date and badges */}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-sm font-medium">Caption</h4>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-7 px-2 gap-1 text-primary hover:text-primary/80"
-                      onClick={handleGenerateCaption}
-                      disabled={isGeneratingCaption}
-                    >
-                      {isGeneratingCaption ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Sparkles className="h-3.5 w-3.5" />
-                      )}
-                      Generate
+                  {createdAt && (
+                    <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
+                      <Calendar className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                      <span>{format(createdAt, "PPP", { locale: enUS })}</span>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex flex-wrap gap-1.5 md:gap-2">
+                  {isProductShot && (
+                    <Badge variant="secondary" className="text-xs">Product Shot</Badge>
+                  )}
+                  {projectName && (
+                    <Badge variant="outline" className="text-xs truncate max-w-[140px]">{projectName}</Badge>
+                  )}
+                  {campaignName && (
+                    <Badge variant="outline" className="text-xs truncate max-w-[140px]">{campaignName}</Badge>
+                  )}
+                </div>
+
+                {/* Action buttons bar */}
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="flex-1 gap-2 h-9 text-sm" onClick={handleDownload}>
+                    <Download className="h-3.5 w-3.5" />
+                    Download
+                  </Button>
+                  {imageUrl && (
+                    <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => window.open(imageUrl, "_blank")}>
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {onDelete && (
+                    <Button variant="destructive" size="icon" className="h-9 w-9" onClick={onDelete}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Scrollable content section */}
+              <div className="p-3 md:p-4 space-y-4 md:overflow-y-auto md:max-h-[calc(90vh-220px)]">
+                {/* Prompt with expand/collapse */}
+                {prompt && (
+                  <ExpandablePrompt prompt={prompt} />
+                )}
+
+                {/* Caption editor */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-medium">Caption</h4>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-7 px-2 gap-1 text-primary hover:text-primary/80 text-xs"
+                        onClick={handleGenerateCaption}
+                        disabled={isGeneratingCaption}
+                      >
+                        {isGeneratingCaption ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3.5 w-3.5" />
+                        )}
+                        Generate
+                      </Button>
+                    </div>
+                    <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={handleCopyCaption}>
+                      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      {copied ? "Copied" : "Copy"}
                     </Button>
                   </div>
-                  <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={handleCopyCaption}>
-                    {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                    {copied ? "Copied" : "Copy"}
-                  </Button>
+                  <Textarea
+                    value={caption}
+                    onChange={(e) => setCaption(e.target.value)}
+                    placeholder="Add a caption..."
+                    className="min-h-[70px] md:min-h-[80px] resize-none text-sm"
+                  />
                 </div>
-                <Textarea
-                  value={caption}
-                  onChange={(e) => setCaption(e.target.value)}
-                  placeholder="Add a caption..."
-                  className="min-h-[80px] resize-none"
-                />
-              </div>
 
-              {/* Direct API Publish buttons */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium flex items-center gap-2">
-                  <Send className="h-4 w-4" />
-                  Publish directly
-                </h4>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    variant="default"
-                    className="gap-2 h-11"
-                    onClick={handlePublishAsImage}
-                    disabled={isPublishingImage || isPublishingReel || !imageUrl}
-                  >
-                    {isPublishingImage ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <ImageIcon className="h-4 w-4" />
-                    )}
-                    Post Image
-                  </Button>
-                  <Button
-                    variant="default"
-                    className="gap-2 h-11 bg-gradient-to-r from-pink-500 to-orange-500 hover:from-pink-600 hover:to-orange-600"
-                    onClick={handlePublishAsReel}
-                    disabled={isPublishingImage || isPublishingReel || !imageUrl}
-                  >
-                    {isPublishingReel ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Film className="h-4 w-4" />
-                    )}
-                    Post Reel
-                  </Button>
+                {/* Direct API Publish buttons */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium flex items-center gap-2">
+                    <Send className="h-4 w-4" />
+                    Publish directly
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="default"
+                      className="gap-2 h-10"
+                      onClick={handlePublishAsImage}
+                      disabled={isPublishingImage || isPublishingReel || !imageUrl}
+                    >
+                      {isPublishingImage ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ImageIcon className="h-4 w-4" />
+                      )}
+                      Post Image
+                    </Button>
+                    <Button
+                      variant="default"
+                      className="gap-2 h-10 bg-gradient-to-r from-pink-500 to-orange-500 hover:from-pink-600 hover:to-orange-600"
+                      onClick={handlePublishAsReel}
+                      disabled={isPublishingImage || isPublishingReel || !imageUrl}
+                    >
+                      {isPublishingReel ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Film className="h-4 w-4" />
+                      )}
+                      Post Reel
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Publishes to Facebook & Instagram via API
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground text-center">
-                  Publishes to Facebook & Instagram via API
-                </p>
-              </div>
 
-              {/* Share buttons */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium flex items-center gap-2">
-                  <Share2 className="h-4 w-4" />
-                  Share to
-                </h4>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    variant="outline"
-                    className="gap-2 h-10"
-                    onClick={() => handleShareToSocial("facebook")}
-                  >
-                    <FaFacebook className="h-4 w-4 text-primary" />
-                    Facebook
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="gap-2 h-10"
-                    onClick={() => handleShareToSocial("linkedin")}
-                  >
-                    <FaLinkedin className="h-4 w-4 text-primary" />
-                    LinkedIn
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="gap-2 h-10"
-                    onClick={() => handleShareToSocial("instagram")}
-                  >
-                    <FaInstagram className="h-4 w-4 text-accent-foreground" />
-                    Instagram
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="gap-2 h-10"
-                    onClick={() => handleShareToSocial("tiktok")}
-                  >
-                    <FaTiktok className="h-4 w-4 text-foreground" />
-                    TikTok
-                  </Button>
+                {/* Share buttons */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium flex items-center gap-2">
+                    <Share2 className="h-4 w-4" />
+                    Share to
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="outline"
+                      className="gap-2 h-9"
+                      onClick={() => handleShareToSocial("facebook")}
+                    >
+                      <FaFacebook className="h-4 w-4 text-primary" />
+                      Facebook
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="gap-2 h-9"
+                      onClick={() => handleShareToSocial("linkedin")}
+                    >
+                      <FaLinkedin className="h-4 w-4 text-primary" />
+                      LinkedIn
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="gap-2 h-9"
+                      onClick={() => handleShareToSocial("instagram")}
+                    >
+                      <FaInstagram className="h-4 w-4 text-accent-foreground" />
+                      Instagram
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="gap-2 h-9"
+                      onClick={() => handleShareToSocial("tiktok")}
+                    >
+                      <FaTiktok className="h-4 w-4 text-foreground" />
+                      TikTok
+                    </Button>
+                  </div>
                 </div>
+
+                {/* Bottom spacer for mobile scroll */}
+                <div className="h-4 md:hidden" />
               </div>
             </div>
           </div>
