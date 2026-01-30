@@ -56,17 +56,17 @@ Deno.serve(async (req) => {
       userId = user.id;
     }
 
-    // Get redirect URI
-    const redirectUri = `${SUPABASE_URL}/functions/v1/linkedin-oauth?action=callback`;
+    // Get redirect URI - NO query params (LinkedIn requirement)
+    const redirectUri = `${SUPABASE_URL}/functions/v1/linkedin-oauth`;
 
     // ========== AUTHORIZE ==========
     if (action === "authorize") {
       // Generate state with user ID for callback
       const state = btoa(JSON.stringify({ userId }));
       
-      // LinkedIn OAuth 2.0 scopes for posting (without OpenID Connect)
+      // LinkedIn valid scopes - "profile" is deprecated, use r_liteprofile
       const scopes = [
-        "profile",
+        "r_liteprofile",
         "w_member_social", // Required for posting
       ].join(" ");
 
@@ -85,10 +85,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ========== CALLBACK ==========
-    if (action === "callback") {
-      const code = url.searchParams.get("code");
-      const stateParam = url.searchParams.get("state");
+    // ========== CALLBACK (detect via code param, not action) ==========
+    const code = url.searchParams.get("code");
+    const stateParam = url.searchParams.get("state");
+    
+    if (code && stateParam) {
       const error = url.searchParams.get("error");
       const errorDescription = url.searchParams.get("error_description");
 
@@ -99,18 +100,19 @@ Deno.serve(async (req) => {
         });
       }
 
-      if (!code || !stateParam) {
-        return new Response(generateCallbackHtml({ error: "Missing code or state" }), {
-          headers: { ...corsHeaders, "Content-Type": "text/html" },
-        });
-      }
-
       // Parse state
       let stateData: { userId: string };
       try {
         stateData = JSON.parse(atob(stateParam));
       } catch {
         return new Response(generateCallbackHtml({ error: "Invalid state" }), {
+          headers: { ...corsHeaders, "Content-Type": "text/html" },
+        });
+      }
+
+      // Validate state payload has required userId
+      if (!stateData.userId) {
+        return new Response(generateCallbackHtml({ error: "Invalid state payload" }), {
           headers: { ...corsHeaders, "Content-Type": "text/html" },
         });
       }
@@ -158,15 +160,16 @@ Deno.serve(async (req) => {
 
       const linkedinId = profile.id;
       const displayName = `${profile.localizedFirstName || ""} ${profile.localizedLastName || ""}`.trim() || "LinkedIn User";
-      // Extract profile picture from LinkedIn's nested structure
-      const avatarUrl = profile.profilePicture?.["displayImage~"]?.elements?.[0]?.identifiers?.[0]?.identifier || null;
+      // Extract profile picture - use LAST element for highest quality
+      const elements = profile.profilePicture?.["displayImage~"]?.elements;
+      const avatarUrl = elements?.[elements.length - 1]?.identifiers?.[0]?.identifier || null;
 
       console.log(`[linkedin-oauth] Profile found: ${displayName} (${linkedinId})`);
 
       // Calculate expiry (LinkedIn tokens typically expire in 60 days)
       const expiresAt = new Date(Date.now() + (tokens.expires_in || 5184000) * 1000).toISOString();
 
-      // Save to database - need to create linkedin_connections table first
+      // Save to database - LinkedIn does NOT provide refresh_token (except Marketing APIs)
       const { error: upsertError } = await supabaseAdmin
         .from("linkedin_connections")
         .upsert({
@@ -175,7 +178,7 @@ Deno.serve(async (req) => {
           display_name: displayName,
           avatar_url: avatarUrl,
           access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token || null,
+          refresh_token: null, // LinkedIn doesn't provide refresh tokens
           expires_at: expiresAt,
           updated_at: new Date().toISOString(),
         }, { onConflict: "user_id" });
