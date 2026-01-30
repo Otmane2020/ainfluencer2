@@ -112,3 +112,6 @@ verify_jwt = false
 
 [functions.linkedin-oauth]
 verify_jwt = false
+
+[functions.publish-image]
+verify_jwt = false
