@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AUDIO_CATEGORIES } from "@/lib/audioBank";
 import { supabase } from "@/integrations/supabase/client";
@@ -152,7 +152,7 @@ export const CampaignWizardModal = ({
   const [serviceTags, setServiceTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
   const [isSuggestingProduct, setIsSuggestingProduct] = useState(false);
-  const [autoSuggestedProjectId, setAutoSuggestedProjectId] = useState<string | null>(null);
+  const autoSuggestedProjectIdRef = useRef<string | null>(null);
   const [postingHour, setPostingHour] = useState(10);
   const [timezone, setTimezone] = useState("Europe/Paris");
   const [imageAsReel, setImageAsReel] = useState(false); // NEW: Convert images to reels with audio
@@ -190,7 +190,7 @@ export const CampaignWizardModal = ({
       setSubject("");
       setServiceTags([]);
       setNewTag("");
-      setAutoSuggestedProjectId(null);
+      autoSuggestedProjectIdRef.current = null;
       setPostingHour(10);
       setTimezone("Europe/Paris");
       setImageAsReel(false);
@@ -219,12 +219,12 @@ export const CampaignWizardModal = ({
   useEffect(() => {
     // Only auto-suggest when on step 2 (project selection step)
     if (step !== 2) return;
-    if (!projectId || autoSuggestedProjectId === projectId || serviceTags.length > 0) return;
+    if (!projectId || autoSuggestedProjectIdRef.current === projectId || serviceTags.length > 0) return;
     
     const selectedProject = projects.find(p => p.id === projectId);
     if (!selectedProject?.url) return;
 
-    setAutoSuggestedProjectId(projectId);
+    autoSuggestedProjectIdRef.current = projectId;
     loadServicesFromCache(projectId, selectedProject.url);
   }, [projectId, step]);
 
