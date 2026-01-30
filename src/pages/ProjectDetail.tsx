@@ -308,14 +308,25 @@ const ProjectDetail = () => {
   };
 
   const fetchPosts = async () => {
+    // Fetch both scheduled (upcoming) and published (recent) posts
     const { data } = await supabase
       .from("scheduled_posts")
       .select("id, content_type, text_content, scheduled_for, status")
       .eq("project_id", id)
       .order("scheduled_for", { ascending: false })
-      .limit(5);
+      .limit(10);
 
-    if (data) setPosts(data);
+    if (data) {
+      // Sort: show published first, then by date
+      const sorted = data.sort((a, b) => {
+        // Published posts first
+        if (a.status === "published" && b.status !== "published") return -1;
+        if (b.status === "published" && a.status !== "published") return 1;
+        // Then by date
+        return new Date(b.scheduled_for).getTime() - new Date(a.scheduled_for).getTime();
+      });
+      setPosts(sorted.slice(0, 5));
+    }
   };
 
   const handleSaveChanges = async () => {

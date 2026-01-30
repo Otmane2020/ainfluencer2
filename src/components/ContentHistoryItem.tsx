@@ -318,8 +318,12 @@ export const ContentHistoryItem = ({
             size="sm"
             onClick={() => onDelete(item)}
             className="h-8 text-xs text-destructive hover:text-destructive"
+            title={item.status === "published" && item.external_post_id 
+              ? "Delete from database and social platforms" 
+              : "Delete from database"}
           >
-            <Trash2 className="h-3 w-3" />
+            <Trash2 className="h-3 w-3 mr-1" />
+            {item.status === "published" && item.external_post_id ? "Delete All" : "Delete"}
           </Button>
         </div>
       )}
