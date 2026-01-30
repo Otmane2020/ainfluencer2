@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Video, Image as ImageIcon, Loader2, Sparkles } from "lucide-react";
+import { Video, Loader2, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { MediaCard, MediaItem } from "./MediaCard";
