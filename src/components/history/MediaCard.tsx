@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Video, Play, Download, Trash2, Loader2, Image as ImageIcon, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 export interface MediaItem {
   id: string;
@@ -37,22 +37,50 @@ export const MediaCard = ({
   isGeneratingThumbnail,
 }: MediaCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isInView, setIsInView] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // Intersection Observer for autoplay on scroll
+  useEffect(() => {
+    if (item.type !== "video" || !item.url) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          setIsInView(entry.isIntersecting);
+          
+          if (entry.isIntersecting && videoRef.current) {
+            videoRef.current.play().catch(() => {});
+            setIsPlaying(true);
+          } else if (!entry.isIntersecting && videoRef.current) {
+            videoRef.current.pause();
+            setIsPlaying(false);
+          }
+        });
+      },
+      {
+        threshold: 0.5, // 50% visible triggers play
+        rootMargin: "0px",
+      }
+    );
+
+    if (cardRef.current) {
+      observer.observe(cardRef.current);
+    }
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [item.type, item.url]);
 
   const handleMouseEnter = () => {
     setIsHovered(true);
-    if (item.type === "video" && videoRef.current && item.url) {
-      videoRef.current.currentTime = 0;
-      videoRef.current.play().catch(() => {});
-    }
   };
 
   const handleMouseLeave = () => {
     setIsHovered(false);
-    if (item.type === "video" && videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
-    }
   };
 
   // Determine aspect ratio class based on content
@@ -65,8 +93,12 @@ export const MediaCard = ({
   // Get display image - prioritize thumbnailUrl for videos, url for images
   const displayImage = item.type === "video" ? item.thumbnailUrl : (item.url || item.thumbnailUrl);
 
+  // Show video when playing (in view) or when there's no thumbnail
+  const showVideo = item.type === "video" && item.url && (isInView || !displayImage);
+
   return (
     <motion.div
+      ref={cardRef}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className={`group relative ${getAspectClass()} overflow-hidden bg-muted cursor-pointer`}
@@ -74,7 +106,7 @@ export const MediaCard = ({
       onMouseLeave={handleMouseLeave}
       onClick={onClick}
     >
-      {/* Video element for hover preview */}
+      {/* Video element - always rendered for videos, visibility controlled */}
       {item.type === "video" && item.url && (
         <video
           ref={videoRef}
@@ -83,14 +115,14 @@ export const MediaCard = ({
           loop
           playsInline
           className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
-            isHovered ? "opacity-100" : "opacity-0"
+            showVideo ? "opacity-100" : "opacity-0"
           }`}
         />
       )}
 
-      {/* Thumbnail/Image display */}
+      {/* Thumbnail/Image display - hidden when video is playing */}
       <div className={`h-full w-full transition-opacity duration-300 ${
-        isHovered && item.type === "video" && item.url ? "opacity-0" : "opacity-100"
+        showVideo ? "opacity-0" : "opacity-100"
       }`}>
         {isGeneratingThumbnail ? (
           <div className="h-full w-full flex items-center justify-center bg-muted">
@@ -114,8 +146,8 @@ export const MediaCard = ({
         )}
       </div>
 
-      {/* Play icon for videos - shows when not hovering */}
-      {item.type === "video" && !isHovered && (
+      {/* Play icon for videos - only show when not playing and not hovered */}
+      {item.type === "video" && !isPlaying && !isHovered && !isInView && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="h-10 w-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
             <Play className="h-4 w-4 text-white ml-0.5" />
