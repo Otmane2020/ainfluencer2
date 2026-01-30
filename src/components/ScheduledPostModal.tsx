@@ -1004,8 +1004,8 @@ export const ScheduledPostModal = ({
           <TabsTrigger value="models" className="text-xs sm:text-sm">AI</TabsTrigger>
         </TabsList>
 
-        <ScrollArea className="flex-1 mt-4 min-h-0" style={{ maxHeight: "calc(70vh - 150px)" }}>
-          <TabsContent value="details" className="space-y-4 m-0 px-1">
+        <ScrollArea className="flex-1 mt-4" style={{ height: "calc(70vh - 150px)", maxHeight: "calc(70vh - 150px)" }}>
+          <TabsContent value="details" className="space-y-4 m-0 px-1 pb-4">
             {/* Media Preview - Show from local state or post prop */}
             {(localMediaUrl || post.media_url || post.thumbnail_url) && (
               <motion.div
