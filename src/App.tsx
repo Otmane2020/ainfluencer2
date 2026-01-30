@@ -18,9 +18,7 @@ import Images from "./pages/Images";
 import Posts from "./pages/Posts";
 import Settings from "./pages/Settings";
 import Integrations from "./pages/Integrations";
-import VideoHistoryPage from "./pages/VideoHistoryPage";
-import AIVideoHistoryPage from "./pages/AIVideoHistoryPage";
-import ImageHistoryPage from "./pages/ImageHistoryPage";
+import HistoryPage from "./pages/HistoryPage";
 import PostHistoryPage from "./pages/PostHistoryPage";
 
 import NotFound from "./pages/NotFound";
@@ -77,9 +75,7 @@ const App = () => (
             <Route path="/product-shots" element={<ProductShotsPage />} />
             <Route path="/posts" element={<Posts />} />
             
-            <Route path="/history/ai-videos" element={<AIVideoHistoryPage />} />
-            <Route path="/history/videos" element={<VideoHistoryPage />} />
-            <Route path="/history/images" element={<ImageHistoryPage />} />
+            <Route path="/history" element={<HistoryPage />} />
             <Route path="/history/posts" element={<PostHistoryPage />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/settings" element={<Settings />} />
