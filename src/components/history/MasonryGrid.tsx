@@ -49,26 +49,17 @@ export const MasonryGrid = ({
     );
   }
 
-  // Organize items into columns for masonry effect
-  const columnCount = 4; // Desktop default
-  const columns: MediaItem[][] = Array.from({ length: columnCount }, () => []);
-  
-  items.forEach((item, index) => {
-    const columnIndex = index % columnCount;
-    columns[columnIndex].push(item);
-  });
-
   return (
-    <div className="space-y-3">
+    <div>
       {/* In-progress generations */}
       {activeGenerations.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-px mb-px">
           {activeGenerations.map((task) => (
             <motion.div
               key={task.taskId}
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="group relative aspect-[9/16] rounded-xl overflow-hidden border border-primary/30 bg-card"
+              className="group relative aspect-[9/16] overflow-hidden bg-card"
             >
               <div className="absolute inset-0 opacity-20">
                 <motion.div
@@ -104,10 +95,10 @@ export const MasonryGrid = ({
         </div>
       )}
 
-      {/* Masonry Grid - CSS columns for natural masonry effect */}
-      <div className="columns-2 md:columns-3 lg:columns-4 gap-3 space-y-3">
+      {/* Masonry Grid - 3 columns, no gaps */}
+      <div className="columns-2 md:columns-3 gap-px">
         {items.map((item) => (
-          <div key={item.id} className="break-inside-avoid mb-3">
+          <div key={item.id} className="break-inside-avoid mb-px">
             <MediaCard
               item={item}
               onClick={() => onItemClick(item)}
