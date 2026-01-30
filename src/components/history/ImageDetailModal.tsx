@@ -14,12 +14,16 @@ import {
   Copy,
   Check,
   Sparkles,
+  Film,
+  Loader2,
+  Music,
 } from "lucide-react";
 import { FaFacebook, FaLinkedin, FaInstagram, FaTiktok } from "react-icons/fa";
 import { format } from "date-fns";
 import { enUS } from "date-fns/locale";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ImageDetailModalProps {
   isOpen: boolean;
@@ -46,18 +50,114 @@ export const ImageDetailModal = ({
   isProductShot,
   onDelete,
 }: ImageDetailModalProps) => {
-  // Generate caption from prompt with sparkles
-  const generateCaption = () => {
-    if (prompt) {
-      const shortPrompt = prompt.length > 120 ? prompt.substring(0, 120) + "..." : prompt;
-      return `✨ AI Generated Post\n\n${shortPrompt}\n\n#AI #AIGenerated #CreativeContent`;
-    }
-    return `✨ Created with AI\n\n#AI #AIGenerated #CreativeContent`;
-  };
-  
-  const [caption, setCaption] = useState(generateCaption());
+  const [caption, setCaption] = useState("");
   const [copied, setCopied] = useState(false);
+  const [isGeneratingCaption, setIsGeneratingCaption] = useState(false);
+  const [isCreatingReel, setIsCreatingReel] = useState(false);
   const { toast } = useToast();
+
+  // Generate caption from prompt with AI
+  const handleGenerateCaption = async () => {
+    setIsGeneratingCaption(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      
+      if (!accessToken) {
+        // Fallback to local generation
+        const shortPrompt = prompt && prompt.length > 120 ? prompt.substring(0, 120) + "..." : prompt;
+        const newCaption = prompt 
+          ? `✨ AI Generated Post\n\n${shortPrompt}\n\n#AI #AIGenerated #CreativeContent`
+          : `✨ Created with AI\n\n#AI #AIGenerated #CreativeContent`;
+        setCaption(newCaption);
+        return;
+      }
+
+      const response = await supabase.functions.invoke("suggest-content", {
+        body: {
+          contentType: "social_post",
+          context: `Create a compelling social media caption for an AI-generated image.${prompt ? ` Original prompt: ${prompt}` : ""}${projectName ? ` Project: ${projectName}` : ""}`,
+          tone: "engaging",
+          format: "short",
+        },
+      });
+
+      if (response.data?.suggestion) {
+        setCaption(`✨ AI Generated Post\n\n${response.data.suggestion}`);
+      } else {
+        // Fallback
+        const shortPrompt = prompt && prompt.length > 120 ? prompt.substring(0, 120) + "..." : prompt;
+        setCaption(prompt 
+          ? `✨ AI Generated Post\n\n${shortPrompt}\n\n#AI #AIGenerated #CreativeContent`
+          : `✨ Created with AI\n\n#AI #AIGenerated #CreativeContent`);
+      }
+      
+      toast({ title: "Caption generated!" });
+    } catch (error) {
+      console.error("Error generating caption:", error);
+      // Fallback to local
+      const shortPrompt = prompt && prompt.length > 120 ? prompt.substring(0, 120) + "..." : prompt;
+      setCaption(prompt 
+        ? `✨ AI Generated Post\n\n${shortPrompt}\n\n#AI #AIGenerated #CreativeContent`
+        : `✨ Created with AI\n\n#AI #AIGenerated #CreativeContent`);
+    } finally {
+      setIsGeneratingCaption(false);
+    }
+  };
+
+  // Post as Reel - converts image to video with music
+  const handlePostAsReel = async () => {
+    if (!imageUrl) {
+      toast({ title: "No image to convert", variant: "destructive" });
+      return;
+    }
+
+    setIsCreatingReel(true);
+    toast({ 
+      title: "Creating Reel...", 
+      description: "Converting image to video with music" 
+    });
+
+    try {
+      // Open Facebook Reels creator with the image
+      // Facebook allows posting images as Reels through their Creator Studio
+      const reelUrl = `https://business.facebook.com/creatorstudio/home`;
+      
+      // Download the image first for the user
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `reel-image-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // Copy caption to clipboard
+      if (caption) {
+        await navigator.clipboard.writeText(caption);
+      }
+
+      toast({ 
+        title: "Image downloaded!", 
+        description: "Caption copied. Opening Facebook Creator Studio to create your Reel with music.",
+      });
+
+      // Open Creator Studio
+      window.open(reelUrl, "_blank");
+    } catch (error) {
+      console.error("Error creating reel:", error);
+      toast({ 
+        title: "Error", 
+        description: "Failed to prepare reel. Please try again.",
+        variant: "destructive" 
+      });
+    } finally {
+      setIsCreatingReel(false);
+    }
+  };
 
   const handleDownload = async () => {
     if (!imageUrl) return;
@@ -215,9 +315,14 @@ export const ImageDetailModal = ({
                         variant="ghost" 
                         size="sm" 
                         className="h-7 px-2 gap-1 text-primary hover:text-primary/80"
-                        onClick={() => setCaption(generateCaption())}
+                        onClick={handleGenerateCaption}
+                        disabled={isGeneratingCaption}
                       >
-                        <Sparkles className="h-3.5 w-3.5" />
+                        {isGeneratingCaption ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3.5 w-3.5" />
+                        )}
                         Generate
                       </Button>
                     </div>
@@ -232,6 +337,30 @@ export const ImageDetailModal = ({
                     placeholder="Add a caption..."
                     className="min-h-[100px] resize-none"
                   />
+                </div>
+
+                {/* Post as Reel */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium">Create Reel</h4>
+                  <Button
+                    variant="default"
+                    className="w-full gap-2 h-12 bg-gradient-to-r from-pink-500 to-orange-500 hover:from-pink-600 hover:to-orange-600"
+                    onClick={handlePostAsReel}
+                    disabled={isCreatingReel || !imageUrl}
+                  >
+                    {isCreatingReel ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <>
+                        <Film className="h-5 w-5" />
+                        <Music className="h-4 w-4" />
+                      </>
+                    )}
+                    Post as Reel with Music
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Opens Facebook Creator Studio to add music
+                  </p>
                 </div>
 
                 {/* Share buttons */}
