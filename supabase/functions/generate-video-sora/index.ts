@@ -6,6 +6,40 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// ============================================================
+// CREDIT COSTS BY QUALITY
+// ============================================================
+
+const CREDIT_COSTS: Record<string, number> = {
+  standard: 5,
+  pro: 10,
+  cinema: 20,
+  // Legacy mappings
+  "smart-video": 5,
+  "high-video": 10,
+  "cinema-video": 20,
+};
+
+function getCreditCost(quality: string): number {
+  return CREDIT_COSTS[quality] || CREDIT_COSTS["standard"];
+}
+
+// ============================================================
+// MODEL SELECTION BY QUALITY
+// ============================================================
+
+function getVideoModel(quality: string): string {
+  switch (quality) {
+    case "cinema":
+      return "sora-2"; // Premium, will be sora-2-pro when available
+    case "pro":
+      return "sora-2";
+    case "standard":
+    default:
+      return "kling-video";
+  }
+}
+
 interface VideoRequest {
   prompt: string;
   avatarUrl?: string;
@@ -15,6 +49,8 @@ interface VideoRequest {
   projectId?: string;
   campaignId?: string;
   videoMode?: string;
+  quality?: string;
+  skipCreditDeduction?: boolean;
 }
 
 interface VideoStatusResponse {
@@ -62,7 +98,9 @@ serve(async (req) => {
         format = "reel",
         projectId,
         campaignId,
-        videoMode = "standard"
+        videoMode = "standard",
+        quality = "standard",
+        skipCreditDeduction = false,
       }: VideoRequest = await req.json();
 
       if (!prompt) {
@@ -72,16 +110,83 @@ serve(async (req) => {
       // Clamp duration to 4-20 seconds for Sora-2
       const clampedDuration = Math.max(4, Math.min(20, duration));
 
+      // Determine credit cost
+      const creditCost = getCreditCost(quality);
+      const videoModel = getVideoModel(quality);
+
+      console.log("=== Sora-2 Video Generation ===");
+      console.log(`User: ${userId || "anonymous"}`);
+      console.log(`Quality: ${quality} | Credit Cost: ${creditCost}`);
+      console.log(`Model: ${videoModel}`);
+      console.log("Prompt:", prompt.substring(0, 100) + "...");
+      console.log("Duration:", clampedDuration, "s | Size:", size);
+      console.log("Skip credit deduction:", skipCreditDeduction ? "Yes" : "No");
+
+      // ============================================================
+      // CREDIT VALIDATION & DEDUCTION
+      // ============================================================
+      if (userId && !skipCreditDeduction) {
+        // Check current balance
+        const { data: creditsData, error: creditsError } = await supabase
+          .from("credits")
+          .select("balance")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (creditsError) {
+          console.error("Credits fetch error:", creditsError);
+        }
+
+        const currentBalance = creditsData?.balance || 0;
+        console.log(`Current balance: ${currentBalance} | Required: ${creditCost}`);
+
+        if (currentBalance < creditCost) {
+          return new Response(
+            JSON.stringify({ 
+              success: false,
+              error: "Insufficient credits", 
+              code: "INSUFFICIENT_CREDITS",
+              required: creditCost,
+              balance: currentBalance,
+            }),
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Deduct credits
+        const { data: deductSuccess, error: deductError } = await supabase.rpc("deduct_credits", {
+          p_user_id: userId,
+          p_amount: creditCost,
+        });
+
+        if (deductError || !deductSuccess) {
+          console.error("Credit deduction failed:", deductError);
+          return new Response(
+            JSON.stringify({ 
+              success: false,
+              error: "Failed to deduct credits", 
+              code: "DEDUCTION_FAILED" 
+            }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Log transaction
+        await supabase.from("credit_transactions").insert({
+          user_id: userId,
+          amount: -creditCost,
+          type: "consumption",
+          description: `Video generation (${quality}, ${clampedDuration}s)`,
+        });
+
+        console.log(`✓ Deducted ${creditCost} credits for video generation`);
+      }
+
       // Build enhanced prompt
       let fullPrompt = prompt;
       if (avatarUrl) {
         fullPrompt = `Ultra-realistic cinematic video: ${prompt}. Style: professional, high quality, cinematic lighting, vibrant colors.`;
       }
-
-      console.log("=== Sora-2 Video Generation ===");
-      console.log("Prompt:", fullPrompt.substring(0, 100) + "...");
-      console.log("Duration:", clampedDuration, "s | Size:", size);
-      console.log("Video Mode:", videoMode);
 
       // Create generation record
       let generationId: string | null = null;
@@ -98,10 +203,12 @@ serve(async (req) => {
             prompt: prompt.substring(0, 500),
             format: format,
             duration: clampedDuration,
-            model: "sora-2",
-            quality: "high-video",
+            model: videoModel,
+            quality: quality,
             step: "generating",
             progress: 10,
+            estimated_cost: creditCost,
+            actual_cost: skipCreditDeduction ? 0 : creditCost,
             started_at: new Date().toISOString(),
           })
           .select("id")
@@ -116,7 +223,7 @@ serve(async (req) => {
       // Create FormData for CometAPI
       const formData = new FormData();
       formData.append("prompt", fullPrompt);
-      formData.append("model", "sora-2");
+      formData.append("model", videoModel);
       formData.append("seconds", clampedDuration.toString());
       formData.append("size", size);
 
@@ -138,6 +245,21 @@ serve(async (req) => {
             .from("generations")
             .update({ status: "failed", error_message: errorText, step: "error" })
             .eq("id", generationId);
+        }
+
+        // Refund credits on failure
+        if (userId && !skipCreditDeduction) {
+          await supabase.rpc("add_credits", {
+            p_user_id: userId,
+            p_amount: creditCost,
+          });
+          await supabase.from("credit_transactions").insert({
+            user_id: userId,
+            amount: creditCost,
+            type: "refund",
+            description: `Refund: Video generation failed (${quality})`,
+          });
+          console.log(`✓ Refunded ${creditCost} credits due to API error`);
         }
         
         throw new Error(`CometAPI error: ${response.status} - ${errorText}`);
@@ -165,6 +287,8 @@ serve(async (req) => {
           generationId: generationId,
           status: result.status,
           progress: result.progress || 0,
+          quality,
+          creditCost: skipCreditDeduction ? 0 : creditCost,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );

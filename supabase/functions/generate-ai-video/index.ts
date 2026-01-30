@@ -6,10 +6,28 @@ const corsHeaders = {
 };
 
 // ============================================================
+// CREDIT COSTS BY QUALITY (AI Video MULTI tool)
+// ============================================================
+
+const CREDIT_COSTS: Record<string, number> = {
+  standard: 5,
+  pro: 10,
+  cinema: 20,
+  // Tier mappings for MULTI tool
+  "fast": 5,
+  "medium": 10,
+  "high": 20,
+};
+
+function getCreditCost(quality: string): number {
+  return CREDIT_COSTS[quality] || CREDIT_COSTS["standard"];
+}
+
+// ============================================================
 // AI VIDEO GENERATOR - Multi-model support
-// High: Wan 2.1 I2V (Replicate)
-// Medium: Sora 12s (CometAPI)
-// Low: Kling 2.x (CometAPI)
+// High: Sora-2 Pro (CometAPI)
+// Medium: Sora-2 (CometAPI)
+// Low/Fast: Kling 2.x (CometAPI)
 // ============================================================
 
 interface VideoRequest {
@@ -20,6 +38,8 @@ interface VideoRequest {
   resolution: string;
   action?: string;
   taskId?: string;
+  quality?: string;
+  skipCreditDeduction?: boolean;
 }
 
 async function pollCometVideo(taskId: string, apiKey: string, maxAttempts: number = 60): Promise<string | null> {
@@ -77,16 +97,14 @@ async function generateWithCometAPI(
   apiKey: string
 ): Promise<{ taskId: string; videoUrl?: string }> {
   // Sora-2 only accepts: "1280x720" (landscape) or "720x1280" (portrait)
-  // Using landscape format as default
   const size = "1280x720";
 
   console.log(`[AI-VIDEO] CometAPI: model=${model}, duration=${duration}s, size=${size}`);
 
-  // Use JSON body - CometAPI expects "seconds" as STRING
   const requestBody = {
     prompt: prompt,
     model: model,
-    seconds: String(duration), // Must be string
+    seconds: String(duration),
     size: size,
   };
 
@@ -125,7 +143,6 @@ async function generateWithReplicate(
 ): Promise<{ taskId: string; videoUrl?: string }> {
   console.log(`[AI-VIDEO] Replicate Wan 2.1 I2V: duration=${duration}s`);
 
-  // Replicate API for Wan 2.1 I2V
   const response = await fetch("https://api.replicate.com/v1/predictions", {
     method: "POST",
     headers: {
@@ -136,7 +153,7 @@ async function generateWithReplicate(
       version: "wan-ai/wan2.1-i2v-720p",
       input: {
         prompt: prompt,
-        num_frames: duration * 24, // 24fps
+        num_frames: duration * 24,
         guidance_scale: 7.5,
       },
     }),
@@ -184,8 +201,32 @@ Deno.serve(async (req) => {
     const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
     const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
     
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get user from auth header
+    const authHeader = req.headers.get("Authorization");
+    let userId: string | null = null;
+    
+    if (authHeader) {
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user } } = await supabase.auth.getUser(token);
+      userId = user?.id || null;
+    }
+
     const body: VideoRequest = await req.json();
-    const { action, taskId, prompt, model, provider, duration, resolution } = body;
+    const { 
+      action, 
+      taskId, 
+      prompt, 
+      model, 
+      provider, 
+      duration, 
+      resolution,
+      quality = "standard",
+      skipCreditDeduction = false,
+    } = body;
 
     // ============================================================
     // STATUS CHECK
@@ -235,7 +276,6 @@ Deno.serve(async (req) => {
           status = "completed";
           progress = 100;
           
-          // Try standard extraction paths first
           videoUrl = 
             innerData.output_video || videoData.output_video ||
             videoData.video_url || innerData.video_url ||
@@ -245,13 +285,11 @@ Deno.serve(async (req) => {
             videoData.file_url || innerData.file_url ||
             videoData.download_url || innerData.download_url;
             
-          // Sometimes URL is in fail_reason (weird but documented)
           if (!videoUrl && videoData.fail_reason && typeof videoData.fail_reason === "string" && videoData.fail_reason.startsWith("http")) {
             videoUrl = videoData.fail_reason;
           }
           
-          // CometAPI Sora-2: the /content endpoint returns the video file directly
-          // We need to download it and upload to Supabase Storage
+          // Download and upload to storage if no URL
           if (!videoUrl && taskId) {
             console.log("[AI-VIDEO] Downloading video from CometAPI and uploading to storage...");
             try {
@@ -263,30 +301,21 @@ Deno.serve(async (req) => {
                 const videoBlob = await contentResponse.blob();
                 console.log("[AI-VIDEO] Downloaded video size:", videoBlob.size);
                 
-                // Upload to Supabase storage
-                const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-                const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-                const supabase = createClient(supabaseUrl, supabaseServiceKey);
-                
                 const fileName = `ai-videos/${taskId}.mp4`;
-                const { data: uploadData, error: uploadError } = await supabase.storage
+                const { error: uploadError } = await supabase.storage
                   .from("media")
                   .upload(fileName, videoBlob, {
                     contentType: "video/mp4",
                     upsert: true,
                   });
                   
-                if (uploadError) {
-                  console.error("[AI-VIDEO] Upload error:", uploadError);
-                } else {
+                if (!uploadError) {
                   const { data: publicUrlData } = supabase.storage
                     .from("media")
                     .getPublicUrl(fileName);
                   videoUrl = publicUrlData.publicUrl;
                   console.log("[AI-VIDEO] Uploaded to storage:", videoUrl);
                 }
-              } else {
-                console.error("[AI-VIDEO] Failed to download from CometAPI:", contentResponse.status);
               }
             } catch (downloadError) {
               console.error("[AI-VIDEO] Download/upload error:", downloadError);
@@ -312,26 +341,109 @@ Deno.serve(async (req) => {
       throw new Error("prompt is required");
     }
 
+    const creditCost = getCreditCost(quality);
+
     console.log("=== GENERATE AI VIDEO ===");
+    console.log(`User: ${userId || "anonymous"}`);
+    console.log(`Quality: ${quality} | Credit Cost: ${creditCost}`);
     console.log("Model:", model);
     console.log("Provider:", provider);
     console.log("Duration:", duration);
     console.log("Resolution:", resolution);
+    console.log("Skip credit deduction:", skipCreditDeduction ? "Yes" : "No");
     console.log("Prompt:", prompt.slice(0, 100));
+
+    // ============================================================
+    // CREDIT VALIDATION & DEDUCTION
+    // ============================================================
+    if (userId && !skipCreditDeduction) {
+      // Check current balance
+      const { data: creditsData, error: creditsError } = await supabase
+        .from("credits")
+        .select("balance")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (creditsError) {
+        console.error("Credits fetch error:", creditsError);
+      }
+
+      const currentBalance = creditsData?.balance || 0;
+      console.log(`Current balance: ${currentBalance} | Required: ${creditCost}`);
+
+      if (currentBalance < creditCost) {
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            error: "Insufficient credits", 
+            code: "INSUFFICIENT_CREDITS",
+            required: creditCost,
+            balance: currentBalance,
+          }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Deduct credits
+      const { data: deductSuccess, error: deductError } = await supabase.rpc("deduct_credits", {
+        p_user_id: userId,
+        p_amount: creditCost,
+      });
+
+      if (deductError || !deductSuccess) {
+        console.error("Credit deduction failed:", deductError);
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            error: "Failed to deduct credits", 
+            code: "DEDUCTION_FAILED" 
+          }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Log transaction
+      await supabase.from("credit_transactions").insert({
+        user_id: userId,
+        amount: -creditCost,
+        type: "consumption",
+        description: `AI Video generation (${quality}, ${duration}s)`,
+      });
+
+      console.log(`✓ Deducted ${creditCost} credits for AI video generation`);
+    }
 
     let result: { taskId: string; videoUrl?: string };
 
-    if (provider === "replicate") {
-      if (!REPLICATE_API_KEY) {
-        throw new Error("REPLICATE_API_KEY not configured");
+    try {
+      if (provider === "replicate") {
+        if (!REPLICATE_API_KEY) {
+          throw new Error("REPLICATE_API_KEY not configured");
+        }
+        result = await generateWithReplicate(prompt, duration, REPLICATE_API_KEY);
+      } else {
+        // CometAPI (sora-2 or kling-video)
+        if (!COMETAPI_API_KEY) {
+          throw new Error("COMETAPI_API_KEY not configured");
+        }
+        result = await generateWithCometAPI(prompt, model, duration, resolution, COMETAPI_API_KEY);
       }
-      result = await generateWithReplicate(prompt, duration, REPLICATE_API_KEY);
-    } else {
-      // CometAPI (sora-2 or kling-video)
-      if (!COMETAPI_API_KEY) {
-        throw new Error("COMETAPI_API_KEY not configured");
+    } catch (genError) {
+      // Refund credits on failure
+      if (userId && !skipCreditDeduction) {
+        await supabase.rpc("add_credits", {
+          p_user_id: userId,
+          p_amount: creditCost,
+        });
+        await supabase.from("credit_transactions").insert({
+          user_id: userId,
+          amount: creditCost,
+          type: "refund",
+          description: `Refund: AI Video generation failed (${quality})`,
+        });
+        console.log(`✓ Refunded ${creditCost} credits due to API error`);
       }
-      result = await generateWithCometAPI(prompt, model, duration, resolution, COMETAPI_API_KEY);
+      throw genError;
     }
 
     return new Response(
@@ -342,6 +454,8 @@ Deno.serve(async (req) => {
         model,
         provider,
         duration,
+        quality,
+        creditCost: skipCreditDeduction ? 0 : creditCost,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

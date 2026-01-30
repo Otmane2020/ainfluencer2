@@ -6,6 +6,24 @@ const corsHeaders = {
 };
 
 // ============================================================
+// CREDIT COSTS BY QUALITY
+// ============================================================
+
+const CREDIT_COSTS: Record<string, number> = {
+  standard: 1,
+  pro: 3,
+  cinema: 5,
+  // Legacy mappings
+  "smart-image": 1,
+  "high-image": 3,
+  "studio-image": 5,
+};
+
+function getCreditCost(quality: string): number {
+  return CREDIT_COSTS[quality] || CREDIT_COSTS["standard"];
+}
+
+// ============================================================
 // MODEL POOL CONFIGURATION - Weighted Random Selection
 // ============================================================
 
@@ -17,39 +35,45 @@ interface ModelOption {
 }
 
 const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
-  // Smart Image - ~$0.01/image avg
-  "smart-image": [
-    { id: "gemini-flash-image", provider: "lovable", weight: 60, apiModel: "google/gemini-2.5-flash-image" },
-    { id: "flux-2-flex", provider: "replicate", weight: 40, apiModel: "flux-2-flex" },
+  standard: [
+    { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image" },
   ],
-  
-  // High Image - ~$0.05/image avg
-  "high-image": [
-    { id: "nano-banana-pro", provider: "replicate", weight: 50, apiModel: "nano-banana-pro" },
+  pro: [
+    { id: "flux-2-pro", provider: "replicate", weight: 60, apiModel: "flux-2-pro" },
+    { id: "nano-banana-pro", provider: "replicate", weight: 40, apiModel: "nano-banana-pro" },
+  ],
+  cinema: [
+    { id: "gemini-pro-image", provider: "lovable", weight: 50, apiModel: "google/gemini-3-pro-image-preview" },
     { id: "flux-2-pro", provider: "replicate", weight: 50, apiModel: "flux-2-pro" },
   ],
-  
-  // Studio Image - ~$0.08/image avg
+  // Legacy mappings
+  "smart-image": [
+    { id: "gemini-flash-image", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image" },
+  ],
+  "high-image": [
+    { id: "flux-2-pro", provider: "replicate", weight: 100, apiModel: "flux-2-pro" },
+  ],
   "studio-image": [
-    { id: "flux-2-pro", provider: "replicate", weight: 60, apiModel: "flux-2-pro" },
-    { id: "gemini-pro-image", provider: "lovable", weight: 40, apiModel: "google/gemini-3-pro-image-preview" },
+    { id: "gemini-pro-image", provider: "lovable", weight: 100, apiModel: "google/gemini-3-pro-image-preview" },
   ],
 };
 
-// Legacy mappings for backwards compatibility
 const LEGACY_QUALITY_MAPPINGS: Record<string, string> = {
-  "ai-image-smart": "smart-image",
-  "ai-image-standard": "smart-image",
-  "ai-image-pro": "high-image",
-  "ai-image-studio": "studio-image",
-  "flux-2-flex": "smart-image",
-  "nano-banana-pro": "high-image",
-  "flux-2-pro": "studio-image",
+  "ai-image-smart": "standard",
+  "ai-image-standard": "standard",
+  "ai-image-pro": "pro",
+  "ai-image-studio": "cinema",
+  "flux-2-flex": "standard",
+  "nano-banana-pro": "pro",
+  "flux-2-pro": "cinema",
+  "smart-image": "standard",
+  "high-image": "pro",
+  "studio-image": "cinema",
 };
 
 function selectModelFromPool(qualityId: string): ModelOption {
   const mappedQualityId = LEGACY_QUALITY_MAPPINGS[qualityId] || qualityId;
-  const pool = IMAGE_MODEL_POOLS[mappedQualityId] || IMAGE_MODEL_POOLS["smart-image"];
+  const pool = IMAGE_MODEL_POOLS[mappedQualityId] || IMAGE_MODEL_POOLS["standard"];
   
   const totalWeight = pool.reduce((sum, m) => sum + m.weight, 0);
   let random = Math.random() * totalWeight;
@@ -59,7 +83,7 @@ function selectModelFromPool(qualityId: string): ModelOption {
     if (random <= 0) return model;
   }
   
-  return pool[0]; // Fallback
+  return pool[0];
 }
 
 // ============================================================
@@ -219,7 +243,6 @@ async function generateWithReplicate(
       return { imageData: null, error: "No image generated" };
     }
 
-    // If it's a URL, fetch and convert to base64
     if (imageUrl.startsWith("http")) {
       const imgResponse = await fetch(imageUrl);
       const imgBlob = await imgResponse.blob();
@@ -294,7 +317,7 @@ async function generateWithLovableAI(
 }
 
 // ============================================================
-// FALLBACK GENERATION - Try alternate provider on failure
+// FALLBACK GENERATION
 // ============================================================
 
 async function generateWithFallback(
@@ -303,7 +326,6 @@ async function generateWithFallback(
   qualityId: string,
   aspectRatio?: string
 ): Promise<{ imageData: string | null; error?: string; usedModel: ModelOption }> {
-  // Try primary model
   let result: { imageData: string | null; error?: string };
   
   if (selectedModel.provider === "replicate") {
@@ -316,9 +338,8 @@ async function generateWithFallback(
     return { ...result, usedModel: selectedModel };
   }
   
-  // Try fallback from pool
   console.log(`[Fallback] Primary model ${selectedModel.id} failed, trying fallback...`);
-  const pool = IMAGE_MODEL_POOLS[qualityId] || IMAGE_MODEL_POOLS["smart-image"];
+  const pool = IMAGE_MODEL_POOLS[qualityId] || IMAGE_MODEL_POOLS["standard"];
   const fallbackModels = pool.filter(m => m.id !== selectedModel.id);
   
   for (const fallbackModel of fallbackModels) {
@@ -353,10 +374,9 @@ Deno.serve(async (req) => {
       prompt,
       productId,
       qualityId,
+      quality, // NEW: Direct quality tier (standard/pro/cinema)
       format, 
       aspectRatio, 
-      width, 
-      height, 
       sectorId, 
       styleId, 
       toneId, 
@@ -365,13 +385,13 @@ Deno.serve(async (req) => {
       includeLogo, 
       includeUrl, 
       projectUrl,
-      themeColor,
       detectedLanguage,
       includeText,
       overlayText,
       includeAvatar,
       avatarUrl,
       aiContextSummary,
+      skipCreditDeduction, // For campaign-based generation (credits deducted at campaign level)
     } = await req.json();
 
     if (!prompt) {
@@ -381,15 +401,91 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Determine quality and select model from pool
-    const modelKey = qualityId || productId || "smart-image";
-    const mappedQualityId = LEGACY_QUALITY_MAPPINGS[modelKey] || modelKey;
-    const selectedModel = selectModelFromPool(modelKey);
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get user from auth header
+    const authHeader = req.headers.get("Authorization");
+    let userId: string | null = null;
+    
+    if (authHeader) {
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user } } = await supabase.auth.getUser(token);
+      userId = user?.id || null;
+    }
+
+    // Determine quality tier
+    const effectiveQuality = quality || LEGACY_QUALITY_MAPPINGS[qualityId] || LEGACY_QUALITY_MAPPINGS[productId] || qualityId || "standard";
+    const creditCost = getCreditCost(effectiveQuality);
 
     console.log(`=== Image Generation Request ===`);
-    console.log(`Quality/Product ID: ${modelKey} -> ${mappedQualityId}`);
+    console.log(`User: ${userId || "anonymous"}`);
+    console.log(`Quality: ${effectiveQuality} | Credit Cost: ${creditCost}`);
+    console.log(`Skip credit deduction: ${skipCreditDeduction ? "Yes" : "No"}`);
+
+    // ============================================================
+    // CREDIT VALIDATION & DEDUCTION (if user is authenticated)
+    // ============================================================
+    if (userId && !skipCreditDeduction) {
+      // Check current balance
+      const { data: creditsData, error: creditsError } = await supabase
+        .from("credits")
+        .select("balance")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (creditsError) {
+        console.error("Credits fetch error:", creditsError);
+      }
+
+      const currentBalance = creditsData?.balance || 0;
+      console.log(`Current balance: ${currentBalance} | Required: ${creditCost}`);
+
+      if (currentBalance < creditCost) {
+        return new Response(
+          JSON.stringify({ 
+            error: "Insufficient credits", 
+            code: "INSUFFICIENT_CREDITS",
+            required: creditCost,
+            balance: currentBalance,
+          }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Deduct credits
+      const { data: deductSuccess, error: deductError } = await supabase.rpc("deduct_credits", {
+        p_user_id: userId,
+        p_amount: creditCost,
+      });
+
+      if (deductError || !deductSuccess) {
+        console.error("Credit deduction failed:", deductError);
+        return new Response(
+          JSON.stringify({ 
+            error: "Failed to deduct credits", 
+            code: "DEDUCTION_FAILED" 
+          }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Log transaction
+      await supabase.from("credit_transactions").insert({
+        user_id: userId,
+        amount: -creditCost,
+        type: "consumption",
+        description: `Image generation (${effectiveQuality})`,
+      });
+
+      console.log(`✓ Deducted ${creditCost} credits for image generation`);
+    }
+
+    // Select model from pool
+    const selectedModel = selectModelFromPool(effectiveQuality);
     console.log(`Selected Model: ${selectedModel.id} (${selectedModel.provider})`);
-    console.log(`API Model: ${selectedModel.apiModel}`);
 
     // Determine output language
     const outputLanguage = detectedLanguage || "en";
@@ -403,11 +499,10 @@ Deno.serve(async (req) => {
     };
     const languageName = languageMap[outputLanguage] || "English";
 
-    // Build enhanced prompt with scenario context
+    // Build enhanced prompt
     let enhancedPrompt = prompt;
     const contextParts: string[] = [];
 
-    // CRITICAL: Add explicit language instruction at the start
     if (outputLanguage !== "en") {
       enhancedPrompt = `[LANGUAGE: All text in this image MUST be in ${languageName}. NO English text allowed.] ${prompt}`;
     }
@@ -416,7 +511,6 @@ Deno.serve(async (req) => {
       contextParts.push(`for ${brandName} brand`);
     }
 
-    // Add format context
     if (format === "reel" || format === "story") {
       contextParts.push("vertical portrait format 9:16 aspect ratio");
     } else if (format === "landscape") {
@@ -439,12 +533,11 @@ Deno.serve(async (req) => {
       enhancedPrompt = `${enhancedPrompt}. Ultra high resolution, professional quality.`;
     }
 
-    // Add AI context for brand personality and products
     if (aiContextSummary) {
       enhancedPrompt += ` Brand context: ${aiContextSummary.slice(0, 500)}.`;
     }
 
-    // BRAND ELEMENTS
+    // Brand elements
     if (includeLogo && brandName && !logoUrl) {
       enhancedPrompt += ` IMPORTANT: Include a stylized brand logo area or badge in the bottom-right or top-left corner with the text "${brandName}" in elegant, professional typography that matches the image style.`;
     }
@@ -458,7 +551,6 @@ Deno.serve(async (req) => {
       enhancedPrompt += ` Feature a professional-looking spokesperson or presenter figure prominently in the image - a confident, friendly person representing the brand, positioned as if speaking directly to the viewer.`;
     }
 
-    // Social media text overlay
     if (includeText) {
       const textToOverlay = overlayText || brandName || "";
       if (textToOverlay) {
@@ -468,19 +560,33 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Final language reminder
     if (outputLanguage !== "en") {
       enhancedPrompt += ` REMINDER: Any and all text visible in this image must be in ${languageName}, not English.`;
     }
     
-    console.log("Brand options:", { includeLogo, includeUrl, includeAvatar, includeText, brandName, hasLogoUrl: !!logoUrl });
     console.log("Enhanced prompt:", enhancedPrompt.slice(0, 200) + "...");
 
     // Generate image with fallback system
-    const result = await generateWithFallback(enhancedPrompt, selectedModel, mappedQualityId, aspectRatio);
+    const result = await generateWithFallback(enhancedPrompt, selectedModel, effectiveQuality, aspectRatio);
 
     if (!result.imageData) {
       console.error("Image generation failed:", result.error);
+      
+      // Refund credits on failure
+      if (userId && !skipCreditDeduction) {
+        await supabase.rpc("add_credits", {
+          p_user_id: userId,
+          p_amount: creditCost,
+        });
+        await supabase.from("credit_transactions").insert({
+          user_id: userId,
+          amount: creditCost,
+          type: "refund",
+          description: `Refund: Image generation failed (${effectiveQuality})`,
+        });
+        console.log(`✓ Refunded ${creditCost} credits due to generation failure`);
+      }
+      
       return new Response(
         JSON.stringify({ error: result.error || "Image generation failed" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -489,7 +595,7 @@ Deno.serve(async (req) => {
 
     console.log(`[SUCCESS] Generated with model: ${result.usedModel.id}`);
 
-    // POST-PROCESSING: Overlay real logo if provided
+    // Post-processing: Overlay real logo if provided
     let finalImageData = result.imageData;
     
     if (includeLogo && logoUrl) {
@@ -498,10 +604,6 @@ Deno.serve(async (req) => {
     }
 
     // Upload to Supabase storage
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
     const base64Data = finalImageData.replace(/^data:image\/\w+;base64,/, "");
     const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
 
@@ -534,7 +636,8 @@ Deno.serve(async (req) => {
         storagePath: fileName,
         model: result.usedModel.id,
         provider: result.usedModel.provider,
-        qualityId: mappedQualityId,
+        quality: effectiveQuality,
+        creditCost: skipCreditDeduction ? 0 : creditCost,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
