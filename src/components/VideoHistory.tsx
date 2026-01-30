@@ -27,6 +27,7 @@ interface VideoHistoryItem {
   createdAt: Date;
   voice: string;
   status: "ready" | "processing" | "error";
+  campaignId?: string;
 }
 
 interface GeneratingTask {
@@ -192,7 +193,7 @@ export const VideoHistory = ({ videos, generatingTasks = [], onDelete, onPlay, o
     <div className="space-y-4">
       {/* In-progress generations */}
       {activeGenerations.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {activeGenerations.map((task) => (
             <motion.div
               key={task.taskId}
@@ -237,7 +238,7 @@ export const VideoHistory = ({ videos, generatingTasks = [], onDelete, onPlay, o
       )}
 
       {/* Video Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         {videos.map((video) => (
           <motion.div
             key={video.id}
