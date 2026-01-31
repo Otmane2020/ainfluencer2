@@ -14,7 +14,7 @@ const corsHeaders = {
 // Provider-specific configuration
 const PROVIDER_CONFIG: Record<string, { maxChecks: number; recheckDelay: number }> = {
   openai: { maxChecks: 3, recheckDelay: 60000 },  // Sora: max 3 checks, recheck in 60s
-  cometapi: { maxChecks: 2, recheckDelay: 30000 }, // Veo: max 2 checks, recheck in 30s
+  gemini: { maxChecks: 2, recheckDelay: 30000 },  // Veo: max 2 checks, recheck in 30s
 };
 
 serve(async (req) => {
@@ -24,7 +24,7 @@ serve(async (req) => {
 
   try {
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") || "";
-    const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY") || "";
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -130,30 +130,36 @@ serve(async (req) => {
             }
           }
         } else {
-          // CometAPI Veo status check
-          const response = await fetch(`https://api.cometapi.com/v1/video/generations/${gen.external_task_id}`, {
+          // Gemini Veo status check - poll operation
+          const BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
+          const response = await fetch(`${BASE_URL}/${gen.external_task_id}`, {
             method: "GET",
-            headers: { "Authorization": `Bearer ${COMETAPI_API_KEY}` },
+            headers: { "x-goog-api-key": GEMINI_API_KEY },
           });
 
           if (!response.ok) {
             const errorText = await response.text();
-            console.error(`[CRON] CometAPI error for ${gen.id}:`, errorText);
+            console.error(`[CRON] Gemini error for ${gen.id}:`, errorText);
             statusResult = { status: "failed", error: errorText };
           } else {
             const result = await response.json();
-            const cometStatus = result.task?.status_name || result.status || "queued";
+            const isDone = result.done === true;
             
-            if (cometStatus === "completed" || cometStatus === "success" || cometStatus === "succeed") {
-              statusResult = { 
-                status: "completed", 
-                videoUrl: result.video_url || result.output?.video || result.works?.[0]?.resource?.resource,
-                progress: 100 
-              };
-            } else if (cometStatus === "failed" || cometStatus === "error") {
-              statusResult = { status: "failed", error: result.error_message };
+            if (isDone) {
+              const videoUri = result.response?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri;
+              if (videoUri) {
+                statusResult = { 
+                  status: "completed", 
+                  videoUrl: videoUri,
+                  progress: 100 
+                };
+              } else if (result.error) {
+                statusResult = { status: "failed", error: result.error.message };
+              } else {
+                statusResult = { status: "completed", progress: 100 };
+              }
             } else {
-              statusResult = { status: "processing", progress: result.task?.progress || 50 };
+              statusResult = { status: "processing", progress: 50 };
             }
           }
         }
