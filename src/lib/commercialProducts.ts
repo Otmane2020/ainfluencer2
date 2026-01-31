@@ -381,6 +381,30 @@ export const IMAGE_QUALITY_LEVELS: QualityLevel[] = [
     description: "Premium OpenAI image generation",
     features: ["1024x1024", "High quality", "OpenAI"],
   },
+  {
+    id: "flux-schnell",
+    name: "FLUX Schnell",
+    internalModel: "black-forest-labs/flux-schnell",
+    price: 1.00,
+    description: "Ultra-fast FLUX model for quick iterations",
+    features: ["1024x1024", "Ultra Fast", "Replicate"],
+  },
+  {
+    id: "flux-2-dev",
+    name: "FLUX 2 Dev",
+    internalModel: "black-forest-labs/flux-2-dev",
+    price: 2.00,
+    description: "High quality FLUX with great value",
+    features: ["1024x1024", "High Quality", "Replicate"],
+  },
+  {
+    id: "flux-2-pro",
+    name: "FLUX 2 Pro",
+    internalModel: "black-forest-labs/flux-2-pro",
+    price: 4.00,
+    description: "Top-tier FLUX for premium visuals",
+    features: ["1024x1024", "Cinema", "Replicate"],
+  },
 ];
 
 // ============================================================
