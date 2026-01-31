@@ -37,105 +37,88 @@ interface VideoModelConfig {
   requestBody: (prompt: string, duration: number, aspectRatio: string) => Record<string, any>;
 }
 
-// CometAPI model configurations with VERIFIED endpoints
-// Reference: https://apidoc.cometapi.com/
+// CometAPI model configurations with VERIFIED endpoints from apidoc.cometapi.com
+// Updated 2026-01-31 with correct endpoint URLs
 const COMETAPI_MODELS: Record<string, VideoModelConfig> = {
   // ============================================================
-  // KLING MODELS - Endpoint: /v1/kling/m2v_txt2video
-  // Most reliable, supports 5s and 10s durations
+  // KLING MODELS - CORRECT Endpoint: /kling/v1/videos/text2video
+  // Supports 5s and 10s durations, aspect_ratio 9:16, 16:9, 1:1
   // ============================================================
   "kling-v2.5-turbo": {
-    model: "kling-v2-5",
-    endpoint: "https://api.cometapi.com/v1/kling/m2v_txt2video",
+    model: "kling-v1-5",
+    endpoint: "https://api.cometapi.com/kling/v1/videos/text2video",
     maxDuration: 10,
     displayName: "Kling V2.5 Turbo",
     requestBody: (prompt, duration, aspectRatio) => ({
+      model_name: "kling-v1-5",
       prompt,
       duration: String(duration > 5 ? 10 : 5),
       aspect_ratio: aspectRatio,
-      model_name: "kling-v2-5",
       mode: "std",
     }),
   },
   "kling-v2-master": {
-    model: "kling-v2-1-master",
-    endpoint: "https://api.cometapi.com/v1/kling/m2v_txt2video",
+    model: "kling-v2-master",
+    endpoint: "https://api.cometapi.com/kling/v1/videos/text2video",
     maxDuration: 10,
     displayName: "Kling V2 Master",
     requestBody: (prompt, duration, aspectRatio) => ({
+      model_name: "kling-v2-master",
       prompt,
       duration: String(duration > 5 ? 10 : 5),
       aspect_ratio: aspectRatio,
-      model_name: "kling-v2-1-master",
       mode: "pro",
     }),
   },
   "kling-v2.1-master": {
-    model: "kling-v2-1-master",
-    endpoint: "https://api.cometapi.com/v1/kling/m2v_txt2video",
+    model: "kling-v2-master",
+    endpoint: "https://api.cometapi.com/kling/v1/videos/text2video",
     maxDuration: 10,
     displayName: "Kling V2.1 Master",
     requestBody: (prompt, duration, aspectRatio) => ({
+      model_name: "kling-v2-master",
       prompt,
       duration: String(duration > 5 ? 10 : 5),
       aspect_ratio: aspectRatio,
-      model_name: "kling-v2-1-master",
       mode: "pro",
     }),
   },
   
   // ============================================================
-  // MINIMAX CONCH - Endpoint: /v1/minimax/video_generation
-  // Fast generation, fixed ~6s duration
+  // MINIMAX CONCH - CORRECT Endpoint: /v1/video_generation
   // ============================================================
   "minimax-hailuo": {
-    model: "minimax-video-01",
-    endpoint: "https://api.cometapi.com/v1/minimax/video_generation",
+    model: "video-01-live2d",
+    endpoint: "https://api.cometapi.com/v1/video_generation",
     maxDuration: 6,
     displayName: "MiniMax Hailuo",
     requestBody: (prompt, _duration, _aspectRatio) => ({
-      prompt,
       model: "video-01-live2d",
+      prompt,
     }),
   },
   
   // ============================================================
-  // BYTEDANCE/SEAWEED - Endpoint: /v1/video/bytedance/generations
-  // Alternative reliable provider
+  // BYTEDANCE/SEEDANCE - CORRECT Endpoint: /volc/v3/contents/generations/tasks
   // ============================================================
   "bytedance-video": {
-    model: "bytedance-video",
-    endpoint: "https://api.cometapi.com/v1/video/bytedance/generations",
+    model: "bytedance-seedance-1-0-lite-t2v-250428",
+    endpoint: "https://api.cometapi.com/volc/v3/contents/generations/tasks",
     maxDuration: 8,
-    displayName: "Bytedance Video",
-    requestBody: (prompt, duration, aspectRatio) => ({
-      prompt,
-      duration: Math.min(duration, 8),
-      aspect_ratio: aspectRatio === "9:16" ? "portrait" : "landscape",
-    }),
-  },
-  
-  // ============================================================
-  // RUNWAY GEN4 - Endpoint: /v1/runway/generations
-  // High quality, slower
-  // ============================================================
-  "runway-gen4": {
-    model: "gen4_turbo",
-    endpoint: "https://api.cometapi.com/v1/runway/generations",
-    maxDuration: 10,
-    displayName: "Runway Gen4",
-    requestBody: (prompt, duration, aspectRatio) => ({
-      prompt,
-      duration: Math.min(duration, 10),
-      aspect_ratio: aspectRatio,
-      model: "gen4_turbo",
+    displayName: "Bytedance Seedance",
+    requestBody: (prompt, _duration, aspectRatio) => ({
+      model: "bytedance-seedance-1-0-lite-t2v-250428",
+      content: {
+        prompt,
+        aspect_ratio: aspectRatio === "9:16" ? "9:16" : "16:9",
+      },
     }),
   },
 };
 
-// Fallback chains for each quality tier - KLING FIRST (most reliable)
+// Fallback chains for each quality tier
 const MODEL_FALLBACK_CHAINS: Record<string, string[]> = {
-  cinema: ["kling-v2-master", "runway-gen4", "bytedance-video"],
+  cinema: ["kling-v2-master", "bytedance-video", "minimax-hailuo"],
   pro: ["kling-v2.1-master", "bytedance-video", "minimax-hailuo"],
   standard: ["kling-v2.5-turbo", "minimax-hailuo", "bytedance-video"],
 };
