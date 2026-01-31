@@ -234,30 +234,61 @@ export const VideoDetailModal = ({
       return;
     }
 
+    if (selectedPlatforms.length === 0) {
+      toast({ title: "Select at least one platform", variant: "destructive" });
+      return;
+    }
+
     setIsPublishing(true);
     try {
-      // Use native Web Share API if available
-      if (navigator.share) {
-        await navigator.share({
-          title: title || "AI Generated Video",
-          text: socialCaption || "Check out this AI-generated video!",
-          url: videoUrl,
-        });
-        toast({ title: "Shared successfully!" });
-      } else {
-        // Fallback: copy link to clipboard
-        await navigator.clipboard.writeText(videoUrl);
+      // Call the publish-clipmotion edge function (same as cron)
+      const { data, error } = await supabase.functions.invoke("publish-clipmotion", {
+        body: {
+          videoUrl,
+          caption: socialCaption || title || "AI Generated Video",
+          platforms: selectedPlatforms.filter(p => ["instagram", "facebook", "youtube", "tiktok"].includes(p)),
+          thumbnailUrl: thumbnailUrl || undefined,
+        },
+      });
+
+      if (error) {
+        console.error("Publish error:", error);
         toast({ 
-          title: "Link copied!", 
-          description: "Share API not supported - link copied to clipboard" 
+          title: "Publication failed", 
+          description: error.message || "Unable to publish to platforms",
+          variant: "destructive" 
+        });
+        return;
+      }
+
+      // Check results
+      const results = data?.results as Array<{ platform: string; success: boolean; error?: string }> || [];
+      const successful = results.filter(r => r.success);
+      const failed = results.filter(r => !r.success);
+
+      if (successful.length > 0) {
+        toast({
+          title: `Published to ${successful.length} platform(s)!`,
+          description: successful.map(r => r.platform).join(", "),
         });
       }
-    } catch (error: any) {
-      // User cancelled share or error
-      if (error.name !== "AbortError") {
-        console.error("Share error:", error);
-        toast({ title: "Share failed", variant: "destructive" });
+
+      if (failed.length > 0) {
+        console.warn("Some platforms failed:", failed);
+        toast({
+          title: `${failed.length} platform(s) failed`,
+          description: failed.map(r => `${r.platform}: ${r.error}`).join("; "),
+          variant: "destructive",
+        });
       }
+
+    } catch (error: any) {
+      console.error("Publish error:", error);
+      toast({ 
+        title: "Publication failed", 
+        description: error.message || "Unable to publish",
+        variant: "destructive" 
+      });
     } finally {
       setIsPublishing(false);
     }
@@ -502,14 +533,17 @@ export const VideoDetailModal = ({
                   <Button 
                     className="w-full gap-2" 
                     onClick={handlePublishNow}
-                    disabled={isPublishing}
+                    disabled={isPublishing || selectedPlatforms.length === 0}
                   >
                     {isPublishing ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Share2 className="h-4 w-4" />
+                      <Send className="h-4 w-4" />
                     )}
-                    Share
+                    {isPublishing 
+                      ? "Publishing..." 
+                      : `Publish to ${selectedPlatforms.length} Platform${selectedPlatforms.length !== 1 ? "s" : ""}`
+                    }
                   </Button>
 
                   {/* Quick Share */}
