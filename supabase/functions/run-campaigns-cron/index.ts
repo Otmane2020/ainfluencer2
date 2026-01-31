@@ -99,10 +99,11 @@ const IMAGE_QUALITY_CONFIG = {
   cinema: { model: "google/gemini-3-pro-image-preview", provider: "lovable", cost: 5 },
 };
 
+// Sora 2 valid durations: 4, 8, 12 seconds only
 const VIDEO_QUALITY_CONFIG = {
-  standard: { duration: 5, resolution: "720x1280", cost: 5 },
+  standard: { duration: 4, resolution: "720x1280", cost: 5 },
   pro: { duration: 8, resolution: "1080x1920", cost: 10 },
-  cinema: { duration: 10, resolution: "1080x1920", cost: 20 },
+  cinema: { duration: 12, resolution: "1080x1920", cost: 20 },
 };
 
 interface Campaign {
@@ -260,8 +261,40 @@ async function generateImage(
 }
 
 // ============================================================
-// VIDEO GENERATION (via Nano Banana API)
+// VIDEO GENERATION (via OpenAI Sora 2 API)
 // ============================================================
+
+function cleanPromptForSora(rawPrompt: string): string {
+  let cleaned = rawPrompt;
+  
+  // Remove emojis and special Unicode characters
+  cleaned = cleaned.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F000}-\u{1F02F}]|[\u{1F0A0}-\u{1F0FF}]/gu, "");
+  
+  // Remove common formatting patterns
+  cleaned = cleaned.replace(/^🎬.*$/gm, "");
+  cleaned = cleaned.replace(/^━+$/gm, "");
+  cleaned = cleaned.replace(/^\[.*?\]$/gm, "");
+  cleaned = cleaned.replace(/^Visual:\s*/gm, "");
+  cleaned = cleaned.replace(/^Voiceover:\s*/gm, "");
+  cleaned = cleaned.replace(/^#\w+/gm, "");
+  
+  // Remove excessive whitespace
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
+  cleaned = cleaned.replace(/^\s+|\s+$/gm, "");
+  
+  // Extract meaningful lines
+  const lines = cleaned.split("\n").filter(line => {
+    const trimmed = line.trim();
+    if (trimmed.length < 10) return false;
+    if (/^["']/.test(trimmed)) return false;
+    return true;
+  });
+  
+  const essentialLines = lines.slice(0, 4).join(" ");
+  cleaned = essentialLines.replace(/\s+/g, " ").trim().slice(0, 500);
+  
+  return cleaned || "Professional promotional video with smooth camera movements.";
+}
 
 async function generateVideo(
   prompt: string, 
@@ -269,18 +302,19 @@ async function generateVideo(
   project: ProjectContext,
   quality: string = "pro"
 ): Promise<string | null> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) {
-    console.error("[generateVideo] LOVABLE_API_KEY not configured");
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+  if (!OPENAI_API_KEY) {
+    console.error("[generateVideo] OPENAI_API_KEY not configured");
     return null;
   }
 
   const config = VIDEO_QUALITY_CONFIG[quality as keyof typeof VIDEO_QUALITY_CONFIG] || VIDEO_QUALITY_CONFIG.pro;
 
   try {
-    // Parse resolution
     const [width, height] = config.resolution.split("x").map(Number);
     const aspectRatio = width > height ? "16:9" : "9:16";
+    const size = aspectRatio === "9:16" ? "720x1280" : "1280x720";
+    const model = quality === "cinema" ? "sora-2-pro" : "sora-2";
     
     // Use shared context guard for consistent brand injection
     const contextGuard = validateAndBuildContext({
@@ -294,62 +328,72 @@ async function generateVideo(
       marketingContext: project.marketing_context,
       aiContextSummary: project.ai_context_summary || undefined,
       scrapedMarkdown: project.scraped_markdown || undefined,
-      generationPrompt: `${prompt}. Vertical 9:16 portrait format, perfect for Instagram Reels and TikTok, eye-catching motion, professional quality.`,
+      generationPrompt: `${prompt}. Vertical 9:16 portrait format, perfect for Instagram Reels.`,
       generationType: "video",
     });
 
     logContextValidation(contextGuard, "CRON-VIDEO");
     
-    console.log(`[generateVideo] Using ${quality} quality (${config.duration}s, ${config.resolution}) via Nano Banana | Context Score: ${contextGuard.contextScore}`);
+    // Clean prompt for Sora (removes emojis, timestamps, etc.)
+    const cleanedPrompt = cleanPromptForSora(contextGuard.enhancedPrompt);
+    
+    console.log(`[generateVideo] Using ${model} (${config.duration}s, ${size}) via OpenAI Sora`);
+    console.log(`[generateVideo] Prompt: ${cleanedPrompt.slice(0, 200)}...`);
 
-    const response = await fetch("https://nanobananavideo.com/api/v1/text-to-video", {
+    // Create video task via OpenAI Sora API (multipart/form-data)
+    const formData = new FormData();
+    formData.append("model", model);
+    formData.append("prompt", cleanedPrompt);
+    formData.append("seconds", String(Math.min(config.duration, model === "sora-2-pro" ? 20 : 12)));
+    formData.append("size", size);
+
+    const response = await fetch("https://api.openai.com/v1/videos", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
       },
-      body: JSON.stringify({
-        prompt: contextGuard.enhancedPrompt,
-        duration: config.duration,
-        aspect_ratio: aspectRatio,
-        resolution: height >= 1080 ? "1080p" : "720p",
-      }),
+      body: formData,
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("[generateVideo] Nano Banana error:", response.status, errorText.slice(0, 200));
+      console.error("[generateVideo] OpenAI Sora error:", response.status, errorText.slice(0, 300));
       return null;
     }
 
     const data = await response.json();
-    const taskId = data.task_id || data.id;
+    const taskId = data.task?.id || data.id;
     
     if (!taskId) {
-      console.error("[generateVideo] No task ID in response");
+      console.error("[generateVideo] No task ID in response:", JSON.stringify(data).slice(0, 200));
       return null;
     }
 
-    console.log("[generateVideo] Task created:", taskId);
+    console.log("[generateVideo] Sora task created:", taskId);
 
-    // Poll for completion (max 5 minutes)
+    // Poll for completion (max 5 minutes - Sora typically takes 1-3 min)
     const maxAttempts = 30;
     for (let i = 0; i < maxAttempts; i++) {
       await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10s
 
-      const statusResponse = await fetch(`https://nanobananavideo.com/api/v1/task/${taskId}`, {
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}` },
+      const statusResponse = await fetch(`https://api.openai.com/v1/videos/${taskId}`, {
+        headers: { "Authorization": `Bearer ${OPENAI_API_KEY}` },
       });
 
-      if (!statusResponse.ok) continue;
+      if (!statusResponse.ok) {
+        console.log(`[generateVideo] Status check ${i + 1} failed: ${statusResponse.status}`);
+        continue;
+      }
 
       const statusData = await statusResponse.json();
-      const status = (statusData.status || "").toLowerCase();
+      const status = (statusData.status || statusData.task?.status_name || "").toLowerCase();
 
       console.log(`[generateVideo] Poll ${i + 1}/${maxAttempts}: status=${status}`);
 
-      if (status === "completed" || status === "success" || status === "done") {
-        const videoUrl = statusData.video_url || statusData.output_url || statusData.url;
+      if (status === "completed" || status === "succeeded" || status === "done") {
+        // Get video URL from response
+        const videoUrl = statusData.output?.video || statusData.video_url || statusData.url || 
+                        statusData.works?.[0]?.resource?.resource;
 
         if (videoUrl) {
           console.log("[generateVideo] Video ready, downloading...");
@@ -363,7 +407,7 @@ async function generateVideo(
 
           const videoBuffer = await videoResponse.arrayBuffer();
           const videoBytes = new Uint8Array(videoBuffer);
-          const videoPath = `videos/video-${Date.now()}-${Math.random().toString(36).slice(2)}.mp4`;
+          const videoPath = `videos/sora-${Date.now()}-${Math.random().toString(36).slice(2)}.mp4`;
 
           const { error: uploadError } = await supabase.storage
             .from("media")
@@ -375,16 +419,17 @@ async function generateVideo(
           }
 
           const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(videoPath);
-          console.log(`[generateVideo] ✅ ${quality} video uploaded`);
+          console.log(`[generateVideo] ✅ Sora ${model} video uploaded`);
           return publicUrlData.publicUrl;
         }
       } else if (status === "failed" || status === "error") {
-        console.error("[generateVideo] Task failed");
+        const errorMsg = statusData.error?.message || statusData.error || "Unknown error";
+        console.error("[generateVideo] Task failed:", errorMsg);
         return null;
       }
     }
 
-    console.log("[generateVideo] Timeout waiting for video");
+    console.log("[generateVideo] Timeout waiting for Sora video");
     return null;
   } catch (error) {
     console.error("[generateVideo] Error:", error);
