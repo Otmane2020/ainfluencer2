@@ -603,11 +603,42 @@ ${formattedHashtags}`;
     setShowProgressModal(true);
     
     // Step 1: Generate audio with ElevenLabs TTS for voiceover
+    // Helper: Extract voiceover text from formatted script
+    const extractVoiceoverText = (script: string): string => {
+      // Try to extract voiceover lines (format: Voiceover: "text")
+      const voiceoverMatches = script.match(/Voiceover:\s*["']?([^"'\n]+)["']?/gi);
+      if (voiceoverMatches && voiceoverMatches.length > 0) {
+        return voiceoverMatches
+          .map(m => m.replace(/Voiceover:\s*["']?/i, "").replace(/["']$/, "").trim())
+          .join(" ");
+      }
+      
+      // Try to extract from SCRIPT section
+      const scriptMatch = script.match(/📜\s*SCRIPT:\s*\n([\s\S]*?)(?=\n🎥|$)/i);
+      if (scriptMatch) {
+        return scriptMatch[1].replace(/[\u{1F300}-\u{1F9FF}]/gu, "").trim();
+      }
+      
+      // Fallback: clean the script of emojis and formatting
+      return script
+        .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]/gu, "")
+        .replace(/^🎬.*$|^━+$|^📍.*$|^📊.*$|^📜.*$|^🎥.*$|^\[.*\]$|^Visual:.*$/gm, "")
+        .replace(/#\w+/g, "")
+        .replace(/\n{2,}/g, " ")
+        .trim()
+        .slice(0, 500);
+    };
+
     const segmentsWithAudio = await Promise.all(
       segments.map(async (segment) => {
         if (!segment.script.trim()) return segment;
 
         try {
+          // Extract only the voiceover text, not the full formatted script
+          const voiceoverText = extractVoiceoverText(segment.script);
+          console.log(`[TTS] Voice: ${selectedVoice.name} (${selectedVoice.id})`);
+          console.log(`[TTS] Voiceover text: ${voiceoverText.substring(0, 100)}...`);
+
           const audioResponse = await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`,
             {
@@ -618,8 +649,8 @@ ${formattedHashtags}`;
                 Authorization: `Bearer ${accessToken}`,
               },
               body: JSON.stringify({
-                text: segment.script,
-                voiceId: selectedVoice.id,
+                text: voiceoverText,
+                voiceId: selectedVoice.id, // This is the selected voice (Charlie, Sarah, etc.)
               }),
             }
           );

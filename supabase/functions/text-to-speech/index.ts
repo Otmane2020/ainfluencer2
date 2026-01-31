@@ -126,13 +126,19 @@ serve(async (req) => {
     const qualityLevel = quality || DEFAULT_QUALITY;
     const selectedModel = selectTTSModel(qualityLevel);
     
+    // Use the provided voiceId or fallback to George (male voice)
+    const finalVoiceId = voiceId || "JBFqnCBsd6RMkjVDRZzb";
+    
     console.log(`=== TTS Request ===`);
+    console.log(`Voice ID received: ${voiceId || "(none - using default)"}`);
+    console.log(`Voice ID used: ${finalVoiceId}`);
     console.log(`Quality: ${qualityLevel}`);
     console.log(`Selected: ${selectedModel.id} (${selectedModel.provider})`);
     console.log(`Text length: ${text.length} chars`);
+    console.log(`Text preview: ${text.substring(0, 100)}...`);
 
-    // Generate with ElevenLabs
-    const result = await generateWithElevenLabs(text, voiceId || "JBFqnCBsd6RMkjVDRZzb");
+    // Generate with ElevenLabs using the selected voice
+    const result = await generateWithElevenLabs(text, finalVoiceId);
 
     if (!result.audioBuffer) {
       return new Response(
@@ -141,7 +147,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[TTS] Success, returning audio`);
+    console.log(`[TTS] Success with voice ${finalVoiceId}, returning audio`);
 
     return new Response(result.audioBuffer, {
       headers: {
