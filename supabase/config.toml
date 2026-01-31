@@ -127,3 +127,6 @@ verify_jwt = false
 
 [functions.campaign-from-firecrawl]
 verify_jwt = false
+
+[functions.check-video-status]
+verify_jwt = false

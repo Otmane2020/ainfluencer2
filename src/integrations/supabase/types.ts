@@ -189,6 +189,8 @@ export type Database = {
           actual_cost: number | null
           audio_url: string | null
           campaign_id: string | null
+          check_after: string | null
+          check_count: number | null
           completed_at: string | null
           created_at: string
           duration: number | null
@@ -202,6 +204,7 @@ export type Database = {
           progress: number
           project_id: string | null
           prompt: string | null
+          provider: string | null
           quality: string | null
           retry_count: number | null
           script: string | null
@@ -218,6 +221,8 @@ export type Database = {
           actual_cost?: number | null
           audio_url?: string | null
           campaign_id?: string | null
+          check_after?: string | null
+          check_count?: number | null
           completed_at?: string | null
           created_at?: string
           duration?: number | null
@@ -231,6 +236,7 @@ export type Database = {
           progress?: number
           project_id?: string | null
           prompt?: string | null
+          provider?: string | null
           quality?: string | null
           retry_count?: number | null
           script?: string | null
@@ -247,6 +253,8 @@ export type Database = {
           actual_cost?: number | null
           audio_url?: string | null
           campaign_id?: string | null
+          check_after?: string | null
+          check_count?: number | null
           completed_at?: string | null
           created_at?: string
           duration?: number | null
@@ -260,6 +268,7 @@ export type Database = {
           progress?: number
           project_id?: string | null
           prompt?: string | null
+          provider?: string | null
           quality?: string | null
           retry_count?: number | null
           script?: string | null

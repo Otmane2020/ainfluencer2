@@ -719,25 +719,35 @@ ${formattedHashtags}`;
     // Create a ref-like variable to track current segments
     let currentSegments = [...segmentsWithTasks];
 
-    // Step 3: Poll for video completion with optimized intervals
-    // Reduced API calls: 30s base interval, exponential backoff, max 20 calls
-    let pollCount = 0;
-    const MAX_POLL_CALLS = 20; // Hard limit to prevent excessive API costs
-    const BASE_INTERVAL = 30000; // 30 seconds base interval
-    const MAX_INTERVAL = 90000; // 90 seconds max interval
+    // ============================================================
+    // PASSIVE CHECK STRATEGY - Minimal API calls
+    // Instead of aggressive polling, we rely on:
+    // 1. Server-side CRON job (check-video-status) that runs every 2-3 min
+    // 2. One initial check after estimated delay
+    // 3. User can manually refresh via the History page
+    // ============================================================
     
-    const getNextInterval = () => {
-      // Exponential backoff: 30s → 45s → 60s → 75s → 90s (capped)
-      const interval = Math.min(BASE_INTERVAL + (pollCount * 15000), MAX_INTERVAL);
-      return interval;
-    };
+    // Determine estimated wait time based on provider
+    // Veo (CometAPI): ~45s, Sora (OpenAI): ~150s
+    const hasVeoTask = segmentsWithTasks.some(s => 
+      generationTasks.find(t => t.taskId === s.taskId)?.model?.includes("veo")
+    );
+    const estimatedWaitMs = hasVeoTask ? 50000 : 160000; // 50s for Veo, 160s for Sora
+    
+    console.log(`[VIDEO] Passive mode: waiting ${estimatedWaitMs / 1000}s before single check`);
+    
+    // Show user-friendly message
+    toast({
+      title: "🎬 Video generation started!",
+      description: `Your video will be ready in ~${Math.round(estimatedWaitMs / 60000)} min. You can check progress in History.`,
+    });
 
-    const pollStatus = async () => {
-      pollCount++;
-      console.log(`[VIDEO] Poll #${pollCount}/${MAX_POLL_CALLS} (interval: ${getNextInterval() / 1000}s)`);
+    // Single delayed check (not aggressive polling)
+    setTimeout(async () => {
+      console.log("[VIDEO] Performing single delayed status check...");
       
       let allComplete = true;
-      let anyError = false;
+      let anyReady = false;
 
       const updatedSegments = await Promise.all(
         currentSegments.map(async (segment) => {
@@ -757,11 +767,15 @@ ${formattedHashtags}`;
               }
             );
 
-            if (!statusResponse.ok) throw new Error(`Status check failed`);
+            if (!statusResponse.ok) {
+              console.log("[VIDEO] Status check failed, CRON will handle it");
+              allComplete = false;
+              return segment;
+            }
 
             const status = await statusResponse.json();
 
-            // Update generation task with new status
+            // Update generation task
             const taskUpdate = {
               status: status.status as GenerationTask["status"],
               progress: status.progress || 0,
@@ -769,7 +783,6 @@ ${formattedHashtags}`;
               videoUrl: status.videoUrl,
             };
             
-            // Update persistent storage
             updateTask(segment.taskId, taskUpdate);
             
             setGenerationTasks(prev => {
@@ -783,8 +796,7 @@ ${formattedHashtags}`;
             });
 
             if (status.status === "completed" && status.videoUrl) {
-              // Video is already uploaded to Supabase storage by the edge function
-              // Just use the URL directly
+              anyReady = true;
               return {
                 ...segment,
                 status: "ready" as const,
@@ -793,97 +805,42 @@ ${formattedHashtags}`;
                 finishTime: status.finishTime,
               };
             } else if (status.status === "failed") {
-              anyError = true;
               return { ...segment, status: "error" as const };
             } else {
               allComplete = false;
-              return { ...segment, progress: status.progress || 0 };
+              return { ...segment, progress: status.progress || 50 };
             }
           } catch (error) {
             console.error("Status check error:", error);
-            anyError = true;
-            return { ...segment, status: "error" as const };
+            allComplete = false;
+            return segment;
           }
         })
       );
 
-      // Update the ref-like variable for next poll
       currentSegments = updatedSegments;
       setSegments(updatedSegments);
-
-      return { allComplete, anyError, readyCount: updatedSegments.filter((s) => s.status === "ready").length, errorCount: updatedSegments.filter((s) => s.status === "error").length };
-    };
-
-    // Immediate first poll
-    const firstResult = await pollStatus();
-    
-    if (firstResult.allComplete || firstResult.anyError) {
       setIsGenerating(false);
-      if (firstResult.readyCount > 0) {
+
+      if (anyReady) {
         toast({
-          title: `🎬 ${selectedProduct.name} generated!`,
-          description: `${firstResult.readyCount} video(s) ready with AI voice${firstResult.errorCount > 0 ? `, ${firstResult.errorCount} error(s)` : ""}`,
+          title: `🎬 ${selectedProduct.name} ready!`,
+          description: "Your video has been generated successfully.",
         });
-        onVideosGenerated(segments);
-      } else {
+        onVideosGenerated(currentSegments);
+      } else if (!allComplete) {
+        // Still processing - CRON will handle it
         toast({
-          title: "Generation error",
-          description: "Unable to generate videos",
-          variant: "destructive",
+          title: "⏳ Still processing",
+          description: "Video is taking longer than expected. Check History page for updates.",
         });
       }
-      return;
-    }
+    }, estimatedWaitMs);
 
-    // Continue polling with exponential backoff
-    const schedulePoll = () => {
-      if (pollCount >= MAX_POLL_CALLS) {
-        console.log(`[VIDEO] Max poll limit reached (${MAX_POLL_CALLS} calls)`);
-        setIsGenerating(false);
-        toast({
-          title: "Generation timeout",
-          description: "Video generation is taking too long. Check history for results.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      const nextInterval = getNextInterval();
-      console.log(`[VIDEO] Next poll in ${nextInterval / 1000}s`);
-      
-      setTimeout(async () => {
-        const result = await pollStatus();
-
-        if (result.allComplete || result.anyError) {
-          setIsGenerating(false);
-
-          if (result.readyCount > 0) {
-            toast({
-              title: `🎬 ${selectedProduct.name} generated!`,
-              description: `${result.readyCount} video(s) ready with AI voice${result.errorCount > 0 ? `, ${result.errorCount} error(s)` : ""}`,
-            });
-            onVideosGenerated(currentSegments);
-          } else {
-            toast({
-              title: "Generation error",
-              description: "Unable to generate videos",
-              variant: "destructive",
-            });
-          }
-        } else {
-          // Schedule next poll with increased interval
-          schedulePoll();
-        }
-      }, nextInterval);
-    };
-
-    // Start polling loop
-    schedulePoll();
-
-    // Reduced timeout: 5 minutes max (vs previous 10 minutes)
+    // Safety timeout to reset generating state
     setTimeout(() => {
       setIsGenerating(false);
-    }, 300000);
+    }, estimatedWaitMs + 10000);
   };
 
   const totalDuration = segments.reduce((acc, s) => acc + s.duration, 0);
