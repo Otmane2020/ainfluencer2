@@ -21,7 +21,8 @@ import {
   ExternalLink,
   Loader2,
   Play,
-  Pause
+  Pause,
+  ChevronDown
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { format } from "date-fns";
@@ -29,6 +30,12 @@ import { enUS } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 // TikTok icon
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -36,6 +43,12 @@ const TikTokIcon = ({ className }: { className?: string }) => (
     <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
   </svg>
 );
+
+interface Project {
+  id: string;
+  name: string;
+  theme_color: string | null;
+}
 
 interface ProjectContext {
   name: string;
@@ -80,24 +93,43 @@ export const VideoDetailModal = ({
   const [isGeneratingCaption, setIsGeneratingCaption] = useState(false);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(["instagram", "facebook"]);
   const [projectContext, setProjectContext] = useState<ProjectContext | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(projectId);
+  const [projectSelectorOpen, setProjectSelectorOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Fetch project context when modal opens
+  // Fetch projects list when modal opens
   useEffect(() => {
-    if (isOpen && projectId) {
-      fetchProjectContext();
+    if (isOpen) {
+      fetchProjects();
+      if (projectId) {
+        setSelectedProjectId(projectId);
+        fetchProjectContext(projectId);
+      }
     }
   }, [isOpen, projectId]);
 
-  const fetchProjectContext = async () => {
-    if (!projectId) return;
+  const fetchProjects = async () => {
+    try {
+      const { data } = await supabase
+        .from("projects")
+        .select("id, name, theme_color")
+        .order("name");
+      if (data) setProjects(data);
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+    }
+  };
+
+  const fetchProjectContext = async (id: string) => {
+    if (!id) return;
     try {
       const { data } = await supabase
         .from("projects")
         .select("name, description, detected_language, ai_context_summary, scraped_markdown")
-        .eq("id", projectId)
+        .eq("id", id)
         .single();
       if (data) {
         setProjectContext(data);
@@ -106,6 +138,15 @@ export const VideoDetailModal = ({
       console.error("Error fetching project context:", error);
     }
   };
+
+  const handleSelectProject = (project: Project) => {
+    setSelectedProjectId(project.id);
+    setProjectSelectorOpen(false);
+    fetchProjectContext(project.id);
+    toast({ title: `Selected: ${project.name}` });
+  };
+
+  const selectedProject = projects.find(p => p.id === selectedProjectId);
 
   // Generate caption with AI - uses project language
   const handleGenerateCaption = async () => {
@@ -290,6 +331,12 @@ export const VideoDetailModal = ({
       return;
     }
 
+    if (!selectedProjectId) {
+      toast({ title: "Please select a project first", variant: "destructive" });
+      setProjectSelectorOpen(true);
+      return;
+    }
+
     setIsPublishing(true);
     try {
       // Call the publish-clipmotion edge function (same as cron)
@@ -299,7 +346,7 @@ export const VideoDetailModal = ({
           caption: socialCaption || title || "AI Generated Video",
           platforms: selectedPlatforms.filter(p => ["instagram", "facebook", "youtube", "tiktok"].includes(p)),
           thumbnailUrl: thumbnailUrl || undefined,
-          projectId: projectId || undefined, // Include project ID for proper post logging
+          projectId: selectedProjectId, // Use selected project ID
         },
       });
 
@@ -581,11 +628,63 @@ export const VideoDetailModal = ({
                     />
                   </div>
 
+                  {/* Project Selector */}
+                  <div className="space-y-2">
+                    <label className="text-xs text-muted-foreground">Publish as project:</label>
+                    <Popover open={projectSelectorOpen} onOpenChange={setProjectSelectorOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-between"
+                        >
+                          {selectedProject ? (
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="h-3 w-3 rounded-full"
+                                style={{ backgroundColor: selectedProject.theme_color || "#8B5CF6" }}
+                              />
+                              <span className="truncate">{selectedProject.name}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">Select a project...</span>
+                          )}
+                          <ChevronDown className="h-4 w-4 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[250px] p-0" align="start">
+                        <ScrollArea className="h-[200px]">
+                          <div className="p-2 space-y-1">
+                            {projects.length === 0 ? (
+                              <p className="text-sm text-muted-foreground text-center py-4">
+                                No projects found
+                              </p>
+                            ) : (
+                              projects.map((project) => (
+                                <Button
+                                  key={project.id}
+                                  variant={selectedProjectId === project.id ? "secondary" : "ghost"}
+                                  className="w-full justify-start gap-2"
+                                  onClick={() => handleSelectProject(project)}
+                                >
+                                  <div
+                                    className="h-3 w-3 rounded-full flex-shrink-0"
+                                    style={{ backgroundColor: project.theme_color || "#8B5CF6" }}
+                                  />
+                                  <span className="truncate">{project.name}</span>
+                                </Button>
+                              ))
+                            )}
+                          </div>
+                        </ScrollArea>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
                   {/* Publish Button */}
                   <Button 
                     className="w-full gap-2" 
                     onClick={handlePublishNow}
-                    disabled={isPublishing || selectedPlatforms.length === 0}
+                    disabled={isPublishing || selectedPlatforms.length === 0 || !selectedProjectId}
                   >
                     {isPublishing ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
