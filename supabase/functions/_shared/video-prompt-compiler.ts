@@ -37,6 +37,10 @@ export interface BrandContext {
   visual_banned?: string[];
   competitive_positioning?: string;
   detected_language?: string;
+  // Full text context for deeper understanding
+  ai_context_summary?: string;
+  scraped_markdown?: string;
+  project_description?: string;
 }
 
 export interface VideoPromptConfig {
@@ -142,6 +146,10 @@ export function extractBrandContext(project: any): BrandContext {
     visual_banned: mc?.content_guidelines?.visual_banned || undefined,
     competitive_positioning: mc?.competitive_positioning || undefined,
     detected_language: project?.detected_language || "en",
+    // Full text context for deeper brand understanding
+    ai_context_summary: project?.ai_context_summary || undefined,
+    scraped_markdown: project?.scraped_markdown || undefined,
+    project_description: project?.description || undefined,
   };
 }
 
@@ -377,6 +385,28 @@ export function compileVideoPrompt(
   const langName = LANGUAGE_NAMES[ctx.detected_language || "en"] || "English";
   promptParts.push("");
   promptParts.push(`All text and dialogue in ${langName}.`);
+  
+  // === FULL TEXT CONTEXT (for deeper brand understanding) ===
+  if (ctx.ai_context_summary || ctx.scraped_markdown || ctx.project_description) {
+    promptParts.push("");
+    promptParts.push("=== BRAND CONTEXT (Use for understanding the brand) ===");
+    
+    if (ctx.ai_context_summary) {
+      promptParts.push(ctx.ai_context_summary.substring(0, 800));
+    }
+    
+    if (ctx.scraped_markdown) {
+      promptParts.push("");
+      promptParts.push("[Website content:]");
+      promptParts.push(ctx.scraped_markdown.substring(0, 600));
+    }
+    
+    if (ctx.project_description && !ctx.ai_context_summary) {
+      promptParts.push(ctx.project_description);
+    }
+    
+    promptParts.push("=== END CONTEXT ===");
+  }
   
   // === METADATA ===
   const metadata = {

@@ -568,6 +568,10 @@ serve(async (req) => {
         visual_banned: marketingContext?.content_guidelines?.visual_banned,
         competitive_positioning: marketingContext?.competitive_positioning,
         detected_language: detectedLanguage || "en",
+        // Full text context for deeper brand understanding
+        ai_context_summary: aiContextSummary,
+        scraped_markdown: marketingContext?.scraped_markdown,
+        project_description: marketingContext?.project_description,
       };
       
       // Compile the video prompt

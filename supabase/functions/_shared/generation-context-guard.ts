@@ -275,13 +275,33 @@ export function validateAndBuildContext(input: GenerationGuardInput): GuardedCon
     }
   }
 
-  // Fallback to scraped content if no marketing context
-  if (!mc && input.scrapedMarkdown) {
+  // === FULL TEXT CONTEXT - ALWAYS ADD AT END ===
+  // This provides rich context for AI even when marketing_context is limited
+  brandContextParts.push("");
+  brandContextParts.push("=== FULL TEXT CONTEXT (USE FOR BRAND UNDERSTANDING) ===");
+  
+  // Add AI context summary (aggregated from project data)
+  if (input.aiContextSummary) {
+    brandContextParts.push("[AI CONTEXT SUMMARY]");
+    brandContextParts.push(input.aiContextSummary.substring(0, 1500));
     brandContextParts.push("");
-    brandContextParts.push("=== WEBSITE CONTENT ===");
-    brandContextParts.push(input.scrapedMarkdown.substring(0, 800));
   }
-
+  
+  // Add scraped website content for additional context
+  if (input.scrapedMarkdown) {
+    brandContextParts.push("[WEBSITE CONTENT]");
+    brandContextParts.push(input.scrapedMarkdown.substring(0, 1500));
+    brandContextParts.push("");
+  }
+  
+  // Add project description as fallback
+  if (input.projectDescription && !input.aiContextSummary) {
+    brandContextParts.push("[PROJECT DESCRIPTION]");
+    brandContextParts.push(input.projectDescription);
+    brandContextParts.push("");
+  }
+  
+  brandContextParts.push("=== END TEXT CONTEXT ===");
   brandContextParts.push("");
   brandContextParts.push("=== END BRAND CONTEXT ===");
 
