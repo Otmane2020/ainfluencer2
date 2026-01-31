@@ -42,36 +42,30 @@ interface ModelOption {
   displayName: string;
 }
 
-// FLUX (Black Forest Labs) + OpenAI GPT Image + Gemini Nano Banana models
+// OpenAI GPT Image + Gemini Nano Banana models (FLUX removed - not supported by Lovable AI Gateway)
 const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
   standard: [
-    { id: "flux-schnell", provider: "flux", weight: 50, apiModel: "black-forest-labs/flux-schnell", displayName: "FLUX Schnell" },
-    { id: "nano-banana", provider: "gemini", weight: 50, apiModel: "google/gemini-2.5-flash-image", displayName: "Nano Banana" },
+    { id: "nano-banana", provider: "gemini", weight: 100, apiModel: "google/gemini-2.5-flash-image", displayName: "Nano Banana" },
   ],
   pro: [
-    { id: "flux-2-dev", provider: "flux", weight: 40, apiModel: "black-forest-labs/flux-2-dev", displayName: "FLUX 2 Dev" },
-    { id: "nano-banana-pro", provider: "gemini", weight: 35, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
-    { id: "gpt-image", provider: "openai", weight: 25, apiModel: "gpt-image-1", displayName: "GPT Image" },
+    { id: "nano-banana-pro", provider: "gemini", weight: 60, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
+    { id: "gpt-image", provider: "openai", weight: 40, apiModel: "gpt-image-1", displayName: "GPT Image" },
   ],
   cinema: [
-    { id: "flux-2-pro", provider: "flux", weight: 50, apiModel: "black-forest-labs/flux-2-pro", displayName: "FLUX 2 Pro" },
-    { id: "gpt-image", provider: "openai", weight: 30, apiModel: "gpt-image-1", displayName: "GPT Image" },
-    { id: "nano-banana-pro", provider: "gemini", weight: 20, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
+    { id: "gpt-image", provider: "openai", weight: 60, apiModel: "gpt-image-1", displayName: "GPT Image" },
+    { id: "nano-banana-pro", provider: "gemini", weight: 40, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
   ],
   // Legacy mappings
   "smart-image": [
-    { id: "flux-schnell", provider: "flux", weight: 50, apiModel: "black-forest-labs/flux-schnell", displayName: "FLUX Schnell" },
-    { id: "nano-banana", provider: "gemini", weight: 50, apiModel: "google/gemini-2.5-flash-image", displayName: "Nano Banana" },
+    { id: "nano-banana", provider: "gemini", weight: 100, apiModel: "google/gemini-2.5-flash-image", displayName: "Nano Banana" },
   ],
   "high-image": [
-    { id: "flux-2-dev", provider: "flux", weight: 40, apiModel: "black-forest-labs/flux-2-dev", displayName: "FLUX 2 Dev" },
-    { id: "nano-banana-pro", provider: "gemini", weight: 35, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
-    { id: "gpt-image", provider: "openai", weight: 25, apiModel: "gpt-image-1", displayName: "GPT Image" },
+    { id: "nano-banana-pro", provider: "gemini", weight: 60, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
+    { id: "gpt-image", provider: "openai", weight: 40, apiModel: "gpt-image-1", displayName: "GPT Image" },
   ],
   "studio-image": [
-    { id: "flux-2-pro", provider: "flux", weight: 50, apiModel: "black-forest-labs/flux-2-pro", displayName: "FLUX 2 Pro" },
-    { id: "gpt-image", provider: "openai", weight: 30, apiModel: "gpt-image-1", displayName: "GPT Image" },
-    { id: "nano-banana-pro", provider: "gemini", weight: 20, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
+    { id: "gpt-image", provider: "openai", weight: 60, apiModel: "gpt-image-1", displayName: "GPT Image" },
+    { id: "nano-banana-pro", provider: "gemini", weight: 40, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
   ],
 };
 
@@ -111,6 +105,18 @@ function selectModelFromPool(qualityId: string): ModelOption {
 // LOGO OVERLAY UTILITY
 // ============================================================
 
+// Helper function to convert ArrayBuffer to base64 without stack overflow
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 8192; // Process in chunks to avoid stack overflow
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  return btoa(binary);
+}
+
 async function overlayLogoOnImage(
   baseImageData: string,
   logoUrl: string,
@@ -127,7 +133,8 @@ async function overlayLogoOnImage(
     
     const logoBlob = await logoResponse.blob();
     const logoArrayBuffer = await logoBlob.arrayBuffer();
-    const logoBase64 = btoa(String.fromCharCode(...new Uint8Array(logoArrayBuffer)));
+    // Use chunked conversion to avoid stack overflow
+    const logoBase64 = arrayBufferToBase64(logoArrayBuffer);
     const logoDataUrl = `data:${logoBlob.type || "image/png"};base64,${logoBase64}`;
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
