@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+// Tabs removed - merged into single view
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
@@ -315,147 +315,126 @@ export const CampaignDetailModal = ({
           </div>
         </DialogHeader>
 
-        <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="overview">
-              <BarChart3 className="h-4 w-4 mr-1.5" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="settings">
-              <Edit className="h-4 w-4 mr-1.5" />
-              Settings
-            </TabsTrigger>
-          </TabsList>
-
-          <ScrollArea className="flex-1 mt-4">
-            <TabsContent value="overview" className="m-0 space-y-4">
-              {/* Stats Cards */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-xl bg-muted/50 p-4 text-center">
-                  <p className="text-2xl font-bold text-primary">{campaign.total_generated}</p>
-                  <p className="text-xs text-muted-foreground">Generated</p>
-                </div>
-                <div className="rounded-xl bg-muted/50 p-4 text-center">
-                  <p className="text-2xl font-bold text-green-500">{campaign.total_published}</p>
-                  <p className="text-xs text-muted-foreground">Published</p>
-                </div>
-                <div className="rounded-xl bg-muted/50 p-4 text-center">
-                  <p className="text-2xl font-bold">{posts.filter(p => p.status === "scheduled").length}</p>
-                  <p className="text-xs text-muted-foreground">Pending</p>
-                </div>
+        <ScrollArea className="flex-1 mt-4">
+          <div className="space-y-4">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-xl bg-muted/50 p-4 text-center">
+                <p className="text-2xl font-bold text-primary">{campaign.total_generated}</p>
+                <p className="text-xs text-muted-foreground">Generated</p>
               </div>
+              <div className="rounded-xl bg-muted/50 p-4 text-center">
+                <p className="text-2xl font-bold text-green-500">{campaign.total_published}</p>
+                <p className="text-xs text-muted-foreground">Published</p>
+              </div>
+              <div className="rounded-xl bg-muted/50 p-4 text-center">
+                <p className="text-2xl font-bold">{posts.filter(p => p.status === "scheduled").length}</p>
+                <p className="text-xs text-muted-foreground">Pending</p>
+              </div>
+            </div>
 
-              {/* Configuration Summary */}
-              <div className="rounded-xl border border-border p-4 space-y-3">
-                <h4 className="font-medium">Configuration</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  {(campaign.campaign_type === "video" || campaign.campaign_type === "mixed") && (
-                    <div className="flex items-center gap-2">
-                      <Video className="h-4 w-4 text-violet-500" />
-                      <span className="text-muted-foreground">Videos/month:</span>
-                      <span className="font-medium">{campaign.videos_per_month}</span>
-                    </div>
-                  )}
-                  {(campaign.campaign_type === "image" || campaign.campaign_type === "mixed") && (
-                    <div className="flex items-center gap-2">
-                      <ImageIcon className="h-4 w-4 text-cyan-500" />
-                      <span className="text-muted-foreground">Images/month:</span>
-                      <span className="font-medium">{campaign.images_per_month}</span>
-                    </div>
-                  )}
+            {/* Configuration Summary */}
+            <div className="rounded-xl border border-border p-4 space-y-3">
+              <h4 className="font-medium flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                Configuration
+              </h4>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                {(campaign.campaign_type === "video" || campaign.campaign_type === "mixed") && (
                   <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    <span className="text-muted-foreground">Posts/week:</span>
-                    <span className="font-medium">{campaign.posts_per_week}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">Format:</span>
-                    <Badge variant="outline">{campaign.format}</Badge>
-                  </div>
-                  {campaign.posting_hour !== null && (
-                    <div className="flex items-center gap-2 col-span-2">
-                      <Clock className="h-4 w-4 text-primary" />
-                      <span className="text-muted-foreground">Posting time:</span>
-                      <span className="font-medium">
-                        {campaign.posting_hour.toString().padStart(2, "0")}:00 ({campaign.timezone || "Europe/Paris"})
-                      </span>
-                    </div>
-                  )}
-                </div>
-                {campaign.subject && (
-                  <div className="pt-2 border-t border-border">
-                    <p className="text-sm text-muted-foreground">Subject:</p>
-                    <p className="text-sm">{campaign.subject}</p>
+                    <Video className="h-4 w-4 text-violet-500" />
+                    <span className="text-muted-foreground">Videos/month:</span>
+                    <span className="font-medium">{campaign.videos_per_month}</span>
                   </div>
                 )}
-              </div>
-            </TabsContent>
-
-
-            <TabsContent value="settings" className="m-0 space-y-4">
-              <div className="rounded-xl border border-border p-4 space-y-4">
-                <h4 className="font-medium flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-primary" />
-                  Posting Schedule
-                </h4>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs">Posting Hour</Label>
-                    <Select 
-                      value={postingHour.toString()} 
-                      onValueChange={(v) => setPostingHour(parseInt(v))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-card max-h-48">
-                        {Array.from({ length: 24 }, (_, i) => (
-                          <SelectItem key={i} value={i.toString()}>
-                            {i.toString().padStart(2, "0")}:00
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                {(campaign.campaign_type === "image" || campaign.campaign_type === "mixed") && (
+                  <div className="flex items-center gap-2">
+                    <ImageIcon className="h-4 w-4 text-cyan-500" />
+                    <span className="text-muted-foreground">Images/month:</span>
+                    <span className="font-medium">{campaign.images_per_month}</span>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label className="text-xs">Timezone</Label>
-                    <Select value={timezone} onValueChange={setTimezone}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-card">
-                        {TIMEZONES.map((tz) => (
-                          <SelectItem key={tz.id} value={tz.id}>{tz.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  <span className="text-muted-foreground">Posts/week:</span>
+                  <span className="font-medium">{campaign.posts_per_week}</span>
                 </div>
-                
-                <p className="text-xs text-muted-foreground">
-                  Posts will be scheduled around {postingHour.toString().padStart(2, "0")}:00 in the selected timezone
-                </p>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Format:</span>
+                  <Badge variant="outline">{campaign.format}</Badge>
+                </div>
+              </div>
+              {campaign.subject && (
+                <div className="pt-2 border-t border-border">
+                  <p className="text-sm text-muted-foreground">Subject:</p>
+                  <p className="text-sm">{campaign.subject}</p>
+                </div>
+              )}
+            </div>
 
-                {settingsChanged && (
-                  <Button 
-                    onClick={handleSaveSettings} 
-                    disabled={isSaving}
-                    className="w-full gap-2"
+            {/* Posting Schedule Settings */}
+            <div className="rounded-xl border border-border p-4 space-y-4">
+              <h4 className="font-medium flex items-center gap-2">
+                <Clock className="h-4 w-4 text-primary" />
+                Posting Schedule
+              </h4>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs">Posting Hour</Label>
+                  <Select 
+                    value={postingHour.toString()} 
+                    onValueChange={(v) => setPostingHour(parseInt(v))}
                   >
-                    {isSaving ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="h-4 w-4" />
-                    )}
-                    Save Changes
-                  </Button>
-                )}
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card max-h-48">
+                      {Array.from({ length: 24 }, (_, i) => (
+                        <SelectItem key={i} value={i.toString()}>
+                          {i.toString().padStart(2, "0")}:00
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-xs">Timezone</Label>
+                  <Select value={timezone} onValueChange={setTimezone}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card">
+                      {TIMEZONES.map((tz) => (
+                        <SelectItem key={tz.id} value={tz.id}>{tz.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </TabsContent>
-          </ScrollArea>
-        </Tabs>
+              
+              <p className="text-xs text-muted-foreground">
+                Posts will be scheduled around {postingHour.toString().padStart(2, "0")}:00 in the selected timezone
+              </p>
+
+              {settingsChanged && (
+                <Button 
+                  onClick={handleSaveSettings} 
+                  disabled={isSaving}
+                  className="w-full gap-2"
+                >
+                  {isSaving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  Save Changes
+                </Button>
+              )}
+            </div>
+          </div>
+        </ScrollArea>
       </DialogContent>
       
       {/* Share Modal */}
