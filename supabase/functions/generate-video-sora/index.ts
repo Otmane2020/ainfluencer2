@@ -302,60 +302,42 @@ serve(async (req) => {
 
       if (modelConfig.provider === "nanobanana") {
         // ============================================================
-        // NANO BANANA VIDEO API
+        // NANO BANANA VIDEO API - Skip for now, go directly to CometAPI
+        // The Nano Banana endpoint appears to be unavailable (404)
         // ============================================================
-        console.log(`Calling Nano Banana Video API...`);
+        console.log(`Skipping Nano Banana (known 404), using CometAPI Sora directly...`);
         
-        const nanoBananaResponse = await fetch("https://nanobananavideo.com/api/v1/generate", {
+        const cometResponse = await fetch("https://api.cometapi.com/v1/video/generations", {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${COMETAPI_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
+            model: "sora",
             prompt: fullPrompt,
-            duration: clampedDuration,
+            duration: `${clampedDuration}`,
             aspect_ratio: aspectRatio,
-            resolution: quality === "standard" ? "720p" : "1080p",
           }),
         });
         
-        const nanoBananaText = await nanoBananaResponse.text();
-        console.log("Nano Banana Response:", nanoBananaResponse.status, nanoBananaText.substring(0, 300));
+        const cometText = await cometResponse.text();
+        console.log("CometAPI Sora Response:", cometResponse.status, cometText.substring(0, 300));
         
-        if (!nanoBananaResponse.ok) {
-          // Fallback to CometAPI Sora if Nano Banana fails
-          console.log("Nano Banana failed, falling back to CometAPI Sora...");
-          
-          const fallbackResponse = await fetch("https://api.cometapi.com/v1/video/generations", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${COMETAPI_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "sora",
-              prompt: fullPrompt,
-              duration: `${clampedDuration}`,
-              aspect_ratio: aspectRatio,
-            }),
-          });
-          
-          if (!fallbackResponse.ok) {
-            const errorText = await fallbackResponse.text();
-            throw new Error(`Video generation failed: ${errorText}`);
-          }
-          
-          const fallbackResult = await fallbackResponse.json();
-          taskId = fallbackResult.id || fallbackResult.task_id || `comet-${Date.now()}`;
-          initialStatus = fallbackResult.status || "queued";
-          mediaUrl = fallbackResult.video_url || fallbackResult.output || null;
-        } else {
-          const nanoBananaResult = JSON.parse(nanoBananaText);
-          taskId = nanoBananaResult.id || nanoBananaResult.task_id || `nano-${Date.now()}`;
-          initialStatus = nanoBananaResult.status || "queued";
-          mediaUrl = nanoBananaResult.video_url || nanoBananaResult.output || null;
+        // Check if response is HTML (error page) instead of JSON
+        if (cometText.trim().startsWith("<!") || cometText.trim().startsWith("<html")) {
+          console.error("CometAPI returned HTML instead of JSON - API may be down or rate limited");
+          throw new Error(`CometAPI unavailable: returned HTML error page (status ${cometResponse.status})`);
         }
+        
+        if (!cometResponse.ok) {
+          throw new Error(`CometAPI error: ${cometResponse.status} - ${cometText}`);
+        }
+        
+        const cometResult = JSON.parse(cometText);
+        taskId = cometResult.id || cometResult.task_id || `comet-${Date.now()}`;
+        initialStatus = cometResult.status || "queued";
+        mediaUrl = cometResult.video_url || cometResult.output || null;
         
       } else {
         // ============================================================
@@ -379,6 +361,36 @@ serve(async (req) => {
         
         const cometText = await cometResponse.text();
         console.log("CometAPI Response:", cometResponse.status, cometText.substring(0, 300));
+
+        // Check if response is HTML (error page) instead of JSON
+        if (cometText.trim().startsWith("<!") || cometText.trim().startsWith("<html")) {
+          console.error("CometAPI returned HTML instead of JSON - API may be down or rate limited");
+          
+          // Update generation as failed
+          if (generationId) {
+            await supabase
+              .from("generations")
+              .update({ status: "failed", error_message: "CometAPI unavailable", step: "error" })
+              .eq("id", generationId);
+          }
+
+          // Refund credits on failure
+          if (userId && !skipCreditDeduction) {
+            await supabase.rpc("add_credits", {
+              p_user_id: userId,
+              p_amount: creditCost,
+            });
+            await supabase.from("credit_transactions").insert({
+              user_id: userId,
+              amount: creditCost,
+              type: "refund",
+              description: `Refund: CometAPI unavailable (${modelConfig.model})`,
+            });
+            console.log(`✓ Refunded ${creditCost} credits`);
+          }
+          
+          throw new Error(`CometAPI unavailable: returned HTML error page (status ${cometResponse.status})`);
+        }
 
         if (!cometResponse.ok) {
           console.error("CometAPI video error:", cometText);
