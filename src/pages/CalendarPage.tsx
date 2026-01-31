@@ -29,13 +29,44 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
+  Sparkles,
 } from "lucide-react";
+import { FaInstagram, FaFacebookF, FaTiktok, FaLinkedinIn, FaYoutube } from "react-icons/fa";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, isToday, isBefore, startOfDay, addWeeks, startOfWeek } from "date-fns";
 import { enUS } from "date-fns/locale";
 import { ScheduledPostModal } from "@/components/ScheduledPostModal";
 import { ContentSuggestions } from "@/components/ContentSuggestions";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
+
+// Platform styling with official brand colors
+const PLATFORM_STYLES: Record<string, { icon: React.ReactNode; color: string; bg: string }> = {
+  instagram: { 
+    icon: <FaInstagram className="h-3 w-3" />, 
+    color: "#E4405F",
+    bg: "linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)"
+  },
+  facebook: { 
+    icon: <FaFacebookF className="h-3 w-3" />, 
+    color: "#1877F2",
+    bg: "#1877F2"
+  },
+  tiktok: { 
+    icon: <FaTiktok className="h-3 w-3" />, 
+    color: "#000000",
+    bg: "linear-gradient(45deg, #00f2ea 0%, #ff0050 100%)"
+  },
+  linkedin: { 
+    icon: <FaLinkedinIn className="h-3 w-3" />, 
+    color: "#0A66C2",
+    bg: "#0A66C2"
+  },
+  youtube: { 
+    icon: <FaYoutube className="h-3 w-3" />, 
+    color: "#FF0000",
+    bg: "#FF0000"
+  },
+};
 
 interface Project {
   id: string;
@@ -369,9 +400,14 @@ const CalendarPage = () => {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="font-display text-xl font-bold">AutoPost AI</h1>
-          <p className="text-sm text-muted-foreground">Scheduled content calendar</p>
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl gradient-primary flex items-center justify-center shadow-glow">
+            <Sparkles className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h1 className="font-display text-xl font-bold">AutoPost AI</h1>
+            <p className="text-sm text-muted-foreground">Scheduled content calendar</p>
+          </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {/* Project Filter */}
@@ -415,7 +451,7 @@ const CalendarPage = () => {
             </SelectContent>
           </Select>
 
-          <Button size="sm" className="h-9 px-3">
+          <Button size="sm" className="h-9 px-3 gradient-primary text-white shadow-glow">
             <Plus className="h-4 w-4" />
           </Button>
         </div>
@@ -455,42 +491,78 @@ const CalendarPage = () => {
               const isPast = isBefore(day, startOfDay(new Date())) && !isToday(day);
 
               return (
-                <div
+                <motion.div
                   key={day.toISOString()}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.01 }}
                   onClick={() => handleDayClick(day, dayPosts)}
-                  className={`min-h-[48px] md:min-h-[80px] p-1 rounded transition-colors cursor-pointer hover:ring-2 hover:ring-primary/30 ${
+                  className={`min-h-[52px] md:min-h-[85px] p-1.5 rounded-lg transition-all cursor-pointer hover:ring-2 hover:ring-primary/40 hover:scale-[1.02] ${
                     isToday(day)
-                      ? "bg-primary/10 border border-primary/30"
+                      ? "bg-gradient-to-br from-primary/20 to-secondary/10 border border-primary/40 shadow-glow"
                       : isPast
-                      ? "bg-muted/20 opacity-50"
-                      : "bg-muted/30"
+                      ? "bg-muted/20 opacity-40"
+                      : dayPosts.length > 0
+                      ? "bg-card/80 border border-border/50"
+                      : "bg-muted/30 hover:bg-muted/50"
                   }`}
                 >
-                  <span className={`text-xs font-medium ${isToday(day) ? "text-primary" : ""}`}>
-                    {format(day, "d")}
-                  </span>
-                  {/* Show time + dots for posts */}
-                  <div className="flex flex-col gap-0.5 mt-0.5">
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-semibold ${isToday(day) ? "text-primary" : "text-foreground"}`}>
+                      {format(day, "d")}
+                    </span>
+                    {dayPosts.length > 0 && (
+                      <span className="text-[9px] font-medium text-accent bg-accent/20 px-1 rounded">
+                        {dayPosts.length}
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Styled post indicators */}
+                  <div className="flex flex-col gap-1 mt-1">
                     {dayPosts.slice(0, 2).map((post) => (
                       <div
                         key={post.id}
                         onClick={(e) => handlePostClick(post, e)}
-                        className="flex items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity"
+                        className="group flex items-center gap-1 p-0.5 rounded cursor-pointer hover:bg-muted/50 transition-all"
                       >
-                        <div
-                          className="h-1.5 w-1.5 rounded-full shrink-0"
+                        {/* Content type icon */}
+                        <div 
+                          className="h-4 w-4 rounded flex items-center justify-center shrink-0 text-white"
                           style={{ backgroundColor: getProjectColor(post.project_id) }}
-                        />
-                        <span className="text-[8px] md:text-[10px] text-muted-foreground truncate">
-                          {format(new Date(post.scheduled_for), "HH:mm")}
-                        </span>
+                        >
+                          {post.content_type === "video" ? (
+                            <Video className="h-2.5 w-2.5" />
+                          ) : (
+                            <ImageIcon className="h-2.5 w-2.5" />
+                          )}
+                        </div>
+                        
+                        {/* Platform icons */}
+                        <div className="hidden md:flex items-center gap-0.5">
+                          {(post.platforms || []).slice(0, 2).map((platform) => {
+                            const style = PLATFORM_STYLES[platform];
+                            if (!style) return null;
+                            return (
+                              <div
+                                key={platform}
+                                className="h-3.5 w-3.5 rounded flex items-center justify-center text-white"
+                                style={{ background: style.bg }}
+                              >
+                                <span className="scale-75">{style.icon}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     ))}
                     {dayPosts.length > 2 && (
-                      <span className="text-[8px] text-muted-foreground">+{dayPosts.length - 2}</span>
+                      <span className="text-[9px] font-medium text-muted-foreground pl-0.5">
+                        +{dayPosts.length - 2} more
+                      </span>
                     )}
                   </div>
-                </div>
+                </motion.div>
               );
             })}
           </div>
@@ -529,41 +601,67 @@ const CalendarPage = () => {
           <div className="space-y-3 max-h-[400px] overflow-y-auto">
             {selectedDate && getPostsForDay(selectedDate).length > 0 ? (
               getPostsForDay(selectedDate).map((post) => (
-                <div
+                <motion.div
                   key={post.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
                   onClick={() => {
                     setIsDayModalOpen(false);
                     setSelectedPost(post);
                     setIsModalOpen(true);
                   }}
-                  className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer transition-colors"
+                  className="flex items-center gap-3 p-3 rounded-xl border border-border/50 bg-card/50 hover:bg-muted/50 cursor-pointer transition-all hover:shadow-lg group"
                 >
+                  {/* Content type badge */}
                   <div
-                    className="h-10 w-10 rounded-lg flex items-center justify-center text-white"
+                    className="h-12 w-12 rounded-xl flex items-center justify-center text-white shadow-lg transition-transform group-hover:scale-105"
                     style={{ backgroundColor: getProjectColor(post.project_id) }}
                   >
-                    {getContentIcon(post.content_type)}
+                    {post.content_type === "video" ? (
+                      <Video className="h-5 w-5" />
+                    ) : (
+                      <ImageIcon className="h-5 w-5" />
+                    )}
                   </div>
+                  
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">
                       {post.ai_prompt || post.text_content?.slice(0, 40) || "Untitled post"}
                     </p>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      {/* Platform icons */}
+                      <div className="flex items-center gap-1">
+                        {(post.platforms || []).map((platform) => {
+                          const style = PLATFORM_STYLES[platform];
+                          if (!style) return null;
+                          return (
+                            <div
+                              key={platform}
+                              className="h-5 w-5 rounded-md flex items-center justify-center text-white"
+                              style={{ background: style.bg }}
+                            >
+                              {style.icon}
+                            </div>
+                          );
+                        })}
+                      </div>
                       <span className="text-xs text-muted-foreground">
                         {format(new Date(post.scheduled_for), "HH:mm")}
                       </span>
-                      <Badge variant="secondary" className="text-[10px] h-4 px-1.5 capitalize">
+                      <Badge 
+                        variant="secondary" 
+                        className={`text-[10px] h-5 px-2 capitalize ${
+                          post.status === "scheduled" ? "bg-accent/20 text-accent" :
+                          post.status === "published" ? "bg-primary/20 text-primary" :
+                          "bg-muted"
+                        }`}
+                      >
                         {post.status || "draft"}
                       </Badge>
-                      {post.campaign_id && campaigns.find(c => c.id === post.campaign_id) && (
-                        <Badge variant="outline" className="text-[10px] h-4 px-1.5">
-                          {campaigns.find(c => c.id === post.campaign_id)?.name}
-                        </Badge>
-                      )}
                     </div>
                   </div>
                   {getStatusIcon(post.status || "draft")}
-                </div>
+                </motion.div>
               ))
             ) : (
               <div className="text-center py-8 text-muted-foreground">
