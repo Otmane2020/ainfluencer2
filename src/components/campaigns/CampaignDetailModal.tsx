@@ -31,6 +31,7 @@ interface Campaign {
   created_at: string;
   project_id: string;
   posting_hour: number | null;
+  posting_minute?: number | null;
   timezone: string | null;
   projects?: {
     name: string;
@@ -130,6 +131,7 @@ export const CampaignDetailModal = ({
 
   // Editable settings
   const [postingHour, setPostingHour] = useState(campaign?.posting_hour ?? 10);
+  const [postingMinute, setPostingMinute] = useState(campaign?.posting_minute ?? 0);
   const [timezone, setTimezone] = useState(campaign?.timezone || "Europe/Paris");
 
   // Sync local state with campaign prop
@@ -137,6 +139,7 @@ export const CampaignDetailModal = ({
     if (campaign) {
       setLocalStatus(campaign.status);
       setPostingHour(campaign.posting_hour ?? 10);
+      setPostingMinute(campaign.posting_minute ?? 0);
       setTimezone(campaign.timezone || "Europe/Paris");
     }
   }, [campaign]);
@@ -232,6 +235,7 @@ export const CampaignDetailModal = ({
     // 1. Update campaign settings
     const { error } = await supabase.from("campaigns").update({
       posting_hour: postingHour,
+      posting_minute: postingMinute,
       timezone
     }).eq("id", campaign.id);
 
@@ -245,8 +249,7 @@ export const CampaignDetailModal = ({
       return;
     }
 
-    // 2. Update all scheduled posts for this campaign with new posting hour
-    // This updates the hour while keeping the date
+    // 2. Update all scheduled posts for this campaign with new posting time
     const { data: campaignPosts, error: fetchError } = await supabase
       .from("scheduled_posts")
       .select("id, scheduled_for")
@@ -254,11 +257,11 @@ export const CampaignDetailModal = ({
       .neq("status", "published");
 
     if (!fetchError && campaignPosts && campaignPosts.length > 0) {
-      // Update each post with the new posting hour
+      // Update each post with the new posting hour and minute
       for (const post of campaignPosts) {
         const currentDate = new Date(post.scheduled_for);
-        // Set the new hour while keeping the date
-        currentDate.setHours(postingHour, Math.floor(Math.random() * 60), 0, 0);
+        // Set the new hour and minute while keeping the date
+        currentDate.setHours(postingHour, postingMinute, 0, 0);
         
         await supabase
           .from("scheduled_posts")
@@ -286,7 +289,7 @@ export const CampaignDetailModal = ({
   const TypeIcon = typeConfig.icon;
 
   // Check if settings have changed
-  const settingsChanged = postingHour !== (campaign.posting_hour ?? 10) || timezone !== (campaign.timezone || "Europe/Paris");
+  const settingsChanged = postingHour !== (campaign.posting_hour ?? 10) || postingMinute !== (campaign.posting_minute ?? 0) || timezone !== (campaign.timezone || "Europe/Paris");
   return <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
         <DialogHeader>
@@ -373,19 +376,35 @@ export const CampaignDetailModal = ({
                 Posting Schedule
               </h4>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-xs">Posting Hour</Label>
+                  <Label className="text-xs">Hour</Label>
                   <Select value={postingHour.toString()} onValueChange={v => setPostingHour(parseInt(v))}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-card max-h-48">
-                      {Array.from({
-                      length: 24
-                    }, (_, i) => <SelectItem key={i} value={i.toString()}>
-                          {i.toString().padStart(2, "0")}:00
-                        </SelectItem>)}
+                      {Array.from({ length: 24 }, (_, i) => (
+                        <SelectItem key={i} value={i.toString()}>
+                          {i.toString().padStart(2, "0")}h
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-xs">Minute</Label>
+                  <Select value={postingMinute.toString()} onValueChange={v => setPostingMinute(parseInt(v))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card max-h-48">
+                      {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map(m => (
+                        <SelectItem key={m} value={m.toString()}>
+                          {m.toString().padStart(2, "0")}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -404,7 +423,7 @@ export const CampaignDetailModal = ({
               </div>
               
               <p className="text-xs text-muted-foreground">
-                Posts will be scheduled around {postingHour.toString().padStart(2, "0")}:00 in the selected timezone
+                Posts will be scheduled at {postingHour.toString().padStart(2, "0")}:{postingMinute.toString().padStart(2, "0")} in the selected timezone
               </p>
 
               {settingsChanged && <Button onClick={handleSaveSettings} disabled={isSaving} className="w-full gap-2">
