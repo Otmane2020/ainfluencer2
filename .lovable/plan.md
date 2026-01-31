@@ -1,153 +1,97 @@
 
-# Fix Image Generation Context in Scheduled Post Modal
+# Video Generation Fix Plan
 
 ## Problem Identified
 
-The **ScheduledPostModal** generates mediocre images because it passes **minimal context** to the generation function:
+Based on my investigation, I found **three critical issues** causing video generation failures:
 
-| What Modal Sends | What's Needed |
-|------------------|---------------|
-| name, logo_url, url, description | ✅ Marketing Context (audiences, products, colors) |
-| ❌ No `marketing_context` | ✅ `ai_context_summary` |
-| ❌ No `detected_language` | ✅ `theme_color` |
-| ❌ No `scraped_markdown` | ✅ All branding data |
+### Issue 1: Quality Parameter Mismatch
+The frontend sends `quality: "720p"` (from the Quality Options constant), but the edge function expects quality values like `"standard"`, `"pro"`, or `"cinema"` to select the correct model fallback chain.
 
-The **Campaign Generator** works well because it fetches the **full project** with `select("*")` and passes everything to the Generation Context Guard.
+**Evidence from code:**
+```typescript
+// VideoGenerator.tsx line 654
+quality: selectedQuality,  // This is "720p"
+
+// generate-video-sora/index.ts line 137-141
+const MODEL_FALLBACK_CHAINS: Record<string, string[]> = {
+  cinema: ["kling-v2-master", ...],
+  pro: ["kling-v2.1-master", ...],
+  standard: ["kling-v2.5-turbo", ...],  // "720p" doesn't match!
+};
+```
+
+### Issue 2: Model ID Not Matching COMETAPI_MODELS Keys
+The frontend sends `model: getInternalModel()?.id || "sora-2"`, but the edge function ignores this and only looks at `quality`. When quality is "720p" (unknown), it falls back to `standard` but the model selection still fails.
+
+### Issue 3: Status Check Using Wrong Endpoint
+The status check in the edge function uses a legacy generic endpoint:
+```typescript
+// Line 611 - This doesn't exist/work for Kling models
+await fetch(`https://api.cometapi.com/v1/videos/${taskId}`)
+```
+Each CometAPI model needs its own status endpoint (e.g., `/v1/kling/task/${taskId}` for Kling).
+
+**Database Evidence:**
+Recent generations show model `nanobanana-standard` (doesn't exist) with `status: failed` and `error_message: CometAPI unavailable`.
 
 ---
 
-## Solution Overview
+## Solution
 
-Update `ScheduledPostModal.tsx` to:
-1. Fetch the **complete project data** including `marketing_context`
-2. Pass **all context** to `generate-image` function
-3. Let the Context Guard build **rich, brand-aligned prompts**
+### 1. Fix Quality Parameter Mapping
 
----
-
-## Implementation Steps
-
-### Step 1: Expand Project Context Interface
-
-Update the `projectContext` state to include all necessary fields:
+Update `VideoGenerator.tsx` to send the correct quality tier based on the selected product:
 
 ```typescript
-const [projectContext, setProjectContext] = useState<{
-  name: string;
-  logo_url: string | null;
-  url: string | null;
-  description: string | null;
-  // NEW fields for rich context
-  marketing_context: any | null;
-  ai_context_summary: string | null;
-  detected_language: string | null;
-  theme_color: string | null;
-  avatar_url: string | null;
-  scraped_markdown: string | null;
-} | null>(null);
-```
+// Map product tier to quality parameter
+const qualityTier = selectedProduct.tier; // "standard" | "pro" | "cinema"
 
-### Step 2: Fetch Full Project Data
-
-Change the project query to retrieve all needed fields:
-
-```typescript
-const { data } = await supabase
-  .from("projects")
-  .select(`
-    name, logo_url, url, description,
-    marketing_context, ai_context_summary,
-    detected_language, theme_color, 
-    avatar_url, scraped_markdown
-  `)
-  .eq("id", post.project_id)
-  .single();
-```
-
-### Step 3: Pass Full Context to generate-image
-
-Update the `handleGenerate` function to send complete branding data:
-
-```typescript
-const { data, error } = await supabase.functions.invoke("generate-image", {
-  body: {
-    prompt: post.ai_prompt || "Create engaging social media image",
-    aspectRatio: "1:1",
-    quality: imageQuality.id === "fast-image" ? "standard" : 
-             imageQuality.id === "medium-image" ? "pro" : "cinema",
-    // Full brand context (NEW)
-    logoUrl: projectContext?.logo_url,
-    brandName: projectContext?.name,
-    projectUrl: projectContext?.url,
-    detectedLanguage: projectContext?.detected_language || "en",
-    marketingContext: projectContext?.marketing_context,
-    aiContextSummary: projectContext?.ai_context_summary,
-    themeColor: projectContext?.theme_color,
-    avatarUrl: projectContext?.avatar_url,
-  },
-});
-```
-
-### Step 4: Remove Manual Prompt Enhancement
-
-The current code manually builds a basic prompt:
-```typescript
-if (projectContext) {
-  const brandInfo = [];
-  if (projectContext.name) brandInfo.push(`Brand: ${projectContext.name}`);
+body: JSON.stringify({
   // ...
-  enhancedPrompt = `${enhancedPrompt}\n\nBrand Context:\n${brandInfo.join('\n')}`;
+  quality: qualityTier,  // Send tier, not resolution
+  // ...
+})
+```
+
+### 2. Add Model-Specific Status Endpoints
+
+Update the status check in `generate-video-sora/index.ts` to use the correct endpoint for each model type:
+
+```typescript
+// Add model-specific status endpoints
+const STATUS_ENDPOINTS: Record<string, (taskId: string) => string> = {
+  "kling": (id) => `https://api.cometapi.com/v1/kling/task/${id}/status`,
+  "minimax": (id) => `https://api.cometapi.com/v1/minimax/query/${id}`,
+  "runway": (id) => `https://api.cometapi.com/v1/runway/task/${id}`,
+  "bytedance": (id) => `https://api.cometapi.com/v1/video/bytedance/${id}`,
+};
+```
+
+### 3. Store Model Type with Generation Record
+
+When creating a generation, store which model family was used so the status check knows which endpoint to call:
+
+```typescript
+// In generation record
+model: usedModel.model,  // e.g., "kling-v2.5-turbo"
+model_family: "kling",    // Add this for status routing
+```
+
+### 4. Add Robust Error Detection
+
+Improve the fallback logic to detect more error conditions:
+
+```typescript
+// Detect various failure modes
+if (responseText.includes("not found") || 
+    responseText.includes("unavailable") ||
+    responseText.includes("error") ||
+    response.status === 503) {
+  console.log(`[${model.model}] Unavailable, trying next...`);
+  continue;
 }
 ```
-
-This should be **removed** because the `generate-image` Edge Function already has the **Generation Context Guard** which builds a much richer prompt with:
-- Target audience pain points and desires
-- Products/services to showcase
-- Visual identity and color palette
-- Brand personality and tone
-- Content guidelines
-
----
-
-## Expected Results
-
-### Before (Current - Poor Context)
-```
-Prompt: "Create a promotional social media post"
-Brand Context:
-  Brand: MyBrand
-  About: We sell products...
-```
-→ Generic, bland images
-
-### After (With Full Context)
-```
-=== BRAND CONTEXT FOR MYBRAND ===
-[OUTPUT LANGUAGE: FRENCH]
-BRAND NAME: MyBrand
-WEBSITE: https://mybrand.com
-PRIMARY COLOR: #3B82F6
-
-=== TARGET AUDIENCE ===
-WHO: Small business owners
-THEIR PAIN POINTS: Lack of time, no marketing skills
-THEIR DESIRES: More customers, professional content
-
-=== PRODUCTS/SERVICES TO SHOWCASE ===
-1. AEO - Get found on AI search engines
-2. Autoblogging - Daily expert articles
-
-=== VISUAL STYLE ===
-AESTHETIC: Modern, tech-forward
-MOOD: Professional yet approachable
-
-=== GENERATION TASK (IMAGE) ===
-Create a promotional social media post
-
-=== MANDATORY VISUAL BRANDING RULES ===
-DOMINANT COLOR (CRITICAL): bright blue (#3B82F6) MUST be visible...
-```
-→ Rich, on-brand, conversion-focused images
 
 ---
 
@@ -155,15 +99,43 @@ DOMINANT COLOR (CRITICAL): bright blue (#3B82F6) MUST be visible...
 
 | File | Changes |
 |------|---------|
-| `src/components/ScheduledPostModal.tsx` | Expand project fetch & pass full context to generate-image |
+| `src/components/VideoGenerator.tsx` | Fix quality parameter to send product tier instead of resolution |
+| `supabase/functions/generate-video-sora/index.ts` | Add model-specific status endpoints, improve error handling, store model family |
 
 ---
 
 ## Technical Details
 
-The `generate-image` Edge Function already has:
-- `generation-context-guard.ts` integration
-- `validateAndBuildContext()` function
-- Support for all marketing context fields
+### VideoGenerator.tsx Changes
 
-The only change needed is on the **frontend** to send this data that's already being fetched but not passed.
+```typescript
+// Line ~650-668: Fix the request body
+body: JSON.stringify({
+  prompt: buildScenarioPrompt(...) + segment.script,
+  avatarUrl,
+  duration: segment.duration,
+  quality: selectedProduct.tier, // FIX: Use tier instead of "720p"
+  format: selectedFormat,
+  model: selectedProduct.internalModels[0], // FIX: Use product's model
+  videoMode,
+  // ... rest
+})
+```
+
+### Edge Function Changes
+
+1. **Add model family tracking**
+2. **Add status endpoint routing by model family**
+3. **Improve polling response handling**
+4. **Add better logging for debugging**
+
+---
+
+## Expected Outcome
+
+After these fixes:
+1. Video generation will use the correct CometAPI endpoints for Kling models
+2. Progress tracking will work because status checks use correct endpoints
+3. Fallback chain will properly try Kling V2.5 Turbo → MiniMax → Bytedance for standard quality
+4. Users will see accurate progress updates (10% → 30% → 60% → 100%)
+
