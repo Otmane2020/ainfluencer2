@@ -1129,10 +1129,7 @@ ${formattedHashtags}`;
 
       </div>
 
-      {/* Brand Options */}
-      <div className="mb-3">
-        <BrandOptions options={brandOptions} onChange={setBrandOptions} compact />
-      </div>
+      {/* Brand Options - Hidden from Video tab (available in Campaigns) */}
 
       {/* Segments - Direct display */}
       <div className="space-y-2 mb-3">
