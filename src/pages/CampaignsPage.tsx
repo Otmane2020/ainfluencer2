@@ -48,6 +48,7 @@ interface Campaign {
   created_at: string;
   project_id: string;
   posting_hour: number | null;
+  posting_minute?: number | null;
   timezone: string | null;
   projects?: { name: string; theme_color: string } | null;
 }

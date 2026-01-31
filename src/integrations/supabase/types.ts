@@ -36,6 +36,7 @@ export type Database = {
           name: string
           overlay_text: string | null
           posting_hour: number | null
+          posting_minute: number | null
           posts_per_week: number | null
           project_id: string
           starts_at: string | null
@@ -73,6 +74,7 @@ export type Database = {
           name: string
           overlay_text?: string | null
           posting_hour?: number | null
+          posting_minute?: number | null
           posts_per_week?: number | null
           project_id: string
           starts_at?: string | null
@@ -110,6 +112,7 @@ export type Database = {
           name?: string
           overlay_text?: string | null
           posting_hour?: number | null
+          posting_minute?: number | null
           posts_per_week?: number | null
           project_id?: string
           starts_at?: string | null
