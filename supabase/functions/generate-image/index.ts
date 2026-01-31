@@ -181,105 +181,41 @@ Keep the base image exactly as is, only add the logo overlay.`;
 }
 
 // ============================================================
-// TEXT OVERLAY UTILITY
+// LANGUAGE CONFIGURATION
 // ============================================================
 
-interface TextOverlayOptions {
-  brandName?: string;
-  customText?: string;
-  websiteUrl?: string;
-  themeColor?: string;
-}
-
-async function overlayTextOnImage(
-  baseImageData: string,
-  options: TextOverlayOptions
-): Promise<string> {
-  const { brandName, customText, websiteUrl, themeColor } = options;
-  
-  // Build text elements to overlay
-  const textElements: string[] = [];
-  if (brandName) textElements.push(`Brand name: "${brandName}"`);
-  if (customText) textElements.push(`Custom text/CTA: "${customText}"`);
-  if (websiteUrl) textElements.push(`Website URL: "${websiteUrl}"`);
-  
-  if (textElements.length === 0) {
-    console.log("[TextOverlay] No text elements to add");
-    return baseImageData;
-  }
-  
-  try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("[TextOverlay] No LOVABLE_API_KEY");
-      return baseImageData;
-    }
-    
-    const colorInstruction = themeColor 
-      ? `Use ${themeColor} as the accent color for text highlights or backgrounds.`
-      : "Use a color that contrasts well with the image background.";
-    
-    const compositePrompt = `Add professional text overlay to this image for social media marketing.
-
-TEXT TO ADD:
-${textElements.join("\n")}
-
-STYLING REQUIREMENTS:
-- Position text in the bottom area (reserve bottom 15-20% for text)
-- Use bold, modern sans-serif typography
-- Text must be highly legible with drop shadow or semi-transparent background
-- ${colorInstruction}
-- Brand name should be larger and prominent
-- Website URL should be smaller, positioned at the very bottom
-- Custom text/CTA should be eye-catching and centered
-- DO NOT alter the main image content, only add text overlay
-- Ensure mobile-safe zones: avoid top 150px and keep text within safe margins
-
-Keep the original image exactly as is, only add the text overlay elements.`;
-
-    console.log("[TextOverlay] Adding text overlay:", textElements.join(", "));
-    
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image",
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: compositePrompt },
-              { type: "image_url", image_url: { url: baseImageData } },
-            ],
-          },
-        ],
-        modalities: ["image", "text"],
-      }),
-    });
-
-    if (!response.ok) {
-      console.error("[TextOverlay] AI composite failed:", response.status);
-      return baseImageData;
-    }
-
-    const data = await response.json();
-    const compositedImage = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    
-    if (compositedImage) {
-      console.log("[TextOverlay] Text overlay successfully added!");
-      return compositedImage;
-    }
-    
-    console.log("[TextOverlay] No composited image returned, using original");
-    return baseImageData;
-  } catch (error) {
-    console.error("[TextOverlay] Error:", error);
-    return baseImageData;
-  }
-}
+const LANGUAGE_CONFIG: Record<string, { name: string; fullName: string; instruction: string }> = {
+  fr: { 
+    name: "French", 
+    fullName: "French (Français)",
+    instruction: "TOUT le texte DOIT être en FRANÇAIS. Aucun mot anglais autorisé."
+  },
+  en: { 
+    name: "English", 
+    fullName: "English",
+    instruction: "All text must be in English."
+  },
+  es: { 
+    name: "Spanish", 
+    fullName: "Spanish (Español)",
+    instruction: "TODO el texto DEBE estar en ESPAÑOL. No se permite inglés."
+  },
+  de: { 
+    name: "German", 
+    fullName: "German (Deutsch)",
+    instruction: "ALLE Texte MÜSSEN auf DEUTSCH sein. Kein Englisch erlaubt."
+  },
+  it: { 
+    name: "Italian", 
+    fullName: "Italian (Italiano)",
+    instruction: "TUTTO il testo DEVE essere in ITALIANO. Nessun inglese permesso."
+  },
+  pt: { 
+    name: "Portuguese", 
+    fullName: "Portuguese (Português)",
+    instruction: "TODO o texto DEVE estar em PORTUGUÊS. Nenhum inglês permitido."
+  },
+};
 
 // Scenario context builders
 const SECTOR_CONTEXT: Record<string, string> = {
@@ -677,112 +613,114 @@ Deno.serve(async (req) => {
       console.warn("[ImageGen] Context warnings:", contextGuard.warnings.join("; "));
     }
 
-    // Use the enhanced prompt from the guard if context score is good
-    let finalPrompt: string;
-    if (contextGuard.contextScore >= 40) {
-      // Good context - use full enhanced prompt
-      finalPrompt = contextGuard.enhancedPrompt;
-      console.log(`[ImageGen] Using enhanced prompt (score: ${contextGuard.contextScore})`);
-    } else {
-      // Fallback to basic enhancement
-      console.log(`[ImageGen] Low context score (${contextGuard.contextScore}), using basic prompt`);
-      const enhancedParts: string[] = [];
-      
-      // Add language instruction
-      const languageMap: Record<string, string> = {
-        en: "English", fr: "French", es: "Spanish", de: "German", it: "Italian", pt: "Portuguese",
-      };
-      const languageName = languageMap[outputLanguage] || "English";
-      if (outputLanguage !== "en") {
-        enhancedParts.push(`[LANGUAGE: All text in this image MUST be in ${languageName}. NO English text allowed.]`);
-      }
-      
-      // Add scenario context
-      if (sectorId && SECTOR_CONTEXT[sectorId]) {
-        enhancedParts.push(`Sector style: ${SECTOR_CONTEXT[sectorId]}`);
-      }
-      if (styleId && STYLE_CONTEXT[styleId]) {
-        enhancedParts.push(`Visual style: ${STYLE_CONTEXT[styleId]}`);
-      }
-      if (toneId && TONE_CONTEXT[toneId]) {
-        enhancedParts.push(`Tone: ${TONE_CONTEXT[toneId]}`);
-      }
-      if (brandName) {
-        enhancedParts.push(`Brand: ${brandName}`);
-      }
-      if (aiContextSummary) {
-        enhancedParts.push(`Brand context: ${aiContextSummary.substring(0, 200)}`);
-      }
-      
-      finalPrompt = enhancedParts.length > 0 
-        ? `${enhancedParts.join(". ")}. ${prompt}`
-        : prompt;
-    }
-
-    // Add format specifications
-    if (format === "vertical" || aspectRatio === "9:16") {
-      finalPrompt += " Vertical format (9:16), optimized for mobile, Instagram Reels, TikTok.";
-    } else if (format === "square" || aspectRatio === "1:1") {
-      finalPrompt += " Square format (1:1), perfect for Instagram feed.";
-    } else if (format === "landscape" || aspectRatio === "16:9") {
-      finalPrompt += " Landscape format (16:9), optimized for YouTube, presentations.";
-    }
-
-    // Add quality enhancements
-    finalPrompt += " Ultra high resolution, professional advertising quality, stunning composition, perfect lighting.";
-
-    // === MANDATORY TEXT OVERLAY REQUIREMENTS ===
-    if (includeText && overlayText) {
-      const themeColor = marketingContext?.visual_identity?.primary_color || guardInput.themeColor;
-      finalPrompt += `
-
-TEXT OVERLAY REQUIREMENTS (MANDATORY - CRITICAL):
-- Display this EXACT text in the image: "${overlayText}"
-- SIZE: LARGE, occupying at least 15-20% of image width
-- FONT: Bold modern sans-serif (like Helvetica Bold, Montserrat Bold), highly readable
-- COLOR: High contrast - white text with dark shadow/outline, or ${themeColor || 'brand color'} on light backgrounds
-- POSITION: Center-bottom or lower-third of image (mobile-safe zone)
-- STYLE: Clean, professional, eye-catching typography
-- CRITICAL: The text must be the FIRST thing viewers notice - make it IMPOSSIBLE to miss
-- Add subtle drop shadow or outline to ensure readability on any background`;
-    }
-
-    // === MANDATORY URL REQUIREMENTS ===
-    if (includeUrl && projectUrl) {
-      finalPrompt += `
-
-WEBSITE URL REQUIREMENTS (MANDATORY):
-- Display this URL clearly: "${projectUrl}"
-- POSITION: Bottom of image, clearly visible
-- SIZE: Readable but not dominant (5-8% of image height)
-- COLOR: White text with subtle dark shadow for visibility on any background
-- FONT: Clean, modern sans-serif font
-- Must be LEGIBLE - do not let it blend into the background`;
-    }
-
-    // === MANDATORY BRAND COLOR REQUIREMENTS ===
+    // Get language configuration
+    const langConfig = LANGUAGE_CONFIG[outputLanguage] || LANGUAGE_CONFIG["en"];
     const primaryColor = marketingContext?.visual_identity?.primary_color || guardInput.themeColor;
+    
+    // ============================================================
+    // BUILD HIGH-QUALITY PROMPT WITH INTEGRATED TEXT
+    // ============================================================
+    
+    const promptParts: string[] = [];
+    
+    // 1. QUALITY & STYLE - Modern, 3D, eye-catching
+    promptParts.push(`STYLE: Ultra-premium advertising photography, modern 3D aesthetic, cinematic lighting, stunning visual impact, eye-catching composition, professional marketing quality, sharp details, vivid colors, dynamic depth-of-field, photorealistic with artistic flair.`);
+    
+    // 2. LANGUAGE ENFORCEMENT (Critical)
+    if (outputLanguage !== "en") {
+      promptParts.push(`
+⚠️ CRITICAL LANGUAGE REQUIREMENT:
+- Language: ${langConfig.fullName}
+- ${langConfig.instruction}
+- Brand names can remain as-is but ALL other text must be in ${langConfig.name}.
+- This is NON-NEGOTIABLE.`);
+    }
+    
+    // 3. ADD BRAND CONTEXT
+    if (contextGuard.contextScore >= 40) {
+      promptParts.push(contextGuard.brandContext);
+      console.log(`[ImageGen] Using enhanced context (score: ${contextGuard.contextScore})`);
+    } else {
+      // Basic context fallback
+      if (brandName) promptParts.push(`BRAND: ${brandName}`);
+      if (aiContextSummary) promptParts.push(`CONTEXT: ${aiContextSummary.substring(0, 300)}`);
+    }
+    
+    // 4. MAIN GENERATION PROMPT
+    promptParts.push(`
+=== GENERATION REQUEST ===
+${prompt}`);
+    
+    // 5. INTEGRATED TEXT (Not post-processed - generated directly in image)
+    const textElementsToIntegrate: string[] = [];
+    
+    if (includeText && overlayText) {
+      textElementsToIntegrate.push(`MAIN TEXT: "${overlayText}"`);
+    }
+    
+    if (includeUrl && projectUrl) {
+      // Ensure correct URL format
+      const cleanUrl = projectUrl.replace(/\.com$/, '.app').replace(/^https?:\/\//, '');
+      textElementsToIntegrate.push(`WEBSITE: "${cleanUrl}"`);
+    }
+    
+    if (textElementsToIntegrate.length > 0) {
+      promptParts.push(`
+=== TEXT INTEGRATION REQUIREMENTS (INTEGRATED IN IMAGE - NOT OVERLAY) ===
+The following text elements MUST be elegantly integrated INTO the image design:
+
+${textElementsToIntegrate.join('\n')}
+
+TYPOGRAPHY DESIGN RULES:
+1. VISUAL HIERARCHY: Main text is LARGE and prominent (20-30% of image width), website is smaller at bottom
+2. MODERN TYPOGRAPHY: Bold, sleek sans-serif font (like Futura, Montserrat, or Poppins)
+3. 3D EFFECT: Add depth with subtle shadow, glow, or emboss effect
+4. HIGH CONTRAST: Ensure text pops against background - use ${primaryColor || 'brand color'} as accent
+5. ELEGANT INTEGRATION: Text should feel like part of the design, NOT a sticker or overlay
+6. POSITIONING: Text in lower-third of image, respecting mobile-safe zones
+7. READABILITY: Crystal clear, legible at any size, professional appearance
+8. LANGUAGE: ${langConfig.instruction}
+
+The text must look DESIGNED, not added - like a professional advertising campaign.`);
+    }
+    
+    // 6. BRAND COLOR ENFORCEMENT
     if (primaryColor) {
-      finalPrompt += `
-
-BRAND COLOR REQUIREMENTS (MANDATORY):
-- Primary brand color: ${primaryColor}
-- This color MUST appear PROMINENTLY in the image (backgrounds, key objects, accents, clothing, or UI elements)
-- The overall image should "feel" on-brand with this color dominating the palette
-- Do NOT use conflicting or clashing color schemes`;
+      promptParts.push(`
+=== BRAND COLOR (MANDATORY) ===
+Primary color: ${primaryColor}
+This color MUST dominate the image palette - in backgrounds, accents, lighting tones, or key objects.`);
     }
-
-    // === LOGO SPACE RESERVATION ===
+    
+    // 7. LOGO SPACE RESERVATION
     if (includeLogo && logoUrl) {
-      finalPrompt += `
-
-LOGO SPACE REQUIREMENT (MANDATORY):
-- Reserve a CLEAR, UNCLUTTERED area in the bottom-right corner (approximately 15% of image)
-- This space will be used for brand logo overlay
-- Ensure the background in that corner is SIMPLE (solid color or subtle gradient)
-- Do NOT place important subjects, text, or busy patterns in the bottom-right corner`;
+      promptParts.push(`
+=== LOGO SPACE ===
+Reserve a clean, uncluttered area in the bottom-right corner (15% of image) for logo placement.
+Background in that area should be simple (solid or subtle gradient).`);
     }
-
+    
+    // 8. FORMAT OPTIMIZATION
+    if (format === "vertical" || aspectRatio === "9:16") {
+      promptParts.push(`FORMAT: Vertical 9:16 portrait, optimized for Instagram Reels, TikTok, Stories.`);
+    } else if (format === "square" || aspectRatio === "1:1") {
+      promptParts.push(`FORMAT: Square 1:1, perfect for Instagram feed.`);
+    } else if (format === "landscape" || aspectRatio === "16:9") {
+      promptParts.push(`FORMAT: Landscape 16:9, optimized for YouTube, presentations.`);
+    }
+    
+    // 9. SCENARIO CONTEXT
+    if (sectorId && SECTOR_CONTEXT[sectorId]) {
+      promptParts.push(`SECTOR: ${SECTOR_CONTEXT[sectorId]}`);
+    }
+    if (styleId && STYLE_CONTEXT[styleId]) {
+      promptParts.push(`VISUAL APPROACH: ${STYLE_CONTEXT[styleId]}`);
+    }
+    if (toneId && TONE_CONTEXT[toneId]) {
+      promptParts.push(`TONE: ${TONE_CONTEXT[toneId]}`);
+    }
+    
+    const finalPrompt = promptParts.join('\n\n');
     console.log("Final prompt length:", finalPrompt.length);
 
     // Determine aspect ratio for CometAPI
@@ -818,42 +756,11 @@ LOGO SPACE REQUIREMENT (MANDATORY):
       );
     }
 
-    // Apply logo overlay if requested
+    // Apply logo overlay if requested (post-processing only for logo - text is now integrated)
     let finalImageData = imageData;
     if (includeLogo && logoUrl) {
       console.log("[Main] Applying logo overlay...");
       finalImageData = await overlayLogoOnImage(finalImageData, logoUrl, "bottom-right");
-    }
-
-    // Apply text overlay if any text options are enabled
-    const hasTextOverlay = includeText || includeUrl || brandName;
-    if (hasTextOverlay) {
-      const textOptions: { brandName?: string; customText?: string; websiteUrl?: string; themeColor?: string } = {};
-      
-      // Add brand name if enabled
-      if (brandName) {
-        textOptions.brandName = brandName;
-      }
-      
-      // Add custom overlay text if enabled
-      if (includeText && overlayText) {
-        textOptions.customText = overlayText;
-      }
-      
-      // Add website URL if enabled
-      if (includeUrl && projectUrl) {
-        textOptions.websiteUrl = projectUrl;
-      }
-      
-      // Add theme color for styling
-      if (marketingContext?.visual_identity?.primary_color) {
-        textOptions.themeColor = marketingContext.visual_identity.primary_color;
-      }
-      
-      if (Object.keys(textOptions).length > 0) {
-        console.log("[Main] Applying text overlay...", textOptions);
-        finalImageData = await overlayTextOnImage(finalImageData, textOptions);
-      }
     }
 
     console.log(`✓ Image generated successfully with ${usedModel.id}`);
