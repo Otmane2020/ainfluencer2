@@ -146,7 +146,7 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
   
   const [generationTasks, setGenerationTasks] = useState<GenerationTask[]>([]);
   const [segments, setSegments] = useState<VideoSegment[]>([
-    { id: "1", script: "", duration: 10, status: "pending" }, // Default 10 seconds
+    { id: "1", script: "", duration: 8, status: "pending" }, // Default 8 seconds (Sora valid: 4, 8, 12)
   ]);
   const [selectedVoice, setSelectedVoiceState] = useState<Voice>(defaultVoice);
   const [selectedProduct, setSelectedProductState] = useState<CommercialProduct>(defaultProduct);
