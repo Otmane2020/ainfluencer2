@@ -105,8 +105,18 @@ export const ImagePreview = ({
               
               {/* Model badge */}
               {latestImage.model && (
-                <div className="absolute top-2 right-2 px-2 py-1 rounded-full bg-black/60 text-white text-[10px] font-medium backdrop-blur-sm">
-                  {latestImage.provider === "gemini" ? "🍌" : "🤖"} {latestImage.model}
+                <div className={`absolute top-2 right-2 px-2 py-1 rounded-full text-white text-[10px] font-medium backdrop-blur-sm ${
+                  latestImage.provider === "flux" 
+                    ? "bg-purple-600/80" 
+                    : latestImage.provider === "openai" 
+                      ? "bg-emerald-600/80" 
+                      : "bg-amber-600/80"
+                }`}>
+                  {latestImage.provider === "flux" 
+                    ? "⚡" 
+                    : latestImage.provider === "openai" 
+                      ? "🤖" 
+                      : "🍌"} {latestImage.model.replace("flux-", "").replace("nano-banana", "Gemini").replace("-", " ").toUpperCase()}
                 </div>
               )}
               
