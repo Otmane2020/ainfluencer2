@@ -17,6 +17,11 @@ import {
   COMMERCIAL_PRODUCTS,
   CommercialProduct,
   getPrimaryInternalModel,
+  VIDEO_RESOLUTIONS,
+  VideoResolution,
+  getResolutionsForModel,
+  getVideoCreditCost,
+  formatVideoPrice,
 } from "@/lib/commercialProducts";
 import {
   VideoScenario,
@@ -110,11 +115,9 @@ const VIDEO_AVATAR_IMAGE_PRODUCTS = COMMERCIAL_PRODUCTS.filter(
 
 const PREFS_KEY = "video_generator_prefs";
 
-type VideoQuality = "720p";
+type VideoQuality = "720p" | "720p-vertical" | "1080p";
 
-const QUALITY_OPTIONS: { value: VideoQuality; label: string; description: string }[] = [
-  { value: "720p", label: "HD 720p", description: "Current maximum (provider limit)" },
-];
+// Quality/Resolution options now come from commercialProducts.ts
 
 interface StoredPrefs {
   voiceId?: string;
@@ -1007,35 +1010,67 @@ ${formattedHashtags}`;
           </Dialog>
         )}
 
-        {/* Quality Selector */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <button className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-xs hover:bg-muted transition-colors">
-              <Settings2 className="h-4 w-4 text-primary" />
-              <span>{selectedQuality}</span>
-              <ChevronDown className="h-3 w-3" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-56 p-2">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground mb-2 px-2">Video Quality</p>
-              {QUALITY_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => setSelectedQuality(option.value)}
-                  className={`w-full flex flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left transition-colors ${
-                    selectedQuality === option.value
-                      ? "bg-primary/10 text-primary"
-                      : "hover:bg-muted"
-                  }`}
-                >
-                  <span className="text-sm font-medium">{option.label}</span>
-                  <span className="text-xs text-muted-foreground">{option.description}</span>
+        {/* Resolution/Quality Selector with Price */}
+        {(() => {
+          const modelId = selectedProduct.internalModels?.[0] || "sora-2";
+          const duration = segments[0]?.duration || 8;
+          const resolutions = getResolutionsForModel(modelId);
+          const currentRes = resolutions.find(r => r.id === selectedQuality) || resolutions[0];
+          
+          return (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-xs hover:bg-muted transition-colors">
+                  <Settings2 className="h-4 w-4 text-primary" />
+                  <span>{currentRes?.label || selectedQuality}</span>
+                  <span className="text-muted-foreground font-medium">
+                    {formatVideoPrice(modelId, duration, selectedQuality)}
+                  </span>
+                  <ChevronDown className="h-3 w-3" />
                 </button>
-              ))}
-            </div>
-          </PopoverContent>
-        </Popover>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-2">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground mb-2 px-2">
+                    Resolution & Pricing
+                  </p>
+                  {resolutions.map((res) => {
+                    const priceUSD = formatVideoPrice(modelId, duration, res.id);
+                    const credits = getVideoCreditCost(modelId, duration, res.id);
+                    
+                    return (
+                      <button
+                        key={res.id}
+                        onClick={() => setSelectedQuality(res.id as VideoQuality)}
+                        className={`w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left transition-colors ${
+                          selectedQuality === res.id
+                            ? "bg-primary/10 text-primary"
+                            : "hover:bg-muted"
+                        }`}
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">{res.label}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {res.width}×{res.height} • ${res.pricePerSecond.toFixed(2)}/sec
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-sm font-bold text-primary">{priceUSD}</span>
+                          <p className="text-xs text-muted-foreground">{credits} cr</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                  <div className="mt-2 px-2 pt-2 border-t border-border">
+                    <p className="text-xs text-muted-foreground">
+                      💡 ${currentRes?.pricePerSecond.toFixed(2) || "0.10"}/sec × {duration}s = {formatVideoPrice(modelId, duration, selectedQuality)}
+                    </p>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          );
+        })()}
 
         {/* Scenario Selector */}
         <ScenarioSelector
