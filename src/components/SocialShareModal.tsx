@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { 
   X, 
   Copy, 
@@ -12,7 +12,9 @@ import {
   Share2,
   ExternalLink,
   Loader2,
-  MessageCircle
+  MessageCircle,
+  ChevronDown,
+  Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,6 +25,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { supabase } from "@/integrations/supabase/client";
 
 // TikTok icon component
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -37,6 +46,12 @@ const TwitterIcon = ({ className }: { className?: string }) => (
     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
   </svg>
 );
+
+interface Project {
+  id: string;
+  name: string;
+  theme_color: string | null;
+}
 
 interface SocialShareModalProps {
   isOpen: boolean;
@@ -54,6 +69,7 @@ interface SocialPlatform {
   icon: React.ComponentType<{ className?: string }>;
   gradient: string;
   shareUrl?: (text: string, url?: string) => string;
+  directPost?: boolean;
 }
 
 const platforms: SocialPlatform[] = [
@@ -62,13 +78,14 @@ const platforms: SocialPlatform[] = [
     name: "Instagram",
     icon: Instagram,
     gradient: "from-[#833AB4] via-[#E1306C] to-[#F77737]",
+    directPost: true,
   },
   {
     id: "facebook",
     name: "Facebook",
     icon: Facebook,
     gradient: "from-[#1877F2] to-[#0D65D9]",
-    shareUrl: (text, url) => `https://www.facebook.com/sharer/sharer.php?quote=${encodeURIComponent(text)}${url ? `&u=${encodeURIComponent(url)}` : ''}`,
+    directPost: true,
   },
   {
     id: "twitter",
@@ -103,7 +120,31 @@ export const SocialShareModal = ({ isOpen, onClose, content }: SocialShareModalP
   const [shareText, setShareText] = useState(content?.text || "");
   const [copied, setCopied] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [projectSelectorOpen, setProjectSelectorOpen] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchProjects();
+      setShareText(content?.text || "");
+    }
+  }, [isOpen, content?.text]);
+
+  const fetchProjects = async () => {
+    const { data } = await supabase
+      .from("projects")
+      .select("id, name, theme_color")
+      .order("name");
+    if (data && data.length > 0) {
+      setProjects(data);
+      if (!selectedProject) {
+        setSelectedProject(data[0]);
+      }
+    }
+  };
 
   // Reset text when content changes - using useEffect for proper behavior
 
@@ -175,12 +216,98 @@ export const SocialShareModal = ({ isOpen, onClose, content }: SocialShareModalP
     }
   };
 
+  const handleDirectPost = async (platformIds: string[]) => {
+    if (!content?.mediaUrl) {
+      toast({
+        title: "No media to post",
+        description: "Please add an image or video to post",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedProject) {
+      toast({
+        title: "Please select a project",
+        description: "Select a project before posting",
+        variant: "destructive",
+      });
+      setProjectSelectorOpen(true);
+      return;
+    }
+
+    setIsPublishing(true);
+    try {
+      const isVideo = content.type === "video";
+      
+      if (isVideo) {
+        // Use publish-clipmotion for videos
+        const { data, error } = await supabase.functions.invoke("publish-clipmotion", {
+          body: {
+            videoUrl: content.mediaUrl,
+            caption: shareText,
+            platforms: platformIds,
+            projectId: selectedProject.id,
+          },
+        });
+
+        if (error) throw error;
+
+        const successPlatforms = data?.results?.filter((r: any) => r.success).map((r: any) => r.platform) || [];
+        
+        if (successPlatforms.length > 0) {
+          toast({
+            title: "Posted successfully!",
+            description: `Published to ${successPlatforms.join(", ")}`,
+          });
+        } else {
+          throw new Error(data?.results?.[0]?.error || "Failed to post");
+        }
+      } else {
+        // Use publish-image for images
+        const { data, error } = await supabase.functions.invoke("publish-image", {
+          body: {
+            imageUrl: content.mediaUrl,
+            caption: shareText,
+            platforms: platformIds,
+            projectId: selectedProject.id,
+          },
+        });
+
+        if (error) throw error;
+
+        const successPlatforms = data?.results?.filter((r: any) => r.success).map((r: any) => r.platform) || [];
+        
+        if (successPlatforms.length > 0) {
+          toast({
+            title: "Posted successfully!",
+            description: `Published to ${successPlatforms.join(", ")}`,
+          });
+        } else {
+          throw new Error(data?.results?.[0]?.error || "Failed to post");
+        }
+      }
+    } catch (error: any) {
+      console.error("Post error:", error);
+      toast({
+        title: "Error posting",
+        description: error.message || "Failed to publish. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
   const handleShare = (platform: SocialPlatform) => {
-    if (platform.shareUrl) {
+    if (platform.directPost && content?.mediaUrl) {
+      // For Instagram/Facebook with media, use direct posting
+      handleDirectPost([platform.id]);
+    } else if (platform.shareUrl) {
       const url = platform.shareUrl(shareText, content?.mediaUrl);
       window.open(url, "_blank", "noopener,noreferrer,width=600,height=400");
     } else {
-      // For platforms without web share (Instagram, TikTok)
+      // For platforms without web share (TikTok without media)
       handleCopyText();
       toast({
         title: `Share on ${platform.name}`,
@@ -271,11 +398,101 @@ export const SocialShareModal = ({ isOpen, onClose, content }: SocialShareModalP
             </div>
           </div>
 
+          {/* Project Selector for Direct Posting */}
+          {content?.mediaUrl && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Post as project</label>
+              <Popover open={projectSelectorOpen} onOpenChange={setProjectSelectorOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between"
+                  >
+                    <div className="flex items-center gap-2">
+                      {selectedProject && (
+                        <div
+                          className="h-3 w-3 rounded-full shrink-0"
+                          style={{ backgroundColor: selectedProject.theme_color || "#8B5CF6" }}
+                        />
+                      )}
+                      <span className="truncate">
+                        {selectedProject?.name || "Select project"}
+                      </span>
+                    </div>
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[250px] p-0" align="start">
+                  <ScrollArea className="h-[200px]">
+                    <div className="p-2 space-y-1">
+                      {projects.map((project) => (
+                        <Button
+                          key={project.id}
+                          variant={selectedProject?.id === project.id ? "secondary" : "ghost"}
+                          className="w-full justify-start gap-2"
+                          onClick={() => {
+                            setSelectedProject(project);
+                            setProjectSelectorOpen(false);
+                          }}
+                        >
+                          <div
+                            className="h-3 w-3 rounded-full shrink-0"
+                            style={{ backgroundColor: project.theme_color || "#8B5CF6" }}
+                          />
+                          <span className="truncate">{project.name}</span>
+                        </Button>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
+
+          {/* Direct Post to Instagram/Facebook */}
+          {content?.mediaUrl && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Post directly
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  onClick={() => handleDirectPost(["instagram", "facebook"])}
+                  disabled={isPublishing || !selectedProject}
+                  className="bg-gradient-to-r from-[#833AB4] via-[#E1306C] to-[#1877F2] text-white hover:opacity-90"
+                >
+                  {isPublishing ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <>
+                      <Instagram className="h-4 w-4 mr-1" />
+                      <Facebook className="h-4 w-4 mr-2" />
+                    </>
+                  )}
+                  Post Both
+                </Button>
+                <Button
+                  onClick={() => handleDirectPost(["instagram"])}
+                  disabled={isPublishing || !selectedProject}
+                  className="bg-gradient-to-r from-[#833AB4] via-[#E1306C] to-[#F77737] text-white hover:opacity-90"
+                >
+                  {isPublishing ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Instagram className="h-4 w-4 mr-2" />
+                  )}
+                  Instagram
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Social Platforms Grid */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Share to</label>
+            <label className="text-sm font-medium">Share via</label>
             <div className="grid grid-cols-3 gap-2">
-              {platforms.map((platform) => (
+              {platforms.filter(p => !p.directPost).map((platform) => (
                 <motion.button
                   key={platform.id}
                   whileHover={{ scale: 1.02 }}
