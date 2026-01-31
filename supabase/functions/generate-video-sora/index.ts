@@ -184,6 +184,7 @@ async function tryVideoGeneration(
         headers: {
           "Authorization": `Bearer ${apiKey}`,
           "Content-Type": "application/json",
+          "Accept": "application/json", // Force JSON response
         },
         body: JSON.stringify(requestBody),
       });
@@ -191,15 +192,27 @@ async function tryVideoGeneration(
       const responseText = await response.text();
       console.log(`[${model.model}] Response: ${response.status} - ${responseText.substring(0, 300)}`);
       
-      // Check for HTML error page
-      if (responseText.trim().startsWith("<!") || responseText.trim().startsWith("<html")) {
-        console.warn(`[${model.model}] Returned HTML error page - trying next model`);
+      // Check for empty response
+      if (!responseText || responseText.trim().length === 0) {
+        console.warn(`[${model.model}] Empty response - trying next model`);
         continue;
       }
       
-      // Check for server errors
+      // Check for HTML error page (WAF/Cloudflare/404)
+      if (responseText.trim().startsWith("<!") || responseText.trim().startsWith("<html") || responseText.includes("<!DOCTYPE")) {
+        console.warn(`[${model.model}] Returned HTML error page - likely WAF/404 - trying next model`);
+        continue;
+      }
+      
+      // Check for server errors (500+)
       if (response.status >= 500) {
         console.warn(`[${model.model}] Server error (${response.status}) - trying next model`);
+        continue;
+      }
+      
+      // Check for 401/403 (auth issues)
+      if (response.status === 401 || response.status === 403) {
+        console.warn(`[${model.model}] Auth error (${response.status}) - API key may be invalid - trying next model`);
         continue;
       }
       
@@ -209,15 +222,25 @@ async function tryVideoGeneration(
         continue;
       }
       
+      // Check for 429 (rate limit)
+      if (response.status === 429) {
+        console.warn(`[${model.model}] Rate limited (429) - trying next model`);
+        continue;
+      }
+      
       if (!response.ok) {
         try {
           const errorJson = JSON.parse(responseText);
-          if (errorJson.error?.includes("unavailable") || errorJson.error?.includes("not found")) {
-            console.warn(`[${model.model}] Model error: ${errorJson.error} - trying next model`);
+          const errorMsg = errorJson.error || errorJson.message || errorJson.detail || "";
+          if (errorMsg.toLowerCase().includes("unavailable") || 
+              errorMsg.toLowerCase().includes("not found") ||
+              errorMsg.toLowerCase().includes("invalid") ||
+              errorMsg.toLowerCase().includes("not supported")) {
+            console.warn(`[${model.model}] Model error: ${errorMsg} - trying next model`);
             continue;
           }
         } catch {
-          // Not JSON
+          // Not JSON - continue to next check
         }
         console.warn(`[${model.model}] Failed with status ${response.status} - trying next model`);
         continue;
@@ -648,6 +671,7 @@ serve(async (req) => {
         headers: {
           "Authorization": `Bearer ${COMETAPI_API_KEY}`,
           "Content-Type": "application/json",
+          "Accept": "application/json", // Force JSON response
         },
       });
 
