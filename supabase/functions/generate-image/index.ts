@@ -235,6 +235,8 @@ async function generateWithOpenAI(
 
     console.log(`[OpenAI] Generating image with GPT Image, size: ${size}`);
 
+    // Note: gpt-image-1 does NOT support 'response_format' parameter
+    // It returns URL by default, we need to fetch and convert to base64
     const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
@@ -246,7 +248,7 @@ async function generateWithOpenAI(
         prompt: prompt,
         n: 1,
         size: size,
-        response_format: "b64_json",
+        // Removed: response_format - not supported by gpt-image-1
       }),
     });
 
@@ -257,16 +259,38 @@ async function generateWithOpenAI(
     }
 
     const data = await response.json();
+    
+    // Handle both URL and base64 response formats
+    const imageUrl = data.data?.[0]?.url;
     const base64Image = data.data?.[0]?.b64_json;
 
-    if (!base64Image) {
-      console.error("[OpenAI] No image in response");
-      return { imageData: null, error: "No image generated" };
+    if (base64Image) {
+      // Direct base64 response
+      const imageData = `data:image/png;base64,${base64Image}`;
+      console.log("[OpenAI] ✓ Image generated successfully with GPT Image (b64)");
+      return { imageData };
     }
 
-    const imageData = `data:image/png;base64,${base64Image}`;
-    console.log("[OpenAI] ✓ Image generated successfully with GPT Image");
-    return { imageData };
+    if (imageUrl) {
+      // URL response - need to fetch and convert to base64
+      console.log("[OpenAI] Fetching image from URL...");
+      const imgResponse = await fetch(imageUrl);
+      if (!imgResponse.ok) {
+        console.error("[OpenAI] Failed to fetch generated image");
+        return { imageData: null, error: "Failed to fetch generated image" };
+      }
+      
+      const imgBlob = await imgResponse.blob();
+      const imgArrayBuffer = await imgBlob.arrayBuffer();
+      const imgBase64 = btoa(String.fromCharCode(...new Uint8Array(imgArrayBuffer)));
+      const imageData = `data:${imgBlob.type || "image/png"};base64,${imgBase64}`;
+      
+      console.log("[OpenAI] ✓ Image generated successfully with GPT Image (url)");
+      return { imageData };
+    }
+
+    console.error("[OpenAI] No image in response");
+    return { imageData: null, error: "No image generated" };
   } catch (error) {
     console.error("[OpenAI] Exception:", error);
     return { imageData: null, error: String(error) };
