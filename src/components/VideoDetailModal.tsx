@@ -37,6 +37,14 @@ const TikTokIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+interface ProjectContext {
+  name: string;
+  description?: string;
+  detected_language?: string;
+  ai_context_summary?: string;
+  scraped_markdown?: string;
+}
+
 interface VideoDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -47,6 +55,7 @@ interface VideoDetailModalProps {
   duration?: number;
   createdAt?: Date;
   model?: string;
+  projectId?: string;
   onDelete?: () => void;
 }
 
@@ -60,6 +69,7 @@ export const VideoDetailModal = ({
   duration,
   createdAt,
   model,
+  projectId,
   onDelete,
 }: VideoDetailModalProps) => {
   const [isMuted, setIsMuted] = useState(false);
@@ -69,23 +79,64 @@ export const VideoDetailModal = ({
   const [isPublishing, setIsPublishing] = useState(false);
   const [isGeneratingCaption, setIsGeneratingCaption] = useState(false);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(["instagram", "facebook"]);
+  const [projectContext, setProjectContext] = useState<ProjectContext | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Generate caption with AI
+  // Fetch project context when modal opens
+  useEffect(() => {
+    if (isOpen && projectId) {
+      fetchProjectContext();
+    }
+  }, [isOpen, projectId]);
+
+  const fetchProjectContext = async () => {
+    if (!projectId) return;
+    try {
+      const { data } = await supabase
+        .from("projects")
+        .select("name, description, detected_language, ai_context_summary, scraped_markdown")
+        .eq("id", projectId)
+        .single();
+      if (data) {
+        setProjectContext(data);
+      }
+    } catch (error) {
+      console.error("Error fetching project context:", error);
+    }
+  };
+
+  // Generate caption with AI - uses project language
   const handleGenerateCaption = async () => {
     setIsGeneratingCaption(true);
     try {
-      const contextText = prompt 
-        ? `AI-generated video based on: ${prompt}`
-        : "AI-generated video content";
+      // Build rich context from project data
+      const name = projectContext?.name || title || "AI Video";
+      const language = projectContext?.detected_language || "en";
+      
+      // Use ai_context_summary or description for better context
+      let description = "";
+      if (prompt) {
+        description += `AI-generated video based on: ${prompt}. `;
+      }
+      if (projectContext?.ai_context_summary) {
+        description += projectContext.ai_context_summary;
+      } else if (projectContext?.description) {
+        description += projectContext.description;
+      }
+      // Add scraped content for richer context
+      const scrapedContent = projectContext?.scraped_markdown?.substring(0, 800) || "";
+
+      console.log("Generating caption with context:", { name, language, description: description.substring(0, 200) });
 
       const response = await supabase.functions.invoke("suggest-content", {
         body: {
           contentType: "social_post",
-          projectName: title || "AI Video",
-          projectDescription: contextText,
+          projectName: name,
+          projectDescription: description || "AI-generated video content",
+          detectedLanguage: language, // Pass project language
+          scrapedContent, // Include scraped content for brand context
         },
       });
 
@@ -97,13 +148,13 @@ export const VideoDetailModal = ({
         const hashtagString = hashtags.length > 0 
           ? "\n\n" + hashtags.map((h: string) => `#${h.replace(/^#/, '')}`).join(" ")
           : "";
-        setSocialCaption(`✨ AI Generated Post\n\n${content}${hashtagString}`);
+        setSocialCaption(`${content}${hashtagString}`);
         toast({ title: "Caption generated!" });
       } else {
         // Fallback
         const shortPrompt = prompt && prompt.length > 120 ? prompt.substring(0, 120) + "..." : prompt;
         setSocialCaption(prompt 
-          ? `✨ AI Generated Post\n\n${shortPrompt}\n\n#AI #AIVideo #CreativeContent`
+          ? `✨ ${name}\n\n${shortPrompt}\n\n#AI #AIVideo #CreativeContent`
           : `✨ Created with AI\n\n#AI #AIVideo #CreativeContent`);
         toast({ title: "Caption generated (local)" });
       }
