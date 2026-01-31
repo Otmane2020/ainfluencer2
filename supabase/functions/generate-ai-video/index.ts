@@ -1,4 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { 
+  validateAndBuildContext, 
+  fetchProjectContext,
+  logContextValidation,
+  type MarketingContext 
+} from "../_shared/generation-context-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -56,7 +62,7 @@ interface VideoRequest {
   logoUrl?: string;
   detectedLanguage?: string;
   aiContextSummary?: string;
-  marketingContext?: any;
+  marketingContext?: MarketingContext | null;
 }
 
 Deno.serve(async (req) => {
@@ -93,6 +99,7 @@ Deno.serve(async (req) => {
       format = "vertical",
       quality = "standard",
       skipCreditDeduction = false,
+      projectId,
       projectName,
       projectUrl,
       detectedLanguage,
@@ -212,6 +219,58 @@ Deno.serve(async (req) => {
     console.log("Prompt:", prompt.slice(0, 100));
 
     // ============================================================
+    // FETCH PROJECT CONTEXT IF projectId PROVIDED
+    // ============================================================
+    let project: any = null;
+    let fetchedMarketingContext: MarketingContext | null = null;
+    
+    if (projectId) {
+      console.log("[AI-VIDEO] Fetching project context for:", projectId);
+      const { project: fetchedProject, marketingContext: mc, error } = await fetchProjectContext(supabase, projectId);
+      if (error) {
+        console.warn("[AI-VIDEO] Project fetch warning:", error);
+      } else {
+        project = fetchedProject;
+        fetchedMarketingContext = mc;
+        console.log("[AI-VIDEO] Project loaded:", project?.name || "unknown");
+      }
+    }
+
+    // ============================================================
+    // BUILD ENHANCED PROMPT WITH CONTEXT GUARD
+    // ============================================================
+    const aspectRatio = format === "vertical" || format === "portrait" ? "9:16" : "16:9";
+    
+    // Use the shared context guard for consistent brand injection
+    const contextGuard = validateAndBuildContext({
+      projectId: project?.id || projectId,
+      projectName: project?.name || projectName,
+      projectDescription: project?.description,
+      projectUrl: project?.url || projectUrl,
+      logoUrl: project?.logo_url,
+      avatarUrl: project?.avatar_url,
+      themeColor: project?.theme_color,
+      detectedLanguage: project?.detected_language || detectedLanguage || "en",
+      marketingContext: fetchedMarketingContext || marketingContext || project?.marketing_context,
+      aiContextSummary: project?.ai_context_summary || aiContextSummary,
+      scrapedMarkdown: project?.scraped_markdown,
+      generationPrompt: prompt,
+      generationType: "video",
+    });
+
+    logContextValidation(contextGuard, "AI-VIDEO");
+
+    // Add format-specific instructions to the enhanced prompt
+    const formatInstructions = aspectRatio === "9:16" 
+      ? "Vertical portrait format, perfect for Instagram Reels and TikTok." 
+      : "Horizontal landscape format, perfect for YouTube.";
+    
+    const finalPrompt = `${contextGuard.enhancedPrompt}\n\n${formatInstructions} Professional quality, vibrant colors, smooth motion.`;
+
+    console.log("[AI-VIDEO] Context Score:", contextGuard.contextScore);
+    console.log("[AI-VIDEO] Enhanced prompt length:", finalPrompt.length);
+
+    // ============================================================
     // CREDIT VALIDATION & DEDUCTION
     // ============================================================
     if (userId && !skipCreditDeduction) {
@@ -274,40 +333,9 @@ Deno.serve(async (req) => {
     // GENERATE VIDEO VIA NANO BANANA VIDEO API
     // ============================================================
     try {
-      const aspectRatio = format === "vertical" || format === "portrait" ? "9:16" : "16:9";
-      
       console.log("[AI-VIDEO] Generating via Nano Banana Video API...");
-      console.log("[AI-VIDEO] Project context:", projectName || "none", "| Language:", detectedLanguage || "en");
       
-      // Build enhanced prompt with project context
-      let enhancedPrompt = prompt;
-      
-      // Add brand context if available
-      if (projectName || aiContextSummary || marketingContext) {
-        const contextParts: string[] = [];
-        
-        if (projectName) {
-          contextParts.push(`Brand: ${projectName}`);
-        }
-        if (projectUrl) {
-          contextParts.push(`Website: ${projectUrl}`);
-        }
-        if (aiContextSummary) {
-          contextParts.push(`Context: ${aiContextSummary.substring(0, 300)}`);
-        }
-        if (marketingContext?.brand_personality?.tone) {
-          contextParts.push(`Tone: ${marketingContext.brand_personality.tone}`);
-        }
-        
-        if (contextParts.length > 0) {
-          enhancedPrompt = `${contextParts.join(" | ")} - ${prompt}`;
-        }
-      }
-      
-      // Add format instructions
-      enhancedPrompt = `${enhancedPrompt}. ${aspectRatio === "9:16" ? "Vertical portrait format, perfect for Instagram Reels and TikTok" : "Horizontal landscape format, perfect for YouTube"}. Professional quality, vibrant colors, smooth motion.`;
-      
-      // Call Nano Banana Video API
+      // Call Nano Banana Video API with context-enriched prompt
       const videoResponse = await fetch("https://nanobananavideo.com/api/v1/text-to-video", {
         method: "POST",
         headers: {
@@ -315,7 +343,7 @@ Deno.serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          prompt: enhancedPrompt,
+          prompt: finalPrompt,
           duration: Math.min(duration, 10), // Nano Banana max 10s
           aspect_ratio: aspectRatio,
           resolution: duration >= 8 ? "1080p" : "720p",
@@ -364,6 +392,7 @@ Deno.serve(async (req) => {
           duration,
           quality,
           creditCost: skipCreditDeduction ? 0 : creditCost,
+          contextScore: contextGuard.contextScore,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
