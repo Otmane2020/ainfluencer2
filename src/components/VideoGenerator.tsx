@@ -95,9 +95,9 @@ interface VideoGeneratorProps {
   onBeforeGenerate?: () => boolean;
 }
 
-// Filter commercial products for video and avatar only
-const VIDEO_AVATAR_PRODUCTS = COMMERCIAL_PRODUCTS.filter(
-  (p) => p.category === "video" || p.category === "avatar"
+// Filter commercial products for video, avatar and image
+const VIDEO_AVATAR_IMAGE_PRODUCTS = COMMERCIAL_PRODUCTS.filter(
+  (p) => p.category === "video" || p.category === "avatar" || p.category === "image"
 );
 
 const PREFS_KEY = "video_generator_prefs";
@@ -139,9 +139,9 @@ const savePrefs = (prefs: Partial<StoredPrefs>) => {
 
 export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStartingFrameUrl, defaultVideoMode, hideVideoModeSelector, onBeforeGenerate }: VideoGeneratorProps) => {
   const storedPrefs = loadPrefs();
-  const defaultProduct = VIDEO_AVATAR_PRODUCTS.find((p) => p.id === storedPrefs.productId) 
-    || VIDEO_AVATAR_PRODUCTS.find((p) => p.id === "ai-reel-pro") 
-    || VIDEO_AVATAR_PRODUCTS[0];
+  const defaultProduct = VIDEO_AVATAR_IMAGE_PRODUCTS.find((p) => p.id === storedPrefs.productId) 
+    || VIDEO_AVATAR_IMAGE_PRODUCTS.find((p) => p.id === "ai-reel-pro") 
+    || VIDEO_AVATAR_IMAGE_PRODUCTS[0];
   const defaultVoice = AVAILABLE_VOICES.find((v) => v.id === storedPrefs.voiceId) || getDefaultVoice();
   
   const [generationTasks, setGenerationTasks] = useState<GenerationTask[]>([]);
