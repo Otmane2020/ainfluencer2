@@ -497,82 +497,114 @@ const CalendarPage = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.008 }}
                   onClick={() => handleDayClick(day, dayPosts)}
-                  className={`min-h-[70px] md:min-h-[110px] rounded-lg transition-all cursor-pointer overflow-hidden ${
+                  className={`min-h-[70px] md:min-h-[110px] rounded-xl transition-all cursor-pointer overflow-hidden border-2 ${
                     isToday(day)
-                      ? "bg-white ring-2 ring-blue-500 shadow-lg"
+                      ? "bg-gradient-to-br from-blue-50 to-purple-50 border-blue-400 shadow-lg shadow-blue-200/50"
                       : isPast
-                      ? "bg-gray-100 opacity-50"
-                      : "bg-white hover:shadow-md hover:scale-[1.01]"
+                      ? "bg-gray-50 border-gray-200 opacity-60"
+                      : "bg-white border-gray-100 hover:border-purple-300 hover:shadow-lg hover:shadow-purple-100/50 hover:scale-[1.02]"
                   }`}
                 >
-                  {/* Day header */}
-                  <div className={`px-2 py-1 flex items-center justify-between ${
-                    isToday(day) ? "bg-blue-500" : "bg-gray-50 border-b border-gray-100"
+                  {/* Day header with gradient */}
+                  <div className={`px-2 py-1.5 flex items-center justify-between ${
+                    isToday(day) 
+                      ? "bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500" 
+                      : dayPosts.length > 0 
+                      ? "bg-gradient-to-r from-violet-100 to-pink-100" 
+                      : "bg-gray-50 border-b border-gray-100"
                   }`}>
                     <span className={`text-xs font-bold ${isToday(day) ? "text-white" : "text-gray-700"}`}>
                       {format(day, "d")}
                     </span>
                     {dayPosts.length > 0 && (
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                        isToday(day) ? "bg-white/20 text-white" : "bg-blue-100 text-blue-600"
+                        isToday(day) ? "bg-white/30 text-white" : "bg-gradient-to-r from-violet-500 to-pink-500 text-white"
                       }`}>
                         {dayPosts.length}
                       </span>
                     )}
                   </div>
                   
-                  {/* Mini Facebook-style posts */}
-                  <div className="p-1 space-y-1">
-                    {dayPosts.slice(0, 2).map((post) => (
-                      <div
-                        key={post.id}
-                        onClick={(e) => handlePostClick(post, e)}
-                        className="group bg-gray-50 rounded-md p-1 hover:bg-gray-100 transition-all cursor-pointer border border-gray-100"
-                      >
-                        {/* Mini post header - like Facebook */}
-                        <div className="flex items-center gap-1 mb-0.5">
-                          {/* Platform avatar */}
-                          <div 
-                            className="h-4 w-4 rounded-full flex items-center justify-center text-white shrink-0"
-                            style={{ background: (post.platforms?.[0] && PLATFORM_STYLES[post.platforms[0]]?.bg) || getProjectColor(post.project_id) }}
-                          >
-                            {post.platforms?.[0] && PLATFORM_STYLES[post.platforms[0]]?.icon ? (
-                              <span className="scale-[0.6]">{PLATFORM_STYLES[post.platforms[0]].icon}</span>
-                            ) : (
-                              post.content_type === "video" ? <Video className="h-2 w-2" /> : <ImageIcon className="h-2 w-2" />
-                            )}
+                  {/* Mini posts with platform colors */}
+                  <div className="p-1.5 space-y-1.5">
+                    {dayPosts.slice(0, 2).map((post) => {
+                      const platformStyle = post.platforms?.[0] ? PLATFORM_STYLES[post.platforms[0]] : null;
+                      return (
+                        <div
+                          key={post.id}
+                          onClick={(e) => handlePostClick(post, e)}
+                          className="group rounded-lg p-1.5 hover:scale-[1.02] transition-all cursor-pointer border"
+                          style={{ 
+                            background: platformStyle ? `linear-gradient(135deg, ${platformStyle.color}10, ${platformStyle.color}05)` : '#f9fafb',
+                            borderColor: platformStyle?.color || '#e5e7eb'
+                          }}
+                        >
+                          {/* Platform icon with brand color */}
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <div 
+                              className="h-5 w-5 rounded-full flex items-center justify-center text-white shrink-0 shadow-sm"
+                              style={{ background: platformStyle?.bg || getProjectColor(post.project_id) }}
+                            >
+                              {platformStyle?.icon ? (
+                                <span className="scale-[0.7]">{platformStyle.icon}</span>
+                              ) : (
+                                post.content_type === "video" ? <Video className="h-2.5 w-2.5" /> : <ImageIcon className="h-2.5 w-2.5" />
+                              )}
+                            </div>
+                            <span className="text-[9px] font-medium" style={{ color: platformStyle?.color || '#6b7280' }}>
+                              {format(new Date(post.scheduled_for), "HH:mm")}
+                            </span>
+                            {/* All platform badges */}
+                            <div className="flex -space-x-1 ml-auto">
+                              {(post.platforms || []).slice(0, 3).map((platform) => {
+                                const style = PLATFORM_STYLES[platform];
+                                if (!style) return null;
+                                return (
+                                  <div
+                                    key={platform}
+                                    className="h-3.5 w-3.5 rounded-full flex items-center justify-center text-white border border-white"
+                                    style={{ background: style.bg }}
+                                  >
+                                    <span className="scale-[0.5]">{style.icon}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
-                          <span className="text-[8px] md:text-[9px] text-gray-500 truncate flex-1">
-                            {format(new Date(post.scheduled_for), "HH:mm")}
-                          </span>
-                        </div>
-                        
-                        {/* Mini post content preview */}
-                        {post.thumbnail_url || post.media_url ? (
-                          <div className="relative rounded overflow-hidden aspect-video bg-gray-200">
-                            <img 
-                              src={post.thumbnail_url || post.media_url || ""} 
-                              alt="" 
-                              className="w-full h-full object-cover"
-                              onError={(e) => (e.currentTarget.style.display = 'none')}
-                            />
-                            {post.content_type === "video" && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                                <div className="h-4 w-4 rounded-full bg-white/90 flex items-center justify-center">
-                                  <div className="w-0 h-0 border-l-[5px] border-l-gray-800 border-y-[3px] border-y-transparent ml-0.5" />
+                          
+                          {/* Media preview with colored border */}
+                          {post.thumbnail_url || post.media_url ? (
+                            <div 
+                              className="relative rounded-md overflow-hidden aspect-video"
+                              style={{ borderWidth: 2, borderColor: platformStyle?.color || '#e5e7eb', borderStyle: 'solid' }}
+                            >
+                              <img 
+                                src={post.thumbnail_url || post.media_url || ""} 
+                                alt="" 
+                                className="w-full h-full object-cover"
+                                onError={(e) => (e.currentTarget.style.display = 'none')}
+                              />
+                              {post.content_type === "video" && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                  <div 
+                                    className="h-5 w-5 rounded-full flex items-center justify-center"
+                                    style={{ background: platformStyle?.bg || 'white' }}
+                                  >
+                                    <div className="w-0 h-0 border-l-[6px] border-l-white border-y-[4px] border-y-transparent ml-0.5" />
+                                  </div>
                                 </div>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="text-[7px] md:text-[8px] text-gray-600 line-clamp-2 leading-tight">
-                            {post.text_content?.slice(0, 50) || post.ai_prompt?.slice(0, 50) || "Post scheduled"}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-[8px] text-gray-600 line-clamp-2 leading-tight bg-white/50 rounded p-1">
+                              {post.text_content?.slice(0, 40) || post.ai_prompt?.slice(0, 40) || "Post scheduled"}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                     {dayPosts.length > 2 && (
-                      <div className="text-[9px] text-center text-blue-500 font-medium py-0.5 hover:underline">
+                      <div className="text-[10px] text-center font-semibold py-1 rounded-md bg-gradient-to-r from-violet-500 to-pink-500 text-white">
                         +{dayPosts.length - 2} more
                       </div>
                     )}
@@ -592,18 +624,6 @@ const CalendarPage = () => {
         />
       )}
 
-      {/* Compact Legend */}
-      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-        <div className="flex items-center gap-1">
-          <Clock className="h-3 w-3" /> Draft
-        </div>
-        <div className="flex items-center gap-1">
-          <Clock className="h-3 w-3 text-accent" /> Scheduled
-        </div>
-        <div className="flex items-center gap-1">
-          <CheckCircle2 className="h-3 w-3 text-primary" /> Published
-        </div>
-      </div>
 
       {/* Day Posts Modal - Facebook style */}
       <Dialog open={isDayModalOpen} onOpenChange={setIsDayModalOpen}>
@@ -738,19 +758,47 @@ const CalendarPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Compact Legend - Light theme */}
-      <div className="flex items-center gap-4 text-xs text-gray-500 bg-white rounded-lg p-3 shadow-sm">
-        <div className="flex items-center gap-1.5">
-          <div className="h-2 w-2 rounded-full bg-gray-300" />
-          <span>Draft</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="h-2 w-2 rounded-full bg-blue-500" />
-          <span>Scheduled</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="h-2 w-2 rounded-full bg-green-500" />
-          <span>Published</span>
+      {/* Colorful Legend with Platform Icons */}
+      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          {/* Platforms */}
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Platforms</span>
+            <div className="flex items-center gap-2">
+              {Object.entries(PLATFORM_STYLES).map(([name, style]) => (
+                <div key={name} className="flex items-center gap-1.5 px-2 py-1 rounded-full" style={{ background: `${style.color}15` }}>
+                  <div 
+                    className="h-5 w-5 rounded-full flex items-center justify-center text-white shadow-sm"
+                    style={{ background: style.bg }}
+                  >
+                    {style.icon}
+                  </div>
+                  <span className="text-[10px] font-medium capitalize hidden sm:inline" style={{ color: style.color }}>
+                    {name}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Status */}
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <div className="h-2.5 w-2.5 rounded-full bg-gray-300" />
+                <span className="text-xs text-gray-500">Draft</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-blue-500 to-purple-500" />
+                <span className="text-xs text-gray-500">Scheduled</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-green-400 to-emerald-500" />
+                <span className="text-xs text-gray-500">Published</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
