@@ -370,8 +370,16 @@ export const IMAGE_QUALITY_LEVELS: QualityLevel[] = [
     name: "Nano Banana",
     internalModel: "google/gemini-2.5-flash-image",
     price: 1.00,
-    description: "Fast AI images via Lovable AI",
-    features: ["1024x1024", "Fast", "Gemini Flash"],
+    description: "Fast AI images via Gemini Flash",
+    features: ["1024x1024", "Fast", "Gemini"],
+  },
+  {
+    id: "flux-schnell",
+    name: "FLUX Schnell",
+    internalModel: "black-forest-labs/flux-schnell",
+    price: 1.00,
+    description: "Ultra-fast FLUX for quick iterations",
+    features: ["1024x1024", "Ultra Fast", "Replicate"],
   },
   {
     id: "nano-banana-pro",
@@ -382,12 +390,28 @@ export const IMAGE_QUALITY_LEVELS: QualityLevel[] = [
     features: ["1024x1024", "High quality", "Gemini Pro"],
   },
   {
+    id: "flux-dev",
+    name: "FLUX Dev",
+    internalModel: "black-forest-labs/flux-dev",
+    price: 3.00,
+    description: "High quality FLUX with great value",
+    features: ["1024x1024", "High Quality", "Replicate"],
+  },
+  {
     id: "gpt-image",
     name: "GPT Image",
     internalModel: "openai/gpt-image-1",
     price: 4.00,
     description: "Premium OpenAI image generation",
     features: ["1024x1024", "Cinema", "OpenAI"],
+  },
+  {
+    id: "flux-pro",
+    name: "FLUX Pro",
+    internalModel: "black-forest-labs/flux-pro",
+    price: 5.00,
+    description: "Top-tier FLUX for premium visuals",
+    features: ["1024x1024", "Cinema", "Replicate"],
   },
 ];
 
