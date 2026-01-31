@@ -9,47 +9,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 // Tabs removed - merged into single view
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Video,
-  Image as ImageIcon,
-  Layers,
-  Play,
-  Pause,
-  Edit,
-  Calendar,
-  BarChart3,
-  Clock,
-  CheckCircle2,
-  Loader2,
-  Share2,
-  Facebook,
-  Link,
-  ExternalLink,
-  Copy,
-  Rocket,
-  Save,
-} from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Video, Image as ImageIcon, Layers, Play, Pause, Edit, Calendar, BarChart3, Clock, CheckCircle2, Loader2, Share2, Facebook, Link, ExternalLink, Copy, Rocket, Save } from "lucide-react";
 import { SocialShareModal } from "@/components/SocialShareModal";
-
 interface Campaign {
   id: string;
   name: string;
@@ -68,9 +32,11 @@ interface Campaign {
   project_id: string;
   posting_hour: number | null;
   timezone: string | null;
-  projects?: { name: string; theme_color: string } | null;
+  projects?: {
+    name: string;
+    theme_color: string;
+  } | null;
 }
-
 interface ScheduledPost {
   id: string;
   content_type: string;
@@ -80,51 +46,88 @@ interface ScheduledPost {
   status: string | null;
   scheduled_for: string;
 }
-
 interface CampaignDetailModalProps {
   campaign: Campaign | null;
   isOpen: boolean;
   onClose: () => void;
   onUpdate: () => void;
 }
-
 const campaignTypeConfig = {
-  video: { icon: Video, label: "Video Campaign", gradient: "from-violet-500 to-purple-600" },
-  image: { icon: ImageIcon, label: "Image Campaign", gradient: "from-cyan-500 to-blue-600" },
-  mixed: { icon: Layers, label: "Mixed Campaign", gradient: "from-pink-500 to-rose-600" },
+  video: {
+    icon: Video,
+    label: "Video Campaign",
+    gradient: "from-violet-500 to-purple-600"
+  },
+  image: {
+    icon: ImageIcon,
+    label: "Image Campaign",
+    gradient: "from-cyan-500 to-blue-600"
+  },
+  mixed: {
+    icon: Layers,
+    label: "Mixed Campaign",
+    gradient: "from-pink-500 to-rose-600"
+  }
 };
-
 const statusConfig = {
-  draft: { label: "Draft", color: "bg-muted text-muted-foreground" },
-  active: { label: "Active", color: "bg-green-500/20 text-green-600" },
-  paused: { label: "Paused", color: "bg-amber-500/20 text-amber-600" },
-  completed: { label: "Completed", color: "bg-blue-500/20 text-blue-600" },
+  draft: {
+    label: "Draft",
+    color: "bg-muted text-muted-foreground"
+  },
+  active: {
+    label: "Active",
+    color: "bg-green-500/20 text-green-600"
+  },
+  paused: {
+    label: "Paused",
+    color: "bg-amber-500/20 text-amber-600"
+  },
+  completed: {
+    label: "Completed",
+    color: "bg-blue-500/20 text-blue-600"
+  }
 };
-
-const TIMEZONES = [
-  { id: "Europe/Paris", label: "Paris (CET/CEST)" },
-  { id: "Europe/London", label: "London (GMT/BST)" },
-  { id: "America/New_York", label: "New York (EST/EDT)" },
-  { id: "America/Los_Angeles", label: "Los Angeles (PST/PDT)" },
-  { id: "Asia/Tokyo", label: "Tokyo (JST)" },
-  { id: "Asia/Dubai", label: "Dubai (GST)" },
-];
-
+const TIMEZONES = [{
+  id: "Europe/Paris",
+  label: "Paris (CET/CEST)"
+}, {
+  id: "Europe/London",
+  label: "London (GMT/BST)"
+}, {
+  id: "America/New_York",
+  label: "New York (EST/EDT)"
+}, {
+  id: "America/Los_Angeles",
+  label: "Los Angeles (PST/PDT)"
+}, {
+  id: "Asia/Tokyo",
+  label: "Tokyo (JST)"
+}, {
+  id: "Asia/Dubai",
+  label: "Dubai (GST)"
+}];
 export const CampaignDetailModal = ({
   campaign,
   isOpen,
   onClose,
-  onUpdate,
+  onUpdate
 }: CampaignDetailModalProps) => {
-  const { toast } = useToast();
+  const {
+    toast
+  } = useToast();
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
   const [isTogglingStatus, setIsTogglingStatus] = useState(false);
   const [isLaunching, setIsLaunching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [shareModal, setShareModal] = useState<{ open: boolean; post?: ScheduledPost }>({ open: false });
+  const [shareModal, setShareModal] = useState<{
+    open: boolean;
+    post?: ScheduledPost;
+  }>({
+    open: false
+  });
   const [localStatus, setLocalStatus] = useState(campaign?.status || "draft");
-  
+
   // Editable settings
   const [postingHour, setPostingHour] = useState(campaign?.posting_hour ?? 10);
   const [timezone, setTimezone] = useState(campaign?.timezone || "Europe/Paris");
@@ -137,84 +140,78 @@ export const CampaignDetailModal = ({
       setTimezone(campaign.timezone || "Europe/Paris");
     }
   }, [campaign]);
-
   useEffect(() => {
     if (campaign && isOpen) {
       fetchCampaignPosts();
     }
   }, [campaign, isOpen]);
-
   const fetchCampaignPosts = async () => {
     if (!campaign) return;
-
     setIsLoadingPosts(true);
-    const { data, error } = await supabase
-      .from("scheduled_posts")
-      .select("id, content_type, text_content, media_url, thumbnail_url, status, scheduled_for")
-      .eq("campaign_id", campaign.id)
-      .order("scheduled_for", { ascending: true })
-      .limit(50);
-
+    const {
+      data,
+      error
+    } = await supabase.from("scheduled_posts").select("id, content_type, text_content, media_url, thumbnail_url, status, scheduled_for").eq("campaign_id", campaign.id).order("scheduled_for", {
+      ascending: true
+    }).limit(50);
     if (!error && data) {
       setPosts(data);
     }
     setIsLoadingPosts(false);
   };
-
   const handleToggleStatus = async () => {
     if (!campaign) return;
-
     setIsTogglingStatus(true);
     const newStatus = localStatus === "active" ? "paused" : "active";
-
-    const { error } = await supabase
-      .from("campaigns")
-      .update({ status: newStatus })
-      .eq("id", campaign.id);
-
+    const {
+      error
+    } = await supabase.from("campaigns").update({
+      status: newStatus
+    }).eq("id", campaign.id);
     if (error) {
-      toast({ title: "Error", description: "Unable to update status", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Unable to update status",
+        variant: "destructive"
+      });
     } else {
       setLocalStatus(newStatus);
       toast({
-        title: newStatus === "active" ? "Campaign activated!" : "Campaign paused",
+        title: newStatus === "active" ? "Campaign activated!" : "Campaign paused"
       });
       onUpdate();
     }
     setIsTogglingStatus(false);
   };
-
   const handleLaunchNow = async () => {
     if (!campaign) return;
-
     setIsLaunching(true);
-    
     try {
       // First, activate the campaign if not already
       if (localStatus !== "active") {
-        await supabase
-          .from("campaigns")
-          .update({ status: "active" })
-          .eq("id", campaign.id);
+        await supabase.from("campaigns").update({
+          status: "active"
+        }).eq("id", campaign.id);
         setLocalStatus("active");
       }
 
       // Call the cron function to process immediately
-      const { data, error } = await supabase.functions.invoke("run-campaigns-cron", {
-        body: { campaignId: campaign.id, forceRun: true },
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke("run-campaigns-cron", {
+        body: {
+          campaignId: campaign.id,
+          forceRun: true
+        }
       });
-
       if (error) {
         throw error;
       }
-
       toast({
         title: "Campaign launched! 🚀",
-        description: data?.processed 
-          ? `${data.processed} post(s) processed immediately`
-          : "Content generation started",
+        description: data?.processed ? `${data.processed} post(s) processed immediately` : "Content generation started"
       });
-      
       onUpdate();
       fetchCampaignPosts();
     } catch (error) {
@@ -222,46 +219,43 @@ export const CampaignDetailModal = ({
       toast({
         title: "Launch failed",
         description: error instanceof Error ? error.message : "Unable to launch campaign",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setIsLaunching(false);
     }
   };
-
   const handleSaveSettings = async () => {
     if (!campaign) return;
-
     setIsSaving(true);
-    
-    const { error } = await supabase
-      .from("campaigns")
-      .update({ 
-        posting_hour: postingHour,
-        timezone,
-      })
-      .eq("id", campaign.id);
-
+    const {
+      error
+    } = await supabase.from("campaigns").update({
+      posting_hour: postingHour,
+      timezone
+    }).eq("id", campaign.id);
     if (error) {
-      toast({ title: "Error", description: "Unable to save settings", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Unable to save settings",
+        variant: "destructive"
+      });
     } else {
-      toast({ title: "Settings saved ✓" });
+      toast({
+        title: "Settings saved ✓"
+      });
       onUpdate();
     }
     setIsSaving(false);
   };
-
   if (!campaign) return null;
-
   const typeConfig = campaignTypeConfig[campaign.campaign_type as keyof typeof campaignTypeConfig] || campaignTypeConfig.mixed;
   const status = statusConfig[localStatus as keyof typeof statusConfig] || statusConfig.draft;
   const TypeIcon = typeConfig.icon;
 
   // Check if settings have changed
   const settingsChanged = postingHour !== (campaign.posting_hour ?? 10) || timezone !== (campaign.timezone || "Europe/Paris");
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+  return <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
         <DialogHeader>
           <div className="flex items-center gap-4">
@@ -276,40 +270,18 @@ export const CampaignDetailModal = ({
               </div>
             </div>
             <div className="flex gap-2">
-              <Button
-                variant="default"
-                size="sm"
-                onClick={handleLaunchNow}
-                disabled={isLaunching}
-                className="gap-2 bg-gradient-to-r from-primary to-primary/80"
-              >
-                {isLaunching ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Rocket className="h-4 w-4" />
-                )}
+              <Button variant="default" size="sm" onClick={handleLaunchNow} disabled={isLaunching} className="gap-2 bg-gradient-to-r from-primary to-primary/80">
+                {isLaunching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
                 Launch Now
               </Button>
-              <Button
-                variant={localStatus === "active" ? "outline" : "secondary"}
-                size="sm"
-                onClick={handleToggleStatus}
-                disabled={isTogglingStatus}
-                className="gap-2"
-              >
-                {isTogglingStatus ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : localStatus === "active" ? (
-                  <>
+              <Button variant={localStatus === "active" ? "outline" : "secondary"} size="sm" onClick={handleToggleStatus} disabled={isTogglingStatus} className="gap-2">
+                {isTogglingStatus ? <Loader2 className="h-4 w-4 animate-spin" /> : localStatus === "active" ? <>
                     <Pause className="h-4 w-4" />
                     Pause
-                  </>
-                ) : (
-                  <>
+                  </> : <>
                     <Play className="h-4 w-4" />
                     Start
-                  </>
-                )}
+                  </>}
               </Button>
             </div>
           </div>
@@ -340,36 +312,26 @@ export const CampaignDetailModal = ({
                 Configuration
               </h4>
               <div className="grid grid-cols-2 gap-4 text-sm">
-                {(campaign.campaign_type === "video" || campaign.campaign_type === "mixed") && (
-                  <div className="flex items-center gap-2">
+                {(campaign.campaign_type === "video" || campaign.campaign_type === "mixed") && <div className="flex items-center gap-2">
                     <Video className="h-4 w-4 text-violet-500" />
                     <span className="text-muted-foreground">Videos/month:</span>
                     <span className="font-medium">{campaign.videos_per_month}</span>
-                  </div>
-                )}
-                {(campaign.campaign_type === "image" || campaign.campaign_type === "mixed") && (
-                  <div className="flex items-center gap-2">
+                  </div>}
+                {(campaign.campaign_type === "image" || campaign.campaign_type === "mixed") && <div className="flex items-center gap-2">
                     <ImageIcon className="h-4 w-4 text-cyan-500" />
                     <span className="text-muted-foreground">Images/month:</span>
                     <span className="font-medium">{campaign.images_per_month}</span>
-                  </div>
-                )}
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  <span className="text-muted-foreground">Posts/week:</span>
-                  <span className="font-medium">{campaign.posts_per_week}</span>
-                </div>
+                  </div>}
+                
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Format:</span>
                   <Badge variant="outline">{campaign.format}</Badge>
                 </div>
               </div>
-              {campaign.subject && (
-                <div className="pt-2 border-t border-border">
+              {campaign.subject && <div className="pt-2 border-t border-border">
                   <p className="text-sm text-muted-foreground">Subject:</p>
                   <p className="text-sm">{campaign.subject}</p>
-                </div>
-              )}
+                </div>}
             </div>
 
             {/* Posting Schedule Settings */}
@@ -382,19 +344,16 @@ export const CampaignDetailModal = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-xs">Posting Hour</Label>
-                  <Select 
-                    value={postingHour.toString()} 
-                    onValueChange={(v) => setPostingHour(parseInt(v))}
-                  >
+                  <Select value={postingHour.toString()} onValueChange={v => setPostingHour(parseInt(v))}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-card max-h-48">
-                      {Array.from({ length: 24 }, (_, i) => (
-                        <SelectItem key={i} value={i.toString()}>
+                      {Array.from({
+                      length: 24
+                    }, (_, i) => <SelectItem key={i} value={i.toString()}>
                           {i.toString().padStart(2, "0")}:00
-                        </SelectItem>
-                      ))}
+                        </SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -406,9 +365,7 @@ export const CampaignDetailModal = ({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-card">
-                      {TIMEZONES.map((tz) => (
-                        <SelectItem key={tz.id} value={tz.id}>{tz.label}</SelectItem>
-                      ))}
+                      {TIMEZONES.map(tz => <SelectItem key={tz.id} value={tz.id}>{tz.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -418,35 +375,22 @@ export const CampaignDetailModal = ({
                 Posts will be scheduled around {postingHour.toString().padStart(2, "0")}:00 in the selected timezone
               </p>
 
-              {settingsChanged && (
-                <Button 
-                  onClick={handleSaveSettings} 
-                  disabled={isSaving}
-                  className="w-full gap-2"
-                >
-                  {isSaving ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4" />
-                  )}
+              {settingsChanged && <Button onClick={handleSaveSettings} disabled={isSaving} className="w-full gap-2">
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Save Changes
-                </Button>
-              )}
+                </Button>}
             </div>
           </div>
         </ScrollArea>
       </DialogContent>
       
       {/* Share Modal */}
-      <SocialShareModal
-        isOpen={shareModal.open}
-        onClose={() => setShareModal({ open: false })}
-        content={shareModal.post ? {
-          text: shareModal.post.text_content || "",
-          mediaUrl: shareModal.post.media_url || undefined,
-          type: shareModal.post.content_type === "video" ? "video" : "image",
-        } : undefined}
-      />
-    </Dialog>
-  );
+      <SocialShareModal isOpen={shareModal.open} onClose={() => setShareModal({
+      open: false
+    })} content={shareModal.post ? {
+      text: shareModal.post.text_content || "",
+      mediaUrl: shareModal.post.media_url || undefined,
+      type: shareModal.post.content_type === "video" ? "video" : "image"
+    } : undefined} />
+    </Dialog>;
 };
