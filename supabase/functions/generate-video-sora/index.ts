@@ -112,16 +112,16 @@ const GEMINI_VEO_MODELS: Record<string, VideoModelConfig> = {
 };
 
 // All available models
+// All available models - Sora 2 only (no Veo)
 const ALL_MODELS: Record<string, VideoModelConfig> = {
   ...OPENAI_MODELS,
-  ...GEMINI_VEO_MODELS,
 };
 
-// Quality tier mapping with fallbacks
+// Quality tier mapping with fallbacks - Sora 2 only
 const MODEL_FALLBACK_CHAINS: Record<string, string[]> = {
-  cinema: ["sora-2-pro", "veo-3.1-pro", "sora-2", "veo-3.1"],
-  pro: ["sora-2", "veo-3.1", "sora-2-pro", "veo-3.1-pro"],
-  standard: ["veo-3.1", "sora-2", "veo-3.1-pro", "sora-2-pro"],
+  cinema: ["sora-2-pro", "sora-2"],
+  pro: ["sora-2-pro", "sora-2"],
+  standard: ["sora-2", "sora-2-pro"],
 };
 
 function getModelFallbackChain(quality: string): VideoModelConfig[] {
