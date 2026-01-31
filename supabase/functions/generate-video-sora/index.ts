@@ -38,49 +38,47 @@ interface VideoModelConfig {
 }
 
 // CometAPI model configurations with VERIFIED endpoints and request formats
-// Updated 2026-01-31 - Fixed model names and request body structures
+// Updated 2026-01-31 - Model names from CometAPI docs: kling-v2-6, kling-v2-5-turbo, kling-v2-1-master
 const COMETAPI_MODELS: Record<string, VideoModelConfig> = {
   // ============================================================
   // KLING MODELS - Endpoint: /kling/v1/videos/text2video
-  // Model names: kling-v1, kling-v1.5 (NOT kling-v1-5)
+  // Valid model names: kling-v2-6, kling-v2-5-turbo, kling-v2-1-master, kling-v2-1, kling-v2-master
   // ============================================================
   "kling-v2.5-turbo": {
-    model: "kling-v1.5",
+    model: "kling-v2-5-turbo",
     endpoint: "https://api.cometapi.com/kling/v1/videos/text2video",
     maxDuration: 10,
     displayName: "Kling V2.5 Turbo",
     requestBody: (prompt, duration, aspectRatio) => ({
-      model_name: "kling-v1.5",
+      model_name: "kling-v2-5-turbo",
       prompt,
       duration: String(duration > 5 ? 10 : 5),
       aspect_ratio: aspectRatio,
-      mode: "std",
+      mode: "pro",
     }),
   },
   "kling-v2-master": {
-    model: "kling-v1.5",
+    model: "kling-v2-master",
     endpoint: "https://api.cometapi.com/kling/v1/videos/text2video",
     maxDuration: 10,
     displayName: "Kling V2 Master",
     requestBody: (prompt, duration, aspectRatio) => ({
-      model_name: "kling-v1.5",
+      model_name: "kling-v2-master",
       prompt,
       duration: String(duration > 5 ? 10 : 5),
       aspect_ratio: aspectRatio,
-      mode: "pro",
     }),
   },
   "kling-v2.1-master": {
-    model: "kling-v1.5",
+    model: "kling-v2-1-master",
     endpoint: "https://api.cometapi.com/kling/v1/videos/text2video",
     maxDuration: 10,
     displayName: "Kling V2.1 Master",
     requestBody: (prompt, duration, aspectRatio) => ({
-      model_name: "kling-v1.5",
+      model_name: "kling-v2-1-master",
       prompt,
       duration: String(duration > 5 ? 10 : 5),
       aspect_ratio: aspectRatio,
-      mode: "pro",
     }),
   },
   
