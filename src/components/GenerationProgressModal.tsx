@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Video, Sparkles, Loader2, X, ExternalLink, Clock, CheckCircle2, Play } from "lucide-react";
+import { Video, Sparkles, Loader2, X, ExternalLink, Clock, CheckCircle2, Play, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,6 +19,7 @@ interface GeneratingTask {
   model: string;
   duration: number;
   videoUrl?: string;
+  submitTime?: number;
 }
 
 interface GenerationProgressModalProps {
@@ -38,6 +39,13 @@ const encouragingMessages = [
   { text: "Bringing your vision to life...", emoji: "🌟" },
 ];
 
+// Format elapsed time as mm:ss
+const formatElapsedTime = (seconds: number): string => {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+};
+
 export const GenerationProgressModal = ({
   isOpen,
   onClose,
@@ -48,6 +56,7 @@ export const GenerationProgressModal = ({
   const [simulatedProgress, setSimulatedProgress] = useState(0);
   const [messageIndex, setMessageIndex] = useState(0);
   const [showVideoPreview, setShowVideoPreview] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const startTimeRef = useRef<number>(Date.now());
   
@@ -60,53 +69,69 @@ export const GenerationProgressModal = ({
     ? Math.round(tasks.reduce((acc, t) => acc + t.progress, 0) / tasks.length)
     : 0;
 
-  // Simulated progress that advances smoothly and stays slightly behind real progress
+  // Track elapsed time
+  useEffect(() => {
+    if (!isOpen) {
+      setElapsedSeconds(0);
+      startTimeRef.current = Date.now();
+      return;
+    }
+
+    const allDone = activeTasks.length === 0 && tasks.length > 0;
+    if (allDone) return;
+
+    // Update elapsed time every second
+    const timer = setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isOpen, activeTasks.length, tasks.length]);
+
+  // Simulated progress - REDUCED update frequency to avoid performance issues
   useEffect(() => {
     if (!isOpen) {
       setSimulatedProgress(0);
-      startTimeRef.current = Date.now();
       return;
     }
 
     const allDone = activeTasks.length === 0 && tasks.length > 0;
     
     if (allDone) {
-      // Jump to 100% when done
       setSimulatedProgress(100);
       return;
     }
 
-    // Simulate progress advancing over time (target ~95% over 3 minutes)
+    // Update every 2 seconds instead of 500ms to reduce renders
     const interval = setInterval(() => {
       setSimulatedProgress(prev => {
-        // If real progress is ahead, catch up to it
         if (realProgress > prev) {
-          return Math.min(prev + 2, realProgress);
+          return Math.min(prev + 3, realProgress);
         }
         
-        // Otherwise, slowly advance but cap at 95%
-        const elapsed = (Date.now() - startTimeRef.current) / 1000;
+        // Slow advancement based on elapsed time
+        const elapsed = elapsedSeconds;
         
-        // Fast at start (0-30%), then slow down
-        let increment = 0.5;
+        // Progress curve: fast start, slow finish
+        let increment = 0.8;
         if (prev < 30) {
-          increment = 1.2;
+          increment = 1.5;
         } else if (prev < 60) {
-          increment = 0.7;
+          increment = 1.0;
         } else if (prev < 80) {
-          increment = 0.4;
+          increment = 0.5;
         } else {
-          increment = 0.15; // Very slow near the end
+          increment = 0.2;
         }
         
         // Cap at 95% until real completion
-        const maxSimulated = Math.min(95, realProgress + 15);
+        const maxSimulated = Math.min(95, realProgress + 20);
         return Math.min(prev + increment, maxSimulated);
       });
-    }, 500);
+    }, 2000); // 2 seconds instead of 500ms
 
     return () => clearInterval(interval);
-  }, [isOpen, activeTasks.length, tasks.length, realProgress]);
+  }, [isOpen, activeTasks.length, tasks.length, realProgress, elapsedSeconds]);
 
   // Cycle through encouraging messages
   useEffect(() => {
@@ -253,16 +278,23 @@ export const GenerationProgressModal = ({
             </motion.p>
           </AnimatePresence>
 
-          {/* Estimated time notice */}
+          {/* Time info - elapsed + estimated */}
           {!allDone && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex items-center justify-center gap-2 text-sm text-muted-foreground"
-            >
-              <Clock className="h-4 w-4" />
-              <span>Estimated time: <strong className="text-foreground">2–4 minutes</strong></span>
-            </motion.div>
+            <div className="flex items-center justify-center gap-4 text-sm">
+              {/* Elapsed time */}
+              <div className="flex items-center gap-2 text-foreground font-medium">
+                <Timer className="h-4 w-4 text-primary" />
+                <span>{formatElapsedTime(elapsedSeconds)}</span>
+              </div>
+              
+              <span className="text-muted-foreground">•</span>
+              
+              {/* Estimated time */}
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Clock className="h-4 w-4" />
+                <span>~2–4 min</span>
+              </div>
+            </div>
           )}
 
           {/* Overall progress with smooth animation */}

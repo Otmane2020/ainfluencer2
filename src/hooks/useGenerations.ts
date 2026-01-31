@@ -304,7 +304,8 @@ export function useGenerations() {
     }
   }, [getAccessToken]);
 
-  // Polling for active generations
+  // Polling for active generations - REDUCED FREQUENCY to avoid blocking
+  // Video generation takes 2-4 minutes, so polling every 10s is sufficient
   useEffect(() => {
     if (activeGenerations.length === 0) {
       if (pollingRef.current) {
@@ -314,8 +315,10 @@ export function useGenerations() {
       return;
     }
 
-    // Poll every 2 seconds for active generations
+    // Poll every 10 seconds (reduced from 2s to avoid excessive API calls)
     pollingRef.current = setInterval(async () => {
+      console.log(`[useGenerations] Polling ${activeGenerations.length} active generations...`);
+      
       const updatedActive: Generation[] = [];
 
       for (const gen of activeGenerations) {
@@ -334,7 +337,7 @@ export function useGenerations() {
       setActiveGenerations(
         updatedActive.filter(g => g.status !== "completed" && g.status !== "failed")
       );
-    }, 2000);
+    }, 10000); // 10 seconds instead of 2 seconds
 
     return () => {
       if (pollingRef.current) {
