@@ -10,6 +10,8 @@ interface GeneratedImage {
   url: string;
   prompt: string;
   createdAt: Date;
+  model?: string;
+  provider?: string;
 }
 
 interface ImagePreviewProps {
@@ -100,6 +102,13 @@ export const ImagePreview = ({
                 alt={latestImage.prompt}
                 className="w-full aspect-square object-cover"
               />
+              
+              {/* Model badge */}
+              {latestImage.model && (
+                <div className="absolute top-2 right-2 px-2 py-1 rounded-full bg-black/60 text-white text-[10px] font-medium backdrop-blur-sm">
+                  {latestImage.provider === "gemini" ? "🍌" : "🤖"} {latestImage.model}
+                </div>
+              )}
               
               {/* Overlay controls */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 hover:opacity-100 transition-opacity">

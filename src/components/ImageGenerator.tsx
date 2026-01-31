@@ -50,6 +50,8 @@ interface GeneratedImage {
   url: string;
   prompt: string;
   createdAt: Date;
+  model?: string;
+  provider?: string;
 }
 
 interface ImageGeneratorProps {
@@ -309,13 +311,16 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
           url: data.imageUrl,
           prompt: prompt.trim(),
           createdAt: new Date(),
+          model: data.model,
+          provider: data.provider,
         };
 
         onImageGenerated(newImage);
 
+        const modelEmoji = data.provider === "gemini" ? "🍌" : "🤖";
         toast({
           title: "Image generated! 🎨",
-          description: "Your AI image is ready",
+          description: `Created with ${modelEmoji} ${data.model || "AI"}`,
         });
       } else {
         throw new Error("No image URL received");
