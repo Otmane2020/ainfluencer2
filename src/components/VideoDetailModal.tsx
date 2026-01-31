@@ -229,23 +229,35 @@ export const VideoDetailModal = ({
   };
 
   const handlePublishNow = async () => {
-    if (!videoUrl || selectedPlatforms.length === 0) {
-      toast({ title: "Select at least one platform", variant: "destructive" });
+    if (!videoUrl) {
+      toast({ title: "No video to share", variant: "destructive" });
       return;
     }
 
     setIsPublishing(true);
     try {
-      // Here we would integrate with the social posting system
-      // For now, open share dialogs for each platform
-      for (const platform of selectedPlatforms) {
-        await handleShareToSocial(platform);
+      // Use native Web Share API if available
+      if (navigator.share) {
+        await navigator.share({
+          title: title || "AI Generated Video",
+          text: socialCaption || "Check out this AI-generated video!",
+          url: videoUrl,
+        });
+        toast({ title: "Shared successfully!" });
+      } else {
+        // Fallback: copy link to clipboard
+        await navigator.clipboard.writeText(videoUrl);
+        toast({ 
+          title: "Link copied!", 
+          description: "Share API not supported - link copied to clipboard" 
+        });
       }
-      
-      toast({
-        title: "Share windows opened",
-        description: `Opening share dialogs for ${selectedPlatforms.length} platform(s)`,
-      });
+    } catch (error: any) {
+      // User cancelled share or error
+      if (error.name !== "AbortError") {
+        console.error("Share error:", error);
+        toast({ title: "Share failed", variant: "destructive" });
+      }
     } finally {
       setIsPublishing(false);
     }
@@ -490,14 +502,14 @@ export const VideoDetailModal = ({
                   <Button 
                     className="w-full gap-2" 
                     onClick={handlePublishNow}
-                    disabled={isPublishing || selectedPlatforms.length === 0}
+                    disabled={isPublishing}
                   >
                     {isPublishing ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Send className="h-4 w-4" />
+                      <Share2 className="h-4 w-4" />
                     )}
-                    Share to {selectedPlatforms.length} Platform{selectedPlatforms.length !== 1 ? "s" : ""}
+                    Share
                   </Button>
 
                   {/* Quick Share */}
