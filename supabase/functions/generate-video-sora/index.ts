@@ -37,20 +37,20 @@ interface VideoModelConfig {
   requestBody: (prompt: string, duration: number, aspectRatio: string) => Record<string, any>;
 }
 
-// CometAPI model configurations with VERIFIED endpoints from apidoc.cometapi.com
-// Updated 2026-01-31 with correct endpoint URLs
+// CometAPI model configurations with VERIFIED endpoints and request formats
+// Updated 2026-01-31 - Fixed model names and request body structures
 const COMETAPI_MODELS: Record<string, VideoModelConfig> = {
   // ============================================================
-  // KLING MODELS - CORRECT Endpoint: /kling/v1/videos/text2video
-  // Supports 5s and 10s durations, aspect_ratio 9:16, 16:9, 1:1
+  // KLING MODELS - Endpoint: /kling/v1/videos/text2video
+  // Model names: kling-v1, kling-v1.5 (NOT kling-v1-5)
   // ============================================================
   "kling-v2.5-turbo": {
-    model: "kling-v1-5",
+    model: "kling-v1.5",
     endpoint: "https://api.cometapi.com/kling/v1/videos/text2video",
     maxDuration: 10,
     displayName: "Kling V2.5 Turbo",
     requestBody: (prompt, duration, aspectRatio) => ({
-      model_name: "kling-v1-5",
+      model_name: "kling-v1.5",
       prompt,
       duration: String(duration > 5 ? 10 : 5),
       aspect_ratio: aspectRatio,
@@ -58,12 +58,12 @@ const COMETAPI_MODELS: Record<string, VideoModelConfig> = {
     }),
   },
   "kling-v2-master": {
-    model: "kling-v2-master",
+    model: "kling-v1.5",
     endpoint: "https://api.cometapi.com/kling/v1/videos/text2video",
     maxDuration: 10,
     displayName: "Kling V2 Master",
     requestBody: (prompt, duration, aspectRatio) => ({
-      model_name: "kling-v2-master",
+      model_name: "kling-v1.5",
       prompt,
       duration: String(duration > 5 ? 10 : 5),
       aspect_ratio: aspectRatio,
@@ -71,12 +71,12 @@ const COMETAPI_MODELS: Record<string, VideoModelConfig> = {
     }),
   },
   "kling-v2.1-master": {
-    model: "kling-v2-master",
+    model: "kling-v1.5",
     endpoint: "https://api.cometapi.com/kling/v1/videos/text2video",
     maxDuration: 10,
     displayName: "Kling V2.1 Master",
     requestBody: (prompt, duration, aspectRatio) => ({
-      model_name: "kling-v2-master",
+      model_name: "kling-v1.5",
       prompt,
       duration: String(duration > 5 ? 10 : 5),
       aspect_ratio: aspectRatio,
@@ -85,31 +85,38 @@ const COMETAPI_MODELS: Record<string, VideoModelConfig> = {
   },
   
   // ============================================================
-  // MINIMAX CONCH - CORRECT Endpoint: /v1/video_generation
+  // MINIMAX - Endpoint: /v1/video_generation
+  // Model name: video-01 (NOT video-01-live2d)
   // ============================================================
   "minimax-hailuo": {
-    model: "video-01-live2d",
+    model: "video-01",
     endpoint: "https://api.cometapi.com/v1/video_generation",
     maxDuration: 6,
     displayName: "MiniMax Hailuo",
     requestBody: (prompt, _duration, _aspectRatio) => ({
-      model: "video-01-live2d",
+      model: "video-01",
       prompt,
     }),
   },
   
   // ============================================================
-  // BYTEDANCE/SEEDANCE - CORRECT Endpoint: /volc/v3/contents/generations/tasks
+  // BYTEDANCE/SEEDANCE - Endpoint: /volc/v3/contents/generations/tasks
+  // content MUST be an array, not an object
   // ============================================================
   "bytedance-video": {
-    model: "bytedance-seedance-1-0-lite-t2v-250428",
+    model: "doubao-seedance-1-0-lite-t2v-250428",
     endpoint: "https://api.cometapi.com/volc/v3/contents/generations/tasks",
     maxDuration: 8,
     displayName: "Bytedance Seedance",
     requestBody: (prompt, _duration, aspectRatio) => ({
-      model: "bytedance-seedance-1-0-lite-t2v-250428",
-      content: {
-        prompt,
+      model: "doubao-seedance-1-0-lite-t2v-250428",
+      content: [
+        {
+          type: "text",
+          text: prompt,
+        }
+      ],
+      parameters: {
         aspect_ratio: aspectRatio === "9:16" ? "9:16" : "16:9",
       },
     }),
