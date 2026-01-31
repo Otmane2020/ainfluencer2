@@ -1207,12 +1207,12 @@ ${formattedHashtags}`;
           </DialogTrigger>
           <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Video Type</DialogTitle>
+              <DialogTitle>AI Models</DialogTitle>
             </DialogHeader>
             <div className="py-4">
               <ProductSelector
                 selectedProduct={selectedProduct}
-                categories={["video", "avatar"]}
+                categories={["video", "avatar", "image"]}
                 onProductChange={(product) => {
                   setSelectedProduct(product);
                   const newDefaultDuration = product.supportedDurations?.[0] || 8;
