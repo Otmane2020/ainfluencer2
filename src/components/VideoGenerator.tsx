@@ -696,8 +696,10 @@ ${formattedHashtags}`;
             format: selectedFormat,
             orientation: selectedFormat === "landscape" ? "landscape" : "portrait",
             startingFrameUrl: startingFrameUrl,
+            // Image-to-video: pass reference image if provided
+            referenceImageUrl: segment.referenceImageUrl,
             // FIX: Send specific model ID from product
-            model: selectedProduct.internalModels[0] || "kling-v2.5-turbo",
+            model: selectedProduct.internalModels[0] || "sora-2",
             videoMode,
             // Pass ClipMotion mode to edge function
             // Project context for brand-aligned generation
