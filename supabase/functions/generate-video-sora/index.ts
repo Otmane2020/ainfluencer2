@@ -25,7 +25,7 @@ function getCreditCost(quality: string): number {
 }
 
 // ============================================================
-// MODEL SELECTION - SORA 2 (OpenAI) + VEO 3.1 (CometAPI)
+// MODEL SELECTION - SORA 2 (OpenAI) + VEO 3.1 (Gemini API)
 // 4 models only: Sora 2, Sora 2 Pro, Veo 3.1, Veo 3.1 Pro
 // ============================================================
 
@@ -34,7 +34,7 @@ interface VideoModelConfig {
   endpoint: string;
   maxDuration: number;
   displayName: string;
-  provider: "openai" | "cometapi";
+  provider: "openai" | "gemini";
   requestBody: (prompt: string, duration: number, aspectRatio: string) => Record<string, any>;
 }
 
@@ -72,34 +72,41 @@ const OPENAI_MODELS: Record<string, VideoModelConfig> = {
 };
 
 // ============================================================
-// COMETAPI VEO 3.1 MODELS
-// API: POST https://api.cometapi.com/v1/video/generations (JSON)
+// GEMINI VEO 3.1 MODELS (Direct Google API)
+// API: POST https://generativelanguage.googleapis.com/v1beta/models/{model}:predictLongRunning
 // ============================================================
-const COMETAPI_MODELS: Record<string, VideoModelConfig> = {
+const GEMINI_VEO_MODELS: Record<string, VideoModelConfig> = {
   "veo-3.1-pro": {
-    model: "veo-3.1-pro",
-    endpoint: "https://api.cometapi.com/v1/video/generations",
-    maxDuration: 10,
+    model: "veo-3.1-generate-preview", // Gemini API model name
+    endpoint: "https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-generate-preview:predictLongRunning",
+    maxDuration: 8,
     displayName: "Veo 3.1 Pro",
-    provider: "cometapi",
+    provider: "gemini",
     requestBody: (prompt, duration, aspectRatio) => ({
-      model: "veo-3.1-pro",
-      prompt,
-      duration: Math.min(duration, 10),
-      aspect_ratio: aspectRatio,
+      instances: [{
+        prompt,
+      }],
+      parameters: {
+        aspectRatio: aspectRatio === "9:16" ? "9:16" : "16:9",
+        durationSeconds: Math.min(duration, 8),
+        negativePrompt: "blurry, low quality, distorted, amateur, watermark",
+      },
     }),
   },
   "veo-3.1": {
-    model: "veo-3.1",
-    endpoint: "https://api.cometapi.com/v1/video/generations",
-    maxDuration: 10,
+    model: "veo-3.1-generate-preview",
+    endpoint: "https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-generate-preview:predictLongRunning",
+    maxDuration: 8,
     displayName: "Veo 3.1",
-    provider: "cometapi",
+    provider: "gemini",
     requestBody: (prompt, duration, aspectRatio) => ({
-      model: "veo-3.1",
-      prompt,
-      duration: Math.min(duration, 10),
-      aspect_ratio: aspectRatio,
+      instances: [{
+        prompt,
+      }],
+      parameters: {
+        aspectRatio: aspectRatio === "9:16" ? "9:16" : "16:9",
+        durationSeconds: Math.min(duration, 8),
+      },
     }),
   },
 };
@@ -107,7 +114,7 @@ const COMETAPI_MODELS: Record<string, VideoModelConfig> = {
 // All available models
 const ALL_MODELS: Record<string, VideoModelConfig> = {
   ...OPENAI_MODELS,
-  ...COMETAPI_MODELS,
+  ...GEMINI_VEO_MODELS,
 };
 
 // Quality tier mapping with fallbacks
@@ -134,7 +141,7 @@ function clampDuration(duration: number, config: VideoModelConfig): number {
 
 // ============================================================
 // VIDEO GENERATION WITH MULTI-PROVIDER FALLBACK
-// Supports OpenAI (FormData) and CometAPI (JSON)
+// Supports OpenAI (FormData) and Gemini Veo (JSON with x-goog-api-key)
 // ============================================================
 
 async function tryVideoGeneration(
@@ -143,7 +150,7 @@ async function tryVideoGeneration(
   duration: number,
   aspectRatio: string,
   openaiApiKey: string,
-  cometApiKey: string
+  geminiApiKey: string
 ): Promise<{ success: boolean; model: VideoModelConfig; taskId?: string; status?: string; mediaUrl?: string; error?: string }> {
   
   for (let i = 0; i < models.length; i++) {
@@ -151,7 +158,7 @@ async function tryVideoGeneration(
     const clampedDuration = clampDuration(duration, model);
     
     // Check if we have the API key for this provider
-    const apiKey = model.provider === "openai" ? openaiApiKey : cometApiKey;
+    const apiKey = model.provider === "openai" ? openaiApiKey : geminiApiKey;
     if (!apiKey) {
       console.log(`[${model.displayName}] Skipping - no API key for ${model.provider}`);
       continue;
@@ -181,12 +188,12 @@ async function tryVideoGeneration(
           body: formData,
         });
       } else {
-        // CometAPI uses JSON
+        // Gemini Veo API uses x-goog-api-key header
         response = await fetch(model.endpoint, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${apiKey}`,
+            "x-goog-api-key": apiKey,
           },
           body: JSON.stringify(requestBody),
         });
@@ -318,15 +325,15 @@ serve(async (req) => {
 
   try {
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") || "";
-    const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY") || "";
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
     
-    if (!OPENAI_API_KEY && !COMETAPI_API_KEY) {
-      throw new Error("No video API keys configured. Please add OPENAI_API_KEY or COMETAPI_API_KEY in secrets.");
+    if (!OPENAI_API_KEY && !GEMINI_API_KEY) {
+      throw new Error("No video API keys configured. Please add OPENAI_API_KEY or GEMINI_API_KEY in secrets.");
     }
     
     // Log API key availability (for debugging)
     console.log(`[CONFIG] OpenAI Sora 2: ${OPENAI_API_KEY ? "✓ Available" : "✗ Not configured"}`);
-    console.log(`[CONFIG] CometAPI Veo 3.1: ${COMETAPI_API_KEY ? "✓ Available" : "✗ Not configured"}`);
+    console.log(`[CONFIG] Gemini Veo 3.1: ${GEMINI_API_KEY ? "✓ Available" : "✗ Not configured"}`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -553,7 +560,7 @@ serve(async (req) => {
         clampedDuration,
         aspectRatio,
         OPENAI_API_KEY,
-        COMETAPI_API_KEY
+        GEMINI_API_KEY
       );
       
       if (!result.success) {
@@ -592,7 +599,8 @@ serve(async (req) => {
       
       // Update generation record with task ID, provider, and model used
       if (generationId) {
-        const checkDelay = result.model.provider === "cometapi" ? 45000 : 150000;
+        // Gemini Veo is faster (~45s), Sora takes longer (~150s)
+        const checkDelay = result.model.provider === "gemini" ? 45000 : 150000;
         const checkAfter = new Date(Date.now() + checkDelay);
         
         await supabase
@@ -683,17 +691,18 @@ serve(async (req) => {
           };
         }
       } else {
-        // CometAPI status endpoint
-        const response = await fetch(`https://api.cometapi.com/v1/video/generations/${taskId}`, {
+        // Gemini Veo status endpoint - poll the operation
+        const BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
+        const response = await fetch(`${BASE_URL}/${taskId}`, {
           method: "GET",
           headers: {
-            "Authorization": `Bearer ${COMETAPI_API_KEY}`,
+            "x-goog-api-key": GEMINI_API_KEY,
           },
         });
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error(`[STATUS] CometAPI error: ${response.status} - ${errorText}`);
+          console.error(`[STATUS] Gemini error: ${response.status} - ${errorText}`);
           
           statusResponse = {
             id: taskId,
@@ -703,29 +712,36 @@ serve(async (req) => {
           };
         } else {
           const result = await response.json();
-          console.log(`[STATUS] CometAPI result:`, JSON.stringify(result).substring(0, 200));
+          console.log(`[STATUS] Gemini result:`, JSON.stringify(result).substring(0, 200));
           
-          // Map CometAPI status
-          const cometStatus = result.task?.status_name || result.status || "queued";
+          // Map Gemini operation status
+          const isDone = result.done === true;
           let mappedStatus: VideoStatusResponse["status"] = "queued";
-          let progress = result.task?.progress || 0;
+          let progress = 0;
+          let videoUrl: string | undefined;
           
-          if (cometStatus === "completed" || cometStatus === "success" || cometStatus === "succeed") {
-            mappedStatus = "completed";
-            progress = 100;
-          } else if (cometStatus === "failed" || cometStatus === "error") {
-            mappedStatus = "failed";
-            progress = 0;
-          } else if (cometStatus === "processing" || cometStatus === "running") {
+          if (isDone) {
+            if (result.response?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri) {
+              mappedStatus = "completed";
+              progress = 100;
+              videoUrl = result.response.generateVideoResponse.generatedSamples[0].video.uri;
+            } else if (result.error) {
+              mappedStatus = "failed";
+            } else {
+              mappedStatus = "completed";
+              progress = 100;
+            }
+          } else {
             mappedStatus = "in_progress";
+            progress = 50;
           }
           
           statusResponse = {
             id: taskId,
             status: mappedStatus,
             progress,
-            videoUrl: result.video_url || result.output?.video || result.works?.[0]?.resource?.resource,
-            error: result.error_message,
+            videoUrl,
+            error: result.error?.message,
           };
         }
       }
@@ -784,17 +800,20 @@ serve(async (req) => {
           videoUrl = result.output_video || result.video_url || result.output?.video;
         }
       } else {
-        // CometAPI - get video URL from status
-        const response = await fetch(`https://api.cometapi.com/v1/video/generations/${taskId}`, {
+        // Gemini Veo - get video URL from operation status
+        const BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
+        const response = await fetch(`${BASE_URL}/${taskId}`, {
           method: "GET",
           headers: {
-            "Authorization": `Bearer ${COMETAPI_API_KEY}`,
+            "x-goog-api-key": GEMINI_API_KEY,
           },
         });
 
         if (response.ok) {
           const result = await response.json();
-          videoUrl = result.video_url || result.output?.video || result.works?.[0]?.resource?.resource;
+          if (result.done && result.response?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri) {
+            videoUrl = result.response.generateVideoResponse.generatedSamples[0].video.uri;
+          }
         }
       }
 
