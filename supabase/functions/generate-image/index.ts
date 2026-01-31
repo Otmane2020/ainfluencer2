@@ -31,41 +31,47 @@ function getCreditCost(quality: string): number {
 }
 
 // ============================================================
-// MODEL POOL CONFIGURATION - OpenAI GPT Image + Nano Banana (Gemini)
+// MODEL POOL CONFIGURATION - FLUX + GPT Image + Nano Banana (Gemini)
 // ============================================================
 
 interface ModelOption {
   id: string;
-  provider: "openai" | "gemini";
+  provider: "openai" | "gemini" | "flux";
   weight: number;
   apiModel: string;
   displayName: string;
 }
 
-// OpenAI GPT Image and Gemini Nano Banana models
+// FLUX (Black Forest Labs) + OpenAI GPT Image + Gemini Nano Banana models
 const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
   standard: [
-    { id: "nano-banana", provider: "gemini", weight: 100, apiModel: "google/gemini-2.5-flash-image", displayName: "Nano Banana" },
+    { id: "flux-schnell", provider: "flux", weight: 50, apiModel: "black-forest-labs/flux-schnell", displayName: "FLUX Schnell" },
+    { id: "nano-banana", provider: "gemini", weight: 50, apiModel: "google/gemini-2.5-flash-image", displayName: "Nano Banana" },
   ],
   pro: [
-    { id: "nano-banana-pro", provider: "gemini", weight: 60, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
-    { id: "gpt-image", provider: "openai", weight: 40, apiModel: "gpt-image-1", displayName: "GPT Image" },
+    { id: "flux-2-dev", provider: "flux", weight: 40, apiModel: "black-forest-labs/flux-2-dev", displayName: "FLUX 2 Dev" },
+    { id: "nano-banana-pro", provider: "gemini", weight: 35, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
+    { id: "gpt-image", provider: "openai", weight: 25, apiModel: "gpt-image-1", displayName: "GPT Image" },
   ],
   cinema: [
-    { id: "gpt-image", provider: "openai", weight: 70, apiModel: "gpt-image-1", displayName: "GPT Image" },
-    { id: "nano-banana-pro", provider: "gemini", weight: 30, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
+    { id: "flux-2-pro", provider: "flux", weight: 50, apiModel: "black-forest-labs/flux-2-pro", displayName: "FLUX 2 Pro" },
+    { id: "gpt-image", provider: "openai", weight: 30, apiModel: "gpt-image-1", displayName: "GPT Image" },
+    { id: "nano-banana-pro", provider: "gemini", weight: 20, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
   ],
   // Legacy mappings
   "smart-image": [
-    { id: "nano-banana", provider: "gemini", weight: 100, apiModel: "google/gemini-2.5-flash-image", displayName: "Nano Banana" },
+    { id: "flux-schnell", provider: "flux", weight: 50, apiModel: "black-forest-labs/flux-schnell", displayName: "FLUX Schnell" },
+    { id: "nano-banana", provider: "gemini", weight: 50, apiModel: "google/gemini-2.5-flash-image", displayName: "Nano Banana" },
   ],
   "high-image": [
-    { id: "nano-banana-pro", provider: "gemini", weight: 60, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
-    { id: "gpt-image", provider: "openai", weight: 40, apiModel: "gpt-image-1", displayName: "GPT Image" },
+    { id: "flux-2-dev", provider: "flux", weight: 40, apiModel: "black-forest-labs/flux-2-dev", displayName: "FLUX 2 Dev" },
+    { id: "nano-banana-pro", provider: "gemini", weight: 35, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
+    { id: "gpt-image", provider: "openai", weight: 25, apiModel: "gpt-image-1", displayName: "GPT Image" },
   ],
   "studio-image": [
-    { id: "gpt-image", provider: "openai", weight: 70, apiModel: "gpt-image-1", displayName: "GPT Image" },
-    { id: "nano-banana-pro", provider: "gemini", weight: 30, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
+    { id: "flux-2-pro", provider: "flux", weight: 50, apiModel: "black-forest-labs/flux-2-pro", displayName: "FLUX 2 Pro" },
+    { id: "gpt-image", provider: "openai", weight: 30, apiModel: "gpt-image-1", displayName: "GPT Image" },
+    { id: "nano-banana-pro", provider: "gemini", weight: 20, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
   ],
 };
 
@@ -75,6 +81,9 @@ const LEGACY_QUALITY_MAPPINGS: Record<string, string> = {
   "ai-image-pro": "pro",
   "ai-image-studio": "cinema",
   "flux-2-flex": "standard",
+  "flux-schnell": "standard",
+  "flux-2-dev": "pro",
+  "flux-2-pro": "cinema",
   "nano-banana": "standard",
   "nano-banana-pro": "pro",
   "gpt-image": "cinema",
@@ -396,7 +405,80 @@ async function generateWithGemini(
 }
 
 // ============================================================
-// FALLBACK GENERATION - Try primary, then fallback
+// FLUX IMAGE GENERATION (Black Forest Labs via Lovable AI Gateway)
+// ============================================================
+
+async function generateWithFlux(
+  prompt: string,
+  model: string,
+  aspectRatio: string = "1:1"
+): Promise<{ imageData: string | null; error?: string }> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) {
+    return { imageData: null, error: "LOVABLE_API_KEY not configured" };
+  }
+
+  try {
+    // Determine display name based on model
+    let displayName = "FLUX";
+    if (model.includes("flux-2-pro")) displayName = "FLUX 2 Pro";
+    else if (model.includes("flux-2-dev")) displayName = "FLUX 2 Dev";
+    else if (model.includes("flux-schnell")) displayName = "FLUX Schnell";
+
+    console.log(`[FLUX] Generating image with ${displayName} (${model})`);
+
+    // FLUX models support aspect ratio in the prompt
+    const aspectPrompt = aspectRatio === "9:16" 
+      ? "Vertical portrait format (9:16 aspect ratio). " 
+      : aspectRatio === "16:9" 
+        ? "Horizontal landscape format (16:9 aspect ratio). "
+        : "";
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: aspectPrompt + prompt }],
+        modalities: ["image", "text"],
+      }),
+    });
+
+    if (!response.ok) {
+      const status = response.status;
+      const errorText = await response.text();
+      console.error(`[FLUX] Error ${status}:`, errorText.slice(0, 200));
+      
+      if (status === 429) {
+        return { imageData: null, error: "Rate limit exceeded. Please try again later." };
+      }
+      if (status === 402) {
+        return { imageData: null, error: "Payment required. Please add credits." };
+      }
+      return { imageData: null, error: `FLUX error: ${status}` };
+    }
+
+    const data = await response.json();
+    const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+
+    if (!imageData) {
+      console.error("[FLUX] No image in response");
+      return { imageData: null, error: "No image generated" };
+    }
+
+    console.log(`[FLUX] ✓ Image generated successfully with ${displayName}`);
+    return { imageData };
+  } catch (error) {
+    console.error("[FLUX] Exception:", error);
+    return { imageData: null, error: String(error) };
+  }
+}
+
+// ============================================================
+// FALLBACK GENERATION - Try primary, then smart fallback chain
 // ============================================================
 
 async function generateWithFallback(
@@ -411,6 +493,8 @@ async function generateWithFallback(
   
   if (selectedModel.provider === "openai") {
     result = await generateWithOpenAI(prompt, aspectRatio);
+  } else if (selectedModel.provider === "flux") {
+    result = await generateWithFlux(prompt, selectedModel.apiModel, aspectRatio);
   } else {
     result = await generateWithGemini(prompt, selectedModel.apiModel);
   }
@@ -421,35 +505,50 @@ async function generateWithFallback(
   
   console.log(`[Fallback] ${selectedModel.displayName} failed, trying fallback...`);
   
-  // Fallback logic: if OpenAI fails, try Gemini and vice versa
-  if (selectedModel.provider === "openai") {
-    // Fallback to Nano Banana Pro
-    const fallbackModel: ModelOption = {
-      id: "nano-banana-pro",
-      provider: "gemini",
-      weight: 100,
-      apiModel: "google/gemini-3-pro-image-preview",
-      displayName: "Nano Banana Pro"
-    };
-    const fallbackResult = await generateWithGemini(prompt, fallbackModel.apiModel);
-    if (fallbackResult.imageData) {
-      console.log(`[Fallback] ✓ Success with ${fallbackModel.displayName}`);
-      return { ...fallbackResult, usedModel: fallbackModel };
-    }
+  // Smart fallback chain based on provider
+  const fallbackChain: ModelOption[] = [];
+  
+  if (selectedModel.provider === "flux") {
+    // FLUX failed -> try FLUX 2 Pro -> GPT Image -> Nano Banana Pro
+    fallbackChain.push(
+      { id: "flux-2-pro", provider: "flux", weight: 100, apiModel: "black-forest-labs/flux-2-pro", displayName: "FLUX 2 Pro" },
+      { id: "gpt-image", provider: "openai", weight: 100, apiModel: "gpt-image-1", displayName: "GPT Image" },
+      { id: "nano-banana-pro", provider: "gemini", weight: 100, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" }
+    );
+  } else if (selectedModel.provider === "openai") {
+    // OpenAI failed -> try FLUX 2 Pro -> Nano Banana Pro
+    fallbackChain.push(
+      { id: "flux-2-pro", provider: "flux", weight: 100, apiModel: "black-forest-labs/flux-2-pro", displayName: "FLUX 2 Pro" },
+      { id: "nano-banana-pro", provider: "gemini", weight: 100, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" }
+    );
   } else {
-    // Fallback to GPT Image
-    const fallbackModel: ModelOption = {
-      id: "gpt-image",
-      provider: "openai",
-      weight: 100,
-      apiModel: "gpt-image-1",
-      displayName: "GPT Image"
-    };
-    const fallbackResult = await generateWithOpenAI(prompt, aspectRatio);
+    // Gemini failed -> try FLUX 2 Pro -> GPT Image
+    fallbackChain.push(
+      { id: "flux-2-pro", provider: "flux", weight: 100, apiModel: "black-forest-labs/flux-2-pro", displayName: "FLUX 2 Pro" },
+      { id: "gpt-image", provider: "openai", weight: 100, apiModel: "gpt-image-1", displayName: "GPT Image" }
+    );
+  }
+  
+  // Filter out the model that already failed
+  const filteredFallbacks = fallbackChain.filter(m => m.id !== selectedModel.id);
+  
+  for (const fallbackModel of filteredFallbacks) {
+    let fallbackResult: { imageData: string | null; error?: string };
+    
+    if (fallbackModel.provider === "openai") {
+      fallbackResult = await generateWithOpenAI(prompt, aspectRatio);
+    } else if (fallbackModel.provider === "flux") {
+      fallbackResult = await generateWithFlux(prompt, fallbackModel.apiModel, aspectRatio);
+    } else {
+      fallbackResult = await generateWithGemini(prompt, fallbackModel.apiModel);
+    }
+    
     if (fallbackResult.imageData) {
       console.log(`[Fallback] ✓ Success with ${fallbackModel.displayName}`);
       return { ...fallbackResult, usedModel: fallbackModel };
     }
+    
+    console.log(`[Fallback] ${fallbackModel.displayName} also failed, trying next...`);
   }
   
   return { imageData: null, error: result.error || "All models failed", usedModel: selectedModel };
