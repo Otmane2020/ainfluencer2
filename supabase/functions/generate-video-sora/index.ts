@@ -181,7 +181,7 @@ function clampDuration(duration: number, config: VideoModelConfig): number {
 
 // ============================================================
 // VIDEO GENERATION WITH MULTI-PROVIDER FALLBACK
-// Supports OpenAI (FormData) and Gemini Veo (JSON with x-goog-api-key)
+// Supports OpenAI Sora (FormData with image-to-video) and Gemini Veo
 // ============================================================
 
 async function tryVideoGeneration(
@@ -190,7 +190,8 @@ async function tryVideoGeneration(
   duration: number,
   aspectRatio: string,
   openaiApiKey: string,
-  geminiApiKey: string
+  geminiApiKey: string,
+  referenceImageUrl?: string // Optional image for image-to-video
 ): Promise<{ success: boolean; model: VideoModelConfig; taskId?: string; status?: string; mediaUrl?: string; error?: string }> {
   
   for (let i = 0; i < models.length; i++) {
@@ -207,6 +208,9 @@ async function tryVideoGeneration(
     console.log(`[VIDEO ${i + 1}/${models.length}] Trying ${model.displayName} (${model.provider})...`);
     console.log(`[VIDEO] Requested duration: ${duration}s → Clamped to: ${clampedDuration}s`);
     console.log(`[VIDEO] Endpoint: ${model.endpoint}`);
+    if (referenceImageUrl) {
+      console.log(`[VIDEO] Image-to-Video mode with reference: ${referenceImageUrl.substring(0, 100)}...`);
+    }
     
     try {
       const requestBody = model.requestBody(prompt, clampedDuration, aspectRatio);
@@ -220,6 +224,32 @@ async function tryVideoGeneration(
         Object.entries(requestBody).forEach(([key, value]) => {
           formData.append(key, String(value));
         });
+        
+        // Image-to-video: fetch the reference image and attach as input_reference
+        if (referenceImageUrl) {
+          try {
+            console.log(`[VIDEO] Fetching reference image for image-to-video...`);
+            const imageResponse = await fetch(referenceImageUrl);
+            if (imageResponse.ok) {
+              const imageBuffer = await imageResponse.arrayBuffer();
+              const imageBytes = new Uint8Array(imageBuffer);
+              
+              // Determine content type from URL or default to png
+              const contentType = imageResponse.headers.get("content-type") || "image/png";
+              const extension = contentType.includes("jpeg") || contentType.includes("jpg") ? "jpg" : "png";
+              
+              // Create a Blob and append to FormData
+              const imageBlob = new Blob([imageBytes], { type: contentType });
+              formData.append("input_reference", imageBlob, `reference.${extension}`);
+              console.log(`[VIDEO] ✓ Attached reference image (${imageBytes.length} bytes, ${contentType})`);
+            } else {
+              console.warn(`[VIDEO] Failed to fetch reference image: ${imageResponse.status}`);
+            }
+          } catch (imgErr) {
+            console.warn(`[VIDEO] Error fetching reference image:`, imgErr);
+            // Continue without image - fall back to text-to-video
+          }
+        }
         
         response = await fetch(model.endpoint, {
           method: "POST",
@@ -307,7 +337,7 @@ async function tryVideoGeneration(
       const status = result.task?.status_name || result.status || "queued";
       const mediaUrl = result.video_url || result.output?.video || result.works?.[0]?.resource?.resource || null;
       
-      console.log(`✓ [${model.displayName}] Success! Task ID: ${taskId}`);
+      console.log(`✓ [${model.displayName}] Success! Task ID: ${taskId}${referenceImageUrl ? " (image-to-video)" : " (text-to-video)"}`);
       
       return {
         success: true,
@@ -342,6 +372,9 @@ interface VideoRequest {
   videoMode?: string;
   quality?: string;
   skipCreditDeduction?: boolean;
+  // Image-to-video: optional reference image URL
+  referenceImageUrl?: string;
+  startingFrameUrl?: string;
   // Project context for brand-aligned generation
   projectName?: string;
   projectUrl?: string;
@@ -459,6 +492,9 @@ serve(async (req) => {
         videoMode = "standard",
         quality = "standard",
         skipCreditDeduction = false,
+        // Image-to-video
+        referenceImageUrl,
+        startingFrameUrl,
         // Project context
         projectName,
         projectUrl,
@@ -467,6 +503,9 @@ serve(async (req) => {
         aiContextSummary,
         marketingContext,
       }: VideoRequest = await req.json();
+
+      // Use referenceImageUrl or startingFrameUrl for image-to-video
+      const imageToVideoUrl = referenceImageUrl || startingFrameUrl;
 
       if (!prompt) {
         throw new Error("Prompt is required");
@@ -486,6 +525,7 @@ serve(async (req) => {
       console.log(`User: ${userId || "anonymous"}`);
       console.log(`Quality: ${quality} | Model: ${modelConfig.model} | Provider: ${modelConfig.provider}`);
       console.log(`Duration: ${clampedDuration}s | Tier: ${durationTier} | Credit Cost: ${creditCost}`);
+      console.log(`Mode: ${imageToVideoUrl ? "Image-to-Video" : "Text-to-Video"}`);
       console.log("Prompt:", prompt.substring(0, 100) + "...");
       console.log("Size:", size);
 
@@ -660,7 +700,8 @@ serve(async (req) => {
         clampedDuration,
         aspectRatio,
         OPENAI_API_KEY,
-        GEMINI_API_KEY
+        GEMINI_API_KEY,
+        imageToVideoUrl // Pass reference image for image-to-video
       );
       
       if (!result.success) {
