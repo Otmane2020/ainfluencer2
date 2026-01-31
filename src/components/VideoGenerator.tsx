@@ -1181,9 +1181,18 @@ ${formattedHashtags}`;
 
               {segment.status !== "pending" && (
                 <div className="mt-2 text-xs">
-                  {segment.status === "generating" && <span className="text-accent flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />{segment.progress}%</span>}
-                  {segment.status === "ready" && <span className="text-primary flex items-center gap-1"><Play className="h-3 w-3" />Ready</span>}
-                  {segment.status === "error" && <span className="text-destructive">Error</span>}
+                  {segment.status === "generating" && (
+                    <span className="text-accent flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      {segment.progress}% • {selectedProduct.name}
+                    </span>
+                  )}
+                  {segment.status === "ready" && (
+                    <span className="text-primary flex items-center gap-1">
+                      <Play className="h-3 w-3" />Ready • {selectedProduct.name}
+                    </span>
+                  )}
+                  {segment.status === "error" && <span className="text-destructive">Error • {selectedProduct.name}</span>}
                 </div>
               )}
             </motion.div>
