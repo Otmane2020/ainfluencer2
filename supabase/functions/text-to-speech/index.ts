@@ -80,8 +80,9 @@ async function generateWithElevenLabs(
           voice_settings: {
             stability: 0.5,
             similarity_boost: 0.75,
-            style: 0.5,
+            style: 0.4,
             use_speaker_boost: true,
+            speed: 0.85, // Slower speech for better comprehension
           },
         }),
       }

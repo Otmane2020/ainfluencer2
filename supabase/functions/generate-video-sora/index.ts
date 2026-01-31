@@ -179,11 +179,12 @@ async function tryVideoGeneration(
     }
     
     console.log(`[VIDEO ${i + 1}/${models.length}] Trying ${model.displayName} (${model.provider})...`);
+    console.log(`[VIDEO] Requested duration: ${duration}s → Clamped to: ${clampedDuration}s`);
     console.log(`[VIDEO] Endpoint: ${model.endpoint}`);
     
     try {
       const requestBody = model.requestBody(prompt, clampedDuration, aspectRatio);
-      console.log(`[VIDEO] Request body:`, JSON.stringify(requestBody).substring(0, 200));
+      console.log(`[VIDEO] Request params: model=${requestBody.model}, seconds=${requestBody.seconds || clampedDuration}, size=${requestBody.size}`);
       
       let response: Response;
       
