@@ -434,38 +434,138 @@ export const VIDEO_DURATION_TIERS: VideoDurationTier[] = [
   },
 ];
 
+// ============================================================
+// VIDEO RESOLUTION OPTIONS (Sora 2)
+// ============================================================
+
+export interface VideoResolution {
+  id: string;
+  label: string;
+  width: number;
+  height: number;
+  pricePerSecond: number; // USD per second
+  description: string;
+}
+
+export const VIDEO_RESOLUTIONS: Record<string, VideoResolution[]> = {
+  "sora-2": [
+    {
+      id: "720p",
+      label: "720p",
+      width: 1280,
+      height: 720,
+      pricePerSecond: 0.10,
+      description: "Standard HD",
+    },
+    {
+      id: "720p-vertical",
+      label: "720p Vertical",
+      width: 720,
+      height: 1280,
+      pricePerSecond: 0.10,
+      description: "Standard HD (9:16)",
+    },
+  ],
+  "sora-2-pro": [
+    {
+      id: "720p",
+      label: "720p",
+      width: 1280,
+      height: 720,
+      pricePerSecond: 0.30,
+      description: "HD Quality",
+    },
+    {
+      id: "720p-vertical",
+      label: "720p Vertical",
+      width: 720,
+      height: 1280,
+      pricePerSecond: 0.30,
+      description: "HD (9:16)",
+    },
+    {
+      id: "1080p",
+      label: "1080p HD",
+      width: 1024,
+      height: 1792,
+      pricePerSecond: 0.50,
+      description: "Full HD Premium",
+    },
+  ],
+};
+
+// Get resolution options for a model
+export const getResolutionsForModel = (modelId: string): VideoResolution[] => {
+  return VIDEO_RESOLUTIONS[modelId] || VIDEO_RESOLUTIONS["sora-2"];
+};
+
+// Get default resolution for a model
+export const getDefaultResolution = (modelId: string): VideoResolution => {
+  const resolutions = getResolutionsForModel(modelId);
+  return resolutions[0];
+};
+
 export const VIDEO_QUALITY_LEVELS: QualityLevel[] = [
   {
     id: "standard-video",
     name: "Sora 2",
     internalModel: "sora-2",
-    price: 5.00, // Base price for 4-6s
-    description: "OpenAI cinematic HD videos",
-    features: ["1080p", "Up to 12s", "Cinematic"],
+    price: 5.00, // Base price for 4-6s at 720p
+    description: "OpenAI HD videos • $0.10/s",
+    features: ["720p", "Up to 12s", "$0.10/sec"],
     supportedDurations: [4, 5, 6, 8, 10, 12],
   },
   {
     id: "pro-video",
     name: "Sora 2 Pro",
     internalModel: "sora-2-pro",
-    price: 10.00, // Base price for 4-6s
-    description: "OpenAI maximum quality, up to 20s",
-    features: ["4K", "Up to 20s", "HDR", "Premium"],
+    price: 10.00, // Base price for 4-6s at 720p
+    description: "OpenAI max quality • $0.30-0.50/s",
+    features: ["Up to 1080p", "Up to 20s", "$0.30-0.50/sec"],
     supportedDurations: [4, 5, 6, 8, 10, 12, 15, 20],
   },
 ];
 
-// Calculate credit cost based on duration tier
+// ============================================================
+// PRICING CALCULATION (based on actual OpenAI rates)
+// ============================================================
+
+// Calculate credit cost based on duration and resolution
 export const getVideoCreditCost = (
-  baseCredits: number, 
-  duration: number
+  modelId: string,
+  duration: number,
+  resolutionId?: string
 ): number => {
-  // 4-6s = base
-  if (duration <= 6) return baseCredits;
-  // 8-12s = 2x base
-  if (duration <= 12) return baseCredits * 2;
-  // 12-20s = 4x base (premium)
-  return baseCredits * 4;
+  const resolutions = getResolutionsForModel(modelId);
+  const resolution = resolutions.find(r => r.id === resolutionId) || resolutions[0];
+  
+  // Cost in USD = price per second × duration
+  const costUSD = resolution.pricePerSecond * duration;
+  
+  // Convert to credits (1 credit = ~$0.10)
+  // Round up to nearest integer
+  return Math.ceil(costUSD * 10);
+};
+
+// Get price estimate in USD
+export const getVideoPriceUSD = (
+  modelId: string,
+  duration: number,
+  resolutionId?: string
+): number => {
+  const resolutions = getResolutionsForModel(modelId);
+  const resolution = resolutions.find(r => r.id === resolutionId) || resolutions[0];
+  return resolution.pricePerSecond * duration;
+};
+
+// Format price for display
+export const formatVideoPrice = (
+  modelId: string,
+  duration: number,
+  resolutionId?: string
+): string => {
+  const priceUSD = getVideoPriceUSD(modelId, duration, resolutionId);
+  return `$${priceUSD.toFixed(2)}`;
 };
 
 // Get duration tier for a given duration
