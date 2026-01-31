@@ -459,33 +459,33 @@ const CalendarPage = () => {
 
       {/* Removed info banner for minimalism - project context shows via filter */}
 
-      {/* Calendar */}
-      <Card className="overflow-hidden">
-        <CardHeader className="pb-2 px-3 pt-3">
+      {/* Calendar - Light Facebook-style theme */}
+      <Card className="overflow-hidden bg-[#F0F2F5] border-0 shadow-sm">
+        <CardHeader className="pb-2 px-4 pt-4 bg-white border-b">
           <div className="flex items-center justify-between">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
-              <ChevronLeft className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-gray-100" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+              <ChevronLeft className="h-4 w-4 text-gray-600" />
             </Button>
-            <CardTitle className="text-base capitalize">
-              {format(currentMonth, "MMM yyyy", { locale: enUS })}
+            <CardTitle className="text-base font-semibold text-gray-900 capitalize">
+              {format(currentMonth, "MMMM yyyy", { locale: enUS })}
             </CardTitle>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
-              <ChevronRight className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-gray-100" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+              <ChevronRight className="h-4 w-4 text-gray-600" />
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="px-2 pb-2">
-          {/* Week days header - minimal */}
-          <div className="grid grid-cols-7 gap-0.5 mb-1">
+        <CardContent className="p-2 md:p-3">
+          {/* Week days header - Facebook style */}
+          <div className="grid grid-cols-7 gap-1 mb-2">
             {weekDays.map((day) => (
-              <div key={day} className="text-center text-xs font-medium text-muted-foreground py-1">
-                {day.charAt(0)}
+              <div key={day} className="text-center text-xs font-semibold text-gray-500 py-2 bg-white rounded">
+                {day}
               </div>
             ))}
           </div>
 
-          {/* Calendar grid - compact for mobile */}
-          <div className="grid grid-cols-7 gap-0.5">
+          {/* Calendar grid - Facebook post cards style */}
+          <div className="grid grid-cols-7 gap-1 md:gap-2">
             {days.map((day, index) => {
               const dayPosts = getPostsForDay(day);
               const isPast = isBefore(day, startOfDay(new Date())) && !isToday(day);
@@ -493,73 +493,88 @@ const CalendarPage = () => {
               return (
                 <motion.div
                   key={day.toISOString()}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.01 }}
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.008 }}
                   onClick={() => handleDayClick(day, dayPosts)}
-                  className={`min-h-[52px] md:min-h-[85px] p-1.5 rounded-lg transition-all cursor-pointer hover:ring-2 hover:ring-primary/40 hover:scale-[1.02] ${
+                  className={`min-h-[70px] md:min-h-[110px] rounded-lg transition-all cursor-pointer overflow-hidden ${
                     isToday(day)
-                      ? "bg-gradient-to-br from-primary/20 to-secondary/10 border border-primary/40 shadow-glow"
+                      ? "bg-white ring-2 ring-blue-500 shadow-lg"
                       : isPast
-                      ? "bg-muted/20 opacity-40"
-                      : dayPosts.length > 0
-                      ? "bg-card/80 border border-border/50"
-                      : "bg-muted/30 hover:bg-muted/50"
+                      ? "bg-gray-100 opacity-50"
+                      : "bg-white hover:shadow-md hover:scale-[1.01]"
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className={`text-xs font-semibold ${isToday(day) ? "text-primary" : "text-foreground"}`}>
+                  {/* Day header */}
+                  <div className={`px-2 py-1 flex items-center justify-between ${
+                    isToday(day) ? "bg-blue-500" : "bg-gray-50 border-b border-gray-100"
+                  }`}>
+                    <span className={`text-xs font-bold ${isToday(day) ? "text-white" : "text-gray-700"}`}>
                       {format(day, "d")}
                     </span>
                     {dayPosts.length > 0 && (
-                      <span className="text-[9px] font-medium text-accent bg-accent/20 px-1 rounded">
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                        isToday(day) ? "bg-white/20 text-white" : "bg-blue-100 text-blue-600"
+                      }`}>
                         {dayPosts.length}
                       </span>
                     )}
                   </div>
                   
-                  {/* Styled post indicators */}
-                  <div className="flex flex-col gap-1 mt-1">
+                  {/* Mini Facebook-style posts */}
+                  <div className="p-1 space-y-1">
                     {dayPosts.slice(0, 2).map((post) => (
                       <div
                         key={post.id}
                         onClick={(e) => handlePostClick(post, e)}
-                        className="group flex items-center gap-1 p-0.5 rounded cursor-pointer hover:bg-muted/50 transition-all"
+                        className="group bg-gray-50 rounded-md p-1 hover:bg-gray-100 transition-all cursor-pointer border border-gray-100"
                       >
-                        {/* Content type icon */}
-                        <div 
-                          className="h-4 w-4 rounded flex items-center justify-center shrink-0 text-white"
-                          style={{ backgroundColor: getProjectColor(post.project_id) }}
-                        >
-                          {post.content_type === "video" ? (
-                            <Video className="h-2.5 w-2.5" />
-                          ) : (
-                            <ImageIcon className="h-2.5 w-2.5" />
-                          )}
+                        {/* Mini post header - like Facebook */}
+                        <div className="flex items-center gap-1 mb-0.5">
+                          {/* Platform avatar */}
+                          <div 
+                            className="h-4 w-4 rounded-full flex items-center justify-center text-white shrink-0"
+                            style={{ background: (post.platforms?.[0] && PLATFORM_STYLES[post.platforms[0]]?.bg) || getProjectColor(post.project_id) }}
+                          >
+                            {post.platforms?.[0] && PLATFORM_STYLES[post.platforms[0]]?.icon ? (
+                              <span className="scale-[0.6]">{PLATFORM_STYLES[post.platforms[0]].icon}</span>
+                            ) : (
+                              post.content_type === "video" ? <Video className="h-2 w-2" /> : <ImageIcon className="h-2 w-2" />
+                            )}
+                          </div>
+                          <span className="text-[8px] md:text-[9px] text-gray-500 truncate flex-1">
+                            {format(new Date(post.scheduled_for), "HH:mm")}
+                          </span>
                         </div>
                         
-                        {/* Platform icons */}
-                        <div className="hidden md:flex items-center gap-0.5">
-                          {(post.platforms || []).slice(0, 2).map((platform) => {
-                            const style = PLATFORM_STYLES[platform];
-                            if (!style) return null;
-                            return (
-                              <div
-                                key={platform}
-                                className="h-3.5 w-3.5 rounded flex items-center justify-center text-white"
-                                style={{ background: style.bg }}
-                              >
-                                <span className="scale-75">{style.icon}</span>
+                        {/* Mini post content preview */}
+                        {post.thumbnail_url || post.media_url ? (
+                          <div className="relative rounded overflow-hidden aspect-video bg-gray-200">
+                            <img 
+                              src={post.thumbnail_url || post.media_url || ""} 
+                              alt="" 
+                              className="w-full h-full object-cover"
+                              onError={(e) => (e.currentTarget.style.display = 'none')}
+                            />
+                            {post.content_type === "video" && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                <div className="h-4 w-4 rounded-full bg-white/90 flex items-center justify-center">
+                                  <div className="w-0 h-0 border-l-[5px] border-l-gray-800 border-y-[3px] border-y-transparent ml-0.5" />
+                                </div>
                               </div>
-                            );
-                          })}
-                        </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-[7px] md:text-[8px] text-gray-600 line-clamp-2 leading-tight">
+                            {post.text_content?.slice(0, 50) || post.ai_prompt?.slice(0, 50) || "Post scheduled"}
+                          </div>
+                        )}
                       </div>
                     ))}
                     {dayPosts.length > 2 && (
-                      <span className="text-[9px] font-medium text-muted-foreground pl-0.5">
+                      <div className="text-[9px] text-center text-blue-500 font-medium py-0.5 hover:underline">
                         +{dayPosts.length - 2} more
-                      </span>
+                      </div>
                     )}
                   </div>
                 </motion.div>
@@ -590,90 +605,124 @@ const CalendarPage = () => {
         </div>
       </div>
 
-      {/* Day Posts Modal */}
+      {/* Day Posts Modal - Facebook style */}
       <Dialog open={isDayModalOpen} onOpenChange={setIsDayModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
+        <DialogContent className="sm:max-w-lg bg-[#F0F2F5] border-0">
+          <DialogHeader className="bg-white -mx-6 -mt-6 px-4 py-3 border-b rounded-t-lg">
+            <DialogTitle className="text-gray-900 font-semibold">
               {selectedDate && format(selectedDate, "EEEE, MMMM d", { locale: enUS })}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 max-h-[400px] overflow-y-auto">
+          <div className="space-y-3 max-h-[500px] overflow-y-auto py-2">
             {selectedDate && getPostsForDay(selectedDate).length > 0 ? (
               getPostsForDay(selectedDate).map((post) => (
                 <motion.div
                   key={post.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
                   onClick={() => {
                     setIsDayModalOpen(false);
                     setSelectedPost(post);
                     setIsModalOpen(true);
                   }}
-                  className="flex items-center gap-3 p-3 rounded-xl border border-border/50 bg-card/50 hover:bg-muted/50 cursor-pointer transition-all hover:shadow-lg group"
+                  className="bg-white rounded-lg shadow-sm hover:shadow-md cursor-pointer transition-all overflow-hidden"
                 >
-                  {/* Content type badge */}
-                  <div
-                    className="h-12 w-12 rounded-xl flex items-center justify-center text-white shadow-lg transition-transform group-hover:scale-105"
-                    style={{ backgroundColor: getProjectColor(post.project_id) }}
-                  >
-                    {post.content_type === "video" ? (
-                      <Video className="h-5 w-5" />
-                    ) : (
-                      <ImageIcon className="h-5 w-5" />
-                    )}
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {post.ai_prompt || post.text_content?.slice(0, 40) || "Untitled post"}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                      {/* Platform icons */}
-                      <div className="flex items-center gap-1">
-                        {(post.platforms || []).map((platform) => {
-                          const style = PLATFORM_STYLES[platform];
-                          if (!style) return null;
-                          return (
-                            <div
-                              key={platform}
-                              className="h-5 w-5 rounded-md flex items-center justify-center text-white"
-                              style={{ background: style.bg }}
-                            >
-                              {style.icon}
-                            </div>
-                          );
-                        })}
+                  {/* Facebook-style post header */}
+                  <div className="flex items-center gap-3 p-3 border-b border-gray-100">
+                    <div 
+                      className="h-10 w-10 rounded-full flex items-center justify-center text-white shadow"
+                      style={{ background: (post.platforms?.[0] && PLATFORM_STYLES[post.platforms[0]]?.bg) || getProjectColor(post.project_id) }}
+                    >
+                      {post.platforms?.[0] && PLATFORM_STYLES[post.platforms[0]]?.icon ? (
+                        PLATFORM_STYLES[post.platforms[0]].icon
+                      ) : (
+                        post.content_type === "video" ? <Video className="h-5 w-5" /> : <ImageIcon className="h-5 w-5" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {projects.find(p => p.id === post.project_id)?.name || "Post"}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <Clock className="h-3 w-3" />
+                        <span>{format(new Date(post.scheduled_for), "HH:mm")}</span>
+                        <span>•</span>
+                        <span className={`font-medium ${
+                          post.status === "scheduled" ? "text-blue-500" :
+                          post.status === "published" ? "text-green-500" :
+                          "text-gray-400"
+                        }`}>
+                          {post.status || "Draft"}
+                        </span>
                       </div>
-                      <span className="text-xs text-muted-foreground">
-                        {format(new Date(post.scheduled_for), "HH:mm")}
-                      </span>
-                      <Badge 
-                        variant="secondary" 
-                        className={`text-[10px] h-5 px-2 capitalize ${
-                          post.status === "scheduled" ? "bg-accent/20 text-accent" :
-                          post.status === "published" ? "bg-primary/20 text-primary" :
-                          "bg-muted"
-                        }`}
-                      >
-                        {post.status || "draft"}
-                      </Badge>
+                    </div>
+                    {/* Platform badges */}
+                    <div className="flex gap-1">
+                      {(post.platforms || []).map((platform) => {
+                        const style = PLATFORM_STYLES[platform];
+                        if (!style) return null;
+                        return (
+                          <div
+                            key={platform}
+                            className="h-7 w-7 rounded-full flex items-center justify-center text-white"
+                            style={{ background: style.bg }}
+                          >
+                            {style.icon}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                  {getStatusIcon(post.status || "draft")}
+                  
+                  {/* Post content preview */}
+                  {post.text_content && (
+                    <p className="px-3 py-2 text-sm text-gray-700 line-clamp-2">
+                      {post.text_content}
+                    </p>
+                  )}
+                  
+                  {/* Media preview */}
+                  {(post.thumbnail_url || post.media_url) && (
+                    <div className="relative aspect-video bg-gray-100">
+                      <img 
+                        src={post.thumbnail_url || post.media_url || ""} 
+                        alt="" 
+                        className="w-full h-full object-cover"
+                      />
+                      {post.content_type === "video" && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                          <div className="h-12 w-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                            <div className="w-0 h-0 border-l-[16px] border-l-gray-800 border-y-[10px] border-y-transparent ml-1" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Facebook-style action bar */}
+                  <div className="flex items-center justify-around px-3 py-2 border-t border-gray-100 text-gray-500 text-xs font-medium">
+                    <div className="flex items-center gap-1 hover:text-blue-500 transition-colors">
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>View</span>
+                    </div>
+                    <div className="flex items-center gap-1 hover:text-blue-500 transition-colors">
+                      <Clock className="h-4 w-4" />
+                      <span>Reschedule</span>
+                    </div>
+                  </div>
                 </motion.div>
               ))
             ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <CalendarIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">No posts scheduled for this day</p>
+              <div className="text-center py-8 bg-white rounded-lg">
+                <CalendarIcon className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                <p className="text-gray-500 font-medium">No posts scheduled</p>
+                <p className="text-xs text-gray-400 mt-1">Create a campaign to auto-generate content</p>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="mt-4"
+                  className="mt-4 bg-blue-500 text-white border-0 hover:bg-blue-600"
                   onClick={() => {
                     setIsDayModalOpen(false);
-                    // Navigate to create new post
                     toast({
                       title: "Coming soon",
                       description: "Quick post creation will be available soon",
@@ -688,6 +737,22 @@ const CalendarPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Compact Legend - Light theme */}
+      <div className="flex items-center gap-4 text-xs text-gray-500 bg-white rounded-lg p-3 shadow-sm">
+        <div className="flex items-center gap-1.5">
+          <div className="h-2 w-2 rounded-full bg-gray-300" />
+          <span>Draft</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-2 w-2 rounded-full bg-blue-500" />
+          <span>Scheduled</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-2 w-2 rounded-full bg-green-500" />
+          <span>Published</span>
+        </div>
+      </div>
 
       {/* Post Detail Modal */}
       <ScheduledPostModal
