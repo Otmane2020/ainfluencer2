@@ -302,122 +302,79 @@ serve(async (req) => {
 
       if (modelConfig.provider === "nanobanana") {
         // ============================================================
-        // NANO BANANA / COMETAPI VIDEO - WITH LOVABLE AI FALLBACK
-        // Try CometAPI first, fall back to Lovable AI if unavailable
+        // COMETAPI SORA - Standard quality video
         // ============================================================
-        console.log(`Trying CometAPI Sora for standard quality...`);
+        console.log(`Calling CometAPI Sora for standard quality...`);
         
-        let cometSuccess = false;
+        const cometResponse = await fetch("https://api.cometapi.com/v1/video/generations", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${COMETAPI_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "sora",
+            prompt: fullPrompt,
+            duration: `${clampedDuration}`,
+            aspect_ratio: aspectRatio,
+          }),
+        });
         
-        try {
-          const cometResponse = await fetch("https://api.cometapi.com/v1/video/generations", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${COMETAPI_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "sora",
-              prompt: fullPrompt,
-              duration: `${clampedDuration}`,
-              aspect_ratio: aspectRatio,
-            }),
-          });
+        const cometText = await cometResponse.text();
+        console.log("CometAPI Sora Response:", cometResponse.status, cometText.substring(0, 300));
+        
+        // Check if response is HTML (error page) instead of JSON
+        if (cometText.trim().startsWith("<!") || cometText.trim().startsWith("<html")) {
+          console.error("CometAPI returned HTML instead of JSON - API may be down or rate limited");
           
-          const cometText = await cometResponse.text();
-          console.log("CometAPI Sora Response:", cometResponse.status, cometText.substring(0, 300));
-          
-          // Check if response is HTML (error page) instead of JSON
-          if (cometText.trim().startsWith("<!") || cometText.trim().startsWith("<html")) {
-            console.error("CometAPI returned HTML instead of JSON - trying Lovable AI fallback");
-            throw new Error("CometAPI unavailable");
-          }
-          
-          if (!cometResponse.ok) {
-            throw new Error(`CometAPI error: ${cometResponse.status}`);
-          }
-          
-          const cometResult = JSON.parse(cometText);
-          taskId = cometResult.id || cometResult.task_id || `comet-${Date.now()}`;
-          initialStatus = cometResult.status || "queued";
-          mediaUrl = cometResult.video_url || cometResult.output || null;
-          cometSuccess = true;
-          
-        } catch (cometError) {
-          console.log("CometAPI failed, using Lovable AI as fallback...", cometError);
-          
-          // ============================================================
-          // LOVABLE AI FALLBACK - Generate image for now
-          // Video generation via Lovable AI not fully supported yet
-          // Generate a high-quality image as placeholder
-          // ============================================================
-          const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-          
-          if (LOVABLE_API_KEY) {
-            console.log("Generating image with Lovable AI as video fallback...");
-            
-            const lovableResponse = await fetch("https://api.lovable.dev/v1/chat/completions", {
-              method: "POST",
-              headers: {
-                "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                model: "google/gemini-3-pro-image-preview",
-                messages: [
-                  {
-                    role: "user",
-                    content: `Generate a high-quality cinematic image for a video about: ${fullPrompt.substring(0, 500)}. Make it visually stunning, professional, and suitable for social media content. The image should capture the essence of this video prompt as a single key frame.`,
-                  },
-                ],
-              }),
+          // Refund credits
+          if (userId && !skipCreditDeduction) {
+            await supabase.rpc("add_credits", {
+              p_user_id: userId,
+              p_amount: creditCost,
             });
-            
-            if (lovableResponse.ok) {
-              const lovableResult = await lovableResponse.json();
-              const content = lovableResult.choices?.[0]?.message?.content || "";
-              
-              // Extract image URL if present
-              const imageMatch = content.match(/https:\/\/[^\s"']+\.(jpg|jpeg|png|webp)/i);
-              if (imageMatch) {
-                mediaUrl = imageMatch[0];
-                taskId = `lovable-fallback-${Date.now()}`;
-                initialStatus = "completed";
-                console.log("✓ Lovable AI fallback image generated:", mediaUrl);
-              } else {
-                throw new Error("Lovable AI did not return an image URL");
-              }
-            } else {
-              throw new Error("Lovable AI fallback failed");
-            }
-          } else {
-            // No fallback available - refund credits
-            console.error("No fallback available - refunding credits");
-            
-            if (userId && !skipCreditDeduction) {
-              await supabase.rpc("add_credits", {
-                p_user_id: userId,
-                p_amount: creditCost,
-              });
-              await supabase.from("credit_transactions").insert({
-                user_id: userId,
-                amount: creditCost,
-                type: "refund",
-                description: `Refund: Video providers unavailable`,
-              });
-              console.log(`✓ Refunded ${creditCost} credits`);
-            }
-            
-            if (generationId) {
-              await supabase
-                .from("generations")
-                .update({ status: "failed", error_message: "All video providers unavailable", step: "error" })
-                .eq("id", generationId);
-            }
-            
-            throw new Error("All video generation providers are currently unavailable. Credits have been refunded.");
+            await supabase.from("credit_transactions").insert({
+              user_id: userId,
+              amount: creditCost,
+              type: "refund",
+              description: `Refund: CometAPI Sora unavailable`,
+            });
+            console.log(`✓ Refunded ${creditCost} credits`);
           }
+          
+          if (generationId) {
+            await supabase
+              .from("generations")
+              .update({ status: "failed", error_message: "CometAPI unavailable", step: "error" })
+              .eq("id", generationId);
+          }
+          
+          throw new Error("CometAPI Sora is temporarily unavailable. Credits have been refunded. Please try again later.");
         }
+        
+        if (!cometResponse.ok) {
+          // Refund credits on error
+          if (userId && !skipCreditDeduction) {
+            await supabase.rpc("add_credits", {
+              p_user_id: userId,
+              p_amount: creditCost,
+            });
+            await supabase.from("credit_transactions").insert({
+              user_id: userId,
+              amount: creditCost,
+              type: "refund",
+              description: `Refund: CometAPI Sora error`,
+            });
+            console.log(`✓ Refunded ${creditCost} credits`);
+          }
+          
+          throw new Error(`CometAPI error: ${cometResponse.status} - ${cometText}`);
+        }
+        
+        const cometResult = JSON.parse(cometText);
+        taskId = cometResult.id || cometResult.task_id || `comet-${Date.now()}`;
+        initialStatus = cometResult.status || "queued";
+        mediaUrl = cometResult.video_url || cometResult.output || null;
         
       } else {
         // ============================================================
