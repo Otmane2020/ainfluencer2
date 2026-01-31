@@ -47,9 +47,9 @@ import {
   Clock,
   Music,
   Sparkles,
-  Globe,
   Package,
   X,
+  Plus,
 } from "lucide-react";
 import { CampaignProgressModal } from "./CampaignProgressModal";
 
@@ -649,37 +649,60 @@ export const CampaignWizardModal = ({
               </div>
 
               {/* Product/Service to Promote */}
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="flex items-center gap-2">
                     <Package className="h-4 w-4 text-primary" />
-                    Product/Service to Promote
+                    Products / Services
                   </Label>
                   {projectId && projects.find(p => p.id === projectId)?.url && (
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
                       onClick={handleSuggestProduct}
                       disabled={isSuggestingProduct}
-                      className="h-7 text-xs gap-1"
+                      className="h-8 text-xs gap-1.5"
                     >
                       {isSuggestingProduct ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
-                        <Globe className="h-3 w-3" />
+                        <Wand2 className="h-3.5 w-3.5" />
                       )}
-                      Suggest from URL
+                      Auto-detect
                     </Button>
                   )}
                 </div>
-                {/* Tag Input */}
+
+                {/* Tags Display - Show all tags in a clean grid */}
+                {serviceTags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 p-3 rounded-lg bg-muted/50 border border-border">
+                    {serviceTags.map((tag, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background border border-border text-sm font-medium group hover:border-primary/50 transition-colors"
+                      >
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => setServiceTags(prev => prev.filter((_, i) => i !== index))}
+                          className="opacity-50 hover:opacity-100 hover:text-destructive transition-opacity"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Tag Input - Always visible */}
                 <div className="flex gap-2">
                   <Input
                     value={newTag}
                     onChange={(e) => setNewTag(e.target.value)}
-                    placeholder="Add a service or product..."
+                    placeholder={serviceTags.length === 0 ? "e.g. Web Design, SEO, Consulting..." : "Add another service..."}
                     className="flex-1"
+                    disabled={serviceTags.length >= 8}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && newTag.trim()) {
                         e.preventDefault();
@@ -700,35 +723,15 @@ export const CampaignWizardModal = ({
                       }
                     }}
                     disabled={!newTag.trim() || serviceTags.length >= 8}
-                    className="shrink-0"
+                    className="shrink-0 gap-1.5"
                   >
+                    <Plus className="h-4 w-4" />
                     Add
                   </Button>
                 </div>
 
-                {/* Tags Display */}
-                {serviceTags.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {serviceTags.map((tag, index) => (
-                      <span
-                        key={index}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-sm"
-                      >
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={() => setServiceTags(prev => prev.filter((_, i) => i !== index))}
-                          className="hover:bg-primary/20 rounded-full p-0.5"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
                 <p className="text-xs text-muted-foreground">
-                  Add up to 8 tags to help AI focus on your products/services
+                  {serviceTags.length}/8 services • Press Enter or click Add
                 </p>
               </div>
 
