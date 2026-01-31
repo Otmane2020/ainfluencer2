@@ -25,8 +25,8 @@ function getCreditCost(quality: string): number {
 }
 
 // ============================================================
-// MODEL SELECTION - OPENAI SORA 2 ONLY
-// All video generation uses OpenAI Sora models
+// MODEL SELECTION - SORA 2 (OpenAI) + VEO 3.1 (CometAPI)
+// 4 models only: Sora 2, Sora 2 Pro, Veo 3.1, Veo 3.1 Pro
 // ============================================================
 
 interface VideoModelConfig {
@@ -34,7 +34,7 @@ interface VideoModelConfig {
   endpoint: string;
   maxDuration: number;
   displayName: string;
-  provider: "openai";
+  provider: "openai" | "cometapi";
   requestBody: (prompt: string, duration: number, aspectRatio: string) => Record<string, any>;
 }
 
@@ -42,45 +42,84 @@ interface VideoModelConfig {
 // OPENAI SORA 2 MODELS
 // API: POST https://api.openai.com/v1/videos (multipart/form-data)
 // ============================================================
-const SORA_MODELS: Record<string, VideoModelConfig> = {
+const OPENAI_MODELS: Record<string, VideoModelConfig> = {
   "sora-2-pro": {
     model: "sora-2-pro",
     endpoint: "https://api.openai.com/v1/videos",
-    maxDuration: 12,
+    maxDuration: 20,
     displayName: "Sora 2 Pro",
     provider: "openai",
     requestBody: (prompt, duration, aspectRatio) => ({
       model: "sora-2-pro",
       prompt,
-      seconds: String(Math.min(duration, 12)),
+      seconds: String(Math.min(duration, 20)),
       size: aspectRatio === "9:16" ? "720x1280" : "1280x720",
     }),
   },
   "sora-2": {
     model: "sora-2",
     endpoint: "https://api.openai.com/v1/videos",
-    maxDuration: 10,
+    maxDuration: 12,
     displayName: "Sora 2",
     provider: "openai",
     requestBody: (prompt, duration, aspectRatio) => ({
       model: "sora-2",
       prompt,
-      seconds: String(Math.min(duration, 10)),
+      seconds: String(Math.min(duration, 12)),
       size: aspectRatio === "9:16" ? "720x1280" : "1280x720",
     }),
   },
 };
 
-// Quality tier mapping - All use Sora models
+// ============================================================
+// COMETAPI VEO 3.1 MODELS
+// API: POST https://api.cometapi.com/v1/video/generations (JSON)
+// ============================================================
+const COMETAPI_MODELS: Record<string, VideoModelConfig> = {
+  "veo-3.1-pro": {
+    model: "veo-3.1-pro",
+    endpoint: "https://api.cometapi.com/v1/video/generations",
+    maxDuration: 10,
+    displayName: "Veo 3.1 Pro",
+    provider: "cometapi",
+    requestBody: (prompt, duration, aspectRatio) => ({
+      model: "veo-3.1-pro",
+      prompt,
+      duration: Math.min(duration, 10),
+      aspect_ratio: aspectRatio,
+    }),
+  },
+  "veo-3.1": {
+    model: "veo-3.1",
+    endpoint: "https://api.cometapi.com/v1/video/generations",
+    maxDuration: 10,
+    displayName: "Veo 3.1",
+    provider: "cometapi",
+    requestBody: (prompt, duration, aspectRatio) => ({
+      model: "veo-3.1",
+      prompt,
+      duration: Math.min(duration, 10),
+      aspect_ratio: aspectRatio,
+    }),
+  },
+};
+
+// All available models
+const ALL_MODELS: Record<string, VideoModelConfig> = {
+  ...OPENAI_MODELS,
+  ...COMETAPI_MODELS,
+};
+
+// Quality tier mapping with fallbacks
 const MODEL_FALLBACK_CHAINS: Record<string, string[]> = {
-  cinema: ["sora-2-pro"],
-  pro: ["sora-2-pro", "sora-2"],
-  standard: ["sora-2"],
+  cinema: ["sora-2-pro", "veo-3.1-pro", "sora-2", "veo-3.1"],
+  pro: ["sora-2", "veo-3.1", "sora-2-pro", "veo-3.1-pro"],
+  standard: ["veo-3.1", "sora-2", "veo-3.1-pro", "sora-2-pro"],
 };
 
 function getModelFallbackChain(quality: string): VideoModelConfig[] {
   const modelIds = MODEL_FALLBACK_CHAINS[quality] || MODEL_FALLBACK_CHAINS["standard"];
-  return modelIds.map(id => SORA_MODELS[id]).filter(Boolean);
+  return modelIds.map(id => ALL_MODELS[id]).filter(Boolean);
 }
 
 function getVideoModel(quality: string): VideoModelConfig {
@@ -94,8 +133,8 @@ function clampDuration(duration: number, config: VideoModelConfig): number {
 }
 
 // ============================================================
-// OPENAI SORA VIDEO GENERATION
-// All models use OpenAI Sora API
+// VIDEO GENERATION WITH MULTI-PROVIDER FALLBACK
+// Supports OpenAI (FormData) and CometAPI (JSON)
 // ============================================================
 
 async function tryVideoGeneration(
@@ -103,41 +142,55 @@ async function tryVideoGeneration(
   prompt: string,
   duration: number,
   aspectRatio: string,
-  openaiApiKey: string
+  openaiApiKey: string,
+  cometApiKey: string
 ): Promise<{ success: boolean; model: VideoModelConfig; taskId?: string; status?: string; mediaUrl?: string; error?: string }> {
-  
-  if (!openaiApiKey) {
-    return {
-      success: false,
-      model: models[0],
-      error: "OpenAI API key is not configured. Please add OPENAI_API_KEY in secrets.",
-    };
-  }
   
   for (let i = 0; i < models.length; i++) {
     const model = models[i];
     const clampedDuration = clampDuration(duration, model);
     
-    console.log(`[SORA ${i + 1}/${models.length}] Trying ${model.displayName} (${model.model})...`);
-    console.log(`[SORA] Endpoint: ${model.endpoint}`);
+    // Check if we have the API key for this provider
+    const apiKey = model.provider === "openai" ? openaiApiKey : cometApiKey;
+    if (!apiKey) {
+      console.log(`[${model.displayName}] Skipping - no API key for ${model.provider}`);
+      continue;
+    }
+    
+    console.log(`[VIDEO ${i + 1}/${models.length}] Trying ${model.displayName} (${model.provider})...`);
+    console.log(`[VIDEO] Endpoint: ${model.endpoint}`);
     
     try {
       const requestBody = model.requestBody(prompt, clampedDuration, aspectRatio);
-      console.log(`[SORA] Request body:`, JSON.stringify(requestBody).substring(0, 200));
+      console.log(`[VIDEO] Request body:`, JSON.stringify(requestBody).substring(0, 200));
       
-      // OpenAI Sora uses multipart/form-data
-      const formData = new FormData();
-      Object.entries(requestBody).forEach(([key, value]) => {
-        formData.append(key, String(value));
-      });
+      let response: Response;
       
-      const response = await fetch(model.endpoint, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${openaiApiKey}`,
-        },
-        body: formData,
-      });
+      if (model.provider === "openai") {
+        // OpenAI uses multipart/form-data
+        const formData = new FormData();
+        Object.entries(requestBody).forEach(([key, value]) => {
+          formData.append(key, String(value));
+        });
+        
+        response = await fetch(model.endpoint, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+          },
+          body: formData,
+        });
+      } else {
+        // CometAPI uses JSON
+        response = await fetch(model.endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify(requestBody),
+        });
+      }
       
       const responseText = await response.text();
       console.log(`[${model.model}] Response: ${response.status} - ${responseText.substring(0, 300)}`);
@@ -148,9 +201,9 @@ async function tryVideoGeneration(
         continue;
       }
       
-      // Check for HTML error page (WAF/Cloudflare/404)
+      // Check for HTML error page
       if (responseText.trim().startsWith("<!") || responseText.trim().startsWith("<html") || responseText.includes("<!DOCTYPE")) {
-        console.warn(`[${model.model}] Returned HTML error page - likely WAF/404 - trying next model`);
+        console.warn(`[${model.model}] Returned HTML error page - trying next model`);
         continue;
       }
       
@@ -162,7 +215,7 @@ async function tryVideoGeneration(
       
       // Check for 401/403 (auth issues)
       if (response.status === 401 || response.status === 403) {
-        console.warn(`[${model.model}] Auth error (${response.status}) - API key may be invalid - trying next model`);
+        console.warn(`[${model.model}] Auth error (${response.status}) - trying next model`);
         continue;
       }
       
@@ -181,10 +234,12 @@ async function tryVideoGeneration(
       if (!response.ok) {
         try {
           const errorJson = JSON.parse(responseText);
-          const errorMsg = errorJson.error || errorJson.message || errorJson.detail || "";
+          const errorMsg = errorJson.error?.message || errorJson.error || errorJson.message || errorJson.detail || "";
           if (errorMsg.toLowerCase().includes("unavailable") || 
               errorMsg.toLowerCase().includes("not found") ||
               errorMsg.toLowerCase().includes("invalid") ||
+              errorMsg.toLowerCase().includes("billing") ||
+              errorMsg.toLowerCase().includes("limit") ||
               errorMsg.toLowerCase().includes("not supported")) {
             console.warn(`[${model.model}] Model error: ${errorMsg} - trying next model`);
             continue;
@@ -199,8 +254,8 @@ async function tryVideoGeneration(
       // Success! Parse the response
       const result = JSON.parse(responseText);
       
-      // Different models return task IDs differently
-      const taskId = result.task?.id || result.id || result.task_id || result.taskId || `comet-${Date.now()}`;
+      // Different providers return task IDs differently
+      const taskId = result.task?.id || result.id || result.task_id || result.taskId || `${model.provider}-${Date.now()}`;
       const status = result.task?.status_name || result.status || "queued";
       const mediaUrl = result.video_url || result.output?.video || result.works?.[0]?.resource?.resource || null;
       
@@ -262,14 +317,16 @@ serve(async (req) => {
   }
 
   try {
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") || "";
+    const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY") || "";
     
-    if (!OPENAI_API_KEY) {
-      throw new Error("OPENAI_API_KEY is not configured. Please add your OpenAI API key in secrets.");
+    if (!OPENAI_API_KEY && !COMETAPI_API_KEY) {
+      throw new Error("No video API keys configured. Please add OPENAI_API_KEY or COMETAPI_API_KEY in secrets.");
     }
     
     // Log API key availability (for debugging)
-    console.log(`[CONFIG] OpenAI Sora 2: ✓ Available`);
+    console.log(`[CONFIG] OpenAI Sora 2: ${OPENAI_API_KEY ? "✓ Available" : "✗ Not configured"}`);
+    console.log(`[CONFIG] CometAPI Veo 3.1: ${COMETAPI_API_KEY ? "✓ Available" : "✗ Not configured"}`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -292,7 +349,7 @@ serve(async (req) => {
       const { 
         prompt, 
         avatarUrl, 
-        duration = 8, 
+        duration = 10, // Default 10 seconds
         size = "720x1280",
         format = "vertical",
         projectId,
@@ -324,7 +381,7 @@ serve(async (req) => {
 
       console.log("=== Video Generation ===");
       console.log(`User: ${userId || "anonymous"}`);
-      console.log(`Quality: ${quality} | Model: ${modelConfig.model} | Endpoint: ${modelConfig.endpoint}`);
+      console.log(`Quality: ${quality} | Model: ${modelConfig.model} | Provider: ${modelConfig.provider}`);
       console.log(`Credit Cost: ${creditCost}`);
       console.log("Prompt:", prompt.substring(0, 100) + "...");
       console.log("Duration:", clampedDuration, "s | Size:", size);
@@ -377,7 +434,7 @@ serve(async (req) => {
           user_id: userId,
           amount: -creditCost,
           type: "consumption",
-          description: `Video generation (${modelConfig.model}, ${clampedDuration}s)`,
+          description: `Video generation (${modelConfig.displayName}, ${clampedDuration}s)`,
         });
 
         console.log(`✓ Deducted ${creditCost} credits`);
@@ -431,7 +488,7 @@ serve(async (req) => {
         fullPrompt = `Ultra-realistic cinematic video: ${fullPrompt}. Style: professional, high quality, cinematic lighting, vibrant colors.`;
       }
 
-      console.log(`[VIDEO-SORA] Project context: ${projectName || "none"} | Language: ${detectedLanguage || "en"}`);
+      console.log(`[VIDEO] Project context: ${projectName || "none"} | Language: ${detectedLanguage || "en"}`);
 
       // Create generation record
       let generationId: string | null = null;
@@ -480,7 +537,8 @@ serve(async (req) => {
         fullPrompt,
         clampedDuration,
         aspectRatio,
-        OPENAI_API_KEY
+        OPENAI_API_KEY,
+        COMETAPI_API_KEY
       );
       
       if (!result.success) {
@@ -499,34 +557,33 @@ serve(async (req) => {
           console.log(`✓ Refunded ${creditCost} credits`);
         }
         
+        // Update generation record as failed
         if (generationId) {
           await supabase
             .from("generations")
-            .update({ status: "failed", error_message: result.error, step: "error" })
+            .update({
+              status: "error",
+              error_message: result.error,
+              completed_at: new Date().toISOString(),
+            })
             .eq("id", generationId);
         }
         
-        throw new Error(result.error || "Video generation failed");
+        return new Response(
+          JSON.stringify({ success: false, error: result.error }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
       
-      const taskId = result.taskId!;
-      const initialStatus = result.status || "queued";
-      const mediaUrl = result.mediaUrl || null;
-      const usedModel = result.model;
-      
-      console.log(`✓ Video task created: ${taskId} (model: ${usedModel.displayName}, status: ${initialStatus})`);
-
-      // Update generation with task ID and actual model used
+      // Update generation record with task ID and model used
       if (generationId) {
         await supabase
           .from("generations")
-          .update({ 
-            external_task_id: taskId,
-            model: usedModel.model,
-            status: initialStatus === "completed" ? "completed" : "processing",
-            step: initialStatus === "completed" ? "completed" : "generating",
-            progress: initialStatus === "completed" ? 100 : 30,
-            media_url: mediaUrl,
+          .update({
+            external_task_id: result.taskId,
+            model: result.model.model,
+            progress: 20,
+            step: "processing",
           })
           .eq("id", generationId);
       }
@@ -534,187 +591,144 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: true,
-          taskId,
+          taskId: result.taskId,
+          status: result.status,
+          model: result.model.displayName,
+          provider: result.model.provider,
           generationId,
-          status: initialStatus,
-          progress: initialStatus === "completed" ? 100 : 30,
-          quality,
-          model: usedModel.model,
-          modelName: usedModel.displayName,
-          provider: "cometapi",
-          mediaUrl,
-          creditCost: skipCreditDeduction ? 0 : creditCost,
-          message: `Video generation started via ${usedModel.displayName}`,
+          mediaUrl: result.mediaUrl,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
 
     } else if (action === "status") {
       const taskId = url.searchParams.get("taskId");
-      const generationId = url.searchParams.get("generationId");
+      const provider = url.searchParams.get("provider") || "openai";
       
       if (!taskId) {
         throw new Error("taskId is required for status check");
       }
 
-      // All Lovable AI tasks are completed immediately
-      if (taskId.startsWith("lovable-") || taskId.startsWith("nano-")) {
-        let mediaUrl: string | null = null;
-        if (generationId) {
-          const { data: genData } = await supabase
-            .from("generations")
-            .select("media_url")
-            .eq("id", generationId)
-            .single();
-          mediaUrl = genData?.media_url || null;
-        }
-        
-        return new Response(
-          JSON.stringify({
-            id: taskId,
-            status: "completed",
-            progress: 100,
-            videoUrl: mediaUrl,
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+      console.log(`[STATUS] Checking task ${taskId} (${provider})`);
 
-      // ============================================================
-      // OPENAI SORA STATUS CHECK
-      // API: GET https://api.openai.com/v1/videos/{video_id}
-      // ============================================================
-      
-      const statusUrl = `https://api.openai.com/v1/videos/${taskId}`;
-      console.log(`[STATUS] Checking Sora task ${taskId} at ${statusUrl}`);
+      let statusResponse: VideoStatusResponse;
 
-      const response = await fetch(statusUrl, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        },
-      });
+      if (provider === "openai") {
+        // OpenAI Sora status endpoint
+        const response = await fetch(`https://api.openai.com/v1/videos/${taskId}`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${OPENAI_API_KEY}`,
+          },
+        });
 
-      const responseText = await response.text();
-      console.log(`[STATUS] Response: ${response.status} - ${responseText.substring(0, 300)}`);
-      
-      if (!response.ok) {
-        console.error("Status check error:", responseText);
-        return new Response(
-          JSON.stringify({
-            id: taskId,
-            status: "in_progress",
-            progress: 40,
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      let result;
-      try {
-        result = JSON.parse(responseText);
-      } catch {
-        console.error("[STATUS] Failed to parse response as JSON");
-        return new Response(
-          JSON.stringify({
-            id: taskId,
-            status: "in_progress",
-            progress: 45,
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      // OpenAI Sora response format
-      const taskStatus = result.status || "queued";
-      const taskProgress = result.progress || 0;
-      
-      console.log(`[STATUS] Task status: ${taskStatus}, progress: ${taskProgress}`);
-
-      const statusResponse: VideoStatusResponse = {
-        id: taskId,
-        status: taskStatus === "completed" ? "completed" :
-                taskStatus === "failed" ? "failed" :
-                taskStatus === "queued" ? "queued" : "in_progress",
-        progress: taskProgress,
-      };
-
-      // Map progress to our 0-100 scale
-      let dbProgress = 20;
-      if (statusResponse.status === "in_progress") {
-        dbProgress = Math.min(80, 20 + (taskProgress || 0) * 0.6);
-      }
-
-      if (statusResponse.status === "completed") {
-        // Download video from OpenAI and upload to our storage
-        console.log("[STATUS] Video completed, downloading from OpenAI...");
-        
-        try {
-          const contentResponse = await fetch(`https://api.openai.com/v1/videos/${taskId}/content`, {
-            headers: { "Authorization": `Bearer ${OPENAI_API_KEY}` },
-          });
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[STATUS] OpenAI error: ${response.status} - ${errorText}`);
           
-          if (contentResponse.ok) {
-            const videoBlob = await contentResponse.blob();
-            const arrayBuffer = await videoBlob.arrayBuffer();
-            const uint8Array = new Uint8Array(arrayBuffer);
-            
-            const fileName = `videos/${Date.now()}-${taskId}.mp4`;
-            const { error: uploadError } = await supabase.storage
-              .from("media")
-              .upload(fileName, uint8Array, { contentType: "video/mp4", upsert: true });
-            
-            if (!uploadError) {
-              const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(fileName);
-              statusResponse.videoUrl = publicUrlData.publicUrl;
-              console.log("[STATUS] Video uploaded to storage:", statusResponse.videoUrl);
-            } else {
-              console.error("[STATUS] Upload error:", uploadError);
-            }
-          } else {
-            console.error("[STATUS] Content download failed:", await contentResponse.text());
+          statusResponse = {
+            id: taskId,
+            status: "failed",
+            progress: 0,
+            error: `Status check failed: ${response.status}`,
+          };
+        } else {
+          const result = await response.json();
+          console.log(`[STATUS] OpenAI result:`, JSON.stringify(result).substring(0, 200));
+          
+          // Map OpenAI status to our status
+          const openaiStatus = result.status || "queued";
+          let mappedStatus: VideoStatusResponse["status"] = "queued";
+          let progress = 0;
+          
+          if (openaiStatus === "completed" || openaiStatus === "succeeded") {
+            mappedStatus = "completed";
+            progress = 100;
+          } else if (openaiStatus === "failed" || openaiStatus === "error") {
+            mappedStatus = "failed";
+            progress = 0;
+          } else if (openaiStatus === "processing" || openaiStatus === "in_progress") {
+            mappedStatus = "in_progress";
+            progress = 50;
           }
-        } catch (e) {
-          console.error("[STATUS] Content download error:", e);
+          
+          statusResponse = {
+            id: taskId,
+            status: mappedStatus,
+            progress,
+            videoUrl: result.output_video || result.video_url || result.output?.video,
+            error: result.error,
+          };
         }
-        
-        dbProgress = 100;
+      } else {
+        // CometAPI status endpoint
+        const response = await fetch(`https://api.cometapi.com/v1/video/generations/${taskId}`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${COMETAPI_API_KEY}`,
+          },
+        });
 
-        // Update generation as completed
-        if (generationId) {
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[STATUS] CometAPI error: ${response.status} - ${errorText}`);
+          
+          statusResponse = {
+            id: taskId,
+            status: "failed",
+            progress: 0,
+            error: `Status check failed: ${response.status}`,
+          };
+        } else {
+          const result = await response.json();
+          console.log(`[STATUS] CometAPI result:`, JSON.stringify(result).substring(0, 200));
+          
+          // Map CometAPI status
+          const cometStatus = result.task?.status_name || result.status || "queued";
+          let mappedStatus: VideoStatusResponse["status"] = "queued";
+          let progress = result.task?.progress || 0;
+          
+          if (cometStatus === "completed" || cometStatus === "success" || cometStatus === "succeed") {
+            mappedStatus = "completed";
+            progress = 100;
+          } else if (cometStatus === "failed" || cometStatus === "error") {
+            mappedStatus = "failed";
+            progress = 0;
+          } else if (cometStatus === "processing" || cometStatus === "running") {
+            mappedStatus = "in_progress";
+          }
+          
+          statusResponse = {
+            id: taskId,
+            status: mappedStatus,
+            progress,
+            videoUrl: result.video_url || result.output?.video || result.works?.[0]?.resource?.resource,
+            error: result.error_message,
+          };
+        }
+      }
+
+      // Update generation record if we have a video URL
+      if (statusResponse.status === "completed" && statusResponse.videoUrl) {
+        const { data: genData } = await supabase
+          .from("generations")
+          .select("id")
+          .eq("external_task_id", taskId)
+          .maybeSingle();
+
+        if (genData) {
           await supabase
             .from("generations")
             .update({
               status: "completed",
               media_url: statusResponse.videoUrl,
-              step: "completed",
               progress: 100,
+              step: "completed",
               completed_at: new Date().toISOString(),
             })
-            .eq("id", generationId);
+            .eq("id", genData.id);
+          console.log(`[STATUS] Updated generation ${genData.id} as completed`);
         }
-        
-        console.log(`✓ [STATUS] Video completed: ${statusResponse.videoUrl?.substring(0, 50)}...`);
-        
-      } else if (statusResponse.status === "failed") {
-        statusResponse.error = result.error?.message || result.error || "Video generation failed";
-        
-        if (generationId) {
-          await supabase
-            .from("generations")
-            .update({
-              status: "failed",
-              error_message: statusResponse.error,
-              step: "error",
-            })
-            .eq("id", generationId);
-        }
-      } else if (generationId) {
-        // Update progress
-        await supabase
-          .from("generations")
-          .update({ progress: dbProgress, step: "processing" })
-          .eq("id", generationId);
       }
 
       return new Response(
@@ -724,37 +738,63 @@ serve(async (req) => {
 
     } else if (action === "download") {
       const taskId = url.searchParams.get("taskId");
+      const provider = url.searchParams.get("provider") || "openai";
+      
       if (!taskId) {
         throw new Error("taskId is required for download");
       }
 
-      console.log("Downloading video for task:", taskId);
+      console.log(`[DOWNLOAD] Getting video for task ${taskId} (${provider})`);
 
-      const response = await fetch(`https://api.openai.com/v1/videos/${taskId}/content`, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        },
-      });
+      let videoUrl: string | null = null;
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Download error:", errorText);
-        throw new Error(`Download failed: ${response.status}`);
+      if (provider === "openai") {
+        // OpenAI - get video URL from status
+        const response = await fetch(`https://api.openai.com/v1/videos/${taskId}`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${OPENAI_API_KEY}`,
+          },
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          videoUrl = result.output_video || result.video_url || result.output?.video;
+        }
+      } else {
+        // CometAPI - get video URL from status
+        const response = await fetch(`https://api.cometapi.com/v1/video/generations/${taskId}`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${COMETAPI_API_KEY}`,
+          },
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          videoUrl = result.video_url || result.output?.video || result.works?.[0]?.resource?.resource;
+        }
       }
 
-      const videoBlob = await response.blob();
-      
-      return new Response(videoBlob, {
-        headers: { ...corsHeaders, "Content-Type": "video/mp4" },
-      });
+      if (!videoUrl) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Video not ready or not found" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, videoUrl }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+
+    } else {
+      throw new Error(`Unknown action: ${action}`);
     }
 
-    throw new Error(`Unknown action: ${action}`);
-
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    console.error("Video generation error:", errorMessage);
+    const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
+    console.error("Error:", error);
     return new Response(
       JSON.stringify({ success: false, error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

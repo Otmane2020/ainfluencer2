@@ -146,7 +146,7 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
   
   const [generationTasks, setGenerationTasks] = useState<GenerationTask[]>([]);
   const [segments, setSegments] = useState<VideoSegment[]>([
-    { id: "1", script: "", duration: defaultProduct.supportedDurations?.[0] || 8, status: "pending" },
+    { id: "1", script: "", duration: 10, status: "pending" }, // Default 10 seconds
   ]);
   const [selectedVoice, setSelectedVoiceState] = useState<Voice>(defaultVoice);
   const [selectedProduct, setSelectedProductState] = useState<CommercialProduct>(defaultProduct);
@@ -498,7 +498,7 @@ ${formattedHashtags}`;
   };
 
   const addSegment = () => {
-    const defaultDuration = selectedProduct.supportedDurations?.[0] || 8;
+    const defaultDuration = 10; // Default 10 seconds
     setSegments((prev) => [
       ...prev,
       { id: Date.now().toString(), script: "", duration: defaultDuration, status: "pending" },
