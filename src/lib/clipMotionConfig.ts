@@ -1,6 +1,11 @@
 // ============================================================
 // CLIPMOTION CONFIGURATION
 // Social-first video generation mode for dynamic, engaging content
+// 
+// DURATION STRATEGY:
+// • Social Boost   → 4-6s (TikTok/Reels/Shorts optimal, BASE cost)
+// • Pro Engagement → 8-10s (Ads, CTR max, 2x cost)
+// • Cinema Premium → 12-15s (Brand films, 4x cost - NOT default)
 // ============================================================
 
 export type VideoMode = "standard" | "clipmotion";
@@ -27,9 +32,70 @@ export const CLIPMOTION_FEATURES: ClipMotionFeature[] = [
   { id: "vertical", label: "9:16 Vertical", description: "Optimized for mobile viewing" },
   { id: "fast-paced", label: "Fast Cuts", description: "1-2 second scene transitions" },
   { id: "hooks", label: "Viral Hooks", description: "Attention-grabbing openings" },
-  { id: "short", label: "5-15 Seconds", description: "Perfect for short-form content" },
+  { id: "short", label: "4-10 Seconds", description: "Optimal for social engagement" },
   { id: "animated", label: "Dynamic Motion", description: "Zoom, pan & parallax effects" },
 ];
+
+// ============================================================
+// CLIPMOTION DURATION TIERS & PRICING
+// ============================================================
+
+export interface ClipMotionDurationTier {
+  id: string;
+  label: string;
+  durations: number[];
+  baseCredits: number;
+  description: string;
+  recommended?: boolean;
+  badge?: string;
+}
+
+export const CLIPMOTION_DURATION_TIERS: ClipMotionDurationTier[] = [
+  {
+    id: "social",
+    label: "Social Boost",
+    durations: [4, 5, 6],
+    baseCredits: 5,
+    description: "Optimal for TikTok, Reels, Shorts",
+    recommended: true,
+    badge: "BEST ROI",
+  },
+  {
+    id: "pro",
+    label: "Pro Engagement",
+    durations: [8, 10],
+    baseCredits: 10,
+    description: "Perfect for ads and brand content",
+  },
+  {
+    id: "cinema",
+    label: "Cinema Premium",
+    durations: [12, 15, 20],
+    baseCredits: 20,
+    description: "High-end brand films (Sora 2 Pro only)",
+    badge: "PREMIUM",
+  },
+];
+
+// All available ClipMotion durations (flattened)
+export const CLIPMOTION_DURATIONS = CLIPMOTION_DURATION_TIERS.flatMap(t => t.durations);
+
+// Default duration for ClipMotion (social-optimized)
+export const CLIPMOTION_DEFAULT_DURATION = 6;
+
+// Get credit cost for a specific duration
+export const getClipMotionCreditCost = (duration: number): number => {
+  if (duration <= 6) return 5;  // Social tier
+  if (duration <= 10) return 10; // Pro tier
+  return 20; // Cinema tier
+};
+
+// Get duration tier for UI display
+export const getClipMotionDurationTier = (duration: number): ClipMotionDurationTier => {
+  if (duration <= 6) return CLIPMOTION_DURATION_TIERS[0];
+  if (duration <= 10) return CLIPMOTION_DURATION_TIERS[1];
+  return CLIPMOTION_DURATION_TIERS[2];
+};
 
 // ============================================================
 // CLIPMOTION PACKS (for à la carte purchase)
@@ -51,11 +117,19 @@ export const CLIPMOTION_PACKS: ClipMotionPack[] = [
   { id: "clip-50", name: "Agency", quantity: 50, price: 269, badge: "BEST VALUE" },
 ];
 
-// Credit cost for ClipMotion videos (uses Sora-2)
-export const CLIPMOTION_CREDIT_COST = 10;
+// Base credit cost for ClipMotion (4-6s tier)
+export const CLIPMOTION_CREDIT_COST = 5;
 
-// ClipMotion uses Sora-2 model
+// ClipMotion uses Sora-2 model (Sora-2-Pro for 15-20s)
 export const CLIPMOTION_MODEL = "sora-2";
+export const CLIPMOTION_MODEL_PREMIUM = "sora-2-pro";
+
+// Get appropriate model for duration
+export const getClipMotionModel = (duration: number): string => {
+  // Only Sora 2 Pro supports 15-20s
+  if (duration > 12) return CLIPMOTION_MODEL_PREMIUM;
+  return CLIPMOTION_MODEL;
+};
 
 // Default ClipMotion configuration
 export const DEFAULT_CLIPMOTION_CONFIG: ClipMotionConfig = {
@@ -102,8 +176,31 @@ Generate SHORT, PUNCHY scenarios optimized for social media virality:
 - Style: TikTok/Reels native aesthetic
 `;
 
-// Default durations for ClipMotion mode (Sora-2 supports 4-20s)
-export const CLIPMOTION_DURATIONS = [5, 8, 10, 15];
-
 // ClipMotion always uses vertical format
 export const CLIPMOTION_DEFAULT_FORMAT = "vertical";
+
+// ============================================================
+// UI HELPER: Format duration with tier label
+// ============================================================
+
+export const formatDurationWithTier = (duration: number): string => {
+  const tier = getClipMotionDurationTier(duration);
+  return `${duration}s (${tier.label})`;
+};
+
+// ============================================================
+// UI HELPER: Get pricing summary for display
+// ============================================================
+
+export const getClipMotionPricingSummary = (duration: number): {
+  credits: number;
+  tier: string;
+  description: string;
+} => {
+  const tierInfo = getClipMotionDurationTier(duration);
+  return {
+    credits: getClipMotionCreditCost(duration),
+    tier: tierInfo.label,
+    description: tierInfo.description,
+  };
+};
