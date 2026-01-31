@@ -31,7 +31,7 @@ export const QUALITY_TIERS: Record<QualityTier, QualityTierConfig> = {
   standard: {
     id: "standard",
     name: "Fast",
-    description: "Sora • Quick (10s max)",
+    description: "Kling V2.5 Turbo • FLUX 2 Flex",
     icon: "⚡",
     gradient: "from-slate-500 to-zinc-600",
     costs: {
@@ -39,14 +39,14 @@ export const QUALITY_TIERS: Record<QualityTier, QualityTierConfig> = {
       video: 5,
     },
     models: {
-      image: "gemini-flash-image",
-      video: "sora",
+      image: "flux-2-flex",
+      video: "kling-v2.5-turbo",
     },
   },
   pro: {
     id: "pro",
     name: "Medium",
-    description: "Sora 2 • HD (20s max)",
+    description: "Sora 2 • Nano Banana Pro",
     icon: "✨",
     gradient: "from-blue-500 to-indigo-600",
     costs: {
@@ -54,14 +54,14 @@ export const QUALITY_TIERS: Record<QualityTier, QualityTierConfig> = {
       video: 10,
     },
     models: {
-      image: "nano-banana-image",
+      image: "nano-banana-pro",
       video: "sora-2",
     },
   },
   cinema: {
     id: "cinema",
     name: "High",
-    description: "Nano Banana • Premium",
+    description: "Sora 2 Pro • FLUX 2 Pro",
     icon: "🎬",
     gradient: "from-amber-500 to-orange-600",
     costs: {
@@ -69,8 +69,8 @@ export const QUALITY_TIERS: Record<QualityTier, QualityTierConfig> = {
       video: 20,
     },
     models: {
-      image: "gemini-pro-image",
-      video: "nano-banana",
+      image: "flux-2-pro",
+      video: "sora-2-pro",
     },
   },
 };
@@ -367,73 +367,83 @@ export interface QualityLevel {
 export const IMAGE_QUALITY_LEVELS: QualityLevel[] = [
   {
     id: "fast-image",
-    name: "Fast Image",
-    internalModel: "gemini-flash-image",
+    name: "FLUX 2 Flex",
+    internalModel: "flux-2-flex",
     price: 1.00,
-    description: "Quick AI image generation",
-    features: ["HD Quality", "Fast generation", "All styles"],
+    description: "Ultra-fast and affordable images",
+    features: ["1024x1024", "Ultra-fast", "Low-cost"],
   },
   {
     id: "medium-image",
-    name: "Medium Image",
-    internalModel: "nano-banana-image",
+    name: "Nano Banana Pro",
+    internalModel: "nano-banana-pro",
     price: 3.00,
-    description: "Balanced quality and speed",
-    features: ["Ultra HD", "Enhanced details", "All styles"],
+    description: "Best text rendering, SOTA effects",
+    features: ["1024x1024", "Text rendering", "Chinese SOTA"],
   },
   {
     id: "high-image",
-    name: "High Image",
-    internalModel: "gemini-pro-image",
+    name: "FLUX 2 Pro",
+    internalModel: "flux-2-pro",
     price: 5.00,
-    description: "Premium AI image generation",
-    features: ["4K Quality", "Photorealistic", "Premium rendering"],
+    description: "Premium photorealistic images",
+    features: ["2048x2048", "Photorealistic", "Best quality"],
   },
 ];
 
 export const VIDEO_QUALITY_LEVELS: QualityLevel[] = [
   {
     id: "fast-video",
-    name: "Fast Video",
-    internalModel: "sora",
+    name: "Kling V2.5 Turbo",
+    internalModel: "kling-v2.5-turbo",
     price: 5.00,
-    description: "Quick AI video generation",
-    features: ["HD 720p", "10s max", "AI Voice included"],
-    supportedDurations: [4, 5, 8, 10],
+    description: "Fastest video generation",
+    features: ["720p", "5-10s", "Ultra-fast"],
+    supportedDurations: [5, 10],
   },
   {
     id: "medium-video",
-    name: "Medium Video",
+    name: "Sora 2",
     internalModel: "sora-2",
     price: 10.00,
-    description: "Professional AI video generation",
-    features: ["Full HD 1080p", "20s max", "AI Voice included"],
-    supportedDurations: [4, 5, 8, 10, 12, 15, 20],
+    description: "Cinematic HD videos with detailed scenes",
+    features: ["1080p", "4-12s", "Audio-visual sync"],
+    supportedDurations: [4, 8, 12],
   },
   {
     id: "high-video",
-    name: "High Video",
-    internalModel: "nano-banana",
+    name: "Sora 2 Pro",
+    internalModel: "sora-2-pro",
     price: 20.00,
-    description: "Premium cinematic AI video",
-    features: ["Full HD 1080p", "30s max", "Premium quality"],
-    supportedDurations: [5, 10, 15, 20, 30],
+    description: "Maximum quality, ultra-realistic details",
+    features: ["4K", "4-20s", "HDR", "Premium"],
+    supportedDurations: [4, 8, 12, 20],
   },
 ];
 
 export const COMETAPI_MODEL_ROUTING: Record<string, string> = {
+  // Image models
   "flux-2-flex": "flux-2-flex",
   "nano-banana-pro": "nano-banana-pro",
   "flux-2-pro": "flux-2-pro",
-  "gpt-image": "gpt-image-1",
-  "gpt-image-hq": "gpt-image-1",
+  "gpt-image-1.5": "gpt-image-1.5",
+  "midjourney-v6": "midjourney-v6",
+  "kling-image": "kling-image",
+  "bria-image": "bria-image",
+  "flux-kontext-pro": "flux-kontext-pro",
   // Video models
-  "sora": "sora",
+  "kling-v2.5-turbo": "kling-v2.5-turbo",
+  "kling-v2-master": "kling-v2-master",
   "sora-2": "sora-2",
-  "nano-banana": "nano-banana",
-  // Legacy
-  "kling-std": "kling-video",
-  "kling-v2": "kling-video",
+  "sora-2-pro": "sora-2-pro",
+  "veo-3.1": "veo-3.1",
+  "veo-3.1-pro": "veo-3.1-pro",
+  "minimax-hailuo": "minimax-hailuo",
+  "minimax-hailuo-02": "minimax-hailuo-02",
+  "runway-gen4": "runway-gen4",
+  // Legacy mappings
+  "sora": "sora-2",
+  "nano-banana": "nano-banana-pro",
 };
 
 export interface CommercialProduct {
