@@ -6,16 +6,16 @@ const corsHeaders = {
 };
 
 // ============================================================
-// CREDIT COSTS BY QUALITY (AI Video MULTI tool)
+// CREDIT COSTS BY QUALITY
 // ============================================================
 
 const CREDIT_COSTS: Record<string, number> = {
   standard: 5,
+  fast: 5,
   pro: 10,
+  medium: 10,
   cinema: 20,
-  "fast": 5,
-  "medium": 10,
-  "high": 20,
+  high: 20,
 };
 
 function getCreditCost(quality: string): number {
@@ -23,8 +23,20 @@ function getCreditCost(quality: string): number {
 }
 
 // ============================================================
-// AI VIDEO GENERATOR - All via Nano Banana (Lovable AI)
-// No more CometAPI/Replicate dependency
+// VIDEO DURATION CONFIG
+// ============================================================
+
+const DURATION_CONFIG: Record<string, { duration: number; resolution: string }> = {
+  fast: { duration: 5, resolution: "720x1280" },
+  standard: { duration: 5, resolution: "720x1280" },
+  medium: { duration: 8, resolution: "1080x1920" },
+  pro: { duration: 8, resolution: "1080x1920" },
+  high: { duration: 10, resolution: "1080x1920" },
+  cinema: { duration: 10, resolution: "1080x1920" },
+};
+
+// ============================================================
+// AI VIDEO GENERATOR - via Nano Banana Video API
 // ============================================================
 
 interface VideoRequest {
@@ -38,7 +50,6 @@ interface VideoRequest {
   taskId?: string;
   quality?: string;
   skipCreditDeduction?: boolean;
-  // Project context for brand-aligned generation
   projectId?: string;
   projectName?: string;
   projectUrl?: string;
@@ -79,47 +90,114 @@ Deno.serve(async (req) => {
       action, 
       taskId, 
       prompt, 
-      duration = 5,
       format = "vertical",
       quality = "standard",
       skipCreditDeduction = false,
-      // Project context
-      projectId,
       projectName,
       projectUrl,
-      logoUrl,
       detectedLanguage,
       aiContextSummary,
       marketingContext,
     } = body;
 
+    // Get duration config based on quality
+    const config = DURATION_CONFIG[quality] || DURATION_CONFIG.standard;
+    const duration = body.duration || config.duration;
+
     // ============================================================
-    // STATUS CHECK - Lovable AI tasks complete immediately
+    // STATUS CHECK - Poll Nano Banana task status
     // ============================================================
     if (action === "status" && taskId) {
       console.log("[AI-VIDEO] Checking status for:", taskId);
 
-      // All Lovable AI tasks are completed immediately
-      if (taskId.startsWith("lovable-")) {
+      try {
+        const statusResponse = await fetch(`https://nanobananavideo.com/api/v1/task/${taskId}`, {
+          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}` },
+        });
+
+        if (!statusResponse.ok) {
+          console.log("[AI-VIDEO] Status check failed:", statusResponse.status);
+          return new Response(
+            JSON.stringify({ success: true, status: "processing", progress: 50 }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const statusData = await statusResponse.json();
+        const status = (statusData.status || "").toLowerCase();
+
+        console.log("[AI-VIDEO] Task status:", status);
+
+        if (status === "completed" || status === "success" || status === "done") {
+          const videoUrl = statusData.video_url || statusData.output_url || statusData.url;
+          
+          if (videoUrl) {
+            // Download and upload to Supabase storage for permanent URL
+            try {
+              const videoResponse = await fetch(videoUrl);
+              if (videoResponse.ok) {
+                const videoBuffer = await videoResponse.arrayBuffer();
+                const videoBytes = new Uint8Array(videoBuffer);
+                const videoPath = `videos/video-${Date.now()}-${Math.random().toString(36).slice(2)}.mp4`;
+
+                const { error: uploadError } = await supabase.storage
+                  .from("media")
+                  .upload(videoPath, videoBytes, { contentType: "video/mp4", upsert: true });
+
+                if (!uploadError) {
+                  const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(videoPath);
+                  console.log("[AI-VIDEO] Video uploaded to storage");
+                  
+                  return new Response(
+                    JSON.stringify({ 
+                      success: true, 
+                      status: "completed", 
+                      progress: 100,
+                      videoUrl: publicUrlData.publicUrl,
+                    }),
+                    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                  );
+                }
+              }
+            } catch (uploadErr) {
+              console.error("[AI-VIDEO] Upload error:", uploadErr);
+            }
+            
+            // Return original URL if upload fails
+            return new Response(
+              JSON.stringify({ 
+                success: true, 
+                status: "completed", 
+                progress: 100,
+                videoUrl,
+              }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        } else if (status === "failed" || status === "error") {
+          return new Response(
+            JSON.stringify({ success: false, status: "failed", error: "Video generation failed" }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Still processing
         return new Response(
-          JSON.stringify({ 
-            success: true, 
-            status: "completed", 
-            progress: 100,
-          }),
+          JSON.stringify({ success: true, status: "processing", progress: 50 }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+
+      } catch (err) {
+        console.error("[AI-VIDEO] Status check error:", err);
+        return new Response(
+          JSON.stringify({ success: true, status: "processing", progress: 25 }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-
-      // Legacy: return processing for unknown tasks
-      return new Response(
-        JSON.stringify({ success: true, status: "processing", progress: 50 }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
     }
 
     // ============================================================
-    // CREATE VIDEO VIA LOVABLE AI (Nano Banana)
+    // CREATE VIDEO VIA NANO BANANA
     // ============================================================
     if (!prompt) {
       throw new Error("prompt is required");
@@ -127,10 +205,10 @@ Deno.serve(async (req) => {
 
     const creditCost = getCreditCost(quality);
 
-    console.log("=== GENERATE AI VIDEO (Lovable AI) ===");
+    console.log("=== GENERATE AI VIDEO (Nano Banana) ===");
     console.log(`User: ${userId || "anonymous"}`);
-    console.log(`Quality: ${quality} | Credit Cost: ${creditCost}`);
-    console.log(`Format: ${format} | Duration: ${duration}s`);
+    console.log(`Quality: ${quality} | Duration: ${duration}s | Credit Cost: ${creditCost}`);
+    console.log(`Format: ${format}`);
     console.log("Prompt:", prompt.slice(0, 100));
 
     // ============================================================
@@ -193,12 +271,12 @@ Deno.serve(async (req) => {
     }
 
     // ============================================================
-    // GENERATE VIDEO FRAME VIA NANO BANANA (LOVABLE AI)
+    // GENERATE VIDEO VIA NANO BANANA VIDEO API
     // ============================================================
     try {
-      const aspectRatio = format === "vertical" || format === "portrait" ? "9:16 vertical portrait" : "16:9 horizontal landscape";
+      const aspectRatio = format === "vertical" || format === "portrait" ? "9:16" : "16:9";
       
-      console.log("[AI-VIDEO] Generating via Lovable AI (Nano Banana)...");
+      console.log("[AI-VIDEO] Generating via Nano Banana Video API...");
       console.log("[AI-VIDEO] Project context:", projectName || "none", "| Language:", detectedLanguage || "en");
       
       // Build enhanced prompt with project context
@@ -215,59 +293,38 @@ Deno.serve(async (req) => {
           contextParts.push(`Website: ${projectUrl}`);
         }
         if (aiContextSummary) {
-          contextParts.push(`Brand Context: ${aiContextSummary.substring(0, 500)}`);
-        }
-        if (marketingContext?.target_audience?.primary) {
-          contextParts.push(`Target: ${marketingContext.target_audience.primary}`);
+          contextParts.push(`Context: ${aiContextSummary.substring(0, 300)}`);
         }
         if (marketingContext?.brand_personality?.tone) {
           contextParts.push(`Tone: ${marketingContext.brand_personality.tone}`);
         }
-        if (marketingContext?.visual_identity?.primary_color) {
-          contextParts.push(`Brand Color: ${marketingContext.visual_identity.primary_color}`);
-        }
-        if (marketingContext?.products_services?.length > 0) {
-          const products = marketingContext.products_services.slice(0, 3).map((p: any) => p.name).join(", ");
-          contextParts.push(`Products to showcase: ${products}`);
-        }
         
         if (contextParts.length > 0) {
-          enhancedPrompt = `[BRAND CONTEXT: ${contextParts.join(" | ")}]\n\n${prompt}`;
+          enhancedPrompt = `${contextParts.join(" | ")} - ${prompt}`;
         }
       }
       
-      // Add language instruction
-      const languageMap: Record<string, string> = {
-        en: "English", fr: "French", es: "Spanish", de: "German", it: "Italian", pt: "Portuguese"
-      };
-      const langName = languageMap[detectedLanguage || "en"] || "English";
-      if (detectedLanguage && detectedLanguage !== "en") {
-        enhancedPrompt = `[OUTPUT IN ${langName.toUpperCase()} - NO ENGLISH TEXT]\n${enhancedPrompt}`;
-      }
+      // Add format instructions
+      enhancedPrompt = `${enhancedPrompt}. ${aspectRatio === "9:16" ? "Vertical portrait format, perfect for Instagram Reels and TikTok" : "Horizontal landscape format, perfect for YouTube"}. Professional quality, vibrant colors, smooth motion.`;
       
-      const imageResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      // Call Nano Banana Video API
+      const videoResponse = await fetch("https://nanobananavideo.com/api/v1/text-to-video", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash-image",
-          messages: [
-            {
-              role: "user",
-              content: `Generate a stunning cinematic video frame: ${enhancedPrompt}. 
-Style: ${aspectRatio}, ultra high quality, professional cinematography, vibrant colors, perfect lighting, 
-cinematic composition, high resolution, social media ready.`,
-            },
-          ],
-          modalities: ["image", "text"],
+          prompt: enhancedPrompt,
+          duration: Math.min(duration, 10), // Nano Banana max 10s
+          aspect_ratio: aspectRatio,
+          resolution: duration >= 8 ? "1080p" : "720p",
         }),
       });
 
-      if (!imageResponse.ok) {
-        const errorText = await imageResponse.text();
-        console.error("[AI-VIDEO] Lovable AI error:", imageResponse.status, errorText);
+      if (!videoResponse.ok) {
+        const errorText = await videoResponse.text();
+        console.error("[AI-VIDEO] Nano Banana error:", videoResponse.status, errorText);
         
         // Refund credits on failure
         if (userId && !skipCreditDeduction) {
@@ -283,50 +340,25 @@ cinematic composition, high resolution, social media ready.`,
           });
           console.log(`✓ Refunded ${creditCost} credits due to API error`);
         }
-        throw new Error(`Lovable AI error: ${imageResponse.status} - ${errorText}`);
+        throw new Error(`Nano Banana error: ${videoResponse.status} - ${errorText}`);
       }
 
-      const imageResult = await imageResponse.json();
-      console.log("[AI-VIDEO] Lovable AI response received");
+      const videoResult = await videoResponse.json();
+      const nanoTaskId = videoResult.task_id || videoResult.id;
       
-      // Extract the generated image from the response
-      let videoUrl: string | null = null;
-      
-      const imageData = imageResult.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-      if (imageData) {
-        // Upload base64 image to storage
-        const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
-        const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-        
-        const fileName = `ai-videos/${Date.now()}-${Math.random().toString(36).substring(7)}.png`;
-        const { error: uploadError } = await supabase.storage
-          .from("media")
-          .upload(fileName, binaryData, {
-            contentType: "image/png",
-            upsert: true,
-          });
-          
-        if (!uploadError) {
-          const { data: publicUrlData } = supabase.storage
-            .from("media")
-            .getPublicUrl(fileName);
-          videoUrl = publicUrlData.publicUrl;
-          console.log("[AI-VIDEO] Uploaded to storage:", videoUrl);
-        } else {
-          console.error("[AI-VIDEO] Upload error:", uploadError);
-        }
+      if (!nanoTaskId) {
+        console.error("[AI-VIDEO] No task ID in response");
+        throw new Error("No task ID returned from Nano Banana");
       }
 
-      const taskId = `lovable-${Date.now()}`;
-      console.log("[AI-VIDEO] ✓ Generation completed via Lovable AI");
+      console.log("[AI-VIDEO] Task created:", nanoTaskId);
 
       return new Response(
         JSON.stringify({
           success: true,
-          taskId,
-          status: "completed",
-          progress: 100,
-          videoUrl,
+          taskId: nanoTaskId,
+          status: "processing",
+          progress: 10,
           model: "nano-banana",
           provider: "lovable",
           duration,

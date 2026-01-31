@@ -28,23 +28,23 @@ interface QualityTier {
 
 const QUALITY_TIERS: QualityTier[] = [
   {
-    id: "high",
-    name: "High Quality",
-    model: "sora-2",
-    provider: "cometapi",
-    description: "Sora-2 Pro - 12s",
-    duration: 12,
-    resolution: "1080p",
-    icon: Crown,
-    badge: "BEST",
-    color: "from-amber-500 to-orange-500",
+    id: "fast",
+    name: "Fast",
+    model: "nano-banana",
+    provider: "lovable",
+    description: "Nano Banana - 5s",
+    duration: 5,
+    resolution: "720p",
+    icon: Zap,
+    badge: "FAST",
+    color: "from-emerald-500 to-teal-500",
   },
   {
     id: "medium",
-    name: "Medium Quality",
-    model: "sora-2",
-    provider: "cometapi",
-    description: "Sora-2 - 8s",
+    name: "Standard",
+    model: "nano-banana",
+    provider: "lovable",
+    description: "Nano Banana Pro - 8s",
     duration: 8,
     resolution: "1080p",
     icon: Sparkles,
@@ -52,15 +52,16 @@ const QUALITY_TIERS: QualityTier[] = [
     color: "from-primary to-violet-600",
   },
   {
-    id: "low",
-    name: "Fast",
-    model: "sora-2",
-    provider: "cometapi",
-    description: "Sora-2 Lite - 4s",
-    duration: 4,
-    resolution: "720p",
-    icon: Zap,
-    color: "from-emerald-500 to-teal-500",
+    id: "high",
+    name: "Premium",
+    model: "nano-banana-pro",
+    provider: "lovable",
+    description: "Nano Banana Pro - 10s",
+    duration: 10,
+    resolution: "1080p",
+    icon: Crown,
+    badge: "BEST",
+    color: "from-amber-500 to-orange-500",
   },
 ];
 
@@ -89,7 +90,7 @@ interface AIVideoGeneratorProps {
 
 export const AIVideoGenerator = ({ onBeforeGenerate }: AIVideoGeneratorProps) => {
   const [prompt, setPrompt] = useState("");
-  const [selectedTier, setSelectedTier] = useState<QualityTier>(QUALITY_TIERS[1]);
+  const [selectedTier, setSelectedTier] = useState<QualityTier>(QUALITY_TIERS[0]); // Default to Fast (5s)
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
