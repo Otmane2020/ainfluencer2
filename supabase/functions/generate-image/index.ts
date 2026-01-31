@@ -765,23 +765,37 @@ ${prompt}`);
     }
     
     if (textElementsToIntegrate.length > 0) {
+      // Randomly choose a dynamic text style for variety
+      const dynamicStyles = [
+        "TILTED TITLE: Main headline tilted at a slight angle (5-15°) for dynamic, eye-catching effect. Creates energy and movement.",
+        "DIAGONAL BANNER: Text placed on a diagonal ribbon/banner across the image. Bold and attention-grabbing.",
+        "STACKED TYPOGRAPHY: Words stacked vertically with varying sizes, creating visual rhythm and impact.",
+        "PERSPECTIVE TEXT: 3D perspective effect where text recedes into the image. Cinematic and bold.",
+        "CURVED TEXT: Subtle arc or wave to the main title, following the image's flow.",
+      ];
+      const randomStyle = dynamicStyles[Math.floor(Math.random() * dynamicStyles.length)];
+      
       promptParts.push(`
 === TEXT INTEGRATION REQUIREMENTS (INTEGRATED IN IMAGE - NOT OVERLAY) ===
 The following text elements MUST be elegantly integrated INTO the image design:
 
 ${textElementsToIntegrate.join('\n')}
 
-TYPOGRAPHY DESIGN RULES:
-1. VISUAL HIERARCHY: Main text is LARGE and prominent (20-30% of image width), website is smaller at bottom
-2. MODERN TYPOGRAPHY: Bold, sleek sans-serif font (like Futura, Montserrat, or Poppins)
-3. 3D EFFECT: Add depth with subtle shadow, glow, or emboss effect
-4. HIGH CONTRAST: Ensure text pops against background - use ${primaryColor || 'brand color'} as accent
-5. ELEGANT INTEGRATION: Text should feel like part of the design, NOT a sticker or overlay
-6. POSITIONING: Text in lower-third of image, respecting mobile-safe zones
-7. READABILITY: Crystal clear, legible at any size, professional appearance
-8. LANGUAGE: ${langConfig.instruction}
+🎨 DYNAMIC TYPOGRAPHY STYLE (THIS IMAGE):
+${randomStyle}
 
-The text must look DESIGNED, not added - like a professional advertising campaign.`);
+TYPOGRAPHY DESIGN RULES:
+1. VISUAL HIERARCHY: Main headline is BOLD, LARGE and DOMINANT (25-35% of image width). Subtitle smaller. Website smallest at bottom.
+2. EYE-CATCHING ANGLE: Apply the dynamic style above for maximum visual impact
+3. MODERN TYPOGRAPHY: Thick, bold sans-serif font (Impact, Bebas Neue, Anton, or similar)
+4. 3D DEPTH: Strong drop shadow, outer glow, or embossed effect to pop off the background
+5. HIGH CONTRAST: White or bright text on dark areas, or ${primaryColor || 'brand color'} accents
+6. CINEMATIC FEEL: Text should look like a movie poster or premium ad campaign
+7. POSITIONING: Headlines can be dynamic/angled, but website stays horizontal at bottom
+8. READABILITY: Despite effects, text must remain crystal clear and legible
+9. LANGUAGE: ${langConfig.instruction}
+
+Make text feel EXPLOSIVE and EYE-CATCHING - like a blockbuster movie poster or Super Bowl ad.`);
     }
     
     // 6. BRAND COLOR ENFORCEMENT
