@@ -24,6 +24,7 @@ interface PublishRequest {
   caption: string;
   platforms: ("instagram" | "facebook" | "youtube" | "tiktok")[];
   thumbnailUrl?: string;
+  projectId?: string; // Optional project ID to associate the post with
 }
 
 interface PublishResult {
@@ -132,13 +133,34 @@ async function logPublishedPost(
   videoUrl: string,
   caption: string,
   success: boolean,
-  errorMessage?: string
+  errorMessage?: string,
+  projectId?: string
 ): Promise<void> {
   try {
+    // Get a valid project_id - use provided one or fetch user's first project
+    let validProjectId = projectId;
+    
+    if (!validProjectId) {
+      // Fetch the user's first project as fallback
+      const { data: project } = await supabase
+        .from("projects")
+        .select("id")
+        .eq("user_id", userId)
+        .limit(1)
+        .maybeSingle();
+      
+      validProjectId = project?.id;
+    }
+    
+    if (!validProjectId) {
+      console.error("[LOG] No project found for user, cannot log post");
+      return;
+    }
+
     // Log to scheduled_posts with published status and external post ID
-    await supabase.from("scheduled_posts").insert({
+    const { error } = await supabase.from("scheduled_posts").insert({
       user_id: userId,
-      project_id: userId, // Use userId as fallback project
+      project_id: validProjectId,
       content_type: "video",
       media_url: videoUrl,
       text_content: caption,
@@ -149,6 +171,12 @@ async function logPublishedPost(
       scheduled_for: new Date().toISOString(),
       external_post_id: postId || null, // Store the platform post ID for direct linking
     });
+    
+    if (error) {
+      console.error("[LOG] Insert error:", error);
+      return;
+    }
+    
     console.log(`[LOG] Post logged: ${platform} - ${success ? "published" : "failed"} - postId: ${postId}`);
   } catch (err) {
     console.error("[LOG] Failed to log post:", err);
@@ -510,7 +538,7 @@ serve(async (req) => {
       );
     }
 
-    const { videoUrl, caption, platforms, thumbnailUrl }: PublishRequest = await req.json();
+    const { videoUrl, caption, platforms, thumbnailUrl, projectId }: PublishRequest = await req.json();
 
     if (!videoUrl || !platforms?.length) {
       return new Response(
@@ -568,7 +596,8 @@ serve(async (req) => {
         videoUrl,
         caption,
         result.success,
-        result.error
+        result.error,
+        projectId // Pass the projectId from request
       )
     );
     await Promise.all(logPromises);
