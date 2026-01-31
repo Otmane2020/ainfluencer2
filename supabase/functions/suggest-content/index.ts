@@ -288,7 +288,7 @@ KEY EXTRACTION TARGETS:
       const randomSceneIdx = Math.floor(Math.random() * VISUAL_SCENES.length);
       const bannedList = BANNED_CLICHES.join(", ");
 
-      systemPrompt = `You are a CONVERSION-FOCUSED image prompt specialist creating SELLER SHOWCASING visuals that DRIVE ACTION.
+      systemPrompt = `You are a CINEMATIC IMAGE PROMPT SPECIALIST creating PREMIUM VISUAL STORYTELLING that sells through EMOTION.
 
 🎨 USE THESE VISUAL SCENES (rotate through them for variety):
 ${VISUAL_SCENES.map((s, i) => `${i + 1}. ${s.id}: ${s.desc}`).join("\n")}
@@ -298,43 +298,62 @@ ${MARKETING_ANGLES.map((a, i) => `${i + 1}. ${a.id}: ${a.desc}`).join("\n")}
 
 🚨 CRITICAL BRAND NAME RULE:
 "${projectName}" is a BRAND NAME, not a literal description!
-- DO NOT interpret the brand name literally (e.g., "Starlinko" does NOT mean stars, links, or space themes)
+- DO NOT interpret the brand name literally
 - FOCUS ONLY on what the brand ACTUALLY SELLS based on the website content below
 - The brand name should appear as a logo or text overlay, NEVER as a visual concept
 
-🎯 ULTIMATE GOAL: Create image prompts that make people WANT TO BUY. Every image must:
-- Use a UNIQUE visual scene from the list above
-- Apply a UNIQUE marketing angle from the list above
-- SHOWCASE the actual product/service the brand sells (NOT the brand name as a concept)
-- Create DESIRE and URGENCY in the viewer
-- Highlight TRANSFORMATION and RESULTS the product delivers
-- Feature the PRODUCT HERO prominently
-- Appeal to EMOTIONS that drive purchase decisions
+⚠️ STRICT HUMAN ANATOMY RULES (CRITICAL - NO EXCEPTIONS):
+When depicting humans (man/woman), the prompt MUST specify:
+- ARMS: Natural proportions (1.5x torso length), correct joint angles, proper elbow/wrist
+- HANDS: Exactly 5 fingers per hand, correct lengths, natural poses, proper palms
+- LEGS: Proper thigh-to-calf ratio, natural knees, balanced stance
+- FEET: Correct size (1:6.5 ratio to height), proper toe count
+- HEAD: Correct proportions (1:8 to body), symmetrical features
+- POSTURE: Natural, balanced, physically credible
 
-📍 BRAND SELLING CONTEXT:
-- Brand name (DO NOT interpret literally): ${projectName || "Unknown seller"}
-- What they ACTUALLY SELL (FOCUS ON THIS): ${projectDescription || "Products/services to promote"}
-${projectUrl ? `- Sales page: ${projectUrl}` : ""}
+🚫 ABSOLUTELY FORBIDDEN IN PROMPTS:
+- Extra or missing fingers/toes
+- Disproportionate or melted limbs
+- Floating/disconnected body parts
+- Impossible joint angles
+- Asymmetric or distorted faces
+- Bodies defying physics
+
+⛔ ABSOLUTE TEXT BAN - CRITICAL:
+- NEVER include text, titles, subtitles, labels in the image prompt
+- NO words, letters, typography, watermarks
+- NO signs or banners with text
+- Image must be 100% VISUAL - pure photography/artwork
+- Text will be added as premium overlay in POST-PRODUCTION only
+
+📖 VISUAL STORYTELLING FRAMEWORK:
+Each image must tell a SILENT STORY through:
+- A RELATIONSHIP (tension, connection, distance, intimacy)
+- An EMOTION (hope, determination, joy, yearning, peace)
+- A SUSPENDED MOMENT (frozen action, decisive instant)
+
+🎬 STORYTELLING TOOLS (replace text with these):
+- FRAMING: Rule of thirds, leading lines, depth layers
+- DISTANCE: Space between characters = emotional state
+- LIGHTING: Dramatic shadows, rim light, motivated sources
+- EXPRESSIONS: Eyes tell the story, micro-expressions
+- GESTURES: Body language speaks louder than words
+- ENVIRONMENT: Setting reinforces narrative
+- COLOR PALETTE: Colors evoke emotions
+
+📍 BRAND CONTEXT:
+- Brand: ${projectName || "Unknown"}
+- What they SELL: ${projectDescription || "Products/services to promote"}
+${projectUrl ? `- Website: ${projectUrl}` : ""}
 ${brandContext}
 ${marketingContextBlock}
-${sector ? `- Market: ${sector.name} - Visual hooks: ${sector.visualContext}` : ""}
-${style ? `- Visual approach: ${style.name} - ${style.visualInstructions}` : ""}
-${tone ? `- Emotional trigger: ${tone.name} - ${tone.atmosphereNotes}` : ""}
-${productName ? `- Focus product: ${productName}` : ""}
-${logoUrl ? `- Brand logo to include: ${logoUrl}` : ""}
+${sector ? `- Market: ${sector.name}` : ""}
+${style ? `- Style: ${style.name}` : ""}
+${tone ? `- Tone: ${tone.name}` : ""}
+${productName ? `- Product: ${productName}` : ""}
 
-🚫 BANNED CLICHÉS (NEVER use these - they kill engagement):
+🚫 BANNED CLICHÉS:
 ${bannedList}
-
-🚫 ALSO FORBIDDEN:
-❌ Interpreting the brand name literally as a visual concept
-❌ Generic stock photo vibes
-❌ Abstract concepts without product focus
-❌ Boring flat lays without context
-❌ Images that could be ANY brand
-❌ No clear product or benefit visible
-❌ Cluttered compositions that confuse
-❌ Stars, space, futuristic themes UNLESS that's what the brand actually sells
 
 ${languageInstruction}
 
@@ -344,24 +363,25 @@ Respond ONLY with valid JSON:
     {
       "id": "1",
       "title": "Impactful hook title (max 50 chars)",
-      "content": "The complete seller-focused image prompt using a UNIQUE scene and angle",
+      "content": "The complete cinematic image prompt with STRICT anatomy rules, NO TEXT, visual storytelling elements",
       "contentType": "image",
-      "visualScene": "one of the 12 scene IDs",
-      "marketingAngle": "one of the 8 angle IDs",
+      "visualScene": "scene ID",
+      "marketingAngle": "angle ID",
       "estimatedEngagement": "high"
     }
   ]
 }`;
 
-      userMessage = `Generate 5 UNIQUE, HIGH-IMPACT image prompts for "${projectName || 'this seller'}". 
+      userMessage = `Generate 5 UNIQUE, PREMIUM image prompts for "${projectName || 'this seller'}". 
 
 CRITICAL REQUIREMENTS:
-1. Each prompt MUST use a DIFFERENT visual scene from the 12 options
-2. Each prompt MUST use a DIFFERENT marketing angle from the 8 options
-3. AVOID all banned clichés listed above
-4. Put the PRODUCT/SERVICE as the HERO
-5. Show the TRANSFORMATION or RESULT customers get
-6. Be SPECIFIC to this brand - no generic images`;
+1. Each prompt MUST use a DIFFERENT visual scene
+2. Each prompt MUST use a DIFFERENT marketing angle
+3. Include STRICT anatomical accuracy rules for any humans
+4. ABSOLUTELY NO TEXT in the image description
+5. Use VISUAL STORYTELLING (framing, lighting, expressions, gestures)
+6. Tell a SILENT STORY that creates emotion and desire
+7. Be SPECIFIC to this brand - cinematic, premium quality`;
 
     } else if (contentType === "script") {
       // Calculate word count based on duration (same logic as generate-script-nanobanana)

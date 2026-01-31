@@ -795,8 +795,38 @@ Deno.serve(async (req) => {
     
     const promptParts: string[] = [];
     
-    // 1. QUALITY & STYLE - Modern, 3D, eye-catching
-    promptParts.push(`STYLE: Ultra-premium advertising photography, modern 3D aesthetic, cinematic lighting, stunning visual impact, eye-catching composition, professional marketing quality, sharp details, vivid colors, dynamic depth-of-field, photorealistic with artistic flair.`);
+    // 1. QUALITY & STYLE - Premium cinematic, NO AI approximation
+    promptParts.push(`=== ARTISTIC DIRECTION - NON-NEGOTIABLE ===
+
+STYLE: Ultra-premium cinematic advertising photography. Stylized realism at its finest. NO "AI approximate" feeling.
+
+⚠️ CRITICAL HUMAN ANATOMY RULES (STRICTLY ENFORCED):
+When depicting humans (man/woman), you MUST respect:
+- ARMS: Proportional to torso (about 1.5x torso length), natural joint angles, correct elbow/wrist positions
+- HANDS: 5 fingers per hand, correct finger lengths, natural poses, proper palm proportions
+- LEGS: Proper thigh-to-calf ratio, natural knee positions, balanced stance
+- FEET: Correct size relative to height (1:6.5 ratio), proper toe count and shape
+- HEAD: Correct proportions (1:8 to body height), natural neck angle, symmetrical features
+- POSTURE: Natural, balanced, credible. No twisted or impossible joint angles
+- PERSPECTIVE: Body parts must follow same vanishing points, consistent shadow direction
+- LIGHTING: Unified across entire body, shadows match light source direction
+
+🚫 ABSOLUTELY FORBIDDEN:
+- Extra fingers or toes
+- Disproportionate limbs
+- Floating or disconnected body parts
+- Impossible joint angles
+- Hands/feet that look "melted" or deformed
+- Asymmetric faces beyond natural variation
+- Bodies that defy physics or gravity
+
+📸 PHOTOGRAPHY QUALITY:
+- Cinematic lighting with depth
+- Professional color grading
+- Sharp details on faces, hands, fabrics
+- Natural skin textures (no plastic/wax look)
+- Realistic environmental reflections
+- Consistent shadow directions`);
     
     // 2. LANGUAGE ENFORCEMENT (Critical)
     if (outputLanguage !== "en") {
@@ -818,72 +848,65 @@ Deno.serve(async (req) => {
       if (aiContextSummary) promptParts.push(`CONTEXT: ${aiContextSummary.substring(0, 300)}`);
     }
     
-    // 4. MAIN GENERATION PROMPT
+    // 4. VISUAL STORYTELLING FRAMEWORK
+    promptParts.push(`
+=== VISUAL STORYTELLING (CRITICAL) ===
+Each image MUST tell a SILENT STORY through:
+
+📖 NARRATIVE ELEMENTS:
+- A relationship (tension, connection, distance, intimacy)
+- An emotion (hope, determination, joy, yearning, peace)
+- A suspended moment (frozen action, decisive instant, anticipation)
+
+🎬 STORYTELLING TOOLS (NO TEXT NEEDED):
+- FRAMING: Use rule of thirds, leading lines, depth layers
+- DISTANCE: Space between characters conveys emotional state
+- LIGHTING: Dramatic shadows, rim light, motivated sources
+- EXPRESSIONS: Eyes tell the story, micro-expressions matter
+- GESTURES: Body language speaks louder than words
+- ENVIRONMENT: Setting reinforces the narrative
+- COLOR PALETTE: Colors evoke specific emotions
+
+📸 THE IMAGE MUST SPEAK FOR ITSELF - NO EXPLANATORY TEXT NEEDED`);
+    
+    // 5. MAIN GENERATION PROMPT
     promptParts.push(`
 === GENERATION REQUEST ===
 ${prompt}`);
     
-    // 5. INTEGRATED TEXT (Not post-processed - generated directly in image)
-    const textElementsToIntegrate: string[] = [];
+    // 6. TEXT BAN - CRITICAL
+    promptParts.push(`
+⛔ ABSOLUTE TEXT BAN ⛔
+- DO NOT generate ANY text, words, letters, or typography in the image
+- NO titles, NO subtitles, NO watermarks, NO labels
+- NO signs, NO banners with text, NO logos with text
+- The image must be 100% VISUAL - pure photography/artwork
+- Text will be added SEPARATELY as premium overlay in post-production
+- Replicate/FLUX/Gemini text integration is FORBIDDEN
+- If text appears, the image will be REJECTED`);
     
-    if (includeText && overlayText) {
-      textElementsToIntegrate.push(`MAIN TEXT: "${overlayText}"`);
-    }
-    
-    if (includeUrl && projectUrl) {
-      // Ensure correct URL format
-      const cleanUrl = projectUrl.replace(/\.com$/, '.app').replace(/^https?:\/\//, '');
-      textElementsToIntegrate.push(`WEBSITE: "${cleanUrl}"`);
-    }
-    
-    if (textElementsToIntegrate.length > 0) {
-      // Randomly choose a dynamic text style for variety
-      const dynamicStyles = [
-        "TILTED TITLE: Main headline tilted at a slight angle (5-15°) for dynamic, eye-catching effect. Creates energy and movement.",
-        "DIAGONAL BANNER: Text placed on a diagonal ribbon/banner across the image. Bold and attention-grabbing.",
-        "STACKED TYPOGRAPHY: Words stacked vertically with varying sizes, creating visual rhythm and impact.",
-        "PERSPECTIVE TEXT: 3D perspective effect where text recedes into the image. Cinematic and bold.",
-        "CURVED TEXT: Subtle arc or wave to the main title, following the image's flow.",
-      ];
-      const randomStyle = dynamicStyles[Math.floor(Math.random() * dynamicStyles.length)];
-      
-      promptParts.push(`
-=== TEXT INTEGRATION REQUIREMENTS (INTEGRATED IN IMAGE - NOT OVERLAY) ===
-The following text elements MUST be elegantly integrated INTO the image design:
-
-${textElementsToIntegrate.join('\n')}
-
-🎨 DYNAMIC TYPOGRAPHY STYLE (THIS IMAGE):
-${randomStyle}
-
-TYPOGRAPHY DESIGN RULES:
-1. VISUAL HIERARCHY: Main headline is BOLD, LARGE and DOMINANT (25-35% of image width). Subtitle smaller. Website smallest at bottom.
-2. EYE-CATCHING ANGLE: Apply the dynamic style above for maximum visual impact
-3. MODERN TYPOGRAPHY: Thick, bold sans-serif font (Impact, Bebas Neue, Anton, or similar)
-4. 3D DEPTH: Strong drop shadow, outer glow, or embossed effect to pop off the background
-5. HIGH CONTRAST: White or bright text on dark areas, or ${primaryColor || 'brand color'} accents
-6. CINEMATIC FEEL: Text should look like a movie poster or premium ad campaign
-7. POSITIONING: Headlines can be dynamic/angled, but website stays horizontal at bottom
-8. READABILITY: Despite effects, text must remain crystal clear and legible
-9. LANGUAGE: ${langConfig.instruction}
-
-Make text feel EXPLOSIVE and EYE-CATCHING - like a blockbuster movie poster or Super Bowl ad.`);
-    }
-    
-    // 6. BRAND COLOR ENFORCEMENT
+    // 7. BRAND COLOR ENFORCEMENT (subtle, through lighting/environment)
     if (primaryColor) {
       promptParts.push(`
-=== BRAND COLOR (MANDATORY) ===
+=== BRAND COLOR INTEGRATION (SUBTLE) ===
 Primary color: ${primaryColor}
-This color MUST dominate the image palette - in backgrounds, accents, lighting tones, or key objects.`);
+Integrate this color naturally through:
+- Lighting tones and color temperature
+- Environmental elements (clothing, objects, backgrounds)
+- Color grading and atmosphere
+- Accent elements that feel organic, not forced`);
     }
     
-    // 7. LOGO SPACE RESERVATION
-    if (includeLogo && logoUrl) {
+    // 8. BOTTOM ZONE RESERVATION FOR POST-PRODUCTION OVERLAY
+    if (includeLogo || includeUrl || includeText) {
       promptParts.push(`
-=== LOGO SPACE ===
-Reserve a clean, uncluttered area in the bottom-right corner (15% of image) for logo placement.
-Background in that area should be simple (solid or subtle gradient).`);
+=== COMPOSITION - BOTTOM 20% RESERVED ===
+The BOTTOM 20% of the image must be:
+- Relatively clean and uncluttered
+- Simple background (solid, gradient, or blurred)
+- NO important subjects in this zone
+- This space is reserved for premium text overlay added in post-production
+- Bottom-right corner especially clean for logo placement`);
     }
     
     // 8. FORMAT OPTIMIZATION
