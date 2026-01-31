@@ -184,7 +184,7 @@ async function generateImage(
       return null;
     }
 
-    // Upload base64 to storage
+    // Upload base64 to storage - CRITICAL: Meta APIs don't accept base64/data URIs
     const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
     const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
     const fileName = `images/${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
@@ -195,7 +195,21 @@ async function generateImage(
 
     if (uploadError) {
       console.error("[generateImage] Upload error:", uploadError);
-      return imageData; // Return base64 as fallback
+      // CRITICAL: Do NOT return base64 - Meta APIs require public URLs
+      // Try a second upload with different filename
+      const retryFileName = `images/retry-${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
+      const { error: retryError } = await supabase.storage
+        .from("media")
+        .upload(retryFileName, imageBytes, { contentType: "image/png", upsert: true });
+      
+      if (retryError) {
+        console.error("[generateImage] Retry upload also failed:", retryError);
+        return null; // Return null instead of base64 - will prevent publishing with invalid URL
+      }
+      
+      const { data: retryUrlData } = supabase.storage.from("media").getPublicUrl(retryFileName);
+      console.log(`[generateImage] ✅ ${quality} image uploaded (retry)`);
+      return retryUrlData.publicUrl;
     }
 
     const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(fileName);
