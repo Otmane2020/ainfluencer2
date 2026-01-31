@@ -13,7 +13,7 @@ import ProjectDetail from "./pages/ProjectDetail";
 import CampaignsPage from "./pages/CampaignsPage";
 import CalendarPage from "./pages/CalendarPage";
 import Videos from "./pages/Videos";
-import AIVideo from "./pages/AIVideo";
+// AI Video page removed - consolidated into Videos page
 import Images from "./pages/Images";
 import Posts from "./pages/Posts";
 import Settings from "./pages/Settings";
@@ -72,7 +72,7 @@ const App = () => (
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/clipmotion" element={<ClipMotionPage />} />
             <Route path="/videos" element={<Videos />} />
-            <Route path="/ai-video" element={<AIVideo />} />
+            {/* AI Video route removed - consolidated into /videos */}
             <Route path="/images" element={<Images />} />
             <Route path="/product-shots" element={<ProductShotsPage />} />
             <Route path="/posts" element={<Posts />} />

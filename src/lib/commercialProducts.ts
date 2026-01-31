@@ -31,7 +31,7 @@ export const QUALITY_TIERS: Record<QualityTier, QualityTierConfig> = {
   standard: {
     id: "standard",
     name: "Fast",
-    description: "Kling V2.5 Turbo • FLUX 2 Flex",
+    description: "Veo 3.1 • FLUX 2 Flex",
     icon: "⚡",
     gradient: "from-slate-500 to-zinc-600",
     costs: {
@@ -40,13 +40,13 @@ export const QUALITY_TIERS: Record<QualityTier, QualityTierConfig> = {
     },
     models: {
       image: "flux-2-flex",
-      video: "kling-v2.5-turbo",
+      video: "veo-3.1",
     },
   },
   pro: {
     id: "pro",
     name: "Medium",
-    description: "Sora 2 • Nano Banana Pro",
+    description: "Sora 2 • Veo 3.1 Pro",
     icon: "✨",
     gradient: "from-blue-500 to-indigo-600",
     costs: {
@@ -394,10 +394,10 @@ export const IMAGE_QUALITY_LEVELS: QualityLevel[] = [
 export const VIDEO_QUALITY_LEVELS: QualityLevel[] = [
   {
     id: "fast-video",
-    name: "Kling V2.5 Turbo",
-    internalModel: "kling-v2.5-turbo",
+    name: "Veo 3.1",
+    internalModel: "veo-3.1",
     price: 5.00,
-    description: "Fastest video generation",
+    description: "Google's fast video generation",
     features: ["720p", "5-10s", "Ultra-fast"],
     supportedDurations: [5, 10],
   },
@@ -406,18 +406,27 @@ export const VIDEO_QUALITY_LEVELS: QualityLevel[] = [
     name: "Sora 2",
     internalModel: "sora-2",
     price: 10.00,
-    description: "Cinematic HD videos with detailed scenes",
-    features: ["1080p", "4-12s", "Audio-visual sync"],
-    supportedDurations: [4, 8, 12],
+    description: "OpenAI cinematic HD videos",
+    features: ["1080p", "4-12s", "Cinematic"],
+    supportedDurations: [5, 10, 12],
+  },
+  {
+    id: "pro-video",
+    name: "Veo 3.1 Pro",
+    internalModel: "veo-3.1-pro",
+    price: 15.00,
+    description: "Google's premium video quality",
+    features: ["1080p", "5-10s", "Premium"],
+    supportedDurations: [5, 10],
   },
   {
     id: "high-video",
     name: "Sora 2 Pro",
     internalModel: "sora-2-pro",
     price: 20.00,
-    description: "Maximum quality, ultra-realistic details",
-    features: ["4K", "4-20s", "HDR", "Premium"],
-    supportedDurations: [4, 8, 12, 20],
+    description: "OpenAI maximum quality, ultra-realistic",
+    features: ["4K", "5-20s", "HDR", "Premium"],
+    supportedDurations: [5, 10, 15, 20],
   },
 ];
 
