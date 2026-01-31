@@ -1,5 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@18.5.0";
+import { 
+  validateAndBuildContext, 
+  logContextValidation,
+  type MarketingContext 
+} from "../_shared/generation-context-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -111,7 +116,32 @@ interface Campaign {
   total_generated: number | null;
   image_quality?: string | null;
   video_quality?: string | null;
-  projects?: { name: string; detected_language: string | null; description: string | null; logo_url: string | null; url: string | null };
+  projects?: { 
+    name: string; 
+    detected_language: string | null; 
+    description: string | null; 
+    logo_url: string | null; 
+    url: string | null;
+    theme_color: string | null;
+    marketing_context: any;
+    ai_context_summary: string | null;
+    scraped_markdown: string | null;
+    avatar_url: string | null;
+  };
+}
+
+interface ProjectContext {
+  id?: string;
+  name: string;
+  detected_language: string | null;
+  description: string | null;
+  logo_url: string | null;
+  url: string | null;
+  theme_color: string | null;
+  marketing_context: MarketingContext | null;
+  ai_context_summary: string | null;
+  scraped_markdown: string | null;
+  avatar_url: string | null;
 }
 
 interface ScheduledPost {
@@ -133,8 +163,7 @@ interface ScheduledPost {
 async function generateImage(
   prompt: string, 
   supabase: any, 
-  brandName?: string, 
-  language?: string,
+  project: ProjectContext,
   quality: string = "pro"
 ): Promise<string | null> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -146,16 +175,25 @@ async function generateImage(
   const config = IMAGE_QUALITY_CONFIG[quality as keyof typeof IMAGE_QUALITY_CONFIG] || IMAGE_QUALITY_CONFIG.pro;
 
   try {
-    // Add language constraint for any text in the image
-    const langPrefix = language && language !== "en" 
-      ? `[LANGUAGE: All text in this image MUST be in ${language === "fr" ? "French" : language === "es" ? "Spanish" : language === "de" ? "German" : language === "it" ? "Italian" : language === "pt" ? "Portuguese" : "English"}. NO English text allowed.] `
-      : "";
-    
-    const enhancedPrompt = brandName 
-      ? `${langPrefix}${prompt} for ${brandName} brand. Ultra high resolution, professional quality, 1:1 square format.`
-      : `${langPrefix}${prompt}. Ultra high resolution, professional quality, 1:1 square format.`;
+    // Use shared context guard for consistent brand injection
+    const contextGuard = validateAndBuildContext({
+      projectName: project.name,
+      projectDescription: project.description || undefined,
+      projectUrl: project.url || undefined,
+      logoUrl: project.logo_url || undefined,
+      avatarUrl: project.avatar_url || undefined,
+      themeColor: project.theme_color || undefined,
+      detectedLanguage: project.detected_language || "en",
+      marketingContext: project.marketing_context,
+      aiContextSummary: project.ai_context_summary || undefined,
+      scrapedMarkdown: project.scraped_markdown || undefined,
+      generationPrompt: `${prompt}. Ultra high resolution, professional quality, 1:1 square format.`,
+      generationType: "image",
+    });
 
-    console.log(`[generateImage] Using ${quality} quality (${config.model}) via Lovable AI`);
+    logContextValidation(contextGuard, "CRON-IMAGE");
+    
+    console.log(`[generateImage] Using ${quality} quality (${config.model}) via Lovable AI | Context Score: ${contextGuard.contextScore}`);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -165,7 +203,7 @@ async function generateImage(
       },
       body: JSON.stringify({
         model: config.model,
-        messages: [{ role: "user", content: enhancedPrompt }],
+        messages: [{ role: "user", content: contextGuard.enhancedPrompt }],
         modalities: ["image", "text"],
       }),
     });
@@ -228,6 +266,7 @@ async function generateImage(
 async function generateVideo(
   prompt: string, 
   supabase: any,
+  project: ProjectContext,
   quality: string = "pro"
 ): Promise<string | null> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -239,11 +278,29 @@ async function generateVideo(
   const config = VIDEO_QUALITY_CONFIG[quality as keyof typeof VIDEO_QUALITY_CONFIG] || VIDEO_QUALITY_CONFIG.pro;
 
   try {
-    console.log(`[generateVideo] Using ${quality} quality (${config.duration}s, ${config.resolution}) via Nano Banana`);
-    
     // Parse resolution
     const [width, height] = config.resolution.split("x").map(Number);
     const aspectRatio = width > height ? "16:9" : "9:16";
+    
+    // Use shared context guard for consistent brand injection
+    const contextGuard = validateAndBuildContext({
+      projectName: project.name,
+      projectDescription: project.description || undefined,
+      projectUrl: project.url || undefined,
+      logoUrl: project.logo_url || undefined,
+      avatarUrl: project.avatar_url || undefined,
+      themeColor: project.theme_color || undefined,
+      detectedLanguage: project.detected_language || "en",
+      marketingContext: project.marketing_context,
+      aiContextSummary: project.ai_context_summary || undefined,
+      scrapedMarkdown: project.scraped_markdown || undefined,
+      generationPrompt: `${prompt}. Vertical 9:16 portrait format, perfect for Instagram Reels and TikTok, eye-catching motion, professional quality.`,
+      generationType: "video",
+    });
+
+    logContextValidation(contextGuard, "CRON-VIDEO");
+    
+    console.log(`[generateVideo] Using ${quality} quality (${config.duration}s, ${config.resolution}) via Nano Banana | Context Score: ${contextGuard.contextScore}`);
 
     const response = await fetch("https://nanobananavideo.com/api/v1/text-to-video", {
       method: "POST",
@@ -252,7 +309,7 @@ async function generateVideo(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        prompt: `${prompt}. Vertical 9:16 portrait format, perfect for Instagram Reels and TikTok, eye-catching motion, professional quality.`,
+        prompt: contextGuard.enhancedPrompt,
         duration: config.duration,
         aspect_ratio: aspectRatio,
         resolution: height >= 1080 ? "1080p" : "720p",
@@ -342,28 +399,18 @@ async function generateVideo(
 async function generateReel(
   prompt: string, 
   supabase: any, 
-  brandName?: string, 
-  language?: string,
+  project: ProjectContext,
   quality: string = "pro"
 ): Promise<string | null> {
-  // Build enhanced prompt for vertical reel format
-  let enhancedPrompt = prompt;
-  if (brandName) {
-    enhancedPrompt = `${prompt} for ${brandName} brand.`;
-  }
+  // Reel uses the same video generator with a reel-specific prompt
+  const reelPrompt = `${prompt} Vertical 9:16 portrait format, perfect for Instagram Reels and TikTok, eye-catching motion, professional quality, vibrant colors.`;
   
-  // Add language constraint
-  const langMap: Record<string, string> = {
-    fr: "French", es: "Spanish", de: "German", it: "Italian", pt: "Portuguese"
+  // Create a modified project context for the reel
+  const reelProject: ProjectContext = {
+    ...project,
   };
-  const langName = langMap[language || ""] || "English";
-  if (language && language !== "en") {
-    enhancedPrompt = `[All text MUST be in ${langName}] ${enhancedPrompt}`;
-  }
   
-  enhancedPrompt += " Vertical 9:16 portrait format, perfect for Instagram Reels and TikTok, eye-catching motion, professional quality, vibrant colors.";
-  
-  return generateVideo(enhancedPrompt, supabase, quality);
+  return generateVideo(reelPrompt, supabase, reelProject, quality);
 }
 
 // ============================================================
@@ -623,10 +670,10 @@ Deno.serve(async (req) => {
     let totalGenerated = 0;
     let totalPublished = 0;
 
-    // Build query for due posts
+    // Build query for due posts - fetch FULL project context for generation
     let postsQuery = supabase
       .from("scheduled_posts")
-      .select("*, projects(name, detected_language, description, logo_url, url)")
+      .select("*, projects(id, name, detected_language, description, logo_url, url, theme_color, marketing_context, ai_context_summary, scraped_markdown, avatar_url)")
       .in("status", ["scheduled", "draft"])
       .order("scheduled_for", { ascending: true })
       .limit(20);
@@ -653,7 +700,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: duePosts, error: postsError } = await postsQuery as { 
-      data: (ScheduledPost & { projects: any })[] | null; 
+      data: (ScheduledPost & { projects: ProjectContext | null })[] | null; 
       error: any 
     };
 
@@ -669,9 +716,22 @@ Deno.serve(async (req) => {
     console.log(`[cron] Found ${duePosts.length} posts due for processing`);
 
     for (const post of duePosts) {
-      const brandName = post.projects?.name;
-      const projectLanguage = post.projects?.detected_language || "en";
-      console.log(`[cron] Processing post ${post.id} (${post.content_type}) - language: ${projectLanguage}`);
+      // Build project context for generation functions
+      const projectContext: ProjectContext = {
+        id: post.projects?.id,
+        name: post.projects?.name || "Brand",
+        detected_language: post.projects?.detected_language || "en",
+        description: post.projects?.description || null,
+        logo_url: post.projects?.logo_url || null,
+        url: post.projects?.url || null,
+        theme_color: post.projects?.theme_color || null,
+        marketing_context: post.projects?.marketing_context || null,
+        ai_context_summary: post.projects?.ai_context_summary || null,
+        scraped_markdown: post.projects?.scraped_markdown || null,
+        avatar_url: post.projects?.avatar_url || null,
+      };
+      
+      console.log(`[cron] Processing post ${post.id} (${post.content_type}) - project: ${projectContext.name} | language: ${projectContext.detected_language}`);
 
       // ============================================================
       // SUBSCRIPTION CHECK: Only Pro/Business can use AutoPost
@@ -719,9 +779,9 @@ Deno.serve(async (req) => {
         
         if (isImageAsReel) {
           // Reel: Use Nano Banana Video for real MP4
-          console.log(`[cron] Generating Reel (${videoQuality}) for post ${post.id} in ${projectLanguage}`);
+          console.log(`[cron] Generating Reel (${videoQuality}) for post ${post.id} - ${projectContext.name}`);
           
-          const videoUrl = await generateReel(post.ai_prompt, supabase, brandName, projectLanguage, videoQuality);
+          const videoUrl = await generateReel(post.ai_prompt, supabase, projectContext, videoQuality);
           if (videoUrl) {
             await supabase.from("scheduled_posts").update({ 
               media_url: videoUrl,
@@ -734,8 +794,8 @@ Deno.serve(async (req) => {
             console.log(`[cron] Reel generation failed for post ${post.id}`);
           }
         } else if (post.content_type === "image") {
-          console.log(`[cron] Generating Image (${imageQuality}) for post ${post.id} in ${projectLanguage}`);
-          const imageUrl = await generateImage(post.ai_prompt, supabase, brandName, projectLanguage, imageQuality);
+          console.log(`[cron] Generating Image (${imageQuality}) for post ${post.id} - ${projectContext.name}`);
+          const imageUrl = await generateImage(post.ai_prompt, supabase, projectContext, imageQuality);
           if (imageUrl) {
             await supabase.from("scheduled_posts").update({ media_url: imageUrl }).eq("id", post.id);
             post.media_url = imageUrl;
@@ -745,8 +805,8 @@ Deno.serve(async (req) => {
             console.log(`[cron] Image generation failed for post ${post.id}`);
           }
         } else if (post.content_type === "video") {
-          console.log(`[cron] Generating Video (${videoQuality}) for post ${post.id}`);
-          const videoUrl = await generateVideo(post.ai_prompt, supabase, videoQuality);
+          console.log(`[cron] Generating Video (${videoQuality}) for post ${post.id} - ${projectContext.name}`);
+          const videoUrl = await generateVideo(post.ai_prompt, supabase, projectContext, videoQuality);
           if (videoUrl) {
             await supabase.from("scheduled_posts").update({ media_url: videoUrl }).eq("id", post.id);
             post.media_url = videoUrl;
