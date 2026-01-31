@@ -25,8 +25,8 @@ function getCreditCost(quality: string): number {
 }
 
 // ============================================================
-// MODEL SELECTION WITH CORRECT COMETAPI ENDPOINTS
-// Each model has its own endpoint in CometAPI
+// MODEL SELECTION - OPENAI SORA 2 + COMETAPI FALLBACKS
+// Priority: OpenAI Sora 2 > CometAPI models
 // ============================================================
 
 interface VideoModelConfig {
@@ -34,21 +34,54 @@ interface VideoModelConfig {
   endpoint: string;
   maxDuration: number;
   displayName: string;
+  provider: "openai" | "cometapi";
   requestBody: (prompt: string, duration: number, aspectRatio: string) => Record<string, any>;
 }
 
-// CometAPI model configurations with VERIFIED endpoints and request formats
-// Updated 2026-01-31 - Model names from CometAPI docs: kling-v2-6, kling-v2-5-turbo, kling-v2-1-master
+// ============================================================
+// OPENAI SORA 2 MODELS - Primary for cinema/pro quality
+// API: POST https://api.openai.com/v1/videos (multipart/form-data)
+// ============================================================
+const OPENAI_SORA_MODELS: Record<string, VideoModelConfig> = {
+  "sora-2-pro": {
+    model: "sora-2-pro",
+    endpoint: "https://api.openai.com/v1/videos",
+    maxDuration: 12,
+    displayName: "Sora 2 Pro",
+    provider: "openai",
+    requestBody: (prompt, duration, aspectRatio) => ({
+      model: "sora-2-pro",
+      prompt,
+      seconds: String(Math.min(duration, 12)),
+      size: aspectRatio === "9:16" ? "720x1280" : "1280x720",
+    }),
+  },
+  "sora-2": {
+    model: "sora-2",
+    endpoint: "https://api.openai.com/v1/videos",
+    maxDuration: 10,
+    displayName: "Sora 2",
+    provider: "openai",
+    requestBody: (prompt, duration, aspectRatio) => ({
+      model: "sora-2",
+      prompt,
+      seconds: String(Math.min(duration, 10)),
+      size: aspectRatio === "9:16" ? "720x1280" : "1280x720",
+    }),
+  },
+};
+
+// ============================================================
+// COMETAPI MODELS - Fallback when OpenAI unavailable
+// ============================================================
 const COMETAPI_MODELS: Record<string, VideoModelConfig> = {
-  // ============================================================
-  // KLING MODELS - Endpoint: /kling/v1/videos/text2video
-  // Valid model names: kling-v2-6, kling-v2-5-turbo, kling-v2-1-master, kling-v2-1, kling-v2-master
-  // ============================================================
+  // KLING MODELS
   "kling-v2.5-turbo": {
     model: "kling-v2-5-turbo",
     endpoint: "https://api.cometapi.com/kling/v1/videos/text2video",
     maxDuration: 10,
     displayName: "Kling V2.5 Turbo",
+    provider: "cometapi",
     requestBody: (prompt, duration, aspectRatio) => ({
       model_name: "kling-v2-5-turbo",
       prompt,
@@ -62,6 +95,7 @@ const COMETAPI_MODELS: Record<string, VideoModelConfig> = {
     endpoint: "https://api.cometapi.com/kling/v1/videos/text2video",
     maxDuration: 10,
     displayName: "Kling V2 Master",
+    provider: "cometapi",
     requestBody: (prompt, duration, aspectRatio) => ({
       model_name: "kling-v2-master",
       prompt,
@@ -74,6 +108,7 @@ const COMETAPI_MODELS: Record<string, VideoModelConfig> = {
     endpoint: "https://api.cometapi.com/kling/v1/videos/text2video",
     maxDuration: 10,
     displayName: "Kling V2.1 Master",
+    provider: "cometapi",
     requestBody: (prompt, duration, aspectRatio) => ({
       model_name: "kling-v2-1-master",
       prompt,
@@ -82,30 +117,26 @@ const COMETAPI_MODELS: Record<string, VideoModelConfig> = {
     }),
   },
   
-  // ============================================================
-  // MINIMAX - Endpoint: /v1/video_generation
-  // Model name: video-01 (NOT video-01-live2d)
-  // ============================================================
+  // MINIMAX
   "minimax-hailuo": {
     model: "video-01",
     endpoint: "https://api.cometapi.com/v1/video_generation",
     maxDuration: 6,
     displayName: "MiniMax Hailuo",
+    provider: "cometapi",
     requestBody: (prompt, _duration, _aspectRatio) => ({
       model: "video-01",
       prompt,
     }),
   },
   
-  // ============================================================
-  // BYTEDANCE/SEEDANCE - Endpoint: /volc/v3/contents/generations/tasks
-  // content MUST be an array, not an object
-  // ============================================================
+  // BYTEDANCE/SEEDANCE
   "bytedance-video": {
     model: "doubao-seedance-1-0-lite-t2v-250428",
     endpoint: "https://api.cometapi.com/volc/v3/contents/generations/tasks",
     maxDuration: 8,
     displayName: "Bytedance Seedance",
+    provider: "cometapi",
     requestBody: (prompt, _duration, aspectRatio) => ({
       model: "doubao-seedance-1-0-lite-t2v-250428",
       content: [
@@ -121,16 +152,22 @@ const COMETAPI_MODELS: Record<string, VideoModelConfig> = {
   },
 };
 
-// Fallback chains for each quality tier
+// All models combined
+const ALL_MODELS: Record<string, VideoModelConfig> = {
+  ...OPENAI_SORA_MODELS,
+  ...COMETAPI_MODELS,
+};
+
+// Fallback chains for each quality tier - Sora 2 first for cinema/pro
 const MODEL_FALLBACK_CHAINS: Record<string, string[]> = {
-  cinema: ["kling-v2-master", "bytedance-video", "minimax-hailuo"],
-  pro: ["kling-v2.1-master", "bytedance-video", "minimax-hailuo"],
+  cinema: ["sora-2-pro", "kling-v2-master", "bytedance-video", "minimax-hailuo"],
+  pro: ["sora-2", "kling-v2.1-master", "bytedance-video", "minimax-hailuo"],
   standard: ["kling-v2.5-turbo", "minimax-hailuo", "bytedance-video"],
 };
 
 function getModelFallbackChain(quality: string): VideoModelConfig[] {
   const modelIds = MODEL_FALLBACK_CHAINS[quality] || MODEL_FALLBACK_CHAINS["standard"];
-  return modelIds.map(id => COMETAPI_MODELS[id]).filter(Boolean);
+  return modelIds.map(id => ALL_MODELS[id]).filter(Boolean);
 }
 
 function getVideoModel(quality: string): VideoModelConfig {
@@ -144,8 +181,8 @@ function clampDuration(duration: number, config: VideoModelConfig): number {
 }
 
 // ============================================================
-// COMETAPI VIDEO GENERATION WITH FALLBACK
-// Tries each model in the chain until one succeeds
+// VIDEO GENERATION WITH MULTI-PROVIDER FALLBACK
+// Supports both OpenAI Sora 2 and CometAPI models
 // ============================================================
 
 async function tryVideoGeneration(
@@ -153,29 +190,58 @@ async function tryVideoGeneration(
   prompt: string,
   duration: number,
   aspectRatio: string,
-  apiKey: string
+  openaiApiKey: string | null,
+  cometApiKey: string
 ): Promise<{ success: boolean; model: VideoModelConfig; taskId?: string; status?: string; mediaUrl?: string; error?: string }> {
   
   for (let i = 0; i < models.length; i++) {
     const model = models[i];
     const clampedDuration = clampDuration(duration, model);
     
-    console.log(`[FALLBACK ${i + 1}/${models.length}] Trying ${model.displayName} (${model.model})...`);
+    // Skip OpenAI models if no API key
+    if (model.provider === "openai" && !openaiApiKey) {
+      console.log(`[FALLBACK ${i + 1}/${models.length}] Skipping ${model.displayName} - no OpenAI API key`);
+      continue;
+    }
+    
+    // Select the right API key based on provider
+    const apiKey = model.provider === "openai" ? openaiApiKey! : cometApiKey;
+    
+    console.log(`[FALLBACK ${i + 1}/${models.length}] Trying ${model.displayName} (${model.model}) via ${model.provider}...`);
     console.log(`[FALLBACK] Endpoint: ${model.endpoint}`);
     
     try {
       const requestBody = model.requestBody(prompt, clampedDuration, aspectRatio);
       console.log(`[FALLBACK] Request body:`, JSON.stringify(requestBody).substring(0, 200));
       
-      const response = await fetch(model.endpoint, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-          "Accept": "application/json", // Force JSON response
-        },
-        body: JSON.stringify(requestBody),
-      });
+      let response: Response;
+      
+      // OpenAI Sora uses multipart/form-data
+      if (model.provider === "openai") {
+        const formData = new FormData();
+        Object.entries(requestBody).forEach(([key, value]) => {
+          formData.append(key, String(value));
+        });
+        
+        response = await fetch(model.endpoint, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+          },
+          body: formData,
+        });
+      } else {
+        // CometAPI uses JSON
+        response = await fetch(model.endpoint, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+        });
+      }
       
       const responseText = await response.text();
       console.log(`[${model.model}] Response: ${response.status} - ${responseText.substring(0, 300)}`);
@@ -301,10 +367,15 @@ serve(async (req) => {
 
   try {
     const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     
     if (!COMETAPI_API_KEY) {
       throw new Error("COMETAPI_API_KEY is not configured");
     }
+    
+    // Log API key availability (for debugging)
+    console.log(`[CONFIG] OpenAI Sora 2: ${OPENAI_API_KEY ? "✓ Available" : "✗ Not configured"}`);
+    console.log(`[CONFIG] CometAPI: ${COMETAPI_API_KEY ? "✓ Available" : "✗ Not configured"}`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -515,6 +586,7 @@ serve(async (req) => {
         fullPrompt,
         clampedDuration,
         aspectRatio,
+        OPENAI_API_KEY || null,
         COMETAPI_API_KEY
       );
       
