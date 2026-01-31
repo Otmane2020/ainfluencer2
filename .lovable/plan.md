@@ -1,141 +1,88 @@
 
 # Video Generation Fix Plan
 
-## Problem Identified
+## Root Cause Analysis
 
-Based on my investigation, I found **three critical issues** causing video generation failures:
+Based on my investigation, I identified **TWO critical issues** causing video generation to fail:
 
-### Issue 1: Quality Parameter Mismatch
-The frontend sends `quality: "720p"` (from the Quality Options constant), but the edge function expects quality values like `"standard"`, `"pro"`, or `"cinema"` to select the correct model fallback chain.
+### Issue 1: Edge Function Not Deployed
+The `generate-video-sora` edge function returns 404, meaning it's not actually running in production. Despite showing "Successfully deployed", the function is not accessible. This explains why there are no logs and all generations fail.
 
-**Evidence from code:**
-```typescript
-// VideoGenerator.tsx line 654
-quality: selectedQuality,  // This is "720p"
+### Issue 2: Wrong Model Names in CometAPI
+The CometAPI documentation explicitly states the valid model names:
 
-// generate-video-sora/index.ts line 137-141
-const MODEL_FALLBACK_CHAINS: Record<string, string[]> = {
-  cinema: ["kling-v2-master", ...],
-  pro: ["kling-v2.1-master", ...],
-  standard: ["kling-v2.5-turbo", ...],  // "720p" doesn't match!
-};
-```
+| Documentation Says | Our Code Uses | Fix |
+|-------------------|---------------|-----|
+| `kling-v1-5` (hyphen) | `kling-v1.5` (dot) | Change to `kling-v1-5` |
+| `kling-v2-master` | `kling-v1.5` | Change to `kling-v2-master` |
 
-### Issue 2: Model ID Not Matching COMETAPI_MODELS Keys
-The frontend sends `model: getInternalModel()?.id || "sora-2"`, but the edge function ignores this and only looks at `quality`. When quality is "720p" (unknown), it falls back to `standard` but the model selection still fails.
-
-### Issue 3: Status Check Using Wrong Endpoint
-The status check in the edge function uses a legacy generic endpoint:
-```typescript
-// Line 611 - This doesn't exist/work for Kling models
-await fetch(`https://api.cometapi.com/v1/videos/${taskId}`)
-```
-Each CometAPI model needs its own status endpoint (e.g., `/v1/kling/task/${taskId}` for Kling).
-
-**Database Evidence:**
-Recent generations show model `nanobanana-standard` (doesn't exist) with `status: failed` and `error_message: CometAPI unavailable`.
+CometAPI endpoint confirmed: `https://api.cometapi.com/kling/v1/videos/text2video`
+Valid models: `kling-v1`, `kling-v1-5`, `kling-v1-6`, `kling-v2-master`
 
 ---
 
 ## Solution
 
-### 1. Fix Quality Parameter Mapping
+### Step 1: Fix Model Names in Edge Function
 
-Update `VideoGenerator.tsx` to send the correct quality tier based on the selected product:
+Update `COMETAPI_MODELS` in `generate-video-sora/index.ts`:
 
-```typescript
-// Map product tier to quality parameter
-const qualityTier = selectedProduct.tier; // "standard" | "pro" | "cinema"
+```text
+Before (WRONG):
+model_name: "kling-v1.5"
 
-body: JSON.stringify({
-  // ...
-  quality: qualityTier,  // Send tier, not resolution
-  // ...
-})
+After (CORRECT - from CometAPI docs):
+model_name: "kling-v1-5"
 ```
 
-### 2. Add Model-Specific Status Endpoints
+### Step 2: Verify and Redeploy
 
-Update the status check in `generate-video-sora/index.ts` to use the correct endpoint for each model type:
-
-```typescript
-// Add model-specific status endpoints
-const STATUS_ENDPOINTS: Record<string, (taskId: string) => string> = {
-  "kling": (id) => `https://api.cometapi.com/v1/kling/task/${id}/status`,
-  "minimax": (id) => `https://api.cometapi.com/v1/minimax/query/${id}`,
-  "runway": (id) => `https://api.cometapi.com/v1/runway/task/${id}`,
-  "bytedance": (id) => `https://api.cometapi.com/v1/video/bytedance/${id}`,
-};
-```
-
-### 3. Store Model Type with Generation Record
-
-When creating a generation, store which model family was used so the status check knows which endpoint to call:
-
-```typescript
-// In generation record
-model: usedModel.model,  // e.g., "kling-v2.5-turbo"
-model_family: "kling",    // Add this for status routing
-```
-
-### 4. Add Robust Error Detection
-
-Improve the fallback logic to detect more error conditions:
-
-```typescript
-// Detect various failure modes
-if (responseText.includes("not found") || 
-    responseText.includes("unavailable") ||
-    responseText.includes("error") ||
-    response.status === 503) {
-  console.log(`[${model.model}] Unavailable, trying next...`);
-  continue;
-}
-```
+1. Fix all model name references
+2. Deploy the updated function
+3. Test with curl to verify it works
 
 ---
 
 ## Files to Modify
 
-| File | Changes |
-|------|---------|
-| `src/components/VideoGenerator.tsx` | Fix quality parameter to send product tier instead of resolution |
-| `supabase/functions/generate-video-sora/index.ts` | Add model-specific status endpoints, improve error handling, store model family |
+| File | Change |
+|------|--------|
+| `supabase/functions/generate-video-sora/index.ts` | Fix `kling-v1.5` to `kling-v1-5` in all 3 Kling model configs |
 
 ---
 
 ## Technical Details
 
-### VideoGenerator.tsx Changes
-
+### Current Code (Lines 47-84)
 ```typescript
-// Line ~650-668: Fix the request body
-body: JSON.stringify({
-  prompt: buildScenarioPrompt(...) + segment.script,
-  avatarUrl,
-  duration: segment.duration,
-  quality: selectedProduct.tier, // FIX: Use tier instead of "720p"
-  format: selectedFormat,
-  model: selectedProduct.internalModels[0], // FIX: Use product's model
-  videoMode,
-  // ... rest
-})
+// WRONG - Using dots instead of hyphens
+"kling-v2.5-turbo": {
+  model: "kling-v1.5",  // <-- WRONG
+  requestBody: (prompt, duration, aspectRatio) => ({
+    model_name: "kling-v1.5",  // <-- WRONG
+    // ...
+  }),
+},
 ```
 
-### Edge Function Changes
-
-1. **Add model family tracking**
-2. **Add status endpoint routing by model family**
-3. **Improve polling response handling**
-4. **Add better logging for debugging**
+### Fixed Code
+```typescript
+// CORRECT - Using hyphens as per CometAPI docs
+"kling-v2.5-turbo": {
+  model: "kling-v1-5",  // <-- FIXED
+  requestBody: (prompt, duration, aspectRatio) => ({
+    model_name: "kling-v1-5",  // <-- FIXED
+    // ...
+  }),
+},
+```
 
 ---
 
 ## Expected Outcome
 
 After these fixes:
-1. Video generation will use the correct CometAPI endpoints for Kling models
-2. Progress tracking will work because status checks use correct endpoints
-3. Fallback chain will properly try Kling V2.5 Turbo → MiniMax → Bytedance for standard quality
-4. Users will see accurate progress updates (10% → 30% → 60% → 100%)
-
+1. Edge function will deploy and respond (no more 404)
+2. CometAPI will accept the correct model names (`kling-v1-5`)
+3. Video generation will start successfully
+4. Progress tracking will work with proper task IDs
