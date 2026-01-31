@@ -719,8 +719,23 @@ ${formattedHashtags}`;
     // Create a ref-like variable to track current segments
     let currentSegments = [...segmentsWithTasks];
 
-    // Step 3: Poll for video completion
+    // Step 3: Poll for video completion with optimized intervals
+    // Reduced API calls: 30s base interval, exponential backoff, max 20 calls
+    let pollCount = 0;
+    const MAX_POLL_CALLS = 20; // Hard limit to prevent excessive API costs
+    const BASE_INTERVAL = 30000; // 30 seconds base interval
+    const MAX_INTERVAL = 90000; // 90 seconds max interval
+    
+    const getNextInterval = () => {
+      // Exponential backoff: 30s → 45s → 60s → 75s → 90s (capped)
+      const interval = Math.min(BASE_INTERVAL + (pollCount * 15000), MAX_INTERVAL);
+      return interval;
+    };
+
     const pollStatus = async () => {
+      pollCount++;
+      console.log(`[VIDEO] Poll #${pollCount}/${MAX_POLL_CALLS} (interval: ${getNextInterval() / 1000}s)`);
+      
       let allComplete = true;
       let anyError = false;
 
@@ -806,48 +821,69 @@ ${formattedHashtags}`;
       setIsGenerating(false);
       if (firstResult.readyCount > 0) {
         toast({
-          title: `🎬 ${selectedProduct.name} générées !`,
-          description: `${firstResult.readyCount} vidéo(s) prête(s) avec voix IA${firstResult.errorCount > 0 ? `, ${firstResult.errorCount} erreur(s)` : ""}`,
+          title: `🎬 ${selectedProduct.name} generated!`,
+          description: `${firstResult.readyCount} video(s) ready with AI voice${firstResult.errorCount > 0 ? `, ${firstResult.errorCount} error(s)` : ""}`,
         });
         onVideosGenerated(segments);
       } else {
         toast({
-          title: "Erreur de génération",
-          description: "Impossible de générer les vidéos",
+          title: "Generation error",
+          description: "Unable to generate videos",
           variant: "destructive",
         });
       }
       return;
     }
 
-    // Continue polling
-    const pollInterval = setInterval(async () => {
-      const result = await pollStatus();
-
-      if (result.allComplete || result.anyError) {
-        clearInterval(pollInterval);
+    // Continue polling with exponential backoff
+    const schedulePoll = () => {
+      if (pollCount >= MAX_POLL_CALLS) {
+        console.log(`[VIDEO] Max poll limit reached (${MAX_POLL_CALLS} calls)`);
         setIsGenerating(false);
-
-        if (result.readyCount > 0) {
-          toast({
-            title: `🎬 ${selectedProduct.name} générées !`,
-            description: `${result.readyCount} vidéo(s) prête(s) avec voix IA${result.errorCount > 0 ? `, ${result.errorCount} erreur(s)` : ""}`,
-          });
-          onVideosGenerated(currentSegments);
-        } else {
-          toast({
-            title: "Erreur de génération",
-            description: "Impossible de générer les vidéos",
-            variant: "destructive",
-          });
-        }
+        toast({
+          title: "Generation timeout",
+          description: "Video generation is taking too long. Check history for results.",
+          variant: "destructive",
+        });
+        return;
       }
-    }, 10000);
+      
+      const nextInterval = getNextInterval();
+      console.log(`[VIDEO] Next poll in ${nextInterval / 1000}s`);
+      
+      setTimeout(async () => {
+        const result = await pollStatus();
 
+        if (result.allComplete || result.anyError) {
+          setIsGenerating(false);
+
+          if (result.readyCount > 0) {
+            toast({
+              title: `🎬 ${selectedProduct.name} generated!`,
+              description: `${result.readyCount} video(s) ready with AI voice${result.errorCount > 0 ? `, ${result.errorCount} error(s)` : ""}`,
+            });
+            onVideosGenerated(currentSegments);
+          } else {
+            toast({
+              title: "Generation error",
+              description: "Unable to generate videos",
+              variant: "destructive",
+            });
+          }
+        } else {
+          // Schedule next poll with increased interval
+          schedulePoll();
+        }
+      }, nextInterval);
+    };
+
+    // Start polling loop
+    schedulePoll();
+
+    // Reduced timeout: 5 minutes max (vs previous 10 minutes)
     setTimeout(() => {
-      clearInterval(pollInterval);
       setIsGenerating(false);
-    }, 600000);
+    }, 300000);
   };
 
   const totalDuration = segments.reduce((acc, s) => acc + s.duration, 0);
