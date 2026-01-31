@@ -245,7 +245,7 @@ serve(async (req) => {
 
       console.log(`[Campaign] Post ${idx + 1}: ${isVideo ? "VIDEO" : "IMAGE"} | Scene: ${scene.id} | Angle: ${angle.id}`);
 
-      // 4. AI Prompting
+      // 4. AI Prompting - Use FULL context from guard
       const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
@@ -253,28 +253,33 @@ serve(async (req) => {
           model: "google/gemini-3-flash-preview",
           messages: [{
             role: "system",
-            content: `You are a marketing expert for ${project.name}. Output language: ${lang.toUpperCase()}.
-            
-${contextGuard.brandContext}
+            content: `You are a marketing expert for ${project.name}. 
 
-TASK: Create a ${isVideo ? "video script concept" : "static image prompt"} for social media.
+${contextGuard.enhancedPrompt}
 
-VISUAL SCENE: ${scene.desc}
-MARKETING ANGLE: ${angle.desc}
+CURRENT TASK: Create a ${isVideo ? "video script concept" : "static image prompt"} for social media.
+
+VISUAL SCENE TO USE: ${scene.desc}
+MARKETING ANGLE TO APPLY: ${angle.desc}
 FORMAT: ${effectiveFormat} (${effectiveFormat === "reel" || effectiveFormat === "story" ? "vertical 9:16" : effectiveFormat === "landscape" ? "horizontal 16:9" : "square 1:1"})
 
-${campaign.include_logo ? "Include space for logo placement in bottom-right corner." : ""}
-${campaign.include_url ? `Include website URL: ${project.url}` : ""}
+${campaign.include_logo ? "LOGO: Reserve clear space in bottom-right corner for brand logo placement." : ""}
+${campaign.include_url ? `WEBSITE: Include URL ${project.url} in the design.` : ""}
+${campaign.overlay_text ? `OVERLAY TEXT: "${campaign.overlay_text}" must appear prominently.` : ""}
 
-BANNED CLICHÉS (DO NOT USE): ${BANNED_CLICHES.join(", ")}
+DIVERSITY RULES:
+- This is post #${idx + 1} in the campaign series - make it UNIQUE from previous posts
+- DO NOT use these clichés: ${BANNED_CLICHES.join(", ")}
+- Focus on REAL products/services from the brand context above
+- Match the brand's tone and target audience
 
-Return ONLY valid JSON:
+OUTPUT: Return ONLY valid JSON:
 {
-  "aiPrompt": "detailed visual description for AI image generation",
+  "aiPrompt": "detailed visual description for AI image generation (include colors, composition, subjects, mood)",
   "textContent": "engaging social media caption with hashtags (in ${lang})"
 }`
           }],
-          temperature: 0.85,
+          temperature: 0.92,
         }),
       });
 
