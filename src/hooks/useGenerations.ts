@@ -304,24 +304,51 @@ export function useGenerations() {
     }
   }, [getAccessToken]);
 
-  // Polling for active generations - REDUCED FREQUENCY to avoid blocking
-  // Video generation takes 2-4 minutes, so polling every 10s is sufficient
+  // Polling for active generations - SMART DELAYED POLLING
+  // Video generation takes 3-5 minutes, so we:
+  // 1. Wait 3 minutes before first check
+  // 2. Then poll every 30 seconds until complete
+  const initialDelayRef = useRef<Map<string, boolean>>(new Map());
+  
   useEffect(() => {
     if (activeGenerations.length === 0) {
       if (pollingRef.current) {
         clearInterval(pollingRef.current);
         pollingRef.current = null;
       }
+      initialDelayRef.current.clear();
       return;
     }
 
-    // Poll every 10 seconds (reduced from 2s to avoid excessive API calls)
+    // For new generations, wait 3 minutes before first poll
+    const pendingGenerations = activeGenerations.filter(g => !initialDelayRef.current.has(g.id));
+    pendingGenerations.forEach(g => {
+      initialDelayRef.current.set(g.id, false);
+      console.log(`[useGenerations] New generation ${g.id} - waiting 3 min before first check`);
+      
+      // Set timer to enable polling after 3 minutes
+      setTimeout(() => {
+        initialDelayRef.current.set(g.id, true);
+        console.log(`[useGenerations] Generation ${g.id} - now eligible for polling`);
+      }, 180000); // 3 minutes
+    });
+
+    // Poll every 30 seconds (only for generations that passed initial delay)
     pollingRef.current = setInterval(async () => {
-      console.log(`[useGenerations] Polling ${activeGenerations.length} active generations...`);
+      const eligibleGenerations = activeGenerations.filter(g => 
+        initialDelayRef.current.get(g.id) === true
+      );
+      
+      if (eligibleGenerations.length === 0) {
+        console.log(`[useGenerations] No eligible generations yet, waiting for initial delay...`);
+        return;
+      }
+      
+      console.log(`[useGenerations] Polling ${eligibleGenerations.length} eligible generations...`);
       
       const updatedActive: Generation[] = [];
 
-      for (const gen of activeGenerations) {
+      for (const gen of eligibleGenerations) {
         const updated = await getGenerationStatus(gen.id);
         if (updated) {
           updatedActive.push(updated);
@@ -330,14 +357,22 @@ export function useGenerations() {
           setGenerations(prev => 
             prev.map(g => g.id === updated.id ? updated : g)
           );
+          
+          // If completed/failed, remove from initial delay tracking
+          if (updated.status === "completed" || updated.status === "failed") {
+            initialDelayRef.current.delete(updated.id);
+          }
         }
       }
 
-      // Filter out completed/failed from active
-      setActiveGenerations(
-        updatedActive.filter(g => g.status !== "completed" && g.status !== "failed")
-      );
-    }, 10000); // 10 seconds instead of 2 seconds
+      // Keep non-polled generations + filter completed from polled ones
+      setActiveGenerations(prev => {
+        const polledIds = new Set(eligibleGenerations.map(g => g.id));
+        const notPolled = prev.filter(g => !polledIds.has(g.id));
+        const stillActive = updatedActive.filter(g => g.status !== "completed" && g.status !== "failed");
+        return [...notPolled, ...stillActive];
+      });
+    }, 30000); // 30 seconds between polls (was 10s)
 
     return () => {
       if (pollingRef.current) {
