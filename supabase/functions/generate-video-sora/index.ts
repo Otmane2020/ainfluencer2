@@ -157,13 +157,17 @@ function getVideoModel(quality: string): VideoModelConfig {
 }
 
 // Valid durations for each provider
+// Sora 2 Pro supports 4-20s in 4s increments: 4, 8, 12, 16, 20
+// Sora 2 (standard) supports 4-12s in 4s increments: 4, 8, 12
 const VALID_DURATIONS: Record<string, number[]> = {
-  openai: [4, 8, 12],  // Sora only accepts 4, 8, or 12 seconds
-  gemini: [5, 6, 7, 8], // Veo accepts 5-8 seconds
+  "sora-2-pro": [4, 8, 12, 16, 20],  // Sora 2 Pro supports up to 20s
+  "sora-2": [4, 8, 12],               // Sora 2 standard up to 12s
+  gemini: [5, 6, 7, 8],               // Veo accepts 5-8 seconds
 };
 
 function clampDuration(duration: number, config: VideoModelConfig): number {
-  const validDurations = VALID_DURATIONS[config.provider] || [5, 8];
+  // Use model-specific durations, not provider-level
+  const validDurations = VALID_DURATIONS[config.model] || VALID_DURATIONS[config.provider] || [5, 8];
   
   // Find the closest valid duration that doesn't exceed requested
   const validBelow = validDurations.filter(d => d <= duration);
@@ -355,6 +359,60 @@ interface VideoStatusResponse {
   error?: string;
 }
 
+// ============================================================
+// PROMPT CLEANER - Remove emojis, scripts, formatting for Sora
+// Sora interprets ALL text literally - emojis become "show emoji"
+// ============================================================
+
+function cleanPromptForSora(rawPrompt: string): string {
+  let cleaned = rawPrompt;
+  
+  // Remove emojis and special Unicode characters
+  cleaned = cleaned.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F000}-\u{1F02F}]|[\u{1F0A0}-\u{1F0FF}]/gu, "");
+  
+  // Remove common formatting patterns from scenario generator
+  cleaned = cleaned.replace(/^🎬.*$/gm, "");           // Header lines
+  cleaned = cleaned.replace(/^━+$/gm, "");              // Separator lines
+  cleaned = cleaned.replace(/^📍\s*Angle:.*$/gm, "");   // Angle metadata
+  cleaned = cleaned.replace(/^📊\s*Engagement:.*$/gm, ""); // Engagement metadata
+  cleaned = cleaned.replace(/^📜\s*SCRIPT:$/gm, "");   // Script header
+  cleaned = cleaned.replace(/^🎥\s*SCENE BREAKDOWN:$/gm, ""); // Scene header
+  cleaned = cleaned.replace(/^\[.*?\]$/gm, "");         // [0-5s] timing markers
+  cleaned = cleaned.replace(/^Visual:\s*/gm, "");       // Visual: prefixes
+  cleaned = cleaned.replace(/^Voiceover:\s*/gm, "");   // Voiceover: prefixes
+  cleaned = cleaned.replace(/^#\w+/gm, "");             // Hashtags
+  
+  // Remove excessive whitespace and empty lines
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
+  cleaned = cleaned.replace(/^\s+|\s+$/gm, "");
+  
+  // Extract only the actual scene descriptions (not the script text)
+  // Look for descriptive visual content, not dialogue/script
+  const lines = cleaned.split("\n").filter(line => {
+    const trimmed = line.trim();
+    // Skip empty lines and very short lines
+    if (trimmed.length < 10) return false;
+    // Skip lines that look like spoken dialogue (quotes, first person)
+    if (/^["']/.test(trimmed)) return false;
+    // Keep lines that describe visuals
+    return true;
+  });
+  
+  // Take first 3-4 meaningful lines to keep prompt focused
+  const essentialLines = lines.slice(0, 4).join(" ");
+  
+  // Final cleanup
+  cleaned = essentialLines
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 500); // Sora works best with concise prompts
+  
+  console.log(`[PROMPT CLEANER] Original: ${rawPrompt.length} chars → Cleaned: ${cleaned.length} chars`);
+  console.log(`[PROMPT CLEANER] Result: ${cleaned.substring(0, 200)}...`);
+  
+  return cleaned || "Professional promotional video with smooth camera movements and elegant transitions.";
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -518,7 +576,7 @@ serve(async (req) => {
         duration: clampedDuration,
         aspectRatio: format === "vertical" ? "9:16" : "16:9",
         isClipMotion: videoMode === "clipmotion",
-        customPrompt: prompt, // User's original prompt as scene description
+        customPrompt: cleanPromptForSora(prompt), // CLEAN the prompt before compilation
         includeEndBranding: true,
       };
       
@@ -532,13 +590,14 @@ serve(async (req) => {
 
       console.log(`[VIDEO] Brand Compiler: score=${compiledPrompt.metadata.completenessScore}/100 | ClipMotion=${videoMode === "clipmotion"}`);
       console.log(`[VIDEO] Project: ${projectName || "none"} | Language: ${detectedLanguage || "en"}`);
-      console.log(`[VIDEO] Compiled prompt (first 500 chars):`, fullPrompt.substring(0, 500));
+      console.log(`[VIDEO] Final prompt (first 500 chars):`, fullPrompt.substring(0, 500));
 
       // Create generation record with delayed check scheduling
-      // Provider-based check delays: OpenAI Sora = 150s, CometAPI Veo = 45s
+      // Single API call to start, then wait 4 minutes before first check
+      // This matches Sora's actual processing time (3-5 minutes)
       const PROVIDER_CHECK_DELAYS: Record<string, number> = {
-        openai: 150000,  // 2.5 minutes for Sora
-        cometapi: 45000, // 45 seconds for Veo
+        openai: 240000,  // 4 minutes for Sora (reduced unnecessary polling)
+        cometapi: 60000, // 1 minute for other providers
       };
       
       let generationId: string | null = null;
