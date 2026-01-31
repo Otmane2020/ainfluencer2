@@ -31,35 +31,41 @@ function getCreditCost(quality: string): number {
 }
 
 // ============================================================
-// MODEL POOL CONFIGURATION - CometAPI with Flux.1 Pro
+// MODEL POOL CONFIGURATION - OpenAI GPT Image + Nano Banana (Gemini)
 // ============================================================
 
 interface ModelOption {
   id: string;
-  provider: "cometapi" | "lovable";
+  provider: "openai" | "gemini";
   weight: number;
   apiModel: string;
+  displayName: string;
 }
 
+// OpenAI GPT Image and Gemini Nano Banana models
 const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
   standard: [
-    { id: "flux-schnell", provider: "cometapi", weight: 100, apiModel: "flux-schnell" },
+    { id: "nano-banana", provider: "gemini", weight: 100, apiModel: "google/gemini-2.5-flash-image", displayName: "Nano Banana" },
   ],
   pro: [
-    { id: "flux-dev", provider: "cometapi", weight: 100, apiModel: "flux-dev" },
+    { id: "nano-banana-pro", provider: "gemini", weight: 60, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
+    { id: "gpt-image", provider: "openai", weight: 40, apiModel: "gpt-image-1", displayName: "GPT Image" },
   ],
   cinema: [
-    { id: "flux-pro", provider: "cometapi", weight: 100, apiModel: "flux-pro" },
+    { id: "gpt-image", provider: "openai", weight: 70, apiModel: "gpt-image-1", displayName: "GPT Image" },
+    { id: "nano-banana-pro", provider: "gemini", weight: 30, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
   ],
   // Legacy mappings
   "smart-image": [
-    { id: "flux-schnell", provider: "cometapi", weight: 100, apiModel: "flux-schnell" },
+    { id: "nano-banana", provider: "gemini", weight: 100, apiModel: "google/gemini-2.5-flash-image", displayName: "Nano Banana" },
   ],
   "high-image": [
-    { id: "flux-dev", provider: "cometapi", weight: 100, apiModel: "flux-dev" },
+    { id: "nano-banana-pro", provider: "gemini", weight: 60, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
+    { id: "gpt-image", provider: "openai", weight: 40, apiModel: "gpt-image-1", displayName: "GPT Image" },
   ],
   "studio-image": [
-    { id: "flux-pro", provider: "cometapi", weight: 100, apiModel: "flux-pro" },
+    { id: "gpt-image", provider: "openai", weight: 70, apiModel: "gpt-image-1", displayName: "GPT Image" },
+    { id: "nano-banana-pro", provider: "gemini", weight: 30, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
   ],
 };
 
@@ -69,8 +75,9 @@ const LEGACY_QUALITY_MAPPINGS: Record<string, string> = {
   "ai-image-pro": "pro",
   "ai-image-studio": "cinema",
   "flux-2-flex": "standard",
+  "nano-banana": "standard",
   "nano-banana-pro": "pro",
-  "flux-2-pro": "cinema",
+  "gpt-image": "cinema",
   "smart-image": "standard",
   "high-image": "pro",
   "studio-image": "cinema",
@@ -204,73 +211,73 @@ const TONE_CONTEXT: Record<string, string> = {
 };
 
 // ============================================================
-// COMETAPI IMAGE GENERATION (Flux.1 Pro/Dev/Schnell)
-// Best for text rendering in images (URLs, overlay text)
+// OPENAI GPT IMAGE GENERATION
 // ============================================================
 
-async function generateWithCometAPI(
+async function generateWithOpenAI(
   prompt: string,
-  model: string,
   aspectRatio: string = "1:1"
 ): Promise<{ imageData: string | null; error?: string }> {
-  const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
-  if (!COMETAPI_API_KEY) {
-    console.error("[CometAPI] No API key configured, falling back to Lovable AI");
-    return generateWithLovableAI(prompt, "google/gemini-3-pro-image-preview");
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+  if (!OPENAI_API_KEY) {
+    console.error("[OpenAI] No API key configured");
+    return { imageData: null, error: "OPENAI_API_KEY not configured" };
   }
 
   try {
-    console.log(`[CometAPI] Generating image with model: ${model}, aspect: ${aspectRatio}`);
+    // Map aspect ratio to OpenAI size
+    const sizeMap: Record<string, string> = {
+      "9:16": "1024x1792",
+      "16:9": "1792x1024",
+      "1:1": "1024x1024",
+    };
+    const size = sizeMap[aspectRatio] || "1024x1024";
 
-    const response = await fetch("https://api.cometapi.com/v1/images/generations", {
+    console.log(`[OpenAI] Generating image with GPT Image, size: ${size}`);
+
+    const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${COMETAPI_API_KEY}`,
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: model,
+        model: "gpt-image-1",
         prompt: prompt,
         n: 1,
-        size: aspectRatio === "9:16" ? "768x1344" : aspectRatio === "16:9" ? "1344x768" : "1024x1024",
+        size: size,
         response_format: "b64_json",
       }),
     });
 
     if (!response.ok) {
-      const status = response.status;
       const errorText = await response.text();
-      console.error(`[CometAPI] Error ${status}:`, errorText.slice(0, 300));
-
-      if (status === 429) {
-        return { imageData: null, error: "Rate limit exceeded. Please try again later." };
-      }
-      if (status === 402 || status === 401) {
-        return { imageData: null, error: "CometAPI authentication failed. Check API key." };
-      }
-      return { imageData: null, error: `CometAPI error: ${status}` };
+      console.error(`[OpenAI] Error ${response.status}:`, errorText.slice(0, 300));
+      return { imageData: null, error: `OpenAI error: ${response.status}` };
     }
 
     const data = await response.json();
     const base64Image = data.data?.[0]?.b64_json;
 
     if (!base64Image) {
-      console.error("[CometAPI] No image in response:", JSON.stringify(data).slice(0, 200));
+      console.error("[OpenAI] No image in response");
       return { imageData: null, error: "No image generated" };
     }
 
-    // Return as data URL
     const imageData = `data:image/png;base64,${base64Image}`;
-    console.log("[CometAPI] Image generated successfully");
+    console.log("[OpenAI] ✓ Image generated successfully with GPT Image");
     return { imageData };
   } catch (error) {
-    console.error("[CometAPI] Exception:", error);
+    console.error("[OpenAI] Exception:", error);
     return { imageData: null, error: String(error) };
   }
 }
 
-// Fallback to Lovable AI if CometAPI fails
-async function generateWithLovableAI(
+// ============================================================
+// GEMINI NANO BANANA IMAGE GENERATION (via Lovable AI Gateway)
+// ============================================================
+
+async function generateWithGemini(
   prompt: string,
   model: string
 ): Promise<{ imageData: string | null; error?: string }> {
@@ -280,7 +287,8 @@ async function generateWithLovableAI(
   }
 
   try {
-    console.log(`[LovableAI] Fallback - Generating image with model: ${model}`);
+    const displayName = model.includes("gemini-3") ? "Nano Banana Pro" : "Nano Banana";
+    console.log(`[Gemini] Generating image with ${displayName} (${model})`);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -298,27 +306,35 @@ async function generateWithLovableAI(
     if (!response.ok) {
       const status = response.status;
       const errorText = await response.text();
-      console.error(`[LovableAI] Error ${status}:`, errorText.slice(0, 200));
-      return { imageData: null, error: "Image generation failed" };
+      console.error(`[Gemini] Error ${status}:`, errorText.slice(0, 200));
+      
+      if (status === 429) {
+        return { imageData: null, error: "Rate limit exceeded. Please try again later." };
+      }
+      if (status === 402) {
+        return { imageData: null, error: "Payment required. Please add credits." };
+      }
+      return { imageData: null, error: `Gemini error: ${status}` };
     }
 
     const data = await response.json();
     const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
     if (!imageData) {
-      console.error("[LovableAI] No image in response");
+      console.error("[Gemini] No image in response");
       return { imageData: null, error: "No image generated" };
     }
 
+    console.log(`[Gemini] ✓ Image generated successfully with ${displayName}`);
     return { imageData };
   } catch (error) {
-    console.error("[LovableAI] Exception:", error);
+    console.error("[Gemini] Exception:", error);
     return { imageData: null, error: String(error) };
   }
 }
 
 // ============================================================
-// FALLBACK GENERATION - CometAPI primary, Lovable AI fallback
+// FALLBACK GENERATION - Try primary, then fallback
 // ============================================================
 
 async function generateWithFallback(
@@ -327,30 +343,54 @@ async function generateWithFallback(
   qualityId: string,
   aspectRatio: string = "1:1"
 ): Promise<{ imageData: string | null; error?: string; usedModel: ModelOption }> {
-  // Try CometAPI first (Flux models)
-  if (selectedModel.provider === "cometapi") {
-    const result = await generateWithCometAPI(prompt, selectedModel.apiModel, aspectRatio);
-    if (result.imageData) {
-      return { ...result, usedModel: selectedModel };
+  
+  // Try primary model first
+  let result: { imageData: string | null; error?: string };
+  
+  if (selectedModel.provider === "openai") {
+    result = await generateWithOpenAI(prompt, aspectRatio);
+  } else {
+    result = await generateWithGemini(prompt, selectedModel.apiModel);
+  }
+  
+  if (result.imageData) {
+    return { ...result, usedModel: selectedModel };
+  }
+  
+  console.log(`[Fallback] ${selectedModel.displayName} failed, trying fallback...`);
+  
+  // Fallback logic: if OpenAI fails, try Gemini and vice versa
+  if (selectedModel.provider === "openai") {
+    // Fallback to Nano Banana Pro
+    const fallbackModel: ModelOption = {
+      id: "nano-banana-pro",
+      provider: "gemini",
+      weight: 100,
+      apiModel: "google/gemini-3-pro-image-preview",
+      displayName: "Nano Banana Pro"
+    };
+    const fallbackResult = await generateWithGemini(prompt, fallbackModel.apiModel);
+    if (fallbackResult.imageData) {
+      console.log(`[Fallback] ✓ Success with ${fallbackModel.displayName}`);
+      return { ...fallbackResult, usedModel: fallbackModel };
     }
-    console.log(`[Fallback] CometAPI ${selectedModel.id} failed, trying Lovable AI...`);
+  } else {
+    // Fallback to GPT Image
+    const fallbackModel: ModelOption = {
+      id: "gpt-image",
+      provider: "openai",
+      weight: 100,
+      apiModel: "gpt-image-1",
+      displayName: "GPT Image"
+    };
+    const fallbackResult = await generateWithOpenAI(prompt, aspectRatio);
+    if (fallbackResult.imageData) {
+      console.log(`[Fallback] ✓ Success with ${fallbackModel.displayName}`);
+      return { ...fallbackResult, usedModel: fallbackModel };
+    }
   }
   
-  // Fallback to Lovable AI (Gemini)
-  const fallbackModel: ModelOption = {
-    id: "gemini-pro-image",
-    provider: "lovable",
-    weight: 100,
-    apiModel: "google/gemini-3-pro-image-preview"
-  };
-  
-  const fallbackResult = await generateWithLovableAI(prompt, fallbackModel.apiModel);
-  if (fallbackResult.imageData) {
-    console.log(`[Fallback] Success with Lovable AI Gemini`);
-    return { ...fallbackResult, usedModel: fallbackModel };
-  }
-  
-  return { imageData: null, error: fallbackResult.error || "All models failed", usedModel: selectedModel };
+  return { imageData: null, error: result.error || "All models failed", usedModel: selectedModel };
 }
 
 // ============================================================
