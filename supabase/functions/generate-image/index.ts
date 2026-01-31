@@ -180,6 +180,107 @@ Keep the base image exactly as is, only add the logo overlay.`;
   }
 }
 
+// ============================================================
+// TEXT OVERLAY UTILITY
+// ============================================================
+
+interface TextOverlayOptions {
+  brandName?: string;
+  customText?: string;
+  websiteUrl?: string;
+  themeColor?: string;
+}
+
+async function overlayTextOnImage(
+  baseImageData: string,
+  options: TextOverlayOptions
+): Promise<string> {
+  const { brandName, customText, websiteUrl, themeColor } = options;
+  
+  // Build text elements to overlay
+  const textElements: string[] = [];
+  if (brandName) textElements.push(`Brand name: "${brandName}"`);
+  if (customText) textElements.push(`Custom text/CTA: "${customText}"`);
+  if (websiteUrl) textElements.push(`Website URL: "${websiteUrl}"`);
+  
+  if (textElements.length === 0) {
+    console.log("[TextOverlay] No text elements to add");
+    return baseImageData;
+  }
+  
+  try {
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      console.error("[TextOverlay] No LOVABLE_API_KEY");
+      return baseImageData;
+    }
+    
+    const colorInstruction = themeColor 
+      ? `Use ${themeColor} as the accent color for text highlights or backgrounds.`
+      : "Use a color that contrasts well with the image background.";
+    
+    const compositePrompt = `Add professional text overlay to this image for social media marketing.
+
+TEXT TO ADD:
+${textElements.join("\n")}
+
+STYLING REQUIREMENTS:
+- Position text in the bottom area (reserve bottom 15-20% for text)
+- Use bold, modern sans-serif typography
+- Text must be highly legible with drop shadow or semi-transparent background
+- ${colorInstruction}
+- Brand name should be larger and prominent
+- Website URL should be smaller, positioned at the very bottom
+- Custom text/CTA should be eye-catching and centered
+- DO NOT alter the main image content, only add text overlay
+- Ensure mobile-safe zones: avoid top 150px and keep text within safe margins
+
+Keep the original image exactly as is, only add the text overlay elements.`;
+
+    console.log("[TextOverlay] Adding text overlay:", textElements.join(", "));
+    
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: compositePrompt },
+              { type: "image_url", image_url: { url: baseImageData } },
+            ],
+          },
+        ],
+        modalities: ["image", "text"],
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("[TextOverlay] AI composite failed:", response.status);
+      return baseImageData;
+    }
+
+    const data = await response.json();
+    const compositedImage = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    
+    if (compositedImage) {
+      console.log("[TextOverlay] Text overlay successfully added!");
+      return compositedImage;
+    }
+    
+    console.log("[TextOverlay] No composited image returned, using original");
+    return baseImageData;
+  } catch (error) {
+    console.error("[TextOverlay] Error:", error);
+    return baseImageData;
+  }
+}
+
 // Scenario context builders
 const SECTOR_CONTEXT: Record<string, string> = {
   restaurant: "food photography style, appetizing, warm lighting, culinary",
@@ -721,7 +822,38 @@ LOGO SPACE REQUIREMENT (MANDATORY):
     let finalImageData = imageData;
     if (includeLogo && logoUrl) {
       console.log("[Main] Applying logo overlay...");
-      finalImageData = await overlayLogoOnImage(imageData, logoUrl, "bottom-right");
+      finalImageData = await overlayLogoOnImage(finalImageData, logoUrl, "bottom-right");
+    }
+
+    // Apply text overlay if any text options are enabled
+    const hasTextOverlay = includeText || includeUrl || brandName;
+    if (hasTextOverlay) {
+      const textOptions: { brandName?: string; customText?: string; websiteUrl?: string; themeColor?: string } = {};
+      
+      // Add brand name if enabled
+      if (brandName) {
+        textOptions.brandName = brandName;
+      }
+      
+      // Add custom overlay text if enabled
+      if (includeText && overlayText) {
+        textOptions.customText = overlayText;
+      }
+      
+      // Add website URL if enabled
+      if (includeUrl && projectUrl) {
+        textOptions.websiteUrl = projectUrl;
+      }
+      
+      // Add theme color for styling
+      if (marketingContext?.visual_identity?.primary_color) {
+        textOptions.themeColor = marketingContext.visual_identity.primary_color;
+      }
+      
+      if (Object.keys(textOptions).length > 0) {
+        console.log("[Main] Applying text overlay...", textOptions);
+        finalImageData = await overlayTextOnImage(finalImageData, textOptions);
+      }
     }
 
     console.log(`✓ Image generated successfully with ${usedModel.id}`);

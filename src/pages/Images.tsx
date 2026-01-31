@@ -24,6 +24,8 @@ interface GeneratedImage {
   url: string;
   prompt: string;
   createdAt: Date;
+  model?: string;
+  provider?: string;
 }
 
 const Images = () => {

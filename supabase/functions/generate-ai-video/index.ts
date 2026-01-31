@@ -63,6 +63,11 @@ interface VideoRequest {
   detectedLanguage?: string;
   aiContextSummary?: string;
   marketingContext?: MarketingContext | null;
+  // Text overlay options (injected into prompt for now, post-processing TBD)
+  includeText?: boolean;
+  overlayText?: string;
+  includeUrl?: boolean;
+  includeLogo?: boolean;
 }
 
 Deno.serve(async (req) => {
@@ -105,6 +110,11 @@ Deno.serve(async (req) => {
       detectedLanguage,
       aiContextSummary,
       marketingContext,
+      // Text overlay options
+      includeText,
+      overlayText,
+      includeUrl,
+      includeLogo,
     } = body;
 
     // Get duration config based on quality
@@ -265,10 +275,29 @@ Deno.serve(async (req) => {
       ? "Vertical portrait format, perfect for Instagram Reels and TikTok." 
       : "Horizontal landscape format, perfect for YouTube.";
     
-    const finalPrompt = `${contextGuard.enhancedPrompt}\n\n${formatInstructions} Professional quality, vibrant colors, smooth motion.`;
+    // Build text overlay instructions for the AI video generator
+    const textOverlayParts: string[] = [];
+    if (includeLogo && project?.logo_url) {
+      textOverlayParts.push(`Display the brand logo in the bottom-right corner`);
+    }
+    if (includeText && overlayText) {
+      textOverlayParts.push(`Include this text overlay prominently: "${overlayText}"`);
+    }
+    if (includeUrl && (project?.url || projectUrl)) {
+      textOverlayParts.push(`Show the website URL "${project?.url || projectUrl}" at the bottom of the video`);
+    }
+    
+    const textOverlayInstructions = textOverlayParts.length > 0 
+      ? `\n\nTEXT OVERLAY REQUIREMENTS:\n${textOverlayParts.join("\n")}` 
+      : "";
+    
+    const finalPrompt = `${contextGuard.enhancedPrompt}\n\n${formatInstructions}${textOverlayInstructions} Professional quality, vibrant colors, smooth motion.`;
 
     console.log("[AI-VIDEO] Context Score:", contextGuard.contextScore);
     console.log("[AI-VIDEO] Enhanced prompt length:", finalPrompt.length);
+    if (textOverlayParts.length > 0) {
+      console.log("[AI-VIDEO] Text overlays:", textOverlayParts.join(", "));
+    }
 
     // ============================================================
     // CREDIT VALIDATION & DEDUCTION
