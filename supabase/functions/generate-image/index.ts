@@ -728,7 +728,7 @@ LOGO SPACE REQUIREMENT (MANDATORY):
 
     return new Response(
       JSON.stringify({
-        imageData: finalImageData,
+        imageUrl: finalImageData,
         model: usedModel.id,
         provider: usedModel.provider,
         quality: effectiveQuality,
