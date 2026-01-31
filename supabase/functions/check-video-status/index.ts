@@ -116,13 +116,55 @@ serve(async (req) => {
           } else {
             const result = await response.json();
             const openaiStatus = result.status || "queued";
+            console.log(`[CRON] OpenAI status for ${gen.id}: ${openaiStatus}, response keys: ${Object.keys(result).join(", ")}`);
             
             if (openaiStatus === "completed" || openaiStatus === "succeeded") {
-              statusResult = { 
-                status: "completed", 
-                videoUrl: result.output_video || result.video_url || result.output?.video,
-                progress: 100 
-              };
+              // OpenAI Sora requires downloading video content via /content endpoint
+              // Then we upload it to Supabase Storage for public access
+              console.log(`[CRON] Downloading video content for ${gen.id}...`);
+              
+              const contentResponse = await fetch(
+                `https://api.openai.com/v1/videos/${gen.external_task_id}/content`,
+                { headers: { "Authorization": `Bearer ${OPENAI_API_KEY}` } }
+              );
+              
+              if (!contentResponse.ok) {
+                const errorText = await contentResponse.text();
+                console.error(`[CRON] Failed to download video content for ${gen.id}:`, errorText);
+                statusResult = { status: "failed", error: `Content download failed: ${errorText}` };
+              } else {
+                // Get video bytes and upload to Supabase Storage
+                const videoBlob = await contentResponse.blob();
+                const fileName = `videos/${gen.user_id}/${gen.id}.mp4`;
+                
+                console.log(`[CRON] Uploading ${videoBlob.size} bytes to storage: ${fileName}`);
+                
+                const { error: uploadError } = await supabase.storage
+                  .from("media")
+                  .upload(fileName, videoBlob, {
+                    contentType: "video/mp4",
+                    upsert: true,
+                  });
+                
+                if (uploadError) {
+                  console.error(`[CRON] Storage upload error for ${gen.id}:`, uploadError);
+                  statusResult = { status: "failed", error: `Storage upload failed: ${uploadError.message}` };
+                } else {
+                  // Get public URL
+                  const { data: publicUrlData } = supabase.storage
+                    .from("media")
+                    .getPublicUrl(fileName);
+                  
+                  const publicUrl = publicUrlData.publicUrl;
+                  console.log(`[CRON] Video uploaded for ${gen.id}: ${publicUrl}`);
+                  
+                  statusResult = { 
+                    status: "completed", 
+                    videoUrl: publicUrl,
+                    progress: 100 
+                  };
+                }
+              }
             } else if (openaiStatus === "failed" || openaiStatus === "error") {
               statusResult = { status: "failed", error: result.error };
             } else {
