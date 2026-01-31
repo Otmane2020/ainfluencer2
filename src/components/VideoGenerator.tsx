@@ -22,7 +22,15 @@ import {
   VideoScenario,
   buildScenarioPrompt,
 } from "@/lib/videoScenarios";
-import { type VideoMode, CLIPMOTION_DURATIONS, CLIPMOTION_DEFAULT_FORMAT, CLIPMOTION_FEATURES } from "@/lib/clipMotionConfig";
+import { 
+  type VideoMode, 
+  CLIPMOTION_DURATIONS, 
+  CLIPMOTION_DEFAULT_FORMAT, 
+  CLIPMOTION_FEATURES, 
+  CLIPMOTION_DEFAULT_DURATION,
+  getClipMotionCreditCost,
+  getClipMotionDurationTier,
+} from "@/lib/clipMotionConfig";
 import { ScenarioPickerModal, GeneratedScenario } from "@/components/ScenarioPickerModal";
 import {
   Dialog,
@@ -145,8 +153,10 @@ export const VideoGenerator = ({ onVideosGenerated, onTasksUpdated, initialStart
   const defaultVoice = AVAILABLE_VOICES.find((v) => v.id === storedPrefs.voiceId) || getDefaultVoice();
   
   const [generationTasks, setGenerationTasks] = useState<GenerationTask[]>([]);
+  // Default duration: 6s for ClipMotion (social optimal), 8s for standard
+  const defaultDuration = defaultVideoMode === "clipmotion" ? CLIPMOTION_DEFAULT_DURATION : 8;
   const [segments, setSegments] = useState<VideoSegment[]>([
-    { id: "1", script: "", duration: 8, status: "pending" }, // Default 8 seconds (Sora valid: 4, 8, 12)
+    { id: "1", script: "", duration: defaultDuration, status: "pending" },
   ]);
   const [selectedVoice, setSelectedVoiceState] = useState<Voice>(defaultVoice);
   const [selectedProduct, setSelectedProductState] = useState<CommercialProduct>(defaultProduct);
@@ -1080,9 +1090,19 @@ ${formattedHashtags}`;
                       onChange={(e) => updateSegment(segment.id, { duration: Number(e.target.value) })}
                       className="rounded border border-border bg-background px-2 py-1 text-xs"
                     >
-                      {selectedProduct.supportedDurations.map((dur) => (
-                        <option key={dur} value={dur}>{dur}s</option>
-                      ))}
+                      {selectedProduct.supportedDurations.map((dur) => {
+                        // Show tier and credits for ClipMotion mode
+                        const tier = getClipMotionDurationTier(dur);
+                        const credits = getClipMotionCreditCost(dur);
+                        const tierLabel = videoMode === "clipmotion" 
+                          ? ` (${credits}cr)` 
+                          : "";
+                        return (
+                          <option key={dur} value={dur}>
+                            {dur}s{tierLabel}
+                          </option>
+                        );
+                      })}
                     </select>
                   )}
                   {segments.length > 1 && (

@@ -391,26 +391,122 @@ export const IMAGE_QUALITY_LEVELS: QualityLevel[] = [
   },
 ];
 
+// ============================================================
+// VIDEO QUALITY LEVELS - Duration-Based Pricing Strategy
+// 
+// STRATEGY:
+// • Social Boost   → 4-6s (TikTok/Reels/Shorts optimal)
+// • Pro Engagement → 8-12s (Ads, professional content)
+// • Cinema Premium → 12-20s (Brand films, high-end)
+// 
+// Cost scales with duration (GPU time + complexity)
+// ============================================================
+
+export interface VideoDurationTier {
+  id: string;
+  label: string;
+  minDuration: number;
+  maxDuration: number;
+  durations: number[];
+  creditMultiplier: number;
+  description: string;
+}
+
+export const VIDEO_DURATION_TIERS: VideoDurationTier[] = [
+  {
+    id: "social",
+    label: "Social Boost",
+    minDuration: 4,
+    maxDuration: 6,
+    durations: [4, 5, 6],
+    creditMultiplier: 1,
+    description: "Optimal for TikTok, Reels, Shorts",
+  },
+  {
+    id: "pro",
+    label: "Pro Engagement",
+    minDuration: 8,
+    maxDuration: 12,
+    durations: [8, 10, 12],
+    creditMultiplier: 2,
+    description: "Perfect for ads and professional content",
+  },
+  {
+    id: "cinema",
+    label: "Cinema Premium",
+    minDuration: 12,
+    maxDuration: 20,
+    durations: [12, 15, 20],
+    creditMultiplier: 4,
+    description: "Brand films, high-end productions",
+  },
+];
+
 export const VIDEO_QUALITY_LEVELS: QualityLevel[] = [
   {
     id: "standard-video",
     name: "Sora 2",
     internalModel: "sora-2",
-    price: 5.00,
+    price: 5.00, // Base price for 4-6s
     description: "OpenAI cinematic HD videos",
-    features: ["1080p", "4-12s", "Cinematic"],
-    supportedDurations: [4, 8, 12],
+    features: ["1080p", "Up to 12s", "Cinematic"],
+    supportedDurations: [4, 5, 6, 8, 10, 12],
   },
   {
     id: "pro-video",
     name: "Sora 2 Pro",
     internalModel: "sora-2-pro",
-    price: 10.00,
-    description: "OpenAI maximum quality, ultra-realistic",
-    features: ["4K", "4-12s", "HDR", "Premium"],
-    supportedDurations: [4, 8, 12],
+    price: 10.00, // Base price for 4-6s
+    description: "OpenAI maximum quality, up to 20s",
+    features: ["4K", "Up to 20s", "HDR", "Premium"],
+    supportedDurations: [4, 5, 6, 8, 10, 12, 15, 20],
   },
 ];
+
+// Calculate credit cost based on duration tier
+export const getVideoCreditCost = (
+  baseCredits: number, 
+  duration: number
+): number => {
+  // 4-6s = base
+  if (duration <= 6) return baseCredits;
+  // 8-12s = 2x base
+  if (duration <= 12) return baseCredits * 2;
+  // 12-20s = 4x base (premium)
+  return baseCredits * 4;
+};
+
+// Get duration tier for a given duration
+export const getDurationTier = (duration: number): VideoDurationTier => {
+  if (duration <= 6) return VIDEO_DURATION_TIERS[0];
+  if (duration <= 12) return VIDEO_DURATION_TIERS[1];
+  return VIDEO_DURATION_TIERS[2];
+};
+
+// Get all valid durations for a model
+export const getValidDurations = (modelId: string): number[] => {
+  const model = VIDEO_QUALITY_LEVELS.find(m => m.internalModel === modelId);
+  return model?.supportedDurations || [4, 8, 12];
+};
+
+// Clamp to nearest valid duration
+export const clampToValidDuration = (duration: number, modelId: string): number => {
+  const validDurations = getValidDurations(modelId);
+  
+  // Find closest valid duration
+  let closest = validDurations[0];
+  let minDiff = Math.abs(duration - closest);
+  
+  for (const valid of validDurations) {
+    const diff = Math.abs(duration - valid);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closest = valid;
+    }
+  }
+  
+  return closest;
+};
 
 export const COMETAPI_MODEL_ROUTING: Record<string, string> = {
   // Image models

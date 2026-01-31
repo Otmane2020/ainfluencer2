@@ -13,21 +13,37 @@ const corsHeaders = {
 };
 
 // ============================================================
-// CREDIT COSTS BY QUALITY
+// CREDIT COSTS - Duration-Based Pricing Strategy
+// • Social Boost   → 4-6s (BASE cost)
+// • Pro Engagement → 8-12s (2x cost)
+// • Cinema Premium → 12-20s (4x cost)
 // ============================================================
 
-const CREDIT_COSTS: Record<string, number> = {
-  standard: 5,
-  pro: 10,
-  cinema: 20,
+const BASE_CREDIT_COSTS: Record<string, number> = {
+  standard: 5,  // Sora 2 base
+  pro: 10,      // Sora 2 Pro base
+  cinema: 10,   // Same as pro (uses Sora 2 Pro)
   // Legacy mappings
   "smart-video": 5,
   "high-video": 10,
-  "cinema-video": 20,
+  "cinema-video": 10,
 };
 
-function getCreditCost(quality: string): number {
-  return CREDIT_COSTS[quality] || CREDIT_COSTS["standard"];
+// Calculate credit cost based on quality AND duration tier
+function getCreditCost(quality: string, duration: number): number {
+  const baseCost = BASE_CREDIT_COSTS[quality] || BASE_CREDIT_COSTS["standard"];
+  
+  // Duration tier multipliers
+  if (duration <= 6) return baseCost;       // Social tier: 1x
+  if (duration <= 12) return baseCost * 2;  // Pro tier: 2x
+  return baseCost * 4;                       // Cinema tier: 4x
+}
+
+// Get duration tier label for logging
+function getDurationTierLabel(duration: number): string {
+  if (duration <= 6) return "Social (1x)";
+  if (duration <= 12) return "Pro (2x)";
+  return "Cinema (4x)";
 }
 
 // ============================================================
@@ -404,15 +420,16 @@ serve(async (req) => {
       // Clamp duration to model limits
       const clampedDuration = clampDuration(duration, modelConfig);
 
-      // Determine credit cost
-      const creditCost = getCreditCost(quality);
+      // Determine credit cost (based on quality AND duration tier)
+      const creditCost = getCreditCost(quality, clampedDuration);
+      const durationTier = getDurationTierLabel(clampedDuration);
 
       console.log("=== Video Generation ===");
       console.log(`User: ${userId || "anonymous"}`);
       console.log(`Quality: ${quality} | Model: ${modelConfig.model} | Provider: ${modelConfig.provider}`);
-      console.log(`Credit Cost: ${creditCost}`);
+      console.log(`Duration: ${clampedDuration}s | Tier: ${durationTier} | Credit Cost: ${creditCost}`);
       console.log("Prompt:", prompt.substring(0, 100) + "...");
-      console.log("Duration:", clampedDuration, "s | Size:", size);
+      console.log("Size:", size);
 
       // ============================================================
       // CREDIT VALIDATION & DEDUCTION
