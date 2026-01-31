@@ -37,9 +37,13 @@ interface VideoModelConfig {
   requestBody: (prompt: string, duration: number, aspectRatio: string) => Record<string, any>;
 }
 
-// CometAPI model configurations with correct endpoints
+// CometAPI model configurations with VERIFIED endpoints
+// Reference: https://apidoc.cometapi.com/
 const COMETAPI_MODELS: Record<string, VideoModelConfig> = {
-  // Kling models - use Kling endpoint
+  // ============================================================
+  // KLING MODELS - Endpoint: /v1/kling/m2v_txt2video
+  // Most reliable, supports 5s and 10s durations
+  // ============================================================
   "kling-v2.5-turbo": {
     model: "kling-v2-5",
     endpoint: "https://api.cometapi.com/v1/kling/m2v_txt2video",
@@ -63,6 +67,7 @@ const COMETAPI_MODELS: Record<string, VideoModelConfig> = {
       duration: String(duration > 5 ? 10 : 5),
       aspect_ratio: aspectRatio,
       model_name: "kling-v2-1-master",
+      mode: "pro",
     }),
   },
   "kling-v2.1-master": {
@@ -75,75 +80,64 @@ const COMETAPI_MODELS: Record<string, VideoModelConfig> = {
       duration: String(duration > 5 ? 10 : 5),
       aspect_ratio: aspectRatio,
       model_name: "kling-v2-1-master",
+      mode: "pro",
     }),
   },
-  // MiniMax Hailuo - use MiniMax endpoint
+  
+  // ============================================================
+  // MINIMAX CONCH - Endpoint: /v1/minimax/video_generation
+  // Fast generation, fixed ~6s duration
+  // ============================================================
   "minimax-hailuo": {
-    model: "minimax-hailuo",
-    endpoint: "https://api.cometapi.com/v1/minimax/video/text_to_video",
+    model: "minimax-video-01",
+    endpoint: "https://api.cometapi.com/v1/minimax/video_generation",
     maxDuration: 6,
     displayName: "MiniMax Hailuo",
-    requestBody: (prompt, duration, aspectRatio) => ({
+    requestBody: (prompt, _duration, _aspectRatio) => ({
       prompt,
-      model: "video-01",
+      model: "video-01-live2d",
     }),
   },
-  // Sora models - use Sora endpoint
-  "sora": {
-    model: "sora",
-    endpoint: "https://api.cometapi.com/v1/sora/generations",
-    maxDuration: 12,
-    displayName: "Sora 2",
+  
+  // ============================================================
+  // BYTEDANCE/SEAWEED - Endpoint: /v1/video/bytedance/generations
+  // Alternative reliable provider
+  // ============================================================
+  "bytedance-video": {
+    model: "bytedance-video",
+    endpoint: "https://api.cometapi.com/v1/video/bytedance/generations",
+    maxDuration: 8,
+    displayName: "Bytedance Video",
     requestBody: (prompt, duration, aspectRatio) => ({
       prompt,
-      duration: String(duration),
-      aspect_ratio: aspectRatio,
-      model: "sora",
+      duration: Math.min(duration, 8),
+      aspect_ratio: aspectRatio === "9:16" ? "portrait" : "landscape",
     }),
   },
-  "sora-2": {
-    model: "sora-2",
-    endpoint: "https://api.cometapi.com/v1/sora/generations",
-    maxDuration: 20,
-    displayName: "Sora 2 Pro",
+  
+  // ============================================================
+  // RUNWAY GEN4 - Endpoint: /v1/runway/generations
+  // High quality, slower
+  // ============================================================
+  "runway-gen4": {
+    model: "gen4_turbo",
+    endpoint: "https://api.cometapi.com/v1/runway/generations",
+    maxDuration: 10,
+    displayName: "Runway Gen4",
     requestBody: (prompt, duration, aspectRatio) => ({
       prompt,
-      duration: String(duration),
+      duration: Math.min(duration, 10),
       aspect_ratio: aspectRatio,
-      model: "sora-2",
-    }),
-  },
-  // Veo models
-  "veo-3.1": {
-    model: "veo-3.1",
-    endpoint: "https://api.cometapi.com/v1/veo3/generate",
-    maxDuration: 12,
-    displayName: "Veo 3.1",
-    requestBody: (prompt, duration, aspectRatio) => ({
-      prompt,
-      duration: String(duration),
-      aspect_ratio: aspectRatio,
-    }),
-  },
-  "veo-3.1-pro": {
-    model: "veo-3.1-pro",
-    endpoint: "https://api.cometapi.com/v1/veo3/generate",
-    maxDuration: 16,
-    displayName: "Veo 3.1 Pro",
-    requestBody: (prompt, duration, aspectRatio) => ({
-      prompt,
-      duration: String(duration),
-      aspect_ratio: aspectRatio,
-      quality: "pro",
+      model: "gen4_turbo",
     }),
   },
 };
 
-// Fallback chains for each quality tier
+// Fallback chains for each quality tier - KLING FIRST (most reliable)
 const MODEL_FALLBACK_CHAINS: Record<string, string[]> = {
-  cinema: ["sora-2", "veo-3.1-pro", "kling-v2-master"],
-  pro: ["sora", "veo-3.1", "kling-v2.1-master"],
-  standard: ["kling-v2.5-turbo", "minimax-hailuo", "kling-v2-master"],
+  cinema: ["kling-v2-master", "runway-gen4", "bytedance-video"],
+  pro: ["kling-v2.1-master", "bytedance-video", "minimax-hailuo"],
+  standard: ["kling-v2.5-turbo", "minimax-hailuo", "bytedance-video"],
 };
 
 function getModelFallbackChain(quality: string): VideoModelConfig[] {
