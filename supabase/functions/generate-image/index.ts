@@ -262,11 +262,12 @@ async function generateWithOpenAI(
   }
 
   try {
-    // Map aspect ratio to OpenAI size
+    // Map aspect ratio to OpenAI gpt-image-1 supported sizes
+    // Supported: '1024x1024', '1024x1536', '1536x1024', and 'auto'
     const sizeMap: Record<string, string> = {
-      "9:16": "1024x1792",
-      "16:9": "1792x1024",
-      "1:1": "1024x1024",
+      "9:16": "1024x1536",  // Vertical (closest to 9:16)
+      "16:9": "1536x1024",  // Landscape
+      "1:1": "1024x1024",   // Square
     };
     const size = sizeMap[aspectRatio] || "1024x1024";
 
