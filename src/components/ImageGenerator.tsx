@@ -418,7 +418,16 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
         </Dialog>
       </div>
 
-      {/* Brand Options - Hidden from Image tab (available in Campaigns) */}
+      {/* Brand Options */}
+      {selectedProject && (
+        <div className="mb-4">
+          <BrandOptions
+            options={brandOptions}
+            onChange={setBrandOptions}
+            compact
+          />
+        </div>
+      )}
 
       {/* Prompt Workspace */}
       <div className="space-y-3">
