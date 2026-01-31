@@ -228,24 +228,56 @@ export const CampaignDetailModal = ({
   const handleSaveSettings = async () => {
     if (!campaign) return;
     setIsSaving(true);
-    const {
-      error
-    } = await supabase.from("campaigns").update({
+    
+    // 1. Update campaign settings
+    const { error } = await supabase.from("campaigns").update({
       posting_hour: postingHour,
       timezone
     }).eq("id", campaign.id);
+
     if (error) {
       toast({
         title: "Error",
         description: "Unable to save settings",
         variant: "destructive"
       });
+      setIsSaving(false);
+      return;
+    }
+
+    // 2. Update all scheduled posts for this campaign with new posting hour
+    // This updates the hour while keeping the date
+    const { data: campaignPosts, error: fetchError } = await supabase
+      .from("scheduled_posts")
+      .select("id, scheduled_for")
+      .eq("campaign_id", campaign.id)
+      .neq("status", "published");
+
+    if (!fetchError && campaignPosts && campaignPosts.length > 0) {
+      // Update each post with the new posting hour
+      for (const post of campaignPosts) {
+        const currentDate = new Date(post.scheduled_for);
+        // Set the new hour while keeping the date
+        currentDate.setHours(postingHour, Math.floor(Math.random() * 60), 0, 0);
+        
+        await supabase
+          .from("scheduled_posts")
+          .update({ scheduled_for: currentDate.toISOString() })
+          .eq("id", post.id);
+      }
+      
+      toast({
+        title: "Settings saved ✓",
+        description: `${campaignPosts.length} post(s) updated with new schedule`
+      });
     } else {
       toast({
         title: "Settings saved ✓"
       });
-      onUpdate();
     }
+    
+    onUpdate();
+    fetchCampaignPosts();
     setIsSaving(false);
   };
   if (!campaign) return null;

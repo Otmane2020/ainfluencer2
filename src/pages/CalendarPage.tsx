@@ -51,6 +51,8 @@ interface Campaign {
   project_id: string;
   campaign_type: string;
   status: string;
+  posting_hour: number | null;
+  timezone: string | null;
 }
 
 interface ScheduledPost {
@@ -115,7 +117,7 @@ const CalendarPage = () => {
   const fetchCampaigns = async () => {
     const { data } = await supabase
       .from("campaigns")
-      .select("id, name, project_id, campaign_type, status")
+      .select("id, name, project_id, campaign_type, status, posting_hour, timezone")
       .order("created_at", { ascending: false });
 
     if (data) {
@@ -467,18 +469,25 @@ const CalendarPage = () => {
                   <span className={`text-xs font-medium ${isToday(day) ? "text-primary" : ""}`}>
                     {format(day, "d")}
                   </span>
-                  {/* Show dots for posts on mobile, full on desktop */}
-                  <div className="flex flex-wrap gap-0.5 mt-0.5">
-                    {dayPosts.slice(0, 3).map((post) => (
+                  {/* Show time + dots for posts */}
+                  <div className="flex flex-col gap-0.5 mt-0.5">
+                    {dayPosts.slice(0, 2).map((post) => (
                       <div
                         key={post.id}
                         onClick={(e) => handlePostClick(post, e)}
-                        className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full cursor-pointer hover:scale-150 transition-transform"
-                        style={{ backgroundColor: getProjectColor(post.project_id) }}
-                      />
+                        className="flex items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity"
+                      >
+                        <div
+                          className="h-1.5 w-1.5 rounded-full shrink-0"
+                          style={{ backgroundColor: getProjectColor(post.project_id) }}
+                        />
+                        <span className="text-[8px] md:text-[10px] text-muted-foreground truncate">
+                          {format(new Date(post.scheduled_for), "HH:mm")}
+                        </span>
+                      </div>
                     ))}
-                    {dayPosts.length > 3 && (
-                      <span className="text-[8px] text-muted-foreground">+{dayPosts.length - 3}</span>
+                    {dayPosts.length > 2 && (
+                      <span className="text-[8px] text-muted-foreground">+{dayPosts.length - 2}</span>
                     )}
                   </div>
                 </div>
