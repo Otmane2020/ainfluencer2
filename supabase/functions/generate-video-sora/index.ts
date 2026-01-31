@@ -490,9 +490,20 @@ serve(async (req) => {
 
       console.log(`[VIDEO] Project context: ${projectName || "none"} | Language: ${detectedLanguage || "en"}`);
 
-      // Create generation record
+      // Create generation record with delayed check scheduling
+      // Provider-based check delays: OpenAI Sora = 150s, CometAPI Veo = 45s
+      const PROVIDER_CHECK_DELAYS: Record<string, number> = {
+        openai: 150000,  // 2.5 minutes for Sora
+        cometapi: 45000, // 45 seconds for Veo
+      };
+      
       let generationId: string | null = null;
       if (userId) {
+        // Calculate initial check_after based on primary model's provider
+        const primaryProvider = modelConfig.provider;
+        const checkDelay = PROVIDER_CHECK_DELAYS[primaryProvider] || 120000;
+        const checkAfter = new Date(Date.now() + checkDelay);
+        
         const { data: genData, error: genError } = await supabase
           .from("generations")
           .insert({
@@ -512,13 +523,17 @@ serve(async (req) => {
             estimated_cost: creditCost,
             actual_cost: skipCreditDeduction ? 0 : creditCost,
             started_at: new Date().toISOString(),
+            // Delayed check fields
+            provider: primaryProvider,
+            check_after: checkAfter.toISOString(),
+            check_count: 0,
           })
           .select("id")
           .single();
 
         if (!genError && genData) {
           generationId = genData.id;
-          console.log("Created generation record:", generationId);
+          console.log(`Created generation record: ${generationId} (check_after: ${checkAfter.toISOString()})`);
         }
       }
 
@@ -575,17 +590,24 @@ serve(async (req) => {
         );
       }
       
-      // Update generation record with task ID and model used
+      // Update generation record with task ID, provider, and model used
       if (generationId) {
+        const checkDelay = result.model.provider === "cometapi" ? 45000 : 150000;
+        const checkAfter = new Date(Date.now() + checkDelay);
+        
         await supabase
           .from("generations")
           .update({
             external_task_id: result.taskId,
             model: result.model.model,
+            provider: result.model.provider,
             progress: 20,
             step: "processing",
+            check_after: checkAfter.toISOString(),
           })
           .eq("id", generationId);
+        
+        console.log(`[VIDEO] Updated generation with task ID, next check at: ${checkAfter.toISOString()}`);
       }
 
       return new Response(
