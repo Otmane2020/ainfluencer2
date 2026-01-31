@@ -25,8 +25,8 @@ function getCreditCost(quality: string): number {
 }
 
 // ============================================================
-// MODEL SELECTION - OPENAI SORA 2 + COMETAPI FALLBACKS
-// Priority: OpenAI Sora 2 > CometAPI models
+// MODEL SELECTION - OPENAI SORA 2 ONLY
+// All video generation uses OpenAI Sora models
 // ============================================================
 
 interface VideoModelConfig {
@@ -34,15 +34,15 @@ interface VideoModelConfig {
   endpoint: string;
   maxDuration: number;
   displayName: string;
-  provider: "openai" | "cometapi";
+  provider: "openai";
   requestBody: (prompt: string, duration: number, aspectRatio: string) => Record<string, any>;
 }
 
 // ============================================================
-// OPENAI SORA 2 MODELS - Primary for cinema/pro quality
+// OPENAI SORA 2 MODELS
 // API: POST https://api.openai.com/v1/videos (multipart/form-data)
 // ============================================================
-const OPENAI_SORA_MODELS: Record<string, VideoModelConfig> = {
+const SORA_MODELS: Record<string, VideoModelConfig> = {
   "sora-2-pro": {
     model: "sora-2-pro",
     endpoint: "https://api.openai.com/v1/videos",
@@ -71,103 +71,16 @@ const OPENAI_SORA_MODELS: Record<string, VideoModelConfig> = {
   },
 };
 
-// ============================================================
-// COMETAPI MODELS - Fallback when OpenAI unavailable
-// ============================================================
-const COMETAPI_MODELS: Record<string, VideoModelConfig> = {
-  // KLING MODELS
-  "kling-v2.5-turbo": {
-    model: "kling-v2-5-turbo",
-    endpoint: "https://api.cometapi.com/kling/v1/videos/text2video",
-    maxDuration: 10,
-    displayName: "Kling V2.5 Turbo",
-    provider: "cometapi",
-    requestBody: (prompt, duration, aspectRatio) => ({
-      model_name: "kling-v2-5-turbo",
-      prompt,
-      duration: String(duration > 5 ? 10 : 5),
-      aspect_ratio: aspectRatio,
-      mode: "pro",
-    }),
-  },
-  "kling-v2-master": {
-    model: "kling-v2-master",
-    endpoint: "https://api.cometapi.com/kling/v1/videos/text2video",
-    maxDuration: 10,
-    displayName: "Kling V2 Master",
-    provider: "cometapi",
-    requestBody: (prompt, duration, aspectRatio) => ({
-      model_name: "kling-v2-master",
-      prompt,
-      duration: String(duration > 5 ? 10 : 5),
-      aspect_ratio: aspectRatio,
-    }),
-  },
-  "kling-v2.1-master": {
-    model: "kling-v2-1-master",
-    endpoint: "https://api.cometapi.com/kling/v1/videos/text2video",
-    maxDuration: 10,
-    displayName: "Kling V2.1 Master",
-    provider: "cometapi",
-    requestBody: (prompt, duration, aspectRatio) => ({
-      model_name: "kling-v2-1-master",
-      prompt,
-      duration: String(duration > 5 ? 10 : 5),
-      aspect_ratio: aspectRatio,
-    }),
-  },
-  
-  // MINIMAX
-  "minimax-hailuo": {
-    model: "video-01",
-    endpoint: "https://api.cometapi.com/v1/video_generation",
-    maxDuration: 6,
-    displayName: "MiniMax Hailuo",
-    provider: "cometapi",
-    requestBody: (prompt, _duration, _aspectRatio) => ({
-      model: "video-01",
-      prompt,
-    }),
-  },
-  
-  // BYTEDANCE/SEEDANCE
-  "bytedance-video": {
-    model: "doubao-seedance-1-0-lite-t2v-250428",
-    endpoint: "https://api.cometapi.com/volc/v3/contents/generations/tasks",
-    maxDuration: 8,
-    displayName: "Bytedance Seedance",
-    provider: "cometapi",
-    requestBody: (prompt, _duration, aspectRatio) => ({
-      model: "doubao-seedance-1-0-lite-t2v-250428",
-      content: [
-        {
-          type: "text",
-          text: prompt,
-        }
-      ],
-      parameters: {
-        aspect_ratio: aspectRatio === "9:16" ? "9:16" : "16:9",
-      },
-    }),
-  },
-};
-
-// All models combined
-const ALL_MODELS: Record<string, VideoModelConfig> = {
-  ...OPENAI_SORA_MODELS,
-  ...COMETAPI_MODELS,
-};
-
-// Fallback chains for each quality tier - Sora 2 first for cinema/pro
+// Quality tier mapping - All use Sora models
 const MODEL_FALLBACK_CHAINS: Record<string, string[]> = {
-  cinema: ["sora-2-pro", "kling-v2-master", "bytedance-video", "minimax-hailuo"],
-  pro: ["sora-2", "kling-v2.1-master", "bytedance-video", "minimax-hailuo"],
-  standard: ["kling-v2.5-turbo", "minimax-hailuo", "bytedance-video"],
+  cinema: ["sora-2-pro"],
+  pro: ["sora-2-pro", "sora-2"],
+  standard: ["sora-2"],
 };
 
 function getModelFallbackChain(quality: string): VideoModelConfig[] {
   const modelIds = MODEL_FALLBACK_CHAINS[quality] || MODEL_FALLBACK_CHAINS["standard"];
-  return modelIds.map(id => ALL_MODELS[id]).filter(Boolean);
+  return modelIds.map(id => SORA_MODELS[id]).filter(Boolean);
 }
 
 function getVideoModel(quality: string): VideoModelConfig {
@@ -181,8 +94,8 @@ function clampDuration(duration: number, config: VideoModelConfig): number {
 }
 
 // ============================================================
-// VIDEO GENERATION WITH MULTI-PROVIDER FALLBACK
-// Supports both OpenAI Sora 2 and CometAPI models
+// OPENAI SORA VIDEO GENERATION
+// All models use OpenAI Sora API
 // ============================================================
 
 async function tryVideoGeneration(
@@ -190,58 +103,41 @@ async function tryVideoGeneration(
   prompt: string,
   duration: number,
   aspectRatio: string,
-  openaiApiKey: string | null,
-  cometApiKey: string
+  openaiApiKey: string
 ): Promise<{ success: boolean; model: VideoModelConfig; taskId?: string; status?: string; mediaUrl?: string; error?: string }> {
+  
+  if (!openaiApiKey) {
+    return {
+      success: false,
+      model: models[0],
+      error: "OpenAI API key is not configured. Please add OPENAI_API_KEY in secrets.",
+    };
+  }
   
   for (let i = 0; i < models.length; i++) {
     const model = models[i];
     const clampedDuration = clampDuration(duration, model);
     
-    // Skip OpenAI models if no API key
-    if (model.provider === "openai" && !openaiApiKey) {
-      console.log(`[FALLBACK ${i + 1}/${models.length}] Skipping ${model.displayName} - no OpenAI API key`);
-      continue;
-    }
-    
-    // Select the right API key based on provider
-    const apiKey = model.provider === "openai" ? openaiApiKey! : cometApiKey;
-    
-    console.log(`[FALLBACK ${i + 1}/${models.length}] Trying ${model.displayName} (${model.model}) via ${model.provider}...`);
-    console.log(`[FALLBACK] Endpoint: ${model.endpoint}`);
+    console.log(`[SORA ${i + 1}/${models.length}] Trying ${model.displayName} (${model.model})...`);
+    console.log(`[SORA] Endpoint: ${model.endpoint}`);
     
     try {
       const requestBody = model.requestBody(prompt, clampedDuration, aspectRatio);
-      console.log(`[FALLBACK] Request body:`, JSON.stringify(requestBody).substring(0, 200));
-      
-      let response: Response;
+      console.log(`[SORA] Request body:`, JSON.stringify(requestBody).substring(0, 200));
       
       // OpenAI Sora uses multipart/form-data
-      if (model.provider === "openai") {
-        const formData = new FormData();
-        Object.entries(requestBody).forEach(([key, value]) => {
-          formData.append(key, String(value));
-        });
-        
-        response = await fetch(model.endpoint, {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${apiKey}`,
-          },
-          body: formData,
-        });
-      } else {
-        // CometAPI uses JSON
-        response = await fetch(model.endpoint, {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-          },
-          body: JSON.stringify(requestBody),
-        });
-      }
+      const formData = new FormData();
+      Object.entries(requestBody).forEach(([key, value]) => {
+        formData.append(key, String(value));
+      });
+      
+      const response = await fetch(model.endpoint, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${openaiApiKey}`,
+        },
+        body: formData,
+      });
       
       const responseText = await response.text();
       console.log(`[${model.model}] Response: ${response.status} - ${responseText.substring(0, 300)}`);
@@ -366,16 +262,14 @@ serve(async (req) => {
   }
 
   try {
-    const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     
-    if (!COMETAPI_API_KEY) {
-      throw new Error("COMETAPI_API_KEY is not configured");
+    if (!OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY is not configured. Please add your OpenAI API key in secrets.");
     }
     
     // Log API key availability (for debugging)
-    console.log(`[CONFIG] OpenAI Sora 2: ${OPENAI_API_KEY ? "✓ Available" : "✗ Not configured"}`);
-    console.log(`[CONFIG] CometAPI: ${COMETAPI_API_KEY ? "✓ Available" : "✗ Not configured"}`);
+    console.log(`[CONFIG] OpenAI Sora 2: ✓ Available`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -586,8 +480,7 @@ serve(async (req) => {
         fullPrompt,
         clampedDuration,
         aspectRatio,
-        OPENAI_API_KEY || null,
-        COMETAPI_API_KEY
+        OPENAI_API_KEY
       );
       
       if (!result.success) {
@@ -688,73 +581,25 @@ serve(async (req) => {
       }
 
       // ============================================================
-      // MODEL-SPECIFIC STATUS ENDPOINTS
-      // Each CometAPI model family has its own status endpoint
+      // OPENAI SORA STATUS CHECK
+      // API: GET https://api.openai.com/v1/videos/{video_id}
       // ============================================================
       
-      // Detect model family from task ID prefix or generation record
-      let modelFamily = "kling"; // Default to Kling (most common)
-      
-      if (generationId) {
-        const { data: genData } = await supabase
-          .from("generations")
-          .select("model")
-          .eq("id", generationId)
-          .single();
-        
-        if (genData?.model) {
-          const model = genData.model.toLowerCase();
-          if (model.includes("kling")) modelFamily = "kling";
-          else if (model.includes("minimax") || model.includes("hailuo")) modelFamily = "minimax";
-          else if (model.includes("runway") || model.includes("gen4")) modelFamily = "runway";
-          else if (model.includes("bytedance") || model.includes("seaweed")) modelFamily = "bytedance";
-        }
-      }
-      
-      // Model-specific status endpoint mapping
-      const STATUS_ENDPOINTS: Record<string, (id: string) => string> = {
-        kling: (id) => `https://api.cometapi.com/v1/kling/task/${id}`,
-        minimax: (id) => `https://api.cometapi.com/v1/minimax/query/${id}`,
-        runway: (id) => `https://api.cometapi.com/v1/runway/task/${id}`,
-        bytedance: (id) => `https://api.cometapi.com/v1/video/bytedance/${id}`,
-        // Fallback to legacy generic endpoint
-        legacy: (id) => `https://api.cometapi.com/v1/videos/${id}`,
-      };
-      
-      const statusEndpoint = STATUS_ENDPOINTS[modelFamily] || STATUS_ENDPOINTS.legacy;
-      const statusUrl = statusEndpoint(taskId);
-      
-      console.log(`[STATUS] Checking ${modelFamily} task ${taskId} at ${statusUrl}`);
+      const statusUrl = `https://api.openai.com/v1/videos/${taskId}`;
+      console.log(`[STATUS] Checking Sora task ${taskId} at ${statusUrl}`);
 
       const response = await fetch(statusUrl, {
         method: "GET",
         headers: {
-          "Authorization": `Bearer ${COMETAPI_API_KEY}`,
-          "Content-Type": "application/json",
-          "Accept": "application/json", // Force JSON response
+          "Authorization": `Bearer ${OPENAI_API_KEY}`,
         },
       });
 
       const responseText = await response.text();
-      console.log(`[STATUS] Response: ${response.status} - ${responseText.substring(0, 200)}`);
+      console.log(`[STATUS] Response: ${response.status} - ${responseText.substring(0, 300)}`);
       
-      // Handle HTML error page
-      if (responseText.trim().startsWith("<!") || responseText.trim().startsWith("<html")) {
-        console.warn(`[STATUS] Received HTML - endpoint may not exist for ${modelFamily}`);
-        // Return in-progress status to keep polling
-        return new Response(
-          JSON.stringify({
-            id: taskId,
-            status: "in_progress",
-            progress: 50,
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
       if (!response.ok) {
         console.error("Status check error:", responseText);
-        // Don't throw - return in-progress to keep polling
         return new Response(
           JSON.stringify({
             id: taskId,
@@ -780,17 +625,17 @@ serve(async (req) => {
         );
       }
       
-      // Normalize response across different model families
-      const taskStatus = result.task?.status_name || result.status || result.task_status || "queued";
-      const taskProgress = result.progress || result.task?.progress || 0;
+      // OpenAI Sora response format
+      const taskStatus = result.status || "queued";
+      const taskProgress = result.progress || 0;
       
       console.log(`[STATUS] Task status: ${taskStatus}, progress: ${taskProgress}`);
 
       const statusResponse: VideoStatusResponse = {
         id: taskId,
-        status: taskStatus === "succeed" || taskStatus === "completed" || taskStatus === "complete" ? "completed" :
-                taskStatus === "failed" || taskStatus === "error" ? "failed" :
-                taskStatus === "queued" || taskStatus === "pending" ? "queued" : "in_progress",
+        status: taskStatus === "completed" ? "completed" :
+                taskStatus === "failed" ? "failed" :
+                taskStatus === "queued" ? "queued" : "in_progress",
         progress: taskProgress,
       };
 
@@ -801,43 +646,38 @@ serve(async (req) => {
       }
 
       if (statusResponse.status === "completed") {
-        // Extract video URL from various response formats
-        let videoUrl = result.output_video || result.video_url || result.url ||
-                       result.task?.works?.[0]?.resource?.resource ||
-                       result.works?.[0]?.resource?.resource ||
-                       result.data?.video_url ||
-                       result.output?.video;
+        // Download video from OpenAI and upload to our storage
+        console.log("[STATUS] Video completed, downloading from OpenAI...");
         
-        // If no URL found, try content endpoint
-        if (!videoUrl) {
-          console.log("[STATUS] No video URL in response, trying content endpoint...");
-          try {
-            const contentResponse = await fetch(`https://api.cometapi.com/v1/videos/${taskId}/content`, {
-              headers: { "Authorization": `Bearer ${COMETAPI_API_KEY}` },
-            });
+        try {
+          const contentResponse = await fetch(`https://api.openai.com/v1/videos/${taskId}/content`, {
+            headers: { "Authorization": `Bearer ${OPENAI_API_KEY}` },
+          });
+          
+          if (contentResponse.ok) {
+            const videoBlob = await contentResponse.blob();
+            const arrayBuffer = await videoBlob.arrayBuffer();
+            const uint8Array = new Uint8Array(arrayBuffer);
             
-            if (contentResponse.ok) {
-              const videoBlob = await contentResponse.blob();
-              const arrayBuffer = await videoBlob.arrayBuffer();
-              const uint8Array = new Uint8Array(arrayBuffer);
-              
-              const fileName = `videos/${Date.now()}-${taskId}.mp4`;
-              const { error: uploadError } = await supabase.storage
-                .from("media")
-                .upload(fileName, uint8Array, { contentType: "video/mp4", upsert: true });
-              
-              if (!uploadError) {
-                const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(fileName);
-                videoUrl = publicUrlData.publicUrl;
-                console.log("[STATUS] Video uploaded to storage:", videoUrl);
-              }
+            const fileName = `videos/${Date.now()}-${taskId}.mp4`;
+            const { error: uploadError } = await supabase.storage
+              .from("media")
+              .upload(fileName, uint8Array, { contentType: "video/mp4", upsert: true });
+            
+            if (!uploadError) {
+              const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(fileName);
+              statusResponse.videoUrl = publicUrlData.publicUrl;
+              console.log("[STATUS] Video uploaded to storage:", statusResponse.videoUrl);
+            } else {
+              console.error("[STATUS] Upload error:", uploadError);
             }
-          } catch (e) {
-            console.error("[STATUS] Content download failed:", e);
+          } else {
+            console.error("[STATUS] Content download failed:", await contentResponse.text());
           }
+        } catch (e) {
+          console.error("[STATUS] Content download error:", e);
         }
         
-        statusResponse.videoUrl = videoUrl;
         dbProgress = 100;
 
         // Update generation as completed
@@ -846,7 +686,7 @@ serve(async (req) => {
             .from("generations")
             .update({
               status: "completed",
-              media_url: videoUrl,
+              media_url: statusResponse.videoUrl,
               step: "completed",
               progress: 100,
               completed_at: new Date().toISOString(),
@@ -854,10 +694,10 @@ serve(async (req) => {
             .eq("id", generationId);
         }
         
-        console.log(`✓ [STATUS] Video completed: ${videoUrl?.substring(0, 50)}...`);
+        console.log(`✓ [STATUS] Video completed: ${statusResponse.videoUrl?.substring(0, 50)}...`);
         
       } else if (statusResponse.status === "failed") {
-        statusResponse.error = result.error || result.message || "Video generation failed";
+        statusResponse.error = result.error?.message || result.error || "Video generation failed";
         
         if (generationId) {
           await supabase
@@ -890,10 +730,10 @@ serve(async (req) => {
 
       console.log("Downloading video for task:", taskId);
 
-      const response = await fetch(`https://api.cometapi.com/v1/videos/${taskId}/content`, {
+      const response = await fetch(`https://api.openai.com/v1/videos/${taskId}/content`, {
         method: "GET",
         headers: {
-          "Authorization": `Bearer ${COMETAPI_API_KEY}`,
+          "Authorization": `Bearer ${OPENAI_API_KEY}`,
         },
       });
 
