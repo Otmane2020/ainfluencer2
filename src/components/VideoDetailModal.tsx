@@ -299,6 +299,7 @@ export const VideoDetailModal = ({
           caption: socialCaption || title || "AI Generated Video",
           platforms: selectedPlatforms.filter(p => ["instagram", "facebook", "youtube", "tiktok"].includes(p)),
           thumbnailUrl: thumbnailUrl || undefined,
+          projectId: projectId || undefined, // Include project ID for proper post logging
         },
       });
 
