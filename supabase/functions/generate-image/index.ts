@@ -533,6 +533,8 @@ Deno.serve(async (req) => {
       detectedLanguage: outputLanguage,
       marketingContext: marketingContext as MarketingContext || null,
       aiContextSummary: aiContextSummary,
+      scrapedMarkdown: marketingContext?.scraped_markdown, // Add scraped markdown
+      projectDescription: marketingContext?.project_description, // Add project description
       generationPrompt: prompt,
       generationType: "image",
       // Brand overlay options for enhanced prompt building
