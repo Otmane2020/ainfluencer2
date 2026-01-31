@@ -134,9 +134,23 @@ function getVideoModel(quality: string): VideoModelConfig {
   return chain[0];
 }
 
+// Valid durations for each provider
+const VALID_DURATIONS: Record<string, number[]> = {
+  openai: [4, 8, 12],  // Sora only accepts 4, 8, or 12 seconds
+  gemini: [5, 6, 7, 8], // Veo accepts 5-8 seconds
+};
+
 function clampDuration(duration: number, config: VideoModelConfig): number {
-  const min = 3;
-  return Math.max(min, Math.min(config.maxDuration, duration));
+  const validDurations = VALID_DURATIONS[config.provider] || [5, 8];
+  
+  // Find the closest valid duration that doesn't exceed requested
+  const validBelow = validDurations.filter(d => d <= duration);
+  if (validBelow.length > 0) {
+    return Math.max(...validBelow);
+  }
+  
+  // If no valid duration is below, use the smallest valid one
+  return Math.min(...validDurations);
 }
 
 // ============================================================
