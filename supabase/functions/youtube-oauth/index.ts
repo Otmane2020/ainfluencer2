@@ -48,15 +48,16 @@ Deno.serve(async (req) => {
 
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "");
-      const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
-      if (userError || !user) {
-        console.error("[youtube-oauth] User auth error:", userError);
+      // Use getClaims() instead of getUser() for signing-keys compatibility
+      const { data, error: claimsError } = await supabaseAdmin.auth.getClaims(token);
+      if (claimsError || !data?.claims?.sub) {
+        console.error("[youtube-oauth] User auth error:", claimsError);
         return new Response(
           JSON.stringify({ error: "Invalid authorization token" }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      userId = user.id;
+      userId = data.claims.sub as string;
     }
 
     // Get redirect URI - NO query params (YouTube requirement)
