@@ -366,28 +366,20 @@ export interface QualityLevel {
 
 export const IMAGE_QUALITY_LEVELS: QualityLevel[] = [
   {
-    id: "fast-image",
-    name: "FLUX 2 Flex",
-    internalModel: "flux-2-flex",
+    id: "nano-banana",
+    name: "Nano Banana",
+    internalModel: "google/gemini-2.5-flash-image",
     price: 1.00,
-    description: "Ultra-fast and affordable images",
-    features: ["1024x1024", "Ultra-fast", "Low-cost"],
+    description: "Fast AI images via Lovable AI",
+    features: ["1024x1024", "Fast", "Gemini Flash"],
   },
   {
-    id: "medium-image",
-    name: "Nano Banana Pro",
-    internalModel: "nano-banana-pro",
+    id: "gpt-image",
+    name: "GPT Image",
+    internalModel: "openai/gpt-image-1",
     price: 3.00,
-    description: "Best text rendering, SOTA effects",
-    features: ["1024x1024", "Text rendering", "Chinese SOTA"],
-  },
-  {
-    id: "high-image",
-    name: "FLUX 2 Pro",
-    internalModel: "flux-2-pro",
-    price: 5.00,
-    description: "Premium photorealistic images",
-    features: ["2048x2048", "Photorealistic", "Best quality"],
+    description: "Premium OpenAI image generation",
+    features: ["1024x1024", "High quality", "OpenAI"],
   },
 ];
 
