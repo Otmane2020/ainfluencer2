@@ -61,11 +61,18 @@ interface ImageGeneratorProps {
 const IMAGE_PRODUCTS = COMMERCIAL_PRODUCTS.filter((p) => p.category === "image");
 
 const PREFS_KEY = "image_generator_prefs";
+const GENERATION_KEY = "image_generation_active";
 
 interface StoredPrefs {
   productId?: string;
   format?: ContentFormat;
   brandOptions?: BrandOptionsState;
+}
+
+interface GenerationState {
+  isGenerating: boolean;
+  startedAt: number;
+  prompt?: string;
 }
 
 const loadPrefs = (): StoredPrefs => {
@@ -86,6 +93,34 @@ const savePrefs = (prefs: Partial<StoredPrefs>) => {
   }
 };
 
+const loadGenerationState = (): GenerationState | null => {
+  try {
+    const stored = localStorage.getItem(GENERATION_KEY);
+    if (!stored) return null;
+    const state = JSON.parse(stored) as GenerationState;
+    // Expire after 5 minutes (cleanup stale states)
+    if (Date.now() - state.startedAt > 5 * 60 * 1000) {
+      localStorage.removeItem(GENERATION_KEY);
+      return null;
+    }
+    return state;
+  } catch {
+    return null;
+  }
+};
+
+const saveGenerationState = (state: GenerationState | null) => {
+  try {
+    if (state) {
+      localStorage.setItem(GENERATION_KEY, JSON.stringify(state));
+    } else {
+      localStorage.removeItem(GENERATION_KEY);
+    }
+  } catch {
+    // Ignore storage errors
+  }
+};
+
 export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGeneratorProps) => {
   const storedPrefs = loadPrefs();
   const defaultProduct =
@@ -96,7 +131,20 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
   const [prompt, setPrompt] = useState("");
   const [selectedProduct, setSelectedProductState] = useState<CommercialProduct>(defaultProduct);
   const [selectedFormat, setSelectedFormatState] = useState<ContentFormat>(storedPrefs.format || "vertical");
-  const [isGenerating, setIsGenerating] = useState(false);
+  // Load persistent generation state (survives navigation)
+  const [isGenerating, setIsGeneratingState] = useState(() => {
+    const saved = loadGenerationState();
+    return saved?.isGenerating || false;
+  });
+  
+  const setIsGenerating = (value: boolean, generatingPrompt?: string) => {
+    setIsGeneratingState(value);
+    if (value) {
+      saveGenerationState({ isGenerating: true, startedAt: Date.now(), prompt: generatingPrompt });
+    } else {
+      saveGenerationState(null);
+    }
+  };
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
   const [showProductSelector, setShowProductSelector] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -136,6 +184,15 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
       if (data) setProjects(data as Project[]);
     };
     fetchProjects();
+  }, []);
+
+  // Cleanup expired generation state on mount
+  useEffect(() => {
+    const saved = loadGenerationState();
+    if (saved && Date.now() - saved.startedAt > 5 * 60 * 1000) {
+      // Expired - clear the state
+      setIsGenerating(false);
+    }
   }, []);
 
   const generateAIPrompt = async (project: Project) => {
@@ -208,7 +265,7 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
       return;
     }
 
-    setIsGenerating(true);
+    setIsGenerating(true, prompt.trim());
 
     toast({
       title: `Generating ${selectedProduct.name}...`,
