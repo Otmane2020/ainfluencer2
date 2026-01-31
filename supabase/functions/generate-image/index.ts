@@ -42,30 +42,36 @@ interface ModelOption {
   displayName: string;
 }
 
-// OpenAI GPT Image + Gemini Nano Banana models (FLUX removed - not supported by Lovable AI Gateway)
+// FLUX (via Replicate) + OpenAI GPT Image + Gemini Nano Banana models
 const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
   standard: [
-    { id: "nano-banana", provider: "gemini", weight: 100, apiModel: "google/gemini-2.5-flash-image", displayName: "Nano Banana" },
+    { id: "flux-schnell", provider: "flux", weight: 50, apiModel: "black-forest-labs/flux-schnell", displayName: "FLUX Schnell" },
+    { id: "nano-banana", provider: "gemini", weight: 50, apiModel: "google/gemini-2.5-flash-image", displayName: "Nano Banana" },
   ],
   pro: [
-    { id: "nano-banana-pro", provider: "gemini", weight: 60, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
-    { id: "gpt-image", provider: "openai", weight: 40, apiModel: "gpt-image-1", displayName: "GPT Image" },
+    { id: "flux-dev", provider: "flux", weight: 40, apiModel: "black-forest-labs/flux-dev", displayName: "FLUX Dev" },
+    { id: "nano-banana-pro", provider: "gemini", weight: 35, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
+    { id: "gpt-image", provider: "openai", weight: 25, apiModel: "gpt-image-1", displayName: "GPT Image" },
   ],
   cinema: [
-    { id: "gpt-image", provider: "openai", weight: 60, apiModel: "gpt-image-1", displayName: "GPT Image" },
-    { id: "nano-banana-pro", provider: "gemini", weight: 40, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
+    { id: "flux-pro", provider: "flux", weight: 50, apiModel: "black-forest-labs/flux-pro", displayName: "FLUX Pro" },
+    { id: "gpt-image", provider: "openai", weight: 30, apiModel: "gpt-image-1", displayName: "GPT Image" },
+    { id: "nano-banana-pro", provider: "gemini", weight: 20, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
   ],
   // Legacy mappings
   "smart-image": [
-    { id: "nano-banana", provider: "gemini", weight: 100, apiModel: "google/gemini-2.5-flash-image", displayName: "Nano Banana" },
+    { id: "flux-schnell", provider: "flux", weight: 50, apiModel: "black-forest-labs/flux-schnell", displayName: "FLUX Schnell" },
+    { id: "nano-banana", provider: "gemini", weight: 50, apiModel: "google/gemini-2.5-flash-image", displayName: "Nano Banana" },
   ],
   "high-image": [
-    { id: "nano-banana-pro", provider: "gemini", weight: 60, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
-    { id: "gpt-image", provider: "openai", weight: 40, apiModel: "gpt-image-1", displayName: "GPT Image" },
+    { id: "flux-dev", provider: "flux", weight: 40, apiModel: "black-forest-labs/flux-dev", displayName: "FLUX Dev" },
+    { id: "nano-banana-pro", provider: "gemini", weight: 35, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
+    { id: "gpt-image", provider: "openai", weight: 25, apiModel: "gpt-image-1", displayName: "GPT Image" },
   ],
   "studio-image": [
-    { id: "gpt-image", provider: "openai", weight: 60, apiModel: "gpt-image-1", displayName: "GPT Image" },
-    { id: "nano-banana-pro", provider: "gemini", weight: 40, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
+    { id: "flux-pro", provider: "flux", weight: 50, apiModel: "black-forest-labs/flux-pro", displayName: "FLUX Pro" },
+    { id: "gpt-image", provider: "openai", weight: 30, apiModel: "gpt-image-1", displayName: "GPT Image" },
+    { id: "nano-banana-pro", provider: "gemini", weight: 20, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
   ],
 };
 
@@ -336,7 +342,8 @@ async function generateWithOpenAI(
       
       const imgBlob = await imgResponse.blob();
       const imgArrayBuffer = await imgBlob.arrayBuffer();
-      const imgBase64 = btoa(String.fromCharCode(...new Uint8Array(imgArrayBuffer)));
+      // Use chunked conversion to avoid stack overflow
+      const imgBase64 = arrayBufferToBase64(imgArrayBuffer);
       const imageData = `data:${imgBlob.type || "image/png"};base64,${imgBase64}`;
       
       console.log("[OpenAI] ✓ Image generated successfully with GPT Image (url)");
@@ -412,7 +419,7 @@ async function generateWithGemini(
 }
 
 // ============================================================
-// FLUX IMAGE GENERATION (Black Forest Labs via Lovable AI Gateway)
+// FLUX IMAGE GENERATION (Black Forest Labs via Replicate API)
 // ============================================================
 
 async function generateWithFlux(
@@ -420,61 +427,119 @@ async function generateWithFlux(
   model: string,
   aspectRatio: string = "1:1"
 ): Promise<{ imageData: string | null; error?: string }> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) {
-    return { imageData: null, error: "LOVABLE_API_KEY not configured" };
+  const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
+  if (!REPLICATE_API_KEY) {
+    console.error("[FLUX] No REPLICATE_API_KEY configured");
+    return { imageData: null, error: "REPLICATE_API_KEY not configured" };
   }
 
   try {
-    // Determine display name based on model
+    // Determine display name and Replicate model version
     let displayName = "FLUX";
-    if (model.includes("flux-2-pro")) displayName = "FLUX 2 Pro";
-    else if (model.includes("flux-2-dev")) displayName = "FLUX 2 Dev";
-    else if (model.includes("flux-schnell")) displayName = "FLUX Schnell";
+    let replicateModel = "black-forest-labs/flux-schnell";
+    
+    if (model.includes("flux-2-pro") || model.includes("flux-pro")) {
+      displayName = "FLUX Pro";
+      replicateModel = "black-forest-labs/flux-pro";
+    } else if (model.includes("flux-2-dev") || model.includes("flux-dev")) {
+      displayName = "FLUX Dev";
+      replicateModel = "black-forest-labs/flux-dev";
+    } else if (model.includes("flux-schnell")) {
+      displayName = "FLUX Schnell";
+      replicateModel = "black-forest-labs/flux-schnell";
+    }
 
-    console.log(`[FLUX] Generating image with ${displayName} (${model})`);
+    console.log(`[FLUX] Generating image with ${displayName} via Replicate (${replicateModel})`);
 
-    // FLUX models support aspect ratio in the prompt
-    const aspectPrompt = aspectRatio === "9:16" 
-      ? "Vertical portrait format (9:16 aspect ratio). " 
-      : aspectRatio === "16:9" 
-        ? "Horizontal landscape format (16:9 aspect ratio). "
-        : "";
+    // Map aspect ratio to Replicate format
+    const aspectMap: Record<string, string> = {
+      "9:16": "9:16",
+      "16:9": "16:9",
+      "1:1": "1:1",
+    };
+    const replicateAspect = aspectMap[aspectRatio] || "1:1";
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Create prediction
+    const createResponse = await fetch("https://api.replicate.com/v1/predictions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Authorization": `Bearer ${REPLICATE_API_KEY}`,
         "Content-Type": "application/json",
+        "Prefer": "wait", // Wait for result synchronously (up to 60s)
       },
       body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: aspectPrompt + prompt }],
-        modalities: ["image", "text"],
+        model: replicateModel,
+        input: {
+          prompt: prompt,
+          aspect_ratio: replicateAspect,
+          output_format: "png",
+          output_quality: 90,
+          num_outputs: 1,
+        },
       }),
     });
 
-    if (!response.ok) {
-      const status = response.status;
-      const errorText = await response.text();
-      console.error(`[FLUX] Error ${status}:`, errorText.slice(0, 200));
-      
-      if (status === 429) {
-        return { imageData: null, error: "Rate limit exceeded. Please try again later." };
-      }
-      if (status === 402) {
-        return { imageData: null, error: "Payment required. Please add credits." };
-      }
-      return { imageData: null, error: `FLUX error: ${status}` };
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      console.error(`[FLUX] Replicate error ${createResponse.status}:`, errorText.slice(0, 300));
+      return { imageData: null, error: `Replicate error: ${createResponse.status}` };
     }
 
-    const data = await response.json();
-    const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    const prediction = await createResponse.json();
+    console.log(`[FLUX] Prediction status: ${prediction.status}`);
 
-    if (!imageData) {
-      console.error("[FLUX] No image in response");
+    // If using "Prefer: wait", the result should be ready
+    let output = prediction.output;
+    
+    // If still processing, poll for result
+    if (prediction.status === "processing" || prediction.status === "starting") {
+      console.log("[FLUX] Polling for result...");
+      let attempts = 0;
+      const maxAttempts = 30; // 30 seconds max
+      
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const statusResponse = await fetch(prediction.urls.get, {
+          headers: { "Authorization": `Bearer ${REPLICATE_API_KEY}` },
+        });
+        
+        if (!statusResponse.ok) break;
+        
+        const statusData = await statusResponse.json();
+        
+        if (statusData.status === "succeeded") {
+          output = statusData.output;
+          break;
+        } else if (statusData.status === "failed") {
+          console.error("[FLUX] Generation failed:", statusData.error);
+          return { imageData: null, error: statusData.error || "FLUX generation failed" };
+        }
+        
+        attempts++;
+      }
+    }
+
+    // Get the image URL
+    const imageUrl = Array.isArray(output) ? output[0] : output;
+    
+    if (!imageUrl) {
+      console.error("[FLUX] No image URL in response");
       return { imageData: null, error: "No image generated" };
     }
+
+    // Fetch and convert to base64
+    console.log("[FLUX] Fetching generated image...");
+    const imgResponse = await fetch(imageUrl);
+    if (!imgResponse.ok) {
+      console.error("[FLUX] Failed to fetch image");
+      return { imageData: null, error: "Failed to fetch generated image" };
+    }
+
+    const imgBlob = await imgResponse.blob();
+    const imgArrayBuffer = await imgBlob.arrayBuffer();
+    const imgBase64 = arrayBufferToBase64(imgArrayBuffer);
+    const imageData = `data:${imgBlob.type || "image/png"};base64,${imgBase64}`;
 
     console.log(`[FLUX] ✓ Image generated successfully with ${displayName}`);
     return { imageData };
