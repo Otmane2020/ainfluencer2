@@ -599,6 +599,7 @@ const HistoryPage = () => {
         duration={selectedVideo?.duration}
         createdAt={selectedVideo?.createdAt}
         model="AI Video"
+        projectId={selectedVideo?.projectId}
         onDelete={() => {
           if (selectedVideo) {
             handleDelete(selectedVideo.id, "video");
