@@ -1,5 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { 
+  compileVideoPrompt, 
+  extractBrandContext, 
+  type BrandContext, 
+  type VideoPromptConfig 
+} from "../_shared/video-prompt-compiler.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -462,55 +468,54 @@ serve(async (req) => {
         console.log(`✓ Deducted ${creditCost} credits`);
       }
 
-      // Build enhanced prompt with project context
-      let fullPrompt = prompt;
+      // ============================================================
+      // BUILD VIDEO PROMPT USING BRAND CONTEXT COMPILER
+      // Pattern: Brand Context → Prompt Compiler → Clean Sora Prompt
+      // ============================================================
       
-      // Add brand context if available
-      if (projectName || aiContextSummary || marketingContext) {
-        const contextParts: string[] = [];
-        
-        if (projectName) {
-          contextParts.push(`Brand: ${projectName}`);
-        }
-        if (projectUrl) {
-          contextParts.push(`Website: ${projectUrl}`);
-        }
-        if (aiContextSummary) {
-          contextParts.push(`Brand Context: ${aiContextSummary.substring(0, 500)}`);
-        }
-        if (marketingContext?.target_audience?.primary) {
-          contextParts.push(`Target: ${marketingContext.target_audience.primary}`);
-        }
-        if (marketingContext?.brand_personality?.tone) {
-          contextParts.push(`Tone: ${marketingContext.brand_personality.tone}`);
-        }
-        if (marketingContext?.visual_identity?.primary_color) {
-          contextParts.push(`Brand Color: ${marketingContext.visual_identity.primary_color}`);
-        }
-        if (marketingContext?.products_services?.length > 0) {
-          const products = marketingContext.products_services.slice(0, 3).map((p: any) => p.name).join(", ");
-          contextParts.push(`Products: ${products}`);
-        }
-        
-        if (contextParts.length > 0) {
-          fullPrompt = `[BRAND CONTEXT: ${contextParts.join(" | ")}]\n\n${prompt}`;
-        }
-      }
-      
-      // Add language instruction
-      const languageMap: Record<string, string> = {
-        en: "English", fr: "French", es: "Spanish", de: "German", it: "Italian", pt: "Portuguese"
+      // Extract brand context from project data
+      const brandContext: BrandContext = {
+        brand_name: projectName,
+        website: projectUrl,
+        logo_url: logoUrl,
+        primary_color: marketingContext?.visual_identity?.primary_color,
+        secondary_colors: marketingContext?.visual_identity?.secondary_colors,
+        tone: marketingContext?.brand_personality?.tone,
+        values: marketingContext?.brand_personality?.values,
+        target_audience: marketingContext?.target_audience?.primary,
+        target_demographics: marketingContext?.target_audience?.demographics,
+        pain_points: marketingContext?.target_audience?.pain_points,
+        desires: marketingContext?.target_audience?.desires,
+        products: marketingContext?.products_services,
+        aesthetic_style: marketingContext?.visual_identity?.aesthetic_style,
+        mood: marketingContext?.visual_identity?.mood,
+        visual_preferred: marketingContext?.content_guidelines?.visual_preferred,
+        visual_banned: marketingContext?.content_guidelines?.visual_banned,
+        competitive_positioning: marketingContext?.competitive_positioning,
+        detected_language: detectedLanguage || "en",
       };
-      const langName = languageMap[detectedLanguage || "en"] || "English";
-      if (detectedLanguage && detectedLanguage !== "en") {
-        fullPrompt = `[OUTPUT IN ${langName.toUpperCase()} - NO ENGLISH TEXT]\n${fullPrompt}`;
-      }
       
+      // Compile the video prompt
+      const promptConfig: VideoPromptConfig = {
+        scenarioType: "promotional",
+        duration: clampedDuration,
+        aspectRatio: format === "vertical" ? "9:16" : "16:9",
+        isClipMotion: videoMode === "clipmotion",
+        customPrompt: prompt, // User's original prompt as scene description
+        includeEndBranding: true,
+      };
+      
+      const compiledPrompt = compileVideoPrompt(brandContext, promptConfig);
+      let fullPrompt = compiledPrompt.prompt;
+      
+      // Add avatar styling if provided
       if (avatarUrl) {
-        fullPrompt = `Ultra-realistic cinematic video: ${fullPrompt}. Style: professional, high quality, cinematic lighting, vibrant colors.`;
+        fullPrompt = `Ultra-realistic cinematic video with realistic human presenter: ${fullPrompt}`;
       }
 
-      console.log(`[VIDEO] Project context: ${projectName || "none"} | Language: ${detectedLanguage || "en"}`);
+      console.log(`[VIDEO] Brand Compiler: score=${compiledPrompt.metadata.completenessScore}/100 | ClipMotion=${videoMode === "clipmotion"}`);
+      console.log(`[VIDEO] Project: ${projectName || "none"} | Language: ${detectedLanguage || "en"}`);
+      console.log(`[VIDEO] Compiled prompt (first 500 chars):`, fullPrompt.substring(0, 500));
 
       // Create generation record with delayed check scheduling
       // Provider-based check delays: OpenAI Sora = 150s, CometAPI Veo = 45s
