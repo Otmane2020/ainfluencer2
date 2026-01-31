@@ -25,43 +25,135 @@ function getCreditCost(quality: string): number {
 }
 
 // ============================================================
-// MODEL SELECTION WITH FALLBACK CHAIN
-// Each quality tier has a primary model and fallbacks
+// MODEL SELECTION WITH CORRECT COMETAPI ENDPOINTS
+// Each model has its own endpoint in CometAPI
 // ============================================================
 
 interface VideoModelConfig {
   model: string;
-  provider: "cometapi";
+  endpoint: string;
   maxDuration: number;
   displayName: string;
+  requestBody: (prompt: string, duration: number, aspectRatio: string) => Record<string, any>;
 }
 
+// CometAPI model configurations with correct endpoints
+const COMETAPI_MODELS: Record<string, VideoModelConfig> = {
+  // Kling models - use Kling endpoint
+  "kling-v2.5-turbo": {
+    model: "kling-v2-5",
+    endpoint: "https://api.cometapi.com/v1/kling/m2v_txt2video",
+    maxDuration: 10,
+    displayName: "Kling V2.5 Turbo",
+    requestBody: (prompt, duration, aspectRatio) => ({
+      prompt,
+      duration: String(duration > 5 ? 10 : 5),
+      aspect_ratio: aspectRatio,
+      model_name: "kling-v2-5",
+      mode: "std",
+    }),
+  },
+  "kling-v2-master": {
+    model: "kling-v2-1-master",
+    endpoint: "https://api.cometapi.com/v1/kling/m2v_txt2video",
+    maxDuration: 10,
+    displayName: "Kling V2 Master",
+    requestBody: (prompt, duration, aspectRatio) => ({
+      prompt,
+      duration: String(duration > 5 ? 10 : 5),
+      aspect_ratio: aspectRatio,
+      model_name: "kling-v2-1-master",
+    }),
+  },
+  "kling-v2.1-master": {
+    model: "kling-v2-1-master",
+    endpoint: "https://api.cometapi.com/v1/kling/m2v_txt2video",
+    maxDuration: 10,
+    displayName: "Kling V2.1 Master",
+    requestBody: (prompt, duration, aspectRatio) => ({
+      prompt,
+      duration: String(duration > 5 ? 10 : 5),
+      aspect_ratio: aspectRatio,
+      model_name: "kling-v2-1-master",
+    }),
+  },
+  // MiniMax Hailuo - use MiniMax endpoint
+  "minimax-hailuo": {
+    model: "minimax-hailuo",
+    endpoint: "https://api.cometapi.com/v1/minimax/video/text_to_video",
+    maxDuration: 6,
+    displayName: "MiniMax Hailuo",
+    requestBody: (prompt, duration, aspectRatio) => ({
+      prompt,
+      model: "video-01",
+    }),
+  },
+  // Sora models - use Sora endpoint
+  "sora": {
+    model: "sora",
+    endpoint: "https://api.cometapi.com/v1/sora/generations",
+    maxDuration: 12,
+    displayName: "Sora 2",
+    requestBody: (prompt, duration, aspectRatio) => ({
+      prompt,
+      duration: String(duration),
+      aspect_ratio: aspectRatio,
+      model: "sora",
+    }),
+  },
+  "sora-2": {
+    model: "sora-2",
+    endpoint: "https://api.cometapi.com/v1/sora/generations",
+    maxDuration: 20,
+    displayName: "Sora 2 Pro",
+    requestBody: (prompt, duration, aspectRatio) => ({
+      prompt,
+      duration: String(duration),
+      aspect_ratio: aspectRatio,
+      model: "sora-2",
+    }),
+  },
+  // Veo models
+  "veo-3.1": {
+    model: "veo-3.1",
+    endpoint: "https://api.cometapi.com/v1/veo3/generate",
+    maxDuration: 12,
+    displayName: "Veo 3.1",
+    requestBody: (prompt, duration, aspectRatio) => ({
+      prompt,
+      duration: String(duration),
+      aspect_ratio: aspectRatio,
+    }),
+  },
+  "veo-3.1-pro": {
+    model: "veo-3.1-pro",
+    endpoint: "https://api.cometapi.com/v1/veo3/generate",
+    maxDuration: 16,
+    displayName: "Veo 3.1 Pro",
+    requestBody: (prompt, duration, aspectRatio) => ({
+      prompt,
+      duration: String(duration),
+      aspect_ratio: aspectRatio,
+      quality: "pro",
+    }),
+  },
+};
+
 // Fallback chains for each quality tier
-const MODEL_FALLBACK_CHAINS: Record<string, VideoModelConfig[]> = {
-  cinema: [
-    { model: "sora-2", provider: "cometapi", maxDuration: 20, displayName: "Sora 2 Pro" },
-    { model: "veo-3.1-pro", provider: "cometapi", maxDuration: 16, displayName: "Veo 3.1 Pro" },
-    { model: "kling-v2-master", provider: "cometapi", maxDuration: 10, displayName: "Kling V2 Master" },
-  ],
-  pro: [
-    { model: "sora", provider: "cometapi", maxDuration: 12, displayName: "Sora 2" },
-    { model: "veo-3.1", provider: "cometapi", maxDuration: 12, displayName: "Veo 3.1" },
-    { model: "kling-v2.1-master", provider: "cometapi", maxDuration: 10, displayName: "Kling V2.1" },
-  ],
-  standard: [
-    { model: "kling-v2.5-turbo", provider: "cometapi", maxDuration: 10, displayName: "Kling V2.5 Turbo" },
-    { model: "minimax-hailuo", provider: "cometapi", maxDuration: 6, displayName: "MiniMax Hailuo" },
-    { model: "sora", provider: "cometapi", maxDuration: 12, displayName: "Sora 2" },
-  ],
+const MODEL_FALLBACK_CHAINS: Record<string, string[]> = {
+  cinema: ["sora-2", "veo-3.1-pro", "kling-v2-master"],
+  pro: ["sora", "veo-3.1", "kling-v2.1-master"],
+  standard: ["kling-v2.5-turbo", "minimax-hailuo", "kling-v2-master"],
 };
 
 function getModelFallbackChain(quality: string): VideoModelConfig[] {
-  return MODEL_FALLBACK_CHAINS[quality] || MODEL_FALLBACK_CHAINS["standard"];
+  const modelIds = MODEL_FALLBACK_CHAINS[quality] || MODEL_FALLBACK_CHAINS["standard"];
+  return modelIds.map(id => COMETAPI_MODELS[id]).filter(Boolean);
 }
 
 function getVideoModel(quality: string): VideoModelConfig {
   const chain = getModelFallbackChain(quality);
-  return chain[0]; // Return primary model
+  return chain[0];
 }
 
 function clampDuration(duration: number, config: VideoModelConfig): number {
@@ -87,24 +179,23 @@ async function tryVideoGeneration(
     const clampedDuration = clampDuration(duration, model);
     
     console.log(`[FALLBACK ${i + 1}/${models.length}] Trying ${model.displayName} (${model.model})...`);
+    console.log(`[FALLBACK] Endpoint: ${model.endpoint}`);
     
     try {
-      const response = await fetch("https://api.cometapi.com/v1/video/generations", {
+      const requestBody = model.requestBody(prompt, clampedDuration, aspectRatio);
+      console.log(`[FALLBACK] Request body:`, JSON.stringify(requestBody).substring(0, 200));
+      
+      const response = await fetch(model.endpoint, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          model: model.model,
-          prompt: prompt,
-          duration: `${clampedDuration}`,
-          aspect_ratio: aspectRatio,
-        }),
+        body: JSON.stringify(requestBody),
       });
       
       const responseText = await response.text();
-      console.log(`[${model.model}] Response: ${response.status} - ${responseText.substring(0, 200)}`);
+      console.log(`[${model.model}] Response: ${response.status} - ${responseText.substring(0, 300)}`);
       
       // Check for HTML error page
       if (responseText.trim().startsWith("<!") || responseText.trim().startsWith("<html")) {
@@ -112,20 +203,19 @@ async function tryVideoGeneration(
         continue;
       }
       
-      // Check for 503 Service Unavailable or other server errors
-      if (response.status === 503 || response.status === 502 || response.status === 504) {
-        console.warn(`[${model.model}] Service unavailable (${response.status}) - trying next model`);
+      // Check for server errors
+      if (response.status >= 500) {
+        console.warn(`[${model.model}] Server error (${response.status}) - trying next model`);
         continue;
       }
       
-      // Check for 404 (model not found) or 410 (deprecated)
+      // Check for 404 (endpoint not found) or 410 (deprecated)
       if (response.status === 404 || response.status === 410) {
-        console.warn(`[${model.model}] Model not available (${response.status}) - trying next model`);
+        console.warn(`[${model.model}] Endpoint not available (${response.status}) - trying next model`);
         continue;
       }
       
       if (!response.ok) {
-        // Try to parse error
         try {
           const errorJson = JSON.parse(responseText);
           if (errorJson.error?.includes("unavailable") || errorJson.error?.includes("not found")) {
@@ -133,24 +223,26 @@ async function tryVideoGeneration(
             continue;
           }
         } catch {
-          // Not JSON, continue to next model
+          // Not JSON
         }
         console.warn(`[${model.model}] Failed with status ${response.status} - trying next model`);
         continue;
       }
       
-      // Success!
+      // Success! Parse the response
       const result = JSON.parse(responseText);
-      const taskId = result.id || result.task_id || `comet-${Date.now()}`;
-      const status = result.status || "queued";
-      const mediaUrl = result.video_url || result.output || null;
+      
+      // Different models return task IDs differently
+      const taskId = result.task?.id || result.id || result.task_id || result.taskId || `comet-${Date.now()}`;
+      const status = result.task?.status_name || result.status || "queued";
+      const mediaUrl = result.video_url || result.output?.video || result.works?.[0]?.resource?.resource || null;
       
       console.log(`✓ [${model.displayName}] Success! Task ID: ${taskId}`);
       
       return {
         success: true,
         model,
-        taskId,
+        taskId: String(taskId),
         status,
         mediaUrl,
       };
@@ -262,7 +354,7 @@ serve(async (req) => {
 
       console.log("=== Video Generation ===");
       console.log(`User: ${userId || "anonymous"}`);
-      console.log(`Quality: ${quality} | Model: ${modelConfig.model} | Provider: ${modelConfig.provider}`);
+      console.log(`Quality: ${quality} | Model: ${modelConfig.model} | Endpoint: ${modelConfig.endpoint}`);
       console.log(`Credit Cost: ${creditCost}`);
       console.log("Prompt:", prompt.substring(0, 100) + "...");
       console.log("Duration:", clampedDuration, "s | Size:", size);
