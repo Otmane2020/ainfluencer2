@@ -583,7 +583,6 @@ serve(async (req) => {
 
       // All Lovable AI tasks are completed immediately
       if (taskId.startsWith("lovable-") || taskId.startsWith("nano-")) {
-        // Get media URL from generation record if available
         let mediaUrl: string | null = null;
         if (generationId) {
           const { data: genData } = await supabase
@@ -605,42 +604,129 @@ serve(async (req) => {
         );
       }
 
-      // Legacy: CometAPI status check (for existing tasks)
-      console.log("Checking status for legacy CometAPI task:", taskId);
+      // ============================================================
+      // MODEL-SPECIFIC STATUS ENDPOINTS
+      // Each CometAPI model family has its own status endpoint
+      // ============================================================
+      
+      // Detect model family from task ID prefix or generation record
+      let modelFamily = "kling"; // Default to Kling (most common)
+      
+      if (generationId) {
+        const { data: genData } = await supabase
+          .from("generations")
+          .select("model")
+          .eq("id", generationId)
+          .single();
+        
+        if (genData?.model) {
+          const model = genData.model.toLowerCase();
+          if (model.includes("kling")) modelFamily = "kling";
+          else if (model.includes("minimax") || model.includes("hailuo")) modelFamily = "minimax";
+          else if (model.includes("runway") || model.includes("gen4")) modelFamily = "runway";
+          else if (model.includes("bytedance") || model.includes("seaweed")) modelFamily = "bytedance";
+        }
+      }
+      
+      // Model-specific status endpoint mapping
+      const STATUS_ENDPOINTS: Record<string, (id: string) => string> = {
+        kling: (id) => `https://api.cometapi.com/v1/kling/task/${id}`,
+        minimax: (id) => `https://api.cometapi.com/v1/minimax/query/${id}`,
+        runway: (id) => `https://api.cometapi.com/v1/runway/task/${id}`,
+        bytedance: (id) => `https://api.cometapi.com/v1/video/bytedance/${id}`,
+        // Fallback to legacy generic endpoint
+        legacy: (id) => `https://api.cometapi.com/v1/videos/${id}`,
+      };
+      
+      const statusEndpoint = STATUS_ENDPOINTS[modelFamily] || STATUS_ENDPOINTS.legacy;
+      const statusUrl = statusEndpoint(taskId);
+      
+      console.log(`[STATUS] Checking ${modelFamily} task ${taskId} at ${statusUrl}`);
 
-      const response = await fetch(`https://api.cometapi.com/v1/videos/${taskId}`, {
+      const response = await fetch(statusUrl, {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${COMETAPI_API_KEY}`,
+          "Content-Type": "application/json",
         },
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Status check error:", errorText);
-        throw new Error(`Status check failed: ${response.status}`);
+      const responseText = await response.text();
+      console.log(`[STATUS] Response: ${response.status} - ${responseText.substring(0, 200)}`);
+      
+      // Handle HTML error page
+      if (responseText.trim().startsWith("<!") || responseText.trim().startsWith("<html")) {
+        console.warn(`[STATUS] Received HTML - endpoint may not exist for ${modelFamily}`);
+        // Return in-progress status to keep polling
+        return new Response(
+          JSON.stringify({
+            id: taskId,
+            status: "in_progress",
+            progress: 50,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
 
-      const result = await response.json();
-      console.log("Task status:", result.status, "Progress:", result.progress);
+      if (!response.ok) {
+        console.error("Status check error:", responseText);
+        // Don't throw - return in-progress to keep polling
+        return new Response(
+          JSON.stringify({
+            id: taskId,
+            status: "in_progress",
+            progress: 40,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch {
+        console.error("[STATUS] Failed to parse response as JSON");
+        return new Response(
+          JSON.stringify({
+            id: taskId,
+            status: "in_progress",
+            progress: 45,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      // Normalize response across different model families
+      const taskStatus = result.task?.status_name || result.status || result.task_status || "queued";
+      const taskProgress = result.progress || result.task?.progress || 0;
+      
+      console.log(`[STATUS] Task status: ${taskStatus}, progress: ${taskProgress}`);
 
       const statusResponse: VideoStatusResponse = {
-        id: result.id,
-        status: result.status,
-        progress: result.progress || 0,
+        id: taskId,
+        status: taskStatus === "succeed" || taskStatus === "completed" || taskStatus === "complete" ? "completed" :
+                taskStatus === "failed" || taskStatus === "error" ? "failed" :
+                taskStatus === "queued" || taskStatus === "pending" ? "queued" : "in_progress",
+        progress: taskProgress,
       };
 
-      // Map CometAPI progress to our progress
+      // Map progress to our 0-100 scale
       let dbProgress = 20;
-      if (result.status === "in_progress") {
-        dbProgress = Math.min(80, 20 + (result.progress || 0) * 0.6);
+      if (statusResponse.status === "in_progress") {
+        dbProgress = Math.min(80, 20 + (taskProgress || 0) * 0.6);
       }
 
-      if (result.status === "completed") {
-        let videoUrl = result.output_video || result.video_url || result.url;
+      if (statusResponse.status === "completed") {
+        // Extract video URL from various response formats
+        let videoUrl = result.output_video || result.video_url || result.url ||
+                       result.task?.works?.[0]?.resource?.resource ||
+                       result.works?.[0]?.resource?.resource ||
+                       result.data?.video_url ||
+                       result.output?.video;
         
-        // If no URL, try content endpoint
+        // If no URL found, try content endpoint
         if (!videoUrl) {
+          console.log("[STATUS] No video URL in response, trying content endpoint...");
           try {
             const contentResponse = await fetch(`https://api.cometapi.com/v1/videos/${taskId}/content`, {
               headers: { "Authorization": `Bearer ${COMETAPI_API_KEY}` },
@@ -659,11 +745,11 @@ serve(async (req) => {
               if (!uploadError) {
                 const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(fileName);
                 videoUrl = publicUrlData.publicUrl;
-                console.log("Video uploaded to storage:", videoUrl);
+                console.log("[STATUS] Video uploaded to storage:", videoUrl);
               }
             }
           } catch (e) {
-            console.error("Content download failed:", e);
+            console.error("[STATUS] Content download failed:", e);
           }
         }
         
@@ -683,15 +769,18 @@ serve(async (req) => {
             })
             .eq("id", generationId);
         }
-      } else if (result.status === "failed") {
-        statusResponse.error = result.error || "Video generation failed";
+        
+        console.log(`✓ [STATUS] Video completed: ${videoUrl?.substring(0, 50)}...`);
+        
+      } else if (statusResponse.status === "failed") {
+        statusResponse.error = result.error || result.message || "Video generation failed";
         
         if (generationId) {
           await supabase
             .from("generations")
             .update({
               status: "failed",
-              error_message: result.error || "Generation failed",
+              error_message: statusResponse.error,
               step: "error",
             })
             .eq("id", generationId);

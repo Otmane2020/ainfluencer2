@@ -651,11 +651,13 @@ ${formattedHashtags}`;
                 prompt: buildScenarioPrompt(selectedSector, selectedStyle, selectedTone) + segment.script,
                 avatarUrl,
                 duration: segment.duration,
-                quality: selectedQuality,
+                // FIX: Send product tier (standard/pro/cinema) instead of resolution (720p)
+                quality: selectedProduct.tier === "ultra" ? "cinema" : selectedProduct.tier,
                 format: selectedFormat,
                 orientation: selectedFormat === "landscape" ? "landscape" : "portrait",
                 startingFrameUrl: startingFrameUrl,
-                model: getInternalModel()?.id || "sora-2",
+                // FIX: Send specific model ID from product
+                model: selectedProduct.internalModels[0] || "kling-v2.5-turbo",
                 videoMode, // Pass ClipMotion mode to edge function
                 // Project context for brand-aligned generation
                 projectId: selectedProject?.id,
