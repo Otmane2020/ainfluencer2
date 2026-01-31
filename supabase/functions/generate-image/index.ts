@@ -42,36 +42,37 @@ interface ModelOption {
   displayName: string;
 }
 
-// FLUX (via Replicate) + OpenAI GPT Image + Gemini Nano Banana models
+// FLUX (via Replicate) + Gemini Nano Banana models - GPT Image REMOVED for cost savings
+// Priority: Nano Banana (free via Lovable) > FLUX (Replicate credits) > GPT Image (expensive)
 const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
   standard: [
-    { id: "flux-schnell", provider: "flux", weight: 50, apiModel: "black-forest-labs/flux-schnell", displayName: "FLUX Schnell" },
-    { id: "nano-banana", provider: "gemini", weight: 50, apiModel: "google/gemini-2.5-flash-image", displayName: "Nano Banana" },
+    { id: "nano-banana", provider: "gemini", weight: 70, apiModel: "google/gemini-2.5-flash-image", displayName: "Nano Banana" },
+    { id: "flux-schnell", provider: "flux", weight: 30, apiModel: "black-forest-labs/flux-schnell", displayName: "FLUX Schnell" },
   ],
   pro: [
-    { id: "flux-dev", provider: "flux", weight: 40, apiModel: "black-forest-labs/flux-dev", displayName: "FLUX Dev" },
-    { id: "nano-banana-pro", provider: "gemini", weight: 35, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
-    { id: "gpt-image", provider: "openai", weight: 25, apiModel: "gpt-image-1", displayName: "GPT Image" },
+    { id: "nano-banana-pro", provider: "gemini", weight: 60, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
+    { id: "flux-dev", provider: "flux", weight: 35, apiModel: "black-forest-labs/flux-dev", displayName: "FLUX Dev" },
+    { id: "gpt-image", provider: "openai", weight: 5, apiModel: "gpt-image-1", displayName: "GPT Image" },
   ],
   cinema: [
     { id: "flux-pro", provider: "flux", weight: 50, apiModel: "black-forest-labs/flux-pro", displayName: "FLUX Pro" },
-    { id: "gpt-image", provider: "openai", weight: 30, apiModel: "gpt-image-1", displayName: "GPT Image" },
-    { id: "nano-banana-pro", provider: "gemini", weight: 20, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
+    { id: "nano-banana-pro", provider: "gemini", weight: 45, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
+    { id: "gpt-image", provider: "openai", weight: 5, apiModel: "gpt-image-1", displayName: "GPT Image" },
   ],
   // Legacy mappings
   "smart-image": [
-    { id: "flux-schnell", provider: "flux", weight: 50, apiModel: "black-forest-labs/flux-schnell", displayName: "FLUX Schnell" },
-    { id: "nano-banana", provider: "gemini", weight: 50, apiModel: "google/gemini-2.5-flash-image", displayName: "Nano Banana" },
+    { id: "nano-banana", provider: "gemini", weight: 70, apiModel: "google/gemini-2.5-flash-image", displayName: "Nano Banana" },
+    { id: "flux-schnell", provider: "flux", weight: 30, apiModel: "black-forest-labs/flux-schnell", displayName: "FLUX Schnell" },
   ],
   "high-image": [
-    { id: "flux-dev", provider: "flux", weight: 40, apiModel: "black-forest-labs/flux-dev", displayName: "FLUX Dev" },
-    { id: "nano-banana-pro", provider: "gemini", weight: 35, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
-    { id: "gpt-image", provider: "openai", weight: 25, apiModel: "gpt-image-1", displayName: "GPT Image" },
+    { id: "nano-banana-pro", provider: "gemini", weight: 60, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
+    { id: "flux-dev", provider: "flux", weight: 35, apiModel: "black-forest-labs/flux-dev", displayName: "FLUX Dev" },
+    { id: "gpt-image", provider: "openai", weight: 5, apiModel: "gpt-image-1", displayName: "GPT Image" },
   ],
   "studio-image": [
     { id: "flux-pro", provider: "flux", weight: 50, apiModel: "black-forest-labs/flux-pro", displayName: "FLUX Pro" },
-    { id: "gpt-image", provider: "openai", weight: 30, apiModel: "gpt-image-1", displayName: "GPT Image" },
-    { id: "nano-banana-pro", provider: "gemini", weight: 20, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
+    { id: "nano-banana-pro", provider: "gemini", weight: 45, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
+    { id: "gpt-image", provider: "openai", weight: 5, apiModel: "gpt-image-1", displayName: "GPT Image" },
   ],
 };
 
