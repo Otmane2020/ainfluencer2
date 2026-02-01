@@ -130,3 +130,6 @@ verify_jwt = false
 
 [functions.check-video-status]
 verify_jwt = false
+
+[functions.tiktok-oauth]
+verify_jwt = false

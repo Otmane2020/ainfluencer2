@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useMetaOAuth } from "@/hooks/useMetaOAuth";
 import { useYouTubeOAuth } from "@/hooks/useYouTubeOAuth";
 import { useLinkedInOAuth } from "@/hooks/useLinkedInOAuth";
+import { useTikTokOAuth } from "@/hooks/useTikTokOAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { enUS } from "date-fns/locale";
@@ -63,9 +64,16 @@ const Integrations = () => {
     profileName: linkedinProfileName,
     isLoading: isLinkedInLoading 
   } = useLinkedInOAuth();
+  const {
+    isConnected: isTikTokConnected,
+    isConnecting: isTikTokConnecting,
+    connect: connectTikTok,
+    disconnect: disconnectTikTok,
+    displayName: tiktokDisplayName,
+    isLoading: isTikTokLoading,
+  } = useTikTokOAuth();
   const [metaConnectionData, setMetaConnectionData] = useState<MetaConnectionData | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMetaConnection();
@@ -104,16 +112,6 @@ const Integrations = () => {
     } catch (error) {
       console.error("Error fetching projects:", error);
     }
-  };
-
-  // TikTok placeholder (still coming soon)
-  const handleConnectTikTok = async () => {
-    setConnectingPlatform("tiktok");
-    toast({
-      title: "TikTok Integration",
-      description: "TikTok OAuth integration coming soon. Stay tuned!",
-    });
-    setTimeout(() => setConnectingPlatform(null), 1500);
   };
 
   const platformConfig = {
@@ -536,35 +534,59 @@ const Integrations = () => {
       {/* TikTok Integration */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-3">
-            <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${platformConfig.tiktok.gradient}`}>
-              <TikTokIcon className="h-5 w-5 text-white" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${platformConfig.tiktok.gradient}`}>
+                <TikTokIcon className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-base">TikTok</CardTitle>
+                <CardDescription>Auto-publish videos to your TikTok account</CardDescription>
+              </div>
             </div>
-            <div>
-              <CardTitle className="text-base">TikTok</CardTitle>
-              <CardDescription>Auto-publish videos to your TikTok account</CardDescription>
-            </div>
+            {isTikTokConnected && (
+              <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
+                <Check className="h-3 w-3 mr-1" />
+                Connected
+              </Badge>
+            )}
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-4">
-            <p className="text-sm text-muted-foreground mb-4">
-              Connect your TikTok account to auto-publish viral video content
-            </p>
-            <Button 
-              onClick={handleConnectTikTok} 
-              disabled={connectingPlatform === "tiktok"}
-              className="bg-gradient-to-r from-pink-500 to-cyan-400 hover:from-pink-600 hover:to-cyan-500"
-            >
-              {connectingPlatform === "tiktok" ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <TikTokIcon className="h-4 w-4 mr-2" />
-              )}
-              Connect TikTok
-            </Button>
-            <p className="text-xs text-muted-foreground mt-2">Coming soon</p>
-          </div>
+          {isTikTokLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : isTikTokConnected ? (
+            <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
+              <div className="flex items-center gap-3">
+                <Check className="h-4 w-4 text-green-500" />
+                <span className="text-sm">{tiktokDisplayName || "TikTok Account"}</span>
+              </div>
+              <Button variant="outline" size="sm" onClick={disconnectTikTok}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Disconnect
+              </Button>
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-sm text-muted-foreground mb-4">
+                Connect your TikTok account to auto-publish viral video content
+              </p>
+              <Button 
+                onClick={connectTikTok} 
+                disabled={isTikTokConnecting}
+                className="bg-gradient-to-r from-pink-500 to-cyan-400 hover:from-pink-600 hover:to-cyan-500"
+              >
+                {isTikTokConnecting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <TikTokIcon className="h-4 w-4 mr-2" />
+                )}
+                Connect TikTok
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
