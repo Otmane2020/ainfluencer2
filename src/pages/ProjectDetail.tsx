@@ -868,14 +868,8 @@ const ProjectDetail = () => {
                             <SelectContent>
                               {metaPages.map((page) => (
                                 <SelectItem key={page.id} value={page.id}>
-                                  <div className="flex items-center gap-2">
-                                    <span>{page.name}</span>
-                                    {page.instagram && (
-                                      <span className="text-xs text-muted-foreground">
-                                        + @{page.instagram.username}
-                                      </span>
-                                    )}
-                                  </div>
+                                  {page.name}
+                                  {page.instagram && ` + @${page.instagram.username}`}
                                 </SelectItem>
                               ))}
                             </SelectContent>
