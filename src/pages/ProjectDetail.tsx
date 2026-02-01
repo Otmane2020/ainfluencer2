@@ -85,6 +85,7 @@ interface Project {
   facebook_enabled: boolean;
   linkedin_enabled: boolean;
   tiktok_enabled: boolean;
+  youtube_enabled: boolean;
   posts_per_week: number;
   automation_mode: string;
   detected_language: string | null;
@@ -120,6 +121,20 @@ interface MetaPage {
   } | null;
 }
 
+interface YouTubeConnection {
+  id: string;
+  channel_id: string;
+  channel_name: string;
+  channel_picture_url: string | null;
+}
+
+interface LinkedInConnection {
+  id: string;
+  linkedin_id: string;
+  display_name: string;
+  avatar_url: string | null;
+}
+
 const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -135,6 +150,8 @@ const ProjectDetail = () => {
   const [isLoadingPages, setIsLoadingPages] = useState(false);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
   const [tokenExpired, setTokenExpired] = useState(false);
+  const [youtubeConnection, setYoutubeConnection] = useState<YouTubeConnection | null>(null);
+  const [linkedinConnection, setLinkedinConnection] = useState<LinkedInConnection | null>(null);
   // Edit form state
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -144,6 +161,7 @@ const ProjectDetail = () => {
   const [editFacebook, setEditFacebook] = useState(true);
   const [editLinkedin, setEditLinkedin] = useState(false);
   const [editTiktok, setEditTiktok] = useState(false);
+  const [editYoutube, setEditYoutube] = useState(false);
   const [editLanguage, setEditLanguage] = useState("en");
   const [selectedPublishMode, setSelectedPublishMode] = useState<"auto" | "manual">("manual");
 
@@ -157,6 +175,8 @@ const ProjectDetail = () => {
       fetchProject();
       fetchPosts();
       fetchMetaConnection();
+      fetchYoutubeConnection();
+      fetchLinkedinConnection();
     }
   }, [id]);
 
@@ -170,6 +190,7 @@ const ProjectDetail = () => {
       setEditFacebook(project.facebook_enabled);
       setEditLinkedin(project.linkedin_enabled);
       setEditTiktok(project.tiktok_enabled);
+      setEditYoutube(project.youtube_enabled);
       setEditLanguage(project.detected_language || "en");
     }
   }, [project]);
@@ -187,6 +208,36 @@ const ProjectDetail = () => {
     if (data) {
       setMetaConnection(data);
       setSelectedPageId(data.page_id);
+    }
+  };
+
+  const fetchYoutubeConnection = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from("youtube_connections")
+      .select("id, channel_id, channel_name, channel_picture_url")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (data) {
+      setYoutubeConnection(data);
+    }
+  };
+
+  const fetchLinkedinConnection = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from("linkedin_connections")
+      .select("id, linkedin_id, display_name, avatar_url")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (data) {
+      setLinkedinConnection(data);
     }
   };
 
@@ -345,6 +396,7 @@ const ProjectDetail = () => {
           facebook_enabled: editFacebook,
           linkedin_enabled: editLinkedin,
           tiktok_enabled: editTiktok,
+          youtube_enabled: editYoutube,
           detected_language: editLanguage,
         })
         .eq("id", project.id);
@@ -387,10 +439,18 @@ const ProjectDetail = () => {
     return null;
   }
 
+  // YouTube icon for platforms display
+  const YouTubeIcon = ({ className }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor">
+      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+    </svg>
+  );
+
   const platforms = [
     { enabled: project.instagram_enabled, icon: Instagram, name: "Instagram" },
     { enabled: project.facebook_enabled, icon: Facebook, name: "Facebook" },
     { enabled: project.linkedin_enabled, icon: Linkedin, name: "LinkedIn" },
+    { enabled: project.youtube_enabled, icon: YouTubeIcon, name: "YouTube" },
     { enabled: project.tiktok_enabled, icon: TikTokIcon, name: "TikTok" },
   ];
 
@@ -887,8 +947,8 @@ const ProjectDetail = () => {
                   )}
                 </div>
 
-                {/* LinkedIn - Manual share */}
-                <div className="rounded-lg border p-3 opacity-60">
+                {/* LinkedIn - With connection status */}
+                <div className={`rounded-lg border p-3 space-y-3 ${!linkedinConnection ? 'opacity-60' : ''}`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0A66C2]">
@@ -896,11 +956,75 @@ const ProjectDetail = () => {
                       </div>
                       <div>
                         <span className="font-medium">LinkedIn</span>
-                        <div className="text-xs text-muted-foreground">Manual share only</div>
+                        {linkedinConnection ? (
+                          <div className="flex items-center gap-1 text-xs text-green-600">
+                            <Check className="h-3 w-3" />
+                            {linkedinConnection.display_name}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <AlertCircle className="h-3 w-3" />
+                            Not connected
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <Switch checked={editLinkedin} onCheckedChange={setEditLinkedin} />
+                    <Switch 
+                      checked={editLinkedin} 
+                      onCheckedChange={setEditLinkedin}
+                      disabled={!linkedinConnection}
+                    />
                   </div>
+                  {!linkedinConnection && (
+                    <Link 
+                      to="/integrations" 
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline pl-10"
+                    >
+                      <Link2 className="h-3 w-3" />
+                      Connect in Integrations
+                    </Link>
+                  )}
+                </div>
+
+                {/* YouTube - With connection status */}
+                <div className={`rounded-lg border p-3 space-y-3 ${!youtubeConnection ? 'opacity-60' : ''}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FF0000]">
+                        <svg viewBox="0 0 24 24" className="h-4 w-4 text-white" fill="currentColor">
+                          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <span className="font-medium">YouTube</span>
+                        {youtubeConnection ? (
+                          <div className="flex items-center gap-1 text-xs text-green-600">
+                            <Check className="h-3 w-3" />
+                            {youtubeConnection.channel_name}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <AlertCircle className="h-3 w-3" />
+                            Not connected
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <Switch 
+                      checked={editYoutube} 
+                      onCheckedChange={setEditYoutube}
+                      disabled={!youtubeConnection}
+                    />
+                  </div>
+                  {!youtubeConnection && (
+                    <Link 
+                      to="/integrations" 
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline pl-10"
+                    >
+                      <Link2 className="h-3 w-3" />
+                      Connect in Integrations
+                    </Link>
+                  )}
                 </div>
 
                 {/* TikTok - Download & share */}
