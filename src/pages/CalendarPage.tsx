@@ -541,9 +541,6 @@ const CalendarPage = () => {
                         >
                           {/* Time and platform badges */}
                           <div className="flex items-center gap-1.5 mb-1">
-                            <span className="text-[9px] font-medium" style={{ color: platformStyle?.color || '#6b7280' }}>
-                              {format(new Date(post.scheduled_for), "HH:mm")}
-                            </span>
                             {/* All platform badges */}
                             <div className="flex -space-x-1 ml-auto">
                               {(post.platforms || []).slice(0, 3).map((platform) => {
