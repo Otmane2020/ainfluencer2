@@ -108,7 +108,7 @@ export default function ProductShotsPage() {
 
   // Generate product shots
   const handleGenerate = async () => {
-    if (!sourceImage) {
+    if (!sourceImage || !sourceFile) {
       toast.error("Please upload a product image first");
       return;
     }
@@ -122,17 +122,40 @@ export default function ProductShotsPage() {
     setProgress(0);
     setGeneratedImages([]);
 
-    const toastId = toast.loading("Generating product shots...");
+    const toastId = toast.loading("Uploading source image...");
 
     try {
+      // Step 1: Upload the source image to storage first
+      const fileName = `product-shots/source-${Date.now()}-${crypto.randomUUID()}.${sourceFile.name.split('.').pop() || 'png'}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("media")
+        .upload(fileName, sourceFile, {
+          contentType: sourceFile.type,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        throw new Error(`Failed to upload source image: ${uploadError.message}`);
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from("media")
+        .getPublicUrl(uploadData.path);
+
+      const publicSourceUrl = publicUrlData.publicUrl;
+      
+      toast.loading("Generating product shots...", { id: toastId });
+
       // Simulate progress
       const progressInterval = setInterval(() => {
         setProgress((prev) => Math.min(prev + 5, 90));
       }, 500);
 
+      // Step 2: Call the edge function with the public URL
       const { data, error } = await supabase.functions.invoke("generate-product-shots", {
         body: {
-          sourceImageUrl: sourceImage,
+          sourceImageUrl: publicSourceUrl,
           shotTypes: Array.from(selectedShotTypes),
           productTitle: productTitle || "Product",
           includeLifestyle,
@@ -155,7 +178,7 @@ export default function ProductShotsPage() {
         setProgress(100);
         toast.success(`${images.length} product shots generated!`, { id: toastId });
       } else {
-        throw new Error("No images generated");
+        throw new Error(data?.error || "No images generated");
       }
     } catch (error: any) {
       console.error("Generation error:", error);
