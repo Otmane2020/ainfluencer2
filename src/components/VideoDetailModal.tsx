@@ -44,6 +44,13 @@ const TikTokIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+// YouTube icon
+const YouTubeIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+  </svg>
+);
+
 interface Project {
   id: string;
   name: string;
@@ -396,6 +403,7 @@ export const VideoDetailModal = ({
   const platforms = [
     { id: "instagram", label: "Instagram", icon: Instagram, color: "from-[#833AB4] via-[#E1306C] to-[#F77737]" },
     { id: "facebook", label: "Facebook", icon: Facebook, color: "from-[#1877F2] to-[#0D65D9]" },
+    { id: "youtube", label: "YouTube", icon: YouTubeIcon, color: "from-[#FF0000] to-[#CC0000]" },
     { id: "linkedin", label: "LinkedIn", icon: Linkedin, color: "from-[#0A66C2] to-[#004182]" },
     { id: "tiktok", label: "TikTok", icon: TikTokIcon, color: "from-black to-black" },
   ];
@@ -516,23 +524,14 @@ export const VideoDetailModal = ({
               </div>
             </div>
 
-            {/* Details Panel */}
+            {/* Details & Share Panel */}
             <div className="w-full md:w-80 border-t md:border-t-0 md:border-l border-border">
-              <Tabs defaultValue="details" className="h-full">
-                <TabsList className="w-full grid grid-cols-2 rounded-none border-b border-border bg-transparent h-10">
-                  <TabsTrigger value="details" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                    Details
-                  </TabsTrigger>
-                  <TabsTrigger value="share" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                    Share
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="details" className="p-4 space-y-4 mt-0">
+              <ScrollArea className="h-full max-h-[70vh] md:max-h-none">
+                <div className="p-4 space-y-4">
                   {/* Prompt */}
                   <div>
                     <h4 className="text-xs font-medium text-muted-foreground mb-2">PROMPT</h4>
-                    <p className="text-sm leading-relaxed bg-muted/50 rounded-lg p-3 max-h-40 overflow-auto">
+                    <p className="text-sm leading-relaxed bg-muted/50 rounded-lg p-3 max-h-32 overflow-auto">
                       {prompt || "No prompt available"}
                     </p>
                   </div>
@@ -550,175 +549,145 @@ export const VideoDetailModal = ({
                   </div>
 
                   {/* Quick Actions */}
-                  <div className="space-y-2">
-                    <Button variant="outline" className="w-full justify-start gap-2" onClick={handleDownload}>
-                      <Download className="h-4 w-4" />
-                      Download MP4
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" className="flex-1 gap-1.5" onClick={handleDownload}>
+                      <Download className="h-3.5 w-3.5" />
+                      Download
                     </Button>
-                    <Button variant="outline" className="w-full justify-start gap-2" onClick={handleCopyLink}>
-                      {copiedState ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                      {copiedState ? "Copied!" : "Copy Link"}
+                    <Button variant="outline" size="sm" className="flex-1 gap-1.5" onClick={handleCopyLink}>
+                      {copiedState ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copiedState ? "Copied" : "Copy"}
                     </Button>
-                    {videoUrl && (
-                      <Button 
-                        variant="outline" 
-                        className="w-full justify-start gap-2"
-                        onClick={() => window.open(videoUrl, "_blank")}
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        Open in New Tab
-                      </Button>
-                    )}
                   </div>
-                </TabsContent>
 
-                <TabsContent value="share" className="p-4 space-y-4 mt-0">
-                  {/* Platform Selection */}
-                  <div>
-                    <h4 className="text-xs font-medium text-muted-foreground mb-2">PLATFORMS</h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      {platforms.map((platform) => {
-                        const Icon = platform.icon;
-                        const isSelected = selectedPlatforms.includes(platform.id);
-                        return (
-                          <button
-                            key={platform.id}
-                            onClick={() => togglePlatform(platform.id)}
-                            className={`flex items-center gap-2 p-2 rounded-lg border transition-all ${
-                              isSelected 
-                                ? "border-primary bg-primary/10" 
-                                : "border-border hover:border-muted-foreground"
-                            }`}
-                          >
-                            <div className={`h-6 w-6 rounded-md bg-gradient-to-br ${platform.color} flex items-center justify-center`}>
-                              <Icon className="h-3 w-3 text-white" />
-                            </div>
-                            <span className="text-xs font-medium">{platform.label}</span>
-                            {isSelected && <Check className="h-3 w-3 text-primary ml-auto" />}
-                          </button>
-                        );
-                      })}
+                  <div className="border-t border-border pt-4">
+                    {/* Platform Selection */}
+                    <div>
+                      <h4 className="text-xs font-medium text-muted-foreground mb-2">PUBLISH TO</h4>
+                      <div className="grid grid-cols-3 gap-2">
+                        {platforms.map((platform) => {
+                          const Icon = platform.icon;
+                          const isSelected = selectedPlatforms.includes(platform.id);
+                          return (
+                            <button
+                              key={platform.id}
+                              onClick={() => togglePlatform(platform.id)}
+                              className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-all ${
+                                isSelected 
+                                  ? "border-primary bg-primary/10" 
+                                  : "border-border hover:border-muted-foreground"
+                              }`}
+                            >
+                              <div className={`h-7 w-7 rounded-md bg-gradient-to-br ${platform.color} flex items-center justify-center`}>
+                                <Icon className="h-3.5 w-3.5 text-white" />
+                              </div>
+                              <span className="text-[10px] font-medium">{platform.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Caption */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-xs font-medium text-muted-foreground">CAPTION</h4>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-7 px-2 gap-1 text-primary hover:text-primary/80"
-                        onClick={handleGenerateCaption}
-                        disabled={isGeneratingCaption}
-                      >
-                        {isGeneratingCaption ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Sparkles className="h-3.5 w-3.5" />
-                        )}
-                        Generate
-                      </Button>
-                    </div>
-                    <Textarea
-                      value={socialCaption}
-                      onChange={(e) => setSocialCaption(e.target.value)}
-                      placeholder="Write a caption..."
-                      className="min-h-[100px] text-sm resize-none"
-                    />
-                  </div>
-
-                  {/* Project Selector */}
-                  <div className="space-y-2">
-                    <label className="text-xs text-muted-foreground">Publish as project:</label>
-                    <Popover open={projectSelectorOpen} onOpenChange={setProjectSelectorOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-between"
+                    {/* Caption */}
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-xs font-medium text-muted-foreground">CAPTION</h4>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 px-2 gap-1 text-primary hover:text-primary/80 text-xs"
+                          onClick={handleGenerateCaption}
+                          disabled={isGeneratingCaption}
                         >
-                          {selectedProject ? (
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="h-3 w-3 rounded-full"
-                                style={{ backgroundColor: selectedProject.theme_color || "#8B5CF6" }}
-                              />
-                              <span className="truncate">{selectedProject.name}</span>
-                            </div>
+                          {isGeneratingCaption ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
                           ) : (
-                            <span className="text-muted-foreground">Select a project...</span>
+                            <Sparkles className="h-3 w-3" />
                           )}
-                          <ChevronDown className="h-4 w-4 opacity-50" />
+                          Generate
                         </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[250px] p-0" align="start">
-                        <ScrollArea className="h-[200px]">
-                          <div className="p-2 space-y-1">
-                            {projects.length === 0 ? (
-                              <p className="text-sm text-muted-foreground text-center py-4">
-                                No projects found
-                              </p>
-                            ) : (
-                              projects.map((project) => (
-                                <Button
-                                  key={project.id}
-                                  variant={selectedProjectId === project.id ? "secondary" : "ghost"}
-                                  className="w-full justify-start gap-2"
-                                  onClick={() => handleSelectProject(project)}
-                                >
-                                  <div
-                                    className="h-3 w-3 rounded-full flex-shrink-0"
-                                    style={{ backgroundColor: project.theme_color || "#8B5CF6" }}
-                                  />
-                                  <span className="truncate">{project.name}</span>
-                                </Button>
-                              ))
-                            )}
-                          </div>
-                        </ScrollArea>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  {/* Publish Button */}
-                  <Button 
-                    className="w-full gap-2" 
-                    onClick={handlePublishNow}
-                    disabled={isPublishing || selectedPlatforms.length === 0 || !selectedProjectId}
-                  >
-                    {isPublishing ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                    {isPublishing 
-                      ? "Publishing..." 
-                      : `Publish to ${selectedPlatforms.length} Platform${selectedPlatforms.length !== 1 ? "s" : ""}`
-                    }
-                  </Button>
-
-                  {/* Quick Share */}
-                  <div className="pt-2 border-t border-border">
-                    <p className="text-xs text-muted-foreground mb-2">Or share directly:</p>
-                    <div className="flex gap-2">
-                      {platforms.map((platform) => {
-                        const Icon = platform.icon;
-                        return (
-                          <Button
-                            key={platform.id}
-                            variant="outline"
-                            size="icon"
-                            className="h-9 w-9"
-                            onClick={() => handleShareToSocial(platform.id)}
-                          >
-                            <Icon className="h-4 w-4" />
-                          </Button>
-                        );
-                      })}
+                      </div>
+                      <Textarea
+                        value={socialCaption}
+                        onChange={(e) => setSocialCaption(e.target.value)}
+                        placeholder="Write a caption..."
+                        className="min-h-[80px] text-sm resize-none"
+                      />
                     </div>
+
+                    {/* Project Selector */}
+                    <div className="mt-4 space-y-2">
+                      <label className="text-xs text-muted-foreground">Project:</label>
+                      <Popover open={projectSelectorOpen} onOpenChange={setProjectSelectorOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full justify-between"
+                          >
+                            {selectedProject ? (
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="h-3 w-3 rounded-full"
+                                  style={{ backgroundColor: selectedProject.theme_color || "#8B5CF6" }}
+                                />
+                                <span className="truncate text-xs">{selectedProject.name}</span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">Select project...</span>
+                            )}
+                            <ChevronDown className="h-3 w-3 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[220px] p-0" align="start">
+                          <ScrollArea className="h-[180px]">
+                            <div className="p-2 space-y-1">
+                              {projects.length === 0 ? (
+                                <p className="text-xs text-muted-foreground text-center py-4">
+                                  No projects found
+                                </p>
+                              ) : (
+                                projects.map((project) => (
+                                  <Button
+                                    key={project.id}
+                                    variant={selectedProjectId === project.id ? "secondary" : "ghost"}
+                                    size="sm"
+                                    className="w-full justify-start gap-2"
+                                    onClick={() => handleSelectProject(project)}
+                                  >
+                                    <div
+                                      className="h-3 w-3 rounded-full flex-shrink-0"
+                                      style={{ backgroundColor: project.theme_color || "#8B5CF6" }}
+                                    />
+                                    <span className="truncate text-xs">{project.name}</span>
+                                  </Button>
+                                ))
+                              )}
+                            </div>
+                          </ScrollArea>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    {/* Publish Button */}
+                    <Button 
+                      className="w-full gap-2 mt-4" 
+                      onClick={handlePublishNow}
+                      disabled={isPublishing || selectedPlatforms.length === 0 || !selectedProjectId}
+                    >
+                      {isPublishing ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                      {isPublishing 
+                        ? "Publishing..." 
+                        : `Publish to ${selectedPlatforms.length} Platform${selectedPlatforms.length !== 1 ? "s" : ""}`
+                      }
+                    </Button>
                   </div>
-                </TabsContent>
-              </Tabs>
+                </div>
+              </ScrollArea>
             </div>
           </div>
         </div>
