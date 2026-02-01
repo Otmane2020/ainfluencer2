@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Share2, Facebook, Instagram, Linkedin, Copy, Download, X, Check } from "lucide-react";
+import { Share2, Facebook, Instagram, Linkedin, Youtube, Copy, Download, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { openPopupOrRedirect } from "@/lib/openPopupOrRedirect";
 
 // TikTok icon component
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -20,14 +21,14 @@ interface ShareButtonProps {
   thumbnailUrl?: string;
   title?: string;
   description?: string;
-  onShare?: (platform: "facebook" | "instagram" | "copy" | "download") => void;
+  onShare?: (platform: "facebook" | "instagram" | "linkedin" | "tiktok" | "youtube" | "copy" | "download") => void;
 }
 
 export const ShareButton = ({
   videoUrl,
   thumbnailUrl,
-  title = "Ma vidéo AI",
-  description = "Créée avec AI Influencer",
+  title = "AI video",
+  description = "Created with AI Influencer",
   onShare,
 }: ShareButtonProps) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -40,8 +41,8 @@ export const ShareButton = ({
       setCopiedState(true);
       setTimeout(() => setCopiedState(false), 2000);
       toast({
-        title: "Lien copié !",
-        description: "Le lien de la vidéo a été copié dans le presse-papiers",
+        title: "Link copied",
+        description: "The video link was copied to your clipboard",
       });
       onShare?.("copy");
     }
@@ -63,15 +64,15 @@ export const ShareButton = ({
       URL.revokeObjectURL(url);
 
       toast({
-        title: "Téléchargement lancé",
-        description: "La vidéo est en cours de téléchargement",
+        title: "Download started",
+        description: "Your video is downloading",
       });
       onShare?.("download");
     } catch (error) {
       console.error("Download error:", error);
       toast({
-        title: "Erreur",
-        description: "Impossible de télécharger la vidéo",
+        title: "Error",
+        description: "Unable to download the video",
         variant: "destructive",
       });
     }
@@ -81,14 +82,14 @@ export const ShareButton = ({
     // Open Facebook sharing - requires app approval for direct API posting
     const shareUrl = encodeURIComponent(videoUrl || window.location.href);
     const shareText = encodeURIComponent(`${title} - ${description}`);
-    window.open(
+    openPopupOrRedirect(
       `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}&quote=${shareText}`,
-      "_blank",
       "width=600,height=400"
     );
+    if (videoUrl) void navigator.clipboard.writeText(videoUrl);
     toast({
-      title: "Partage Facebook",
-      description: "La fenêtre de partage Facebook s'est ouverte",
+      title: "Facebook share",
+      description: "A share window was opened. The link was copied to your clipboard.",
     });
     onShare?.("facebook");
     setIsOpen(false);
@@ -96,9 +97,10 @@ export const ShareButton = ({
 
   const handleInstagramShare = () => {
     // Instagram doesn't have a web share API - guide user to download
+    if (videoUrl) void navigator.clipboard.writeText(`${title}\n\n${videoUrl}`);
     toast({
-      title: "Partager sur Instagram",
-      description: "Téléchargez la vidéo puis partagez-la depuis l'app Instagram",
+      title: "Instagram share",
+      description: "Caption + link copied. Download the video then share from the Instagram app.",
     });
     handleDownload();
     onShare?.("instagram");
@@ -106,29 +108,43 @@ export const ShareButton = ({
   };
 
   const handleLinkedInShare = () => {
-    const shareUrl = encodeURIComponent(videoUrl || window.location.href);
-    window.open(
-      `https://www.linkedin.com/sharing/share-offsite/?url=${shareUrl}`,
-      "_blank",
-      "width=600,height=400"
-    );
+    // LinkedIn blocks direct .mp4 share URLs.
+    // Open the composer + copy caption and link.
+    openPopupOrRedirect("https://www.linkedin.com/feed/?shareActive=true", "width=600,height=600");
+    if (videoUrl) void navigator.clipboard.writeText(`${title} - ${description}\n\n${videoUrl}`);
     toast({
-      title: "Partage LinkedIn",
-      description: "La fenêtre de partage LinkedIn s'est ouverte",
+      title: "LinkedIn share",
+      description: "Caption + link copied. Download the video then upload it in LinkedIn.",
     });
-    onShare?.("linkedin" as any);
+    handleDownload();
+    onShare?.("linkedin");
     setIsOpen(false);
   };
 
   const handleTikTokShare = () => {
+    if (videoUrl) void navigator.clipboard.writeText(`${title} - ${description}\n\n${videoUrl}`);
     toast({
-      title: "Partager sur TikTok",
-      description: "Téléchargez la vidéo puis partagez-la depuis l'app TikTok",
+      title: "TikTok share",
+      description: "Caption + link copied. Download the video then share from the TikTok app.",
     });
     handleDownload();
-    onShare?.("tiktok" as any);
+    onShare?.("tiktok");
     setIsOpen(false);
   };
+
+  const handleYouTubeShare = () => {
+    openPopupOrRedirect("https://studio.youtube.com/channel/UC/videos/upload", "width=800,height=600");
+    if (videoUrl) void navigator.clipboard.writeText(`${title} - ${description}\n\n${videoUrl}`);
+    toast({
+      title: "YouTube upload",
+      description: "Caption + link copied. Download starts so you can upload to YouTube Studio.",
+    });
+    handleDownload();
+    onShare?.("youtube");
+    setIsOpen(false);
+  };
+
+  // (Removed old duplicate handlers)
 
   const shareOptions = [
     {
@@ -146,6 +162,13 @@ export const ShareButton = ({
       onClick: handleFacebookShare,
     },
     {
+      id: "youtube",
+      label: "YouTube",
+      icon: Youtube,
+      gradient: "from-[#FF0000] to-[#CC0000]",
+      onClick: handleYouTubeShare,
+    },
+    {
       id: "linkedin",
       label: "LinkedIn",
       icon: Linkedin,
@@ -161,14 +184,14 @@ export const ShareButton = ({
     },
     {
       id: "copy",
-      label: copiedState ? "Copié !" : "Copier le lien",
+      label: copiedState ? "Copied" : "Copy link",
       icon: copiedState ? Check : Copy,
       gradient: "from-muted to-muted",
       onClick: handleCopyLink,
     },
     {
       id: "download",
-      label: "Télécharger",
+      label: "Download",
       icon: Download,
       gradient: "from-primary to-primary",
       onClick: handleDownload,
@@ -185,7 +208,7 @@ export const ShareButton = ({
         disabled={!videoUrl}
       >
         <Share2 className="h-4 w-4" />
-        Partager
+          Share
       </Button>
 
       <AnimatePresence>
@@ -243,7 +266,7 @@ export const ShareButton = ({
                 <div className="mt-2 border-t border-border pt-2">
                   <img
                     src={thumbnailUrl}
-                    alt="Aperçu"
+                      alt="Preview"
                     className="h-20 w-full rounded-lg object-cover"
                   />
                 </div>
