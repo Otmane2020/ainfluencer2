@@ -310,11 +310,22 @@ export const VideoDetailModal = ({
         );
         break;
       case "linkedin":
+        // LinkedIn doesn't support direct video file sharing - use post composer
+        // Open LinkedIn with text only, user downloads video separately
         window.open(
-          `https://www.linkedin.com/sharing/share-offsite/?url=${shareUrl}`,
+          `https://www.linkedin.com/feed/?shareActive=true`,
           "_blank",
-          "width=600,height=400"
+          "width=600,height=600"
         );
+        toast({
+          title: "LinkedIn Share",
+          description: "Download the video and paste the caption in LinkedIn",
+        });
+        // Copy caption to clipboard for easy pasting
+        if (socialCaption || title) {
+          navigator.clipboard.writeText(socialCaption || title || "");
+        }
+        handleDownload();
         break;
       case "youtube":
         // YouTube Studio for uploading
