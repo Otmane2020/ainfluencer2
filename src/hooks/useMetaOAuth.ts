@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -27,6 +27,24 @@ export const useMetaOAuth = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+
+  const popupRef = useRef<Window | null>(null);
+  const popupMonitorRef = useRef<number | null>(null);
+
+  const cleanupPopup = useCallback(() => {
+    if (popupMonitorRef.current) {
+      window.clearInterval(popupMonitorRef.current);
+      popupMonitorRef.current = null;
+    }
+
+    try {
+      popupRef.current?.close();
+    } catch {
+      // ignore
+    }
+
+    popupRef.current = null;
+  }, []);
 
   // Check connection status on mount
   useEffect(() => {
@@ -94,6 +112,8 @@ export const useMetaOAuth = () => {
         });
         
         setIsConnecting(false);
+
+        cleanupPopup();
         
         const instagramInfo = instagram ? ` (Instagram: @${instagram.username})` : 
           (hasPageAccess ? " (No Instagram Business account linked to Page)" : " (No Facebook Page access)");
@@ -103,13 +123,13 @@ export const useMetaOAuth = () => {
           description: `Account ${user.name} linked successfully${instagramInfo}`,
         });
 
-        // Redirect to integrations page after successful connection
-        if (window.location.pathname !== "/integrations") {
-          window.location.href = "/integrations";
-        }
+        // Refresh parent so all pages reflect the updated connection state.
+        setTimeout(() => window.location.reload(), 300);
       } else if (event.data?.type === "meta-oauth-error") {
         console.error("[useMetaOAuth] OAuth error:", event.data.error);
         setIsConnecting(false);
+
+        cleanupPopup();
 
         let errorMessage = "Unable to connect to Meta";
         const error = event.data.error;
@@ -134,7 +154,7 @@ export const useMetaOAuth = () => {
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [toast]);
+  }, [toast, cleanupPopup]);
 
   const connect = useCallback(async () => {
     setIsConnecting(true);
@@ -180,10 +200,12 @@ export const useMetaOAuth = () => {
         return;
       }
 
+      popupRef.current = popup;
+
       // Monitor popup closing
-      const checkPopup = setInterval(() => {
+      popupMonitorRef.current = window.setInterval(() => {
         if (popup.closed) {
-          clearInterval(checkPopup);
+          cleanupPopup();
           // Wait a bit for any final messages
           setTimeout(() => {
             setIsConnecting(false);
@@ -200,6 +222,11 @@ export const useMetaOAuth = () => {
       });
     }
   }, [toast]);
+
+  // Cleanup popup when hook unmounts
+  useEffect(() => {
+    return () => cleanupPopup();
+  }, [cleanupPopup]);
 
   const disconnect = useCallback(async () => {
     try {
