@@ -333,7 +333,12 @@ export const VideoDetailModal = ({
       return;
     }
 
-    if (selectedPlatforms.length === 0) {
+    // Filter to only supported platforms
+    const supportedPlatforms = selectedPlatforms.filter(p => 
+      ["instagram", "facebook", "youtube", "tiktok"].includes(p)
+    );
+    
+    if (supportedPlatforms.length === 0) {
       toast({ title: "Select at least one platform", variant: "destructive" });
       return;
     }
@@ -351,9 +356,9 @@ export const VideoDetailModal = ({
         body: {
           videoUrl,
           caption: socialCaption || title || "AI Generated Video",
-          platforms: selectedPlatforms.filter(p => ["instagram", "facebook", "youtube", "tiktok"].includes(p)),
+          platforms: supportedPlatforms,
           thumbnailUrl: thumbnailUrl || undefined,
-          projectId: selectedProjectId, // Use selected project ID
+          projectId: selectedProjectId,
         },
       });
 
@@ -400,11 +405,11 @@ export const VideoDetailModal = ({
     }
   };
 
+  // Platforms that support direct video publishing (LinkedIn not supported for video)
   const platforms = [
     { id: "instagram", label: "Instagram", icon: Instagram, color: "from-[#833AB4] via-[#E1306C] to-[#F77737]" },
     { id: "facebook", label: "Facebook", icon: Facebook, color: "from-[#1877F2] to-[#0D65D9]" },
     { id: "youtube", label: "YouTube", icon: YouTubeIcon, color: "from-[#FF0000] to-[#CC0000]" },
-    { id: "linkedin", label: "LinkedIn", icon: Linkedin, color: "from-[#0A66C2] to-[#004182]" },
     { id: "tiktok", label: "TikTok", icon: TikTokIcon, color: "from-black to-black" },
   ];
 
