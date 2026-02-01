@@ -1010,6 +1010,17 @@ const ProjectDetail = () => {
                       disabled={!youtubeConnection}
                     />
                   </div>
+                  {youtubeConnection && (
+                    <div className="pl-10 text-xs text-muted-foreground">
+                      Videos will be published as YouTube Shorts to this channel.
+                      <Link 
+                        to="/integrations" 
+                        className="inline-flex items-center gap-1 text-primary hover:underline ml-2"
+                      >
+                        Manage
+                      </Link>
+                    </div>
+                  )}
                   {!youtubeConnection && (
                     <Link 
                       to="/integrations" 
