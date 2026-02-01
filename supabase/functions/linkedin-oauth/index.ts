@@ -32,7 +32,6 @@ Deno.serve(async (req) => {
     }
 
     // Get user from auth header
-    // ✅ FIX: OAuth callback has NO auth header - detect via ?code param
     const authHeader = req.headers.get("Authorization");
     const hasCode = url.searchParams.has("code");
     
@@ -48,7 +47,6 @@ Deno.serve(async (req) => {
 
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "");
-      // Use getClaims() instead of getUser() for signing-keys compatibility
       const { data, error: claimsError } = await supabaseAdmin.auth.getClaims(token);
       if (claimsError || !data?.claims?.sub) {
         console.error("[linkedin-oauth] User auth error:", claimsError);
@@ -65,13 +63,15 @@ Deno.serve(async (req) => {
 
     // ========== AUTHORIZE ==========
     if (action === "authorize") {
-      // Generate state with user ID for callback
       const state = btoa(JSON.stringify({ userId }));
       
-      // ✅ Classic LinkedIn API scopes (NOT OpenID - requires manual activation)
+      // ✅ OpenID Connect scopes (LinkedIn migrated in 2024)
+      // https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/sign-in-with-linkedin-v2
       const scopes = [
-        "r_liteprofile",     // Read basic profile
-        "w_member_social",   // Post content
+        "openid",
+        "profile",
+        "email",
+        "w_member_social",
       ].join(" ");
 
       const authUrl = new URL("https://www.linkedin.com/oauth/v2/authorization");
@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ========== CALLBACK (detect via code param, not action) ==========
+    // ========== CALLBACK (detect via code param) ==========
     const code = url.searchParams.get("code");
     const stateParam = url.searchParams.get("state");
     
@@ -114,7 +114,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Validate state payload has required userId
       if (!stateData.userId) {
         return new Response(generateCallbackHtml({ error: "Invalid state payload" }), {
           headers: { ...corsHeaders, "Content-Type": "text/html" },
@@ -145,9 +144,9 @@ Deno.serve(async (req) => {
 
       console.log("[linkedin-oauth] Token exchange successful");
 
-      // ✅ Classic LinkedIn API - use /v2/me (NOT /v2/userinfo which requires OpenID)
+      // ✅ OpenID Connect - use /v2/userinfo endpoint
       const profileResponse = await fetch(
-        "https://api.linkedin.com/v2/me",
+        "https://api.linkedin.com/v2/userinfo",
         {
           headers: { 
             Authorization: `Bearer ${tokens.access_token}`,
@@ -165,18 +164,17 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Classic API returns: id, localizedFirstName, localizedLastName
-      const linkedinId = profile.id;
-      const displayName = `${profile.localizedFirstName ?? ""} ${profile.localizedLastName ?? ""}`.trim() || "LinkedIn User";
-      // Note: Profile picture requires additional API call with projection, skip for now
-      const avatarUrl: string | null = null;
+      // OpenID returns: sub, name, given_name, family_name, picture, email
+      const linkedinId = profile.sub;
+      const displayName = profile.name || `${profile.given_name ?? ""} ${profile.family_name ?? ""}`.trim() || "LinkedIn User";
+      const avatarUrl: string | null = profile.picture || null;
 
       console.log(`[linkedin-oauth] Profile found: ${displayName} (${linkedinId})`);
 
       // Calculate expiry (LinkedIn tokens typically expire in 60 days)
       const expiresAt = new Date(Date.now() + (tokens.expires_in || 5184000) * 1000).toISOString();
 
-      // Save to database - LinkedIn does NOT provide refresh_token (except Marketing APIs)
+      // Save to database
       const { error: upsertError } = await supabaseAdmin
         .from("linkedin_connections")
         .upsert({
@@ -185,7 +183,7 @@ Deno.serve(async (req) => {
           display_name: displayName,
           avatar_url: avatarUrl,
           access_token: tokens.access_token,
-          refresh_token: null, // LinkedIn doesn't provide refresh tokens
+          refresh_token: tokens.refresh_token || null,
           expires_at: expiresAt,
           updated_at: new Date().toISOString(),
         }, { onConflict: "user_id" });
@@ -294,7 +292,6 @@ function generateCallbackHtml(result: { success?: boolean; profile?: { id: strin
     <button class="close-btn" onclick="closeWindow()">Close Window</button>
   </div>
   <script>
-    // Send message to parent window
     if (window.opener) {
       window.opener.postMessage(${JSON.stringify(messageData)}, "*");
     }
@@ -307,10 +304,8 @@ function generateCallbackHtml(result: { success?: boolean; profile?: { id: strin
       }
     }
     
-    // Try to close after 1.5 seconds
     setTimeout(() => {
       closeWindow();
-      // If still open after another 500ms, show manual close message
       setTimeout(() => {
         if (!window.closed) {
           document.getElementById('status').textContent = 'You can close this tab now';

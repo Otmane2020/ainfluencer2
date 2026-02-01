@@ -334,17 +334,73 @@ async function publishToFacebook(
 }
 
 // ============================================================
+// YOUTUBE TOKEN REFRESH
+// ============================================================
+async function refreshYouTubeToken(
+  supabase: any,
+  youtubeConnection: any
+): Promise<{ accessToken: string | null; error?: string }> {
+  const YOUTUBE_CLIENT_ID = Deno.env.get("YOUTUBE_CLIENT_ID");
+  const YOUTUBE_CLIENT_SECRET = Deno.env.get("YOUTUBE_CLIENT_SECRET");
+
+  if (!YOUTUBE_CLIENT_ID || !YOUTUBE_CLIENT_SECRET) {
+    return { accessToken: null, error: "YouTube OAuth not configured" };
+  }
+
+  if (!youtubeConnection?.refresh_token) {
+    return { accessToken: null, error: "No refresh token available. Please reconnect YouTube." };
+  }
+
+  try {
+    console.log("[YT] Refreshing expired access token...");
+
+    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: YOUTUBE_CLIENT_ID,
+        client_secret: YOUTUBE_CLIENT_SECRET,
+        refresh_token: youtubeConnection.refresh_token,
+        grant_type: "refresh_token",
+      }),
+    });
+
+    const tokens = await tokenRes.json();
+
+    if (!tokenRes.ok || tokens.error) {
+      console.error("[YT] Token refresh failed:", tokens);
+      return { accessToken: null, error: tokens.error_description || "Token refresh failed" };
+    }
+
+    // Update token in database
+    const expiresAt = new Date(Date.now() + (tokens.expires_in ?? 3600) * 1000).toISOString();
+
+    await supabase
+      .from("youtube_connections")
+      .update({
+        access_token: tokens.access_token,
+        expires_at: expiresAt,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", youtubeConnection.user_id);
+
+    console.log("[YT] Token refreshed successfully");
+    return { accessToken: tokens.access_token };
+  } catch (error) {
+    console.error("[YT] Token refresh exception:", error);
+    return { accessToken: null, error: String(error) };
+  }
+}
+
+// ============================================================
 // YOUTUBE SHORTS
 // ============================================================
 async function publishToYouTube(
   videoUrl: string,
   caption: string,
-  youtubeConnection: any
+  youtubeConnection: any,
+  supabase: any
 ): Promise<PublishResult> {
-  // YouTube requires OAuth tokens stored per-user
-  // For now, return a "not connected" message
-  // Full implementation would need youtube_connections table with OAuth tokens
-  
   if (!youtubeConnection?.access_token) {
     return { 
       platform: "youtube", 
@@ -354,7 +410,23 @@ async function publishToYouTube(
   }
 
   try {
-    const accessToken = youtubeConnection.access_token;
+    let accessToken = youtubeConnection.access_token;
+
+    // Check if token is expired and refresh if needed
+    const expiresAt = new Date(youtubeConnection.expires_at);
+    const now = new Date();
+    const bufferMs = 5 * 60 * 1000; // 5 minutes buffer
+
+    if (expiresAt.getTime() - bufferMs < now.getTime()) {
+      console.log("[YT] Token expired or expiring soon, refreshing...");
+      const refreshResult = await refreshYouTubeToken(supabase, youtubeConnection);
+      
+      if (!refreshResult.accessToken) {
+        return { platform: "youtube", success: false, error: refreshResult.error };
+      }
+      
+      accessToken = refreshResult.accessToken;
+    }
     
     console.log("[YT] Starting resumable upload for Shorts...");
 
@@ -373,6 +445,7 @@ async function publishToYouTube(
             title: caption.slice(0, 90) || "ClipMotion Short",
             description: caption + "\n\n#Shorts #ClipMotion",
             tags: ["Shorts", "ClipMotion"],
+            categoryId: "22", // People & Blogs
           },
           status: {
             privacyStatus: "public",
@@ -383,9 +456,15 @@ async function publishToYouTube(
     );
 
     if (!initRes.ok) {
-      const errorText = await initRes.text();
-      console.error("[YT] Init error:", errorText);
-      return { platform: "youtube", success: false, error: "YouTube upload initialization failed" };
+      const errorData = await initRes.json();
+      console.error("[YT] Init error:", errorData);
+      
+      // Check for auth error and suggest reconnect
+      if (initRes.status === 401 || initRes.status === 403) {
+        return { platform: "youtube", success: false, error: "YouTube authorization expired. Please reconnect your account." };
+      }
+      
+      return { platform: "youtube", success: false, error: errorData?.error?.message || "YouTube upload initialization failed" };
     }
 
     // Get upload URL from Location header
@@ -410,6 +489,8 @@ async function publishToYouTube(
     });
 
     if (!uploadRes.ok) {
+      const errorText = await uploadRes.text();
+      console.error("[YT] Upload error:", errorText);
       return { platform: "youtube", success: false, error: "YouTube upload failed" };
     }
 
@@ -575,7 +656,7 @@ serve(async (req) => {
       publishPromises.push(publishToFacebook(videoUrl, caption, metaConnection));
     }
     if (platforms.includes("youtube")) {
-      publishPromises.push(publishToYouTube(videoUrl, caption, youtubeConnection));
+      publishPromises.push(publishToYouTube(videoUrl, caption, youtubeConnection, supabase));
     }
     if (platforms.includes("tiktok")) {
       publishPromises.push(publishToTikTok(videoUrl, caption, tiktokConnection));
