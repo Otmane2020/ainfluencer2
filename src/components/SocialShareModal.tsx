@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
+import { openPopupOrRedirect } from "@/lib/openPopupOrRedirect";
 
 // TikTok icon component
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -99,13 +100,22 @@ const platforms: SocialPlatform[] = [
     name: "LinkedIn",
     icon: Linkedin,
     gradient: "from-[#0A66C2] to-[#004182]",
-    shareUrl: (text, url) => `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url || '')}&summary=${encodeURIComponent(text)}`,
+    // LinkedIn blocks direct media (mp4/image) URLs in many environments.
+    // Use the feed composer (no URL param) + copy/download flow.
+    shareUrl: () => `https://www.linkedin.com/feed/?shareActive=true`,
   },
   {
     id: "tiktok",
     name: "TikTok",
     icon: TikTokIcon,
     gradient: "from-[#000000] via-[#25F4EE] to-[#FE2C55]",
+  },
+  {
+    id: "youtube",
+    name: "YouTube",
+    icon: ExternalLink,
+    gradient: "from-[#FF0000] to-[#CC0000]",
+    shareUrl: () => `https://studio.youtube.com/channel/UC/videos/upload`,
   },
   {
     id: "whatsapp",
@@ -305,7 +315,28 @@ export const SocialShareModal = ({ isOpen, onClose, content }: SocialShareModalP
       handleDirectPost([platform.id]);
     } else if (platform.shareUrl) {
       const url = platform.shareUrl(shareText, content?.mediaUrl);
-      window.open(url, "_blank", "noopener,noreferrer,width=600,height=400");
+
+      // Manual share-link workflow for platforms that don't reliably accept direct media URLs.
+      // - Copy caption (+ media link)
+      // - Download media (if present)
+      // - Open platform composer/upload with popup fallback redirect
+      const isManual = ["linkedin", "instagram", "facebook", "tiktok", "youtube"].includes(platform.id);
+      if (isManual) {
+        void navigator.clipboard.writeText(
+          content?.mediaUrl ? `${shareText}\n\n${content.mediaUrl}` : shareText
+        );
+        if (content?.mediaUrl) void handleDownload();
+        openPopupOrRedirect(url, "width=900,height=700");
+        toast({
+          title: `${platform.name} share`,
+          description: content?.mediaUrl
+            ? "Caption + link copied. Download starts so you can upload in the platform."
+            : "Caption copied."
+        });
+        return;
+      }
+
+      openPopupOrRedirect(url, "width=600,height=400");
     } else {
       // For platforms without web share (TikTok without media)
       handleCopyText();
@@ -492,7 +523,7 @@ export const SocialShareModal = ({ isOpen, onClose, content }: SocialShareModalP
           <div className="space-y-2">
             <label className="text-sm font-medium">Share via</label>
             <div className="grid grid-cols-3 gap-2">
-              {platforms.filter(p => !p.directPost).map((platform) => (
+              {platforms.map((platform) => (
                 <motion.button
                   key={platform.id}
                   whileHover={{ scale: 1.02 }}
