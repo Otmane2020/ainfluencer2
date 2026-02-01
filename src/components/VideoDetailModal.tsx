@@ -316,6 +316,19 @@ export const VideoDetailModal = ({
           "width=600,height=400"
         );
         break;
+      case "youtube":
+        // YouTube Studio for uploading
+        window.open(
+          "https://studio.youtube.com/channel/UC/videos/upload",
+          "_blank",
+          "width=800,height=600"
+        );
+        toast({
+          title: "YouTube Studio",
+          description: "Download the video and upload it manually",
+        });
+        handleDownload();
+        break;
       case "instagram":
       case "tiktok":
         toast({
@@ -405,12 +418,17 @@ export const VideoDetailModal = ({
     }
   };
 
-  // Platforms that support direct video publishing (LinkedIn not supported for video)
-  const platforms = [
+  // Platforms that support direct API publishing
+  const directPublishPlatforms = [
     { id: "instagram", label: "Instagram", icon: Instagram, color: "from-[#833AB4] via-[#E1306C] to-[#F77737]" },
     { id: "facebook", label: "Facebook", icon: Facebook, color: "from-[#1877F2] to-[#0D65D9]" },
     { id: "youtube", label: "YouTube", icon: YouTubeIcon, color: "from-[#FF0000] to-[#CC0000]" },
     { id: "tiktok", label: "TikTok", icon: TikTokIcon, color: "from-black to-black" },
+  ];
+
+  // Platforms for web sharing only (no direct API)
+  const webSharePlatforms = [
+    { id: "linkedin", label: "LinkedIn", icon: Linkedin, color: "from-[#0A66C2] to-[#004182]" },
   ];
 
   return (
@@ -513,7 +531,7 @@ export const VideoDetailModal = ({
                 {/* Social Share Icons Row */}
                 <div className="flex items-center justify-center gap-3 pt-3 border-t border-white/20">
                   <span className="text-xs text-white/60">Share:</span>
-                  {platforms.map((platform) => {
+                  {[...directPublishPlatforms, ...webSharePlatforms].map((platform) => {
                     const Icon = platform.icon;
                     return (
                       <button
@@ -569,8 +587,8 @@ export const VideoDetailModal = ({
                     {/* Platform Selection */}
                     <div>
                       <h4 className="text-xs font-medium text-muted-foreground mb-2">PUBLISH TO</h4>
-                      <div className="grid grid-cols-3 gap-2">
-                        {platforms.map((platform) => {
+                      <div className="grid grid-cols-2 gap-2">
+                        {directPublishPlatforms.map((platform) => {
                           const Icon = platform.icon;
                           const isSelected = selectedPlatforms.includes(platform.id);
                           return (
