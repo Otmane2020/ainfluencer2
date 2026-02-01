@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -20,6 +20,24 @@ export const useYouTubeOAuth = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+
+  const popupRef = useRef<Window | null>(null);
+  const popupMonitorRef = useRef<number | null>(null);
+
+  const cleanupPopup = useCallback(() => {
+    if (popupMonitorRef.current) {
+      window.clearInterval(popupMonitorRef.current);
+      popupMonitorRef.current = null;
+    }
+
+    try {
+      popupRef.current?.close();
+    } catch {
+      // ignore
+    }
+
+    popupRef.current = null;
+  }, []);
 
   // Check connection status on mount
   useEffect(() => {
@@ -73,14 +91,21 @@ export const useYouTubeOAuth = () => {
         });
         
         setIsConnecting(false);
+
+        cleanupPopup();
         
         toast({
           title: "YouTube Connected! 🎉",
           description: `Channel "${channel.name}" linked successfully`,
         });
+
+        // Refresh parent to update all pages that read connection state.
+        setTimeout(() => window.location.reload(), 300);
       } else if (event.data?.type === "youtube-oauth-error") {
         console.error("[useYouTubeOAuth] OAuth error:", event.data.error);
         setIsConnecting(false);
+
+        cleanupPopup();
 
         toast({
           title: "Connection Error",
@@ -92,7 +117,7 @@ export const useYouTubeOAuth = () => {
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [toast]);
+  }, [toast, cleanupPopup]);
 
   const connect = useCallback(async () => {
     setIsConnecting(true);
@@ -144,10 +169,12 @@ export const useYouTubeOAuth = () => {
         return;
       }
 
+      popupRef.current = popup;
+
       // Monitor popup closing
-      const checkPopup = setInterval(() => {
+      popupMonitorRef.current = window.setInterval(() => {
         if (popup.closed) {
-          clearInterval(checkPopup);
+          cleanupPopup();
           setTimeout(() => setIsConnecting(false), 1000);
         }
       }, 500);
@@ -161,6 +188,11 @@ export const useYouTubeOAuth = () => {
       });
     }
   }, [toast]);
+
+  // Cleanup popup when hook unmounts
+  useEffect(() => {
+    return () => cleanupPopup();
+  }, [cleanupPopup]);
 
   const disconnect = useCallback(async () => {
     try {
