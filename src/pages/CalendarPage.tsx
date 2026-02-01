@@ -539,18 +539,8 @@ const CalendarPage = () => {
                             borderColor: platformStyle?.color || '#e5e7eb'
                           }}
                         >
-                          {/* Platform icon with brand color */}
+                          {/* Time and platform badges */}
                           <div className="flex items-center gap-1.5 mb-1">
-                            <div 
-                              className="h-5 w-5 rounded-full flex items-center justify-center text-white shrink-0 shadow-sm"
-                              style={{ background: platformStyle?.bg || getProjectColor(post.project_id) }}
-                            >
-                              {platformStyle?.icon ? (
-                                <span className="scale-[0.7]">{platformStyle.icon}</span>
-                              ) : (
-                                post.content_type === "video" ? <Video className="h-2.5 w-2.5" /> : <ImageIcon className="h-2.5 w-2.5" />
-                              )}
-                            </div>
                             <span className="text-[9px] font-medium" style={{ color: platformStyle?.color || '#6b7280' }}>
                               {format(new Date(post.scheduled_for), "HH:mm")}
                             </span>
