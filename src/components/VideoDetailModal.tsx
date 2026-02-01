@@ -36,6 +36,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { openPopupOrRedirect } from "@/lib/openPopupOrRedirect";
 
 // TikTok icon
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -300,53 +301,55 @@ export const VideoDetailModal = ({
 
     const shareText = encodeURIComponent(socialCaption || title);
     const shareUrl = encodeURIComponent(videoUrl);
+    const rawShareText = socialCaption || title;
 
     switch (platform) {
       case "facebook":
-        window.open(
+        openPopupOrRedirect(
           `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}&quote=${shareText}`,
-          "_blank",
           "width=600,height=400"
         );
+        // Also copy the direct media link for convenience
+        void navigator.clipboard.writeText(videoUrl);
+        toast({
+          title: "Facebook share",
+          description: "A share window was opened. The video link was copied to your clipboard.",
+        });
         break;
       case "linkedin":
-        // LinkedIn doesn't support direct video file sharing - use post composer
-        // Open LinkedIn with text only, user downloads video separately
-        window.open(
-          `https://www.linkedin.com/feed/?shareActive=true`,
-          "_blank",
-          "width=600,height=600"
-        );
+        // LinkedIn blocks direct .mp4 URL “share” flows.
+        // Best-effort UX: open the composer, copy caption + link, and download the video.
+        openPopupOrRedirect(`https://www.linkedin.com/feed/?shareActive=true`, "width=600,height=600");
+        void navigator.clipboard.writeText(`${rawShareText}\n\n${videoUrl}`);
         toast({
-          title: "LinkedIn Share",
-          description: "Download the video and paste the caption in LinkedIn",
+          title: "LinkedIn share",
+          description: "Caption + link copied. Download starts so you can upload the video to LinkedIn.",
         });
-        // Copy caption to clipboard for easy pasting
-        if (socialCaption || title) {
-          navigator.clipboard.writeText(socialCaption || title || "");
-        }
-        handleDownload();
+        void handleDownload();
         break;
       case "youtube":
-        // YouTube Studio for uploading
-        window.open(
+        // YouTube doesn't accept direct external .mp4 “share links” in the way Facebook does.
+        // Open YouTube Studio upload + download the file.
+        openPopupOrRedirect(
           "https://studio.youtube.com/channel/UC/videos/upload",
-          "_blank",
           "width=800,height=600"
         );
+        void navigator.clipboard.writeText(`${rawShareText}\n\n${videoUrl}`);
         toast({
-          title: "YouTube Studio",
-          description: "Download the video and upload it manually",
+          title: "YouTube upload",
+          description: "Caption + link copied. Download starts so you can upload to YouTube Studio.",
         });
-        handleDownload();
+        void handleDownload();
         break;
       case "instagram":
       case "tiktok":
+        // No reliable web share URL for mp4 upload. Copy caption + link and guide user.
+        void navigator.clipboard.writeText(`${rawShareText}\n\n${videoUrl}`);
         toast({
-          title: `Share on ${platform === "instagram" ? "Instagram" : "TikTok"}`,
-          description: "Download the video then share from the app",
+          title: platform === "instagram" ? "Instagram share" : "TikTok share",
+          description: "Caption + link copied. Download starts so you can share from the mobile app.",
         });
-        handleDownload();
+        void handleDownload();
         break;
     }
   };
