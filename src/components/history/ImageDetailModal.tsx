@@ -25,6 +25,7 @@ import { enUS } from "date-fns/locale";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { openPopupOrRedirect } from "@/lib/openPopupOrRedirect";
 
 interface ProjectContext {
   name: string;
@@ -344,20 +345,29 @@ export const ImageDetailModal = ({
         url = `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}&quote=${shareText}`;
         break;
       case "linkedin":
-        url = `https://www.linkedin.com/sharing/share-offsite/?url=${shareUrl}`;
+        // LinkedIn often blocks direct image URLs.
+        // Open composer and guide the user with copy + download.
+        url = `https://www.linkedin.com/feed/?shareActive=true`;
         break;
       case "instagram":
       case "tiktok":
-        handleDownload();
-        toast({
-          title: `Share to ${platform === "instagram" ? "Instagram" : "TikTok"}`,
-          description: "Image downloaded. Open the app to share.",
-        });
-        return;
+        url = platform === "instagram" ? "https://www.instagram.com/" : "https://www.tiktok.com/";
+        break;
     }
 
     if (url) {
-      window.open(url, "_blank", "width=600,height=400");
+      // Manual share workflow
+      if (imageUrl) {
+        void navigator.clipboard.writeText(caption ? `${caption}\n\n${imageUrl}` : imageUrl);
+      } else {
+        void navigator.clipboard.writeText(caption);
+      }
+      void handleDownload();
+      openPopupOrRedirect(url, "width=900,height=700");
+      toast({
+        title: "Share",
+        description: "Caption + link copied. Download starts so you can upload in the platform.",
+      });
     }
   };
 
@@ -427,7 +437,12 @@ export const ImageDetailModal = ({
                     Download
                   </Button>
                   {imageUrl && (
-                    <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => window.open(imageUrl, "_blank")}>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9"
+                      onClick={() => openPopupOrRedirect(imageUrl)}
+                    >
                       <ExternalLink className="h-4 w-4" />
                     </Button>
                   )}
