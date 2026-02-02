@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,6 +28,58 @@ interface KlingResponse {
   };
 }
 
+// Generate JWT token for Kling API authentication
+async function generateKlingJWT(accessKeyId: string, accessKeySecret: string): Promise<string> {
+  const header = {
+    alg: "HS256",
+    typ: "JWT"
+  };
+
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    iss: accessKeyId,
+    exp: now + 1800, // 30 minutes expiry
+    nbf: now - 5     // Valid from 5 seconds ago
+  };
+
+  // Base64URL encode
+  const base64UrlEncode = (obj: object): string => {
+    const json = JSON.stringify(obj);
+    const base64 = btoa(json);
+    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  };
+
+  const encodedHeader = base64UrlEncode(header);
+  const encodedPayload = base64UrlEncode(payload);
+  const signatureInput = `${encodedHeader}.${encodedPayload}`;
+
+  // Create HMAC-SHA256 signature
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(accessKeySecret);
+  const data = encoder.encode(signatureInput);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyData,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const signature = await crypto.subtle.sign("HMAC", cryptoKey, data);
+  const signatureArray = new Uint8Array(signature);
+  
+  // Convert to base64url
+  let signatureBase64 = '';
+  for (let i = 0; i < signatureArray.length; i++) {
+    signatureBase64 += String.fromCharCode(signatureArray[i]);
+  }
+  signatureBase64 = btoa(signatureBase64);
+  const encodedSignature = signatureBase64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+
+  return `${encodedHeader}.${encodedPayload}.${encodedSignature}`;
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -40,9 +91,18 @@ serve(async (req) => {
 
   try {
     const KLING_API_KEY = Deno.env.get("KLING_API_KEY");
+    const KLING_API_SECRET = Deno.env.get("KLING_API_SECRET");
+    
     if (!KLING_API_KEY) {
       throw new Error("KLING_API_KEY is not configured");
     }
+    if (!KLING_API_SECRET) {
+      throw new Error("KLING_API_SECRET is not configured");
+    }
+
+    // Generate JWT token for authentication
+    const jwtToken = await generateKlingJWT(KLING_API_KEY, KLING_API_SECRET);
+    console.log("[KLING] JWT token generated successfully");
 
     // ACTION: Create lip-sync video task
     if (action === "create" && req.method === "POST") {
@@ -69,7 +129,7 @@ serve(async (req) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${KLING_API_KEY}`,
+          "Authorization": `Bearer ${jwtToken}`,
         },
         body: JSON.stringify({
           input: {
@@ -122,7 +182,7 @@ serve(async (req) => {
       const response = await fetch(`${KLING_API_BASE}/v1/videos/lip-sync/${taskId}`, {
         method: "GET",
         headers: {
-          "Authorization": `Bearer ${KLING_API_KEY}`,
+          "Authorization": `Bearer ${jwtToken}`,
         },
       });
 
