@@ -1,15 +1,30 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Video, Upload, Wand2, Loader2, User, Volume2, Play, CheckCircle, AlertCircle } from "lucide-react";
+import { Video, Upload, Wand2, Loader2, User, Volume2, Play, CheckCircle, AlertCircle, Sparkles, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { VoiceSelector } from "@/components/VoiceSelector";
 import { AVAILABLE_VOICES, getDefaultVoice, type Voice } from "@/lib/voices";
+
+interface Project {
+  id: string;
+  name: string;
+  description: string | null;
+  url: string | null;
+  detected_language: string | null;
+  avatar_url: string | null;
+  logo_url: string | null;
+  ai_context_summary: string | null;
+  marketing_context: any | null;
+  theme_color: string | null;
+}
 
 interface VideoMotionGeneratorProps {
   onBeforeGenerate?: () => boolean;
@@ -31,6 +46,24 @@ export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorP
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  
+  // Project selection state
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [projectSelectorOpen, setProjectSelectorOpen] = useState(false);
+  const [isGeneratingScript, setIsGeneratingScript] = useState(false);
+
+  // Fetch projects on mount
+  useEffect(() => {
+    const fetchProjects = async () => {
+      const { data } = await supabase
+        .from("projects")
+        .select("id, name, description, url, detected_language, avatar_url, logo_url, ai_context_summary, marketing_context, theme_color")
+        .order("name");
+      if (data) setProjects(data as Project[]);
+    };
+    fetchProjects();
+  }, []);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -60,6 +93,68 @@ export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorP
       title: "Portrait uploaded!",
       description: "Your image is ready for lip-sync generation",
     });
+  };
+
+  // Generate influencer-style script for a project
+  const generateInfluencerScript = async (project: Project) => {
+    setIsGeneratingScript(true);
+    setProjectSelectorOpen(false);
+    setSelectedProject(project);
+
+    try {
+      // Scrape project URL if available for fresh context
+      let scrapedContent: string | undefined;
+      let scrapedLanguage: string | undefined;
+      
+      if (project.url) {
+        try {
+          const { data: scrapeData } = await supabase.functions.invoke("scrape-project-url", {
+            body: { url: project.url },
+          });
+          scrapedContent = scrapeData?.markdown?.slice(0, 3000);
+          scrapedLanguage = scrapeData?.detectedLanguage;
+        } catch (e) {
+          console.log("[VideoMotion] Scraping skipped:", e);
+        }
+      }
+
+      const language = scrapedLanguage || project.detected_language || "en";
+
+      // Call AI to generate influencer-style script
+      const { data, error } = await supabase.functions.invoke("generate-motion-script", {
+        body: {
+          projectId: project.id,
+          projectName: project.name,
+          projectDescription: project.description,
+          projectUrl: project.url,
+          scrapedContent,
+          marketingContext: project.marketing_context,
+          detectedLanguage: language,
+          style: "influencer", // Conversational, not ads
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.script) {
+        setScript(data.script);
+        toast({
+          title: "Script generated!",
+          description: `Influencer script for ${project.name} is ready`,
+        });
+      } else {
+        throw new Error("No script returned");
+      }
+    } catch (error) {
+      console.error("[VideoMotion] Script generation error:", error);
+      toast({
+        title: "Script generation failed",
+        description: "Unable to generate script. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingScript(false);
+    }
   };
 
   const generateVideoMotion = async () => {
@@ -361,22 +456,96 @@ export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorP
           </div>
         </div>
 
-        {/* Script Input */}
+        {/* Script Input with AI Generation */}
         <div className="space-y-3">
-          <label className="text-sm font-medium text-muted-foreground">
-            Script (what should the influencer say?)
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium text-muted-foreground">
+              Script (what should the influencer say?)
+            </label>
+            <Popover open={projectSelectorOpen} onOpenChange={setProjectSelectorOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isGenerating || isGeneratingScript}
+                  className="gap-1.5 text-xs"
+                >
+                  {isGeneratingScript ? (
+                    <>
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-3 w-3" />
+                      Generate with AI
+                      <ChevronDown className="h-3 w-3" />
+                    </>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-0" align="end">
+                <div className="p-3 border-b border-border">
+                  <p className="text-sm font-medium">Choose a project</p>
+                  <p className="text-xs text-muted-foreground">
+                    AI will generate an influencer-style script
+                  </p>
+                </div>
+                <ScrollArea className="max-h-[300px]">
+                  <div className="p-2 space-y-1">
+                    {projects.length === 0 ? (
+                      <p className="text-sm text-muted-foreground p-2">
+                        No projects found. Create a project first.
+                      </p>
+                    ) : (
+                      projects.map((project) => (
+                        <button
+                          key={project.id}
+                          onClick={() => generateInfluencerScript(project)}
+                          className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 transition-colors text-left"
+                        >
+                          <div
+                            className="h-3 w-3 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: project.theme_color || "#888" }}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate">
+                              {project.name}
+                            </p>
+                            {project.description && (
+                              <p className="text-xs text-muted-foreground truncate">
+                                {project.description.slice(0, 50)}...
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+              </PopoverContent>
+            </Popover>
+          </div>
           <Textarea
-            placeholder="Enter the text for your AI influencer to speak..."
+            placeholder="Enter the text for your AI influencer to speak, or use AI to generate a script based on your project..."
             value={script}
             onChange={(e) => setScript(e.target.value)}
-            rows={4}
+            rows={5}
             className="resize-none"
-            disabled={isGenerating}
+            disabled={isGenerating || isGeneratingScript}
           />
-          <p className="text-xs text-muted-foreground">
-            {script.length} characters • ~{Math.ceil(script.length / 15)}s video
-          </p>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>{script.length} characters • ~{Math.ceil(script.length / 15)}s video</span>
+            {selectedProject && (
+              <span className="flex items-center gap-1">
+                <div
+                  className="h-2 w-2 rounded-full"
+                  style={{ backgroundColor: selectedProject.theme_color || "#888" }}
+                />
+                {selectedProject.name}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Voice Selection */}
