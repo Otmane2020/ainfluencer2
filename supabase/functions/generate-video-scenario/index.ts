@@ -258,19 +258,19 @@ Video duration: ${duration} seconds
 Script type: ${scriptType}
 Target word count: ${minWords}-${maxWords} words`;
 
-    // Call Lovable AI (built-in, no API key needed)
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("Missing LOVABLE_API_KEY");
+    // Call OpenRouter API
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    if (!OPENROUTER_API_KEY) {
+      throw new Error("Missing OPENROUTER_API_KEY");
     }
 
-    console.log("[generate-video-scenario] Calling Lovable AI (Gemini Flash)...");
+    console.log("[generate-video-scenario] Calling OpenRouter API (Gemini Flash)...");
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash-lite", // Fast & cheap Lovable AI model

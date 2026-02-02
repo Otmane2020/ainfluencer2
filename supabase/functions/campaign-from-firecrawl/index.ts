@@ -89,8 +89,8 @@ function detectLanguage(content: string): string {
 // ============================================================
 
 async function generateCampaign(content: string, services: string[], language: string) {
-  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!lovableApiKey) throw new Error("Missing LOVABLE_API_KEY");
+  const openrouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
+  if (!openrouterApiKey) throw new Error("Missing OPENROUTER_API_KEY");
 
   const langInstruction = language === "fr" 
     ? "Generate ALL content in French. Never use English."
@@ -100,10 +100,10 @@ async function generateCampaign(content: string, services: string[], language: s
     ? "Generate ALL content in German. Never use English."
     : "Generate all content in English.";
 
-  const res = await fetch("https://api.lovable.dev/v1/chat/completions", {
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${lovableApiKey}`,
+      Authorization: `Bearer ${openrouterApiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -145,7 +145,7 @@ Example format:
 
   if (!res.ok) {
     const error = await res.text();
-    throw new Error(`Lovable AI error: ${error}`);
+    throw new Error(`OpenRouter API error: ${error}`);
   }
 
   const json = await res.json();

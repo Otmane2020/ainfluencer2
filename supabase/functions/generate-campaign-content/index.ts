@@ -50,7 +50,7 @@ const BANNED_CLICHES = ["laptop in café", "person smiling at phone", "man in su
 
 async function generateAndUploadImage(prompt: string, format: string, supabase: any): Promise<string | null> {
   const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
   
   try {
     let size = "1024x1024";
@@ -90,12 +90,12 @@ async function generateAndUploadImage(prompt: string, format: string, supabase: 
       }
     }
 
-    // Fallback to Lovable AI if CometAPI fails
-    if (!imageBase64 && LOVABLE_API_KEY) {
-      console.log("[Image Gen] Falling back to Lovable AI...");
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Fallback to OpenRouter API if CometAPI fails
+    if (!imageBase64 && OPENROUTER_API_KEY) {
+      console.log("[Image Gen] Falling back to OpenRouter API...");
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
-        headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "google/gemini-3-pro-image-preview",
           messages: [{ role: "user", content: enhancedPrompt }],
@@ -108,7 +108,7 @@ async function generateAndUploadImage(prompt: string, format: string, supabase: 
         const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
         if (imageData) {
           imageBase64 = imageData.replace(/^data:image\/\w+;base64,/, "");
-          console.log("[Image Gen] Lovable AI fallback success");
+          console.log("[Image Gen] OpenRouter API fallback success");
         }
       }
     }
@@ -164,10 +164,10 @@ serve(async (req) => {
     }
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
 
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!OPENROUTER_API_KEY) {
+      throw new Error("OPENROUTER_API_KEY is not configured");
     }
 
     // 1. Fetch Campaign & Project
@@ -246,9 +246,9 @@ serve(async (req) => {
       console.log(`[Campaign] Post ${idx + 1}: ${isVideo ? "VIDEO" : "IMAGE"} | Scene: ${scene.id} | Angle: ${angle.id}`);
 
       // 4. AI Prompting - Use FULL context from guard
-      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
-        headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "google/gemini-3-flash-preview",
           messages: [{
