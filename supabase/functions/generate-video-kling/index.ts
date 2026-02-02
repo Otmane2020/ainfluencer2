@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-/* -------------------- CORS -------------------- */
+/* ===================== CORS ===================== */
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -8,11 +8,11 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
 };
 
-/* -------------------- Constants -------------------- */
+/* ===================== CONSTANTS ===================== */
 const KLING_API_BASE = "https://api.klingai.com";
 
-/* -------------------- Types -------------------- */
-interface KlingAvatarRequest {
+/* ===================== TYPES ===================== */
+interface KlingLipSyncRequest {
   imageUrl: string;
   audioUrl: string;
   duration?: number;
@@ -32,7 +32,7 @@ interface KlingResponse {
   };
 }
 
-/* -------------------- Utils -------------------- */
+/* ===================== UTILS ===================== */
 const base64Url = (input: Uint8Array | string): string => {
   const bytes =
     typeof input === "string"
@@ -45,7 +45,7 @@ const base64Url = (input: Uint8Array | string): string => {
     .replace(/=+$/, "");
 };
 
-/* -------------------- JWT -------------------- */
+/* ===================== JWT ===================== */
 async function generateKlingJWT(
   accessKeyId: string,
   accessKeySecret: string,
@@ -62,6 +62,7 @@ async function generateKlingJWT(
   );
 
   const data = `${header}.${payload}`;
+
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(accessKeySecret),
@@ -79,7 +80,7 @@ async function generateKlingJWT(
   return `${data}.${base64Url(new Uint8Array(signature))}`;
 }
 
-/* -------------------- Server -------------------- */
+/* ===================== SERVER ===================== */
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -96,63 +97,62 @@ serve(async (req) => {
       throw new Error("KLING API credentials missing");
     }
 
-    const jwt = await generateKlingJWT(KLING_API_KEY, KLING_API_SECRET);
-    console.log("[KLING] JWT generated successfully");
+    const jwtToken = await generateKlingJWT(
+      KLING_API_KEY,
+      KLING_API_SECRET,
+    );
 
-    /* ---------- CREATE (AI Avatar) ---------- */
+    /* ---------- CREATE TASK ---------- */
     if (action === "create" && req.method === "POST") {
       const {
         imageUrl,
         audioUrl,
+        duration = 5,
         aspectRatio = "9:16",
-      } = (await req.json()) as KlingAvatarRequest;
+      } = (await req.json()) as KlingLipSyncRequest;
 
       if (!imageUrl || !audioUrl) {
         throw new Error("imageUrl and audioUrl are required");
       }
 
-      console.log("[KLING] Creating AI Avatar task:", {
-        imageUrl: imageUrl.substring(0, 50) + "...",
-        audioUrl: audioUrl.substring(0, 50) + "...",
-        aspectRatio,
-      });
-
-      // Use AI Avatar endpoint for portrait image + audio → talking video
-      const res = await fetch(`${KLING_API_BASE}/v1/videos/ai-avatar`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model_name: "kling-v1",
-          input: {
-            image_url: imageUrl,
-            audio_url: audioUrl,
-            mode: "audio",
+      const response = await fetch(
+        `${KLING_API_BASE}/v1/videos/lip-sync`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${jwtToken}`,
+            "Content-Type": "application/json",
           },
-        }),
-      });
+          body: JSON.stringify({
+            input: {
+              face_image_url: imageUrl,
+              audio_url: audioUrl,
+              audio_type: "url",
+            },
+            config: {
+              duration: Math.min(duration, 30),
+              aspect_ratio: aspectRatio,
+            },
+          }),
+        },
+      );
 
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error("[KLING] API error:", res.status, errorText);
-        throw new Error(`Kling API error: ${res.status} - ${errorText}`);
+      if (!response.ok) {
+        throw new Error(await response.text());
       }
 
-      const json = (await res.json()) as KlingResponse;
-      console.log("[KLING] Task created:", json);
+      const result = (await response.json()) as KlingResponse;
 
-      if (json.code !== 0 || !json.data?.task_id) {
-        throw new Error(json.message || "Kling task creation failed");
+      if (result.code !== 0 || !result.data?.task_id) {
+        throw new Error(result.message || "Failed to create Kling task");
       }
 
       return new Response(
         JSON.stringify({
           success: true,
-          taskId: json.data.task_id,
-          status: json.data.task_status,
-          requestId: json.request_id,
+          taskId: result.data.task_id,
+          status: result.data.task_status,
+          requestId: result.request_id,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
@@ -163,35 +163,33 @@ serve(async (req) => {
       const taskId = url.searchParams.get("taskId");
       if (!taskId) throw new Error("taskId is required");
 
-      console.log("[KLING] Checking status for task:", taskId);
-
-      const res = await fetch(
-        `${KLING_API_BASE}/v1/videos/ai-avatar/${taskId}`,
-        { headers: { Authorization: `Bearer ${jwt}` } },
+      const response = await fetch(
+        `${KLING_API_BASE}/v1/videos/lip-sync/${taskId}`,
+        {
+          headers: { Authorization: `Bearer ${jwtToken}` },
+        },
       );
 
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error("[KLING] Status check error:", res.status, errorText);
-        throw new Error(`Kling status error: ${res.status}`);
+      if (!response.ok) {
+        throw new Error(await response.text());
       }
 
-      const json = (await res.json()) as KlingResponse;
-      console.log("[KLING] Status result:", json);
+      const result = (await response.json()) as KlingResponse;
 
-      const klingStatus = json.data?.task_status ?? "unknown";
-      const video = json.data?.task_result?.videos?.[0] ?? null;
-
-      // Map Kling status to our format
-      let status: "queued" | "in_progress" | "completed" | "failed" = "queued";
-      if (klingStatus === "processing") status = "in_progress";
-      if (klingStatus === "completed" || klingStatus === "succeed") status = "completed";
-      if (klingStatus === "failed" || klingStatus === "error") status = "failed";
+      const klingStatus = result.data?.task_status ?? "unknown";
+      const video = result.data?.task_result?.videos?.[0];
 
       return new Response(
         JSON.stringify({
           success: true,
-          status,
+          status:
+            klingStatus === "processing"
+              ? "in_progress"
+              : klingStatus === "completed" || klingStatus === "succeed"
+              ? "completed"
+              : klingStatus === "failed" || klingStatus === "error"
+              ? "failed"
+              : "queued",
           klingStatus,
           videoUrl: video?.url ?? null,
           duration: video?.duration ?? null,
@@ -201,12 +199,11 @@ serve(async (req) => {
     }
 
     throw new Error(`Unknown action: ${action}`);
-  } catch (err) {
-    console.error("[KLING] Error:", err);
+  } catch (error) {
     return new Response(
       JSON.stringify({
         success: false,
-        error: err instanceof Error ? err.message : "Unknown error",
+        error: error instanceof Error ? error.message : "Unknown error",
       }),
       {
         status: 500,
