@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const LOVABLE_API_URL = "https://api.lovable.dev/v1/chat/completions";
+const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -23,11 +23,11 @@ serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
+    const apiKey = Deno.env.get("OPENROUTER_API_KEY");
     if (!apiKey) {
-      console.error("[extract-services-ai] LOVABLE_API_KEY not configured");
+      console.error("[extract-services-ai] OPENROUTER_API_KEY not configured");
       return new Response(
-        JSON.stringify({ success: false, error: "LOVABLE_API_KEY not configured", services: [] }),
+        JSON.stringify({ success: false, error: "OPENROUTER_API_KEY not configured", services: [] }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -56,7 +56,7 @@ ${truncatedMarkdown}
 
 Return ONLY a valid JSON array of service names, nothing else. Example: ["SEO", "Web Design", "Content Marketing"]`;
 
-    const response = await fetch(LOVABLE_API_URL, {
+    const response = await fetch(OPENROUTER_API_URL, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,

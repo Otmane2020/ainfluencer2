@@ -158,7 +158,7 @@ interface ScheduledPost {
 }
 
 // ============================================================
-// IMAGE GENERATION (via Lovable AI - Quality Tiers)
+// IMAGE GENERATION (via OpenRouter API - Quality Tiers)
 // ============================================================
 
 async function generateImage(
@@ -167,9 +167,9 @@ async function generateImage(
   project: ProjectContext,
   quality: string = "pro"
 ): Promise<string | null> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) {
-    console.error("[generateImage] LOVABLE_API_KEY not configured");
+  const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+  if (!OPENROUTER_API_KEY) {
+    console.error("[generateImage] OPENROUTER_API_KEY not configured");
     return null;
   }
 
@@ -194,12 +194,12 @@ async function generateImage(
 
     logContextValidation(contextGuard, "CRON-IMAGE");
     
-    console.log(`[generateImage] Using ${quality} quality (${config.model}) via Lovable AI | Context Score: ${contextGuard.contextScore}`);
+    console.log(`[generateImage] Using ${quality} quality (${config.model}) via OpenRouter API | Context Score: ${contextGuard.contextScore}`);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -211,7 +211,7 @@ async function generateImage(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("[generateImage] Lovable AI error:", response.status, errorText.slice(0, 200));
+      console.error("[generateImage] OpenRouter API error:", response.status, errorText.slice(0, 200));
       return null;
     }
 

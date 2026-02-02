@@ -102,11 +102,11 @@ Deno.serve(async (req) => {
 
     const shotTypes = normalizeShotTypes(body?.shotTypes, includeLifestyle);
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!LOVABLE_API_KEY) {
+    if (!OPENROUTER_API_KEY) {
       return new Response(JSON.stringify({ error: "AI service not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -143,11 +143,11 @@ CRITICAL REQUIREMENTS:
 
       try {
         const response = await fetchWithTimeout(
-          "https://ai.gateway.lovable.dev/v1/chat/completions",
+          "https://openrouter.ai/api/v1/chat/completions",
           {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              Authorization: `Bearer ${OPENROUTER_API_KEY}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({

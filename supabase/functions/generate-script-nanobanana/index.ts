@@ -281,11 +281,11 @@ serve(async (req) => {
     console.log(`[Script] Context Score: ${contextGuard.contextScore}/100`);
 
     // ============================================
-    // USE LOVABLE AI (Gemini) for script generation
+    // USE OPENROUTER API (Gemini) for script generation
     // ============================================
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    if (!OPENROUTER_API_KEY) {
+      throw new Error("OPENROUTER_API_KEY is not configured");
     }
 
     // Calculate optimal word count based on duration (~2.5 words/second)
@@ -346,12 +346,12 @@ Respond ONLY with valid JSON:
   ]
 }`;
 
-    // Call Lovable AI
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Call OpenRouter API
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       },
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",

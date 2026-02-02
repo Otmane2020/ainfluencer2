@@ -76,10 +76,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!OPENROUTER_API_KEY) {
+      throw new Error("OPENROUTER_API_KEY is not configured");
     }
     
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
 
       try {
         const statusResponse = await fetch(`https://nanobananavideo.com/api/v1/task/${taskId}`, {
-          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}` },
+          headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}` },
         });
 
         if (!statusResponse.ok) {
@@ -368,7 +368,7 @@ Deno.serve(async (req) => {
       const videoResponse = await fetch("https://nanobananavideo.com/api/v1/text-to-video", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
