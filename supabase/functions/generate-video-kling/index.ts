@@ -123,23 +123,19 @@ serve(async (req) => {
         aspectRatio,
       });
 
-      // Call Kling API to create lip-sync task
-      // Using the video/lip-sync endpoint for talking avatar
-      const response = await fetch(`${KLING_API_BASE}/v1/videos/lip-sync`, {
+      // Call Kling AI Avatar API to create talking video from portrait + audio
+      const response = await fetch(`${KLING_API_BASE}/v1/videos/ai-avatar`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${jwtToken}`,
         },
         body: JSON.stringify({
+          model_name: "kling-v1",
           input: {
-            face_image_url: imageUrl,
+            image_url: imageUrl,
             audio_url: audioUrl,
-            audio_type: "url",
-          },
-          config: {
-            duration: Math.min(duration, 30), // Max 30s for Kling
-            aspect_ratio: aspectRatio,
+            mode: "audio",
           },
         }),
       });
@@ -179,7 +175,7 @@ serve(async (req) => {
 
       console.log("[KLING] Checking status for task:", taskId);
 
-      const response = await fetch(`${KLING_API_BASE}/v1/videos/lip-sync/${taskId}`, {
+      const response = await fetch(`${KLING_API_BASE}/v1/videos/ai-avatar/${taskId}`, {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${jwtToken}`,
