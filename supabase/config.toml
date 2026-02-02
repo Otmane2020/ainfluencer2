@@ -133,3 +133,6 @@ verify_jwt = false
 
 [functions.tiktok-oauth]
 verify_jwt = false
+
+[functions.generate-video-kling]
+verify_jwt = false
