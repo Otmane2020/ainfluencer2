@@ -32,6 +32,8 @@ interface KlingResponse {
   };
 }
 
+type KlingTaskKind = "lip-sync" | "talking-face";
+
 /* ===================== UTILS ===================== */
 const base64Url = (input: Uint8Array | string): string => {
   const bytes =
@@ -152,7 +154,7 @@ serve(async (req) => {
         if (errorText.includes("1201") || lipSyncRes.status >= 400) {
           console.log("[Kling] Falling back to talking_face endpoint...");
           const fallbackRes = await fetch(
-            `${KLING_API_BASE}/v1/videos`,
+          `${KLING_API_BASE}/v1/videos/talking-face`,
             {
               method: "POST",
               headers: {
@@ -160,7 +162,6 @@ serve(async (req) => {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                mode: "talking_face",
                 input: {
                   image_url: imageUrl,
                   audio_url: audioUrl,
@@ -196,6 +197,8 @@ serve(async (req) => {
           taskId: result.data.task_id,
           status: result.data.task_status,
           requestId: result.request_id,
+          // Helpful for debugging / client logic (optional)
+          taskKind: lipSyncRes.ok ? ("lip-sync" as KlingTaskKind) : ("talking-face" as KlingTaskKind),
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
@@ -206,16 +209,29 @@ serve(async (req) => {
       const taskId = url.searchParams.get("taskId");
       if (!taskId) throw new Error("taskId is required");
 
-      const response = await fetch(
-        `${KLING_API_BASE}/v1/videos/lip-sync/${taskId}`,
-        {
-          headers: { Authorization: `Bearer ${jwtToken}` },
-        },
-      );
+      const fetchStatus = async (kind: KlingTaskKind) => {
+        const endpoint =
+          kind === "lip-sync"
+            ? `${KLING_API_BASE}/v1/videos/lip-sync/${taskId}`
+            : `${KLING_API_BASE}/v1/videos/talking-face/${taskId}`;
 
-      if (!response.ok) {
-        throw new Error(await response.text());
+        const r = await fetch(endpoint, {
+          headers: { Authorization: `Bearer ${jwtToken}` },
+        });
+
+        return r;
+      };
+
+      // Try lip-sync first, but Kling tasks created via talking-face must be polled
+      // on /v1/videos/talking-face/{task_id}. We auto-detect here to avoid client changes.
+      let response = await fetchStatus("lip-sync");
+      let taskKind: KlingTaskKind = "lip-sync";
+      if (response.status === 404) {
+        response = await fetchStatus("talking-face");
+        taskKind = "talking-face";
       }
+
+      if (!response.ok) throw new Error(await response.text());
 
       const result = (await response.json()) as KlingResponse;
 
@@ -236,6 +252,7 @@ serve(async (req) => {
           klingStatus,
           videoUrl: video?.url ?? null,
           duration: video?.duration ?? null,
+          taskKind,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
