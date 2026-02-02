@@ -8,7 +8,7 @@
 // • Cinema Premium → 12-15s (Brand films, 4x cost - NOT default)
 // ============================================================
 
-export type VideoMode = "standard" | "clipmotion";
+export type VideoMode = "standard" | "clipmotion" | "motion";
 
 export interface ClipMotionConfig {
   enabled: boolean;

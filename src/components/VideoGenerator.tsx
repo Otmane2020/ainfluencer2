@@ -12,6 +12,7 @@ import { ScenarioSelector } from "@/components/ScenarioSelector";
 import { FormatSelector, ContentFormat, FORMAT_OPTIONS } from "@/components/FormatSelector";
 import { BrandOptions, BrandOptionsState } from "@/components/BrandOptions";
 import { VideoModeSelector } from "@/components/VideoModeSelector";
+import { VideoMotionGenerator } from "@/components/VideoMotionGenerator";
 import { AVAILABLE_VOICES, getDefaultVoice, type Voice } from "@/lib/voices";
 import { COMMERCIAL_PRODUCTS, CommercialProduct, getPrimaryInternalModel, VIDEO_RESOLUTIONS, VideoResolution, getResolutionsForModel, getVideoCreditCost, formatVideoPrice } from "@/lib/commercialProducts";
 import { VideoScenario, buildScenarioPrompt } from "@/lib/videoScenarios";
@@ -893,10 +894,17 @@ ${formattedHashtags}`;
       </div>
 
       {/* Video Mode Toggle */}
-      <div className="mb-3">
-        <VideoModeSelector mode={videoMode} onModeChange={setVideoMode} />
-      </div>
+      {!hideVideoModeSelector && <div className="mb-3">
+        <VideoModeSelector mode={videoMode} onModeChange={setVideoMode} showMotion={!hideVideoModeSelector} />
+      </div>}
 
+      {/* Motion Mode - Kling AI Lip Sync */}
+      {videoMode === "motion" && (
+        <VideoMotionGenerator onBeforeGenerate={onBeforeGenerate} />
+      )}
+
+      {/* Standard and ClipMotion Modes */}
+      {videoMode !== "motion" && <>
       {/* ClipMotion Info Banner */}
       {videoMode === "clipmotion" && <div className="mb-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
           <p className="text-xs text-primary">
@@ -1215,5 +1223,6 @@ ${formattedHashtags}`;
         setGeneratedScenarios([]);
       }
     }} scenarios={generatedScenarios} onSelect={handleScenarioSelect} onRegenerate={handleScenarioRegenerate} isRegenerating={isRegeneratingScenarios} />
+    </>}
     </motion.div>;
 };
