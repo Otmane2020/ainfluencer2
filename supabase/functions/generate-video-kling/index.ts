@@ -125,6 +125,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             input: {
+              mode: "lip_sync",
               face_image_url: imageUrl,
               audio_url: audioUrl,
               audio_type: "url",
