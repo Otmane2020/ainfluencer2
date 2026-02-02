@@ -115,7 +115,9 @@ serve(async (req) => {
         throw new Error("imageUrl and audioUrl are required");
       }
 
-      const response = await fetch(
+      // 1️⃣ Try lip-sync endpoint (NO mode field allowed)
+      console.log("[Kling] Attempting lip-sync endpoint...");
+      const lipSyncRes = await fetch(
         `${KLING_API_BASE}/v1/videos/lip-sync`,
         {
           method: "POST",
@@ -125,7 +127,6 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             input: {
-              mode: "lip_sync",
               face_image_url: imageUrl,
               audio_url: audioUrl,
               audio_type: "url",
@@ -138,11 +139,52 @@ serve(async (req) => {
         },
       );
 
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
+      let result: KlingResponse;
 
-      const result = (await response.json()) as KlingResponse;
+      if (lipSyncRes.ok) {
+        result = (await lipSyncRes.json()) as KlingResponse;
+        console.log("[Kling] Lip-sync succeeded:", result);
+      } else {
+        const errorText = await lipSyncRes.text();
+        console.log("[Kling] Lip-sync failed:", errorText);
+
+        // 2️⃣ Fallback to talking_face endpoint if lip-sync fails
+        if (errorText.includes("1201") || lipSyncRes.status >= 400) {
+          console.log("[Kling] Falling back to talking_face endpoint...");
+          const fallbackRes = await fetch(
+            `${KLING_API_BASE}/v1/videos`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${jwtToken}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                mode: "talking_face",
+                input: {
+                  image_url: imageUrl,
+                  audio_url: audioUrl,
+                },
+                config: {
+                  duration: Math.min(duration, 30),
+                  aspect_ratio: aspectRatio,
+                },
+              }),
+            },
+          );
+
+          if (!fallbackRes.ok) {
+            const fallbackError = await fallbackRes.text();
+            console.error("[Kling] Fallback also failed:", fallbackError);
+            throw new Error(fallbackError);
+          }
+
+          result = (await fallbackRes.json()) as KlingResponse;
+          console.log("[Kling] Fallback succeeded:", result);
+        } else {
+          throw new Error(errorText);
+        }
+      }
 
       if (result.code !== 0 || !result.data?.task_id) {
         throw new Error(result.message || "Failed to create Kling task");
