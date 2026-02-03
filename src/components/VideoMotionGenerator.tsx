@@ -32,22 +32,22 @@ interface VideoMotionGeneratorProps {
 }
 
 type GenerationStatus = "idle" | "uploading" | "generating_audio" | "generating_video" | "polling" | "completed" | "error";
-type MotionProvider = "kling" | "sora";
+type MotionProvider = "did" | "sora";
 
 // Provider configurations
 const MOTION_PROVIDERS = {
-  kling: {
-    id: "kling" as MotionProvider,
-    name: "Kling AI",
-    description: "Fast lip-sync generation",
-    badge: "FAST",
-    badgeClass: "bg-blue-500/20 text-blue-400",
-    features: ["Quick processing", "Good for MVPs", "Lower cost"],
+  did: {
+    id: "did" as MotionProvider,
+    name: "D-ID",
+    description: "Realistic lip-sync from portraits",
+    badge: "LIP-SYNC",
+    badgeClass: "bg-emerald-500/20 text-emerald-400",
+    features: ["Image to talking video", "Natural lip movements", "Fast processing"],
   },
   sora: {
     id: "sora" as MotionProvider,
     name: "Sora 2",
-    description: "Premium quality & expressions",
+    description: "Premium cinematic quality",
     badge: "PREMIUM",
     badgeClass: "bg-amber-500/20 text-amber-400",
     features: ["Natural expressions", "Micro-gestures", "Cinema quality"],
@@ -63,7 +63,7 @@ export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorP
   const [portraitFile, setPortraitFile] = useState<File | null>(null);
   const [script, setScript] = useState("");
   const [selectedVoice, setSelectedVoice] = useState<Voice>(getDefaultVoice());
-  const [selectedProvider, setSelectedProvider] = useState<MotionProvider>("kling");
+  const [selectedProvider, setSelectedProvider] = useState<MotionProvider>("did");
   const [status, setStatus] = useState<GenerationStatus>("idle");
   const [progress, setProgress] = useState(0);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
@@ -290,8 +290,7 @@ export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorP
           videoUrl: soraResult.videoUrl,
         };
       } else {
-        // For Kling: Generate audio FIRST, then create lip-sync task with both
-        // This ensures we only call Kling once with both image + audio
+        // For D-ID: Generate audio FIRST, then create lip-sync task with both
         
         // Step 2a: Generate audio with TTS first
         setStatus("generating_audio");
@@ -336,7 +335,7 @@ export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorP
         console.log("[VideoMotion] Audio generated:", audioUrl);
         setProgress(40);
 
-        // Step 2b: Now create Kling lip-sync task with BOTH image and audio
+        // Step 2b: Now create D-ID talk with BOTH image and audio
         setStatus("generating_video");
         toast({
           title: "Creating lip-sync video...",
@@ -344,7 +343,7 @@ export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorP
         });
 
         const createResponse = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-kling?action=create`,
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-did?action=create`,
           {
             method: "POST",
             headers: {
@@ -355,15 +354,13 @@ export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorP
             body: JSON.stringify({
               imageUrl,
               audioUrl,
-              duration: estimatedDuration,
-              aspectRatio: "9:16",
             }),
           }
         );
 
         if (!createResponse.ok) {
           const errorData = await createResponse.json();
-          throw new Error(errorData.error || `Kling creation failed: ${createResponse.status}`);
+          throw new Error(errorData.error || `D-ID creation failed: ${createResponse.status}`);
         }
 
         createResult = await createResponse.json();
@@ -402,7 +399,7 @@ export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorP
       // Determine status endpoint based on provider
       const statusEndpoint = selectedProvider === "sora" 
         ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-sora?taskId=${createResult.taskId}`
-        : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-kling?action=status&taskId=${createResult.taskId}`;
+        : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-did?action=status&taskId=${createResult.taskId}`;
 
       const pollInterval = setInterval(async () => {
         pollCount++;
