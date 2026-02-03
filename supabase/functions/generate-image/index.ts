@@ -6,6 +6,11 @@ import {
   type MarketingContext,
   type GenerationGuardInput 
 } from "../_shared/generation-context-guard.ts";
+import {
+  createKieTask,
+  checkKieTaskStatus,
+  KIE_ENDPOINTS,
+} from "../_shared/kie-api-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,37 +18,58 @@ const corsHeaders = {
 };
 
 // ============================================================
-// CREDIT COSTS BY QUALITY
+// MODEL CREDIT COSTS - Centralized pricing
 // ============================================================
 
-const CREDIT_COSTS: Record<string, number> = {
-  standard: 1,
-  pro: 3,
-  cinema: 5,
+const MODEL_CREDIT_COSTS: Record<string, number> = {
+  // Text → Image
+  "qwen-zimage": 0.8,
+  "grok-imagine-text": 4,
+  "flux-kontext-pro": 5,
+  "flux-2-pro-1k": 5,
+  "openai-4o-image": 6,
+  "flux-2-pro-2k": 7,
+  "flux-kontext-max": 10,
+  "flux-2-flex-1k": 14,
+  "nano-banana-pro-2k": 18,
+  "flux-2-flex-2k": 24,
+  "nano-banana-pro-4k": 24,
+  
+  // Image → Image
+  "recraft-crisp-upscale": 0.5,
+  "recraft-remove-bg": 1,
+  "ideogram-v3-remix-turbo": 3.5,
+  "grok-imagine-img": 4,
+  "ideogram-v3-remix-balanced": 7,
+  "ideogram-v3-remix-quality": 10,
+  "ideogram-v3-edit-quality": 10,
+  "ideogram-v3-reframe": 10,
+  
   // Legacy mappings
+  "standard": 1,
+  "pro": 3,
+  "cinema": 5,
   "smart-image": 1,
   "high-image": 3,
   "studio-image": 5,
 };
 
-function getCreditCost(quality: string): number {
-  return CREDIT_COSTS[quality] || CREDIT_COSTS["standard"];
+function getCreditCost(modelId: string): number {
+  return MODEL_CREDIT_COSTS[modelId] || 5; // Default to 5 credits
 }
 
 // ============================================================
-// MODEL POOL CONFIGURATION - FLUX + GPT Image + Nano Banana (Gemini)
+// MODEL POOL CONFIGURATION - Legacy support
 // ============================================================
 
 interface ModelOption {
   id: string;
-  provider: "openai" | "gemini" | "flux";
+  provider: "openai" | "gemini" | "flux" | "kie";
   weight: number;
   apiModel: string;
   displayName: string;
 }
 
-// FLUX (via Replicate) + Gemini Nano Banana models - GPT Image REMOVED for cost savings
-// Priority: Nano Banana (free via Lovable) > FLUX (Replicate credits) > GPT Image (expensive)
 const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
   standard: [
     { id: "nano-banana", provider: "gemini", weight: 70, apiModel: "google/gemini-2.5-flash-image", displayName: "Nano Banana" },
@@ -59,21 +85,6 @@ const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
     { id: "nano-banana-pro", provider: "gemini", weight: 45, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
     { id: "gpt-image", provider: "openai", weight: 5, apiModel: "gpt-image-1", displayName: "GPT Image" },
   ],
-  // Legacy mappings
-  "smart-image": [
-    { id: "nano-banana", provider: "gemini", weight: 70, apiModel: "google/gemini-2.5-flash-image", displayName: "Nano Banana" },
-    { id: "flux-schnell", provider: "flux", weight: 30, apiModel: "black-forest-labs/flux-schnell", displayName: "FLUX Schnell" },
-  ],
-  "high-image": [
-    { id: "nano-banana-pro", provider: "gemini", weight: 60, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
-    { id: "flux-dev", provider: "flux", weight: 35, apiModel: "black-forest-labs/flux-dev", displayName: "FLUX Dev" },
-    { id: "gpt-image", provider: "openai", weight: 5, apiModel: "gpt-image-1", displayName: "GPT Image" },
-  ],
-  "studio-image": [
-    { id: "flux-pro", provider: "flux", weight: 50, apiModel: "black-forest-labs/flux-pro", displayName: "FLUX Pro" },
-    { id: "nano-banana-pro", provider: "gemini", weight: 45, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" },
-    { id: "gpt-image", provider: "openai", weight: 5, apiModel: "gpt-image-1", displayName: "GPT Image" },
-  ],
 };
 
 const LEGACY_QUALITY_MAPPINGS: Record<string, string> = {
@@ -81,16 +92,6 @@ const LEGACY_QUALITY_MAPPINGS: Record<string, string> = {
   "ai-image-standard": "standard",
   "ai-image-pro": "pro",
   "ai-image-studio": "cinema",
-  "flux-2-flex": "standard",
-  "flux-schnell": "standard",
-  "flux-2-dev": "pro",
-  "flux-2-pro": "cinema",
-  "nano-banana": "standard",
-  "nano-banana-pro": "pro",
-  "gpt-image": "cinema",
-  "smart-image": "standard",
-  "high-image": "pro",
-  "studio-image": "cinema",
 };
 
 function selectModelFromPool(qualityId: string): ModelOption {
@@ -109,14 +110,65 @@ function selectModelFromPool(qualityId: string): ModelOption {
 }
 
 // ============================================================
+// MODEL ROUTING - Direct model selection
+// ============================================================
+
+interface ModelRouting {
+  provider: "kie" | "lovable" | "openai" | "replicate";
+  endpoint?: string;
+  apiModel?: string;
+}
+
+function getModelRouting(modelId: string): ModelRouting {
+  // KIE API models
+  const kieModels: Record<string, string> = {
+    "qwen-zimage": "/qwen/z-image",
+    "grok-imagine-text": "/grok/imagine",
+    "grok-imagine-img": "/grok/imagine",
+    "flux-kontext-pro": "/flux/kontext",
+    "flux-kontext-max": "/flux/kontext",
+    "flux-2-pro-1k": "/flux/2-pro",
+    "flux-2-pro-2k": "/flux/2-pro",
+    "flux-2-flex-1k": "/flux/2-flex",
+    "flux-2-flex-2k": "/flux/2-flex",
+    "recraft-remove-bg": "/recraft/remove-background",
+    "recraft-crisp-upscale": "/recraft/upscale",
+    "ideogram-v3-remix-turbo": "/ideogram/v3-remix",
+    "ideogram-v3-remix-balanced": "/ideogram/v3-remix",
+    "ideogram-v3-remix-quality": "/ideogram/v3-remix",
+    "ideogram-v3-edit-quality": "/ideogram/v3-edit",
+    "ideogram-v3-reframe": "/ideogram/v3-reframe",
+  };
+
+  if (kieModels[modelId]) {
+    return { provider: "kie", endpoint: kieModels[modelId] };
+  }
+
+  // Lovable AI (Nano Banana)
+  if (modelId.startsWith("nano-banana")) {
+    const apiModel = modelId.includes("4k") || modelId.includes("pro") 
+      ? "google/gemini-3-pro-image-preview" 
+      : "google/gemini-2.5-flash-image";
+    return { provider: "lovable", apiModel };
+  }
+
+  // OpenAI
+  if (modelId.includes("openai") || modelId === "gpt-image") {
+    return { provider: "openai", apiModel: "gpt-image-1" };
+  }
+
+  // Default to Lovable
+  return { provider: "lovable", apiModel: "google/gemini-2.5-flash-image" };
+}
+
+// ============================================================
 // LOGO OVERLAY UTILITY
 // ============================================================
 
-// Helper function to convert ArrayBuffer to base64 without stack overflow
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = '';
-  const chunkSize = 8192; // Process in chunks to avoid stack overflow
+  const chunkSize = 8192;
   for (let i = 0; i < bytes.length; i += chunkSize) {
     const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
     binary += String.fromCharCode.apply(null, Array.from(chunk));
@@ -140,7 +192,6 @@ async function overlayLogoOnImage(
     
     const logoBlob = await logoResponse.blob();
     const logoArrayBuffer = await logoBlob.arrayBuffer();
-    // Use chunked conversion to avoid stack overflow
     const logoBase64 = arrayBufferToBase64(logoArrayBuffer);
     const logoDataUrl = `data:${logoBlob.type || "image/png"};base64,${logoBase64}`;
     
@@ -240,35 +291,102 @@ const LANGUAGE_CONFIG: Record<string, { name: string; fullName: string; instruct
   },
 };
 
-// Scenario context builders
-const SECTOR_CONTEXT: Record<string, string> = {
-  restaurant: "food photography style, appetizing, warm lighting, culinary",
-  realestate: "architectural photography, interior design, spacious, luxurious",
-  doctor: "medical, healthcare, clean, professional, trustworthy",
-  coach: "motivational, personal development, inspiring, dynamic",
-  ecommerce: "product photography, commercial, clean background, detailed",
-  beauty: "beauty, cosmetics, elegant, soft lighting, luxurious",
-  fitness: "athletic, energetic, dynamic, healthy lifestyle",
-  tech: "technology, modern, sleek, innovative, futuristic",
-};
+// ============================================================
+// KIE API GENERATION
+// ============================================================
 
-const STYLE_CONTEXT: Record<string, string> = {
-  testimonial: "portrait style, authentic, relatable, human connection",
-  ugc: "user-generated content style, casual, authentic, lifestyle",
-  demo: "demonstration style, clear, educational, step-by-step",
-  storytelling: "narrative style, emotional, cinematic, storytelling",
-  promo: "promotional, eye-catching, bold colors, marketing",
-  tutorial: "instructional, clear, organized, educational",
-};
+async function generateWithKieApi(
+  prompt: string,
+  modelId: string,
+  endpoint: string,
+  sourceImage?: string,
+  aspectRatio: string = "1:1",
+  resolution?: string
+): Promise<{ imageData: string | null; error?: string }> {
+  try {
+    console.log(`[KIE] Generating with ${modelId} via ${endpoint}`);
+    
+    // Build payload based on model type
+    const payload: Record<string, unknown> = {
+      prompt,
+      aspect_ratio: aspectRatio,
+    };
 
-const TONE_CONTEXT: Record<string, string> = {
-  urgent: "high contrast, bold, attention-grabbing, dynamic",
-  luxurious: "elegant, premium, sophisticated, rich colors",
-  inspiring: "uplifting, bright, hopeful, motivational",
-  playful: "fun, colorful, energetic, vibrant",
-  professional: "corporate, clean, trustworthy, polished",
-  authentic: "natural, genuine, relatable, unfiltered",
-};
+    // Add source image for img→img models
+    if (sourceImage) {
+      payload.image = sourceImage;
+    }
+
+    // Add resolution for specific models
+    if (resolution) {
+      payload.resolution = resolution;
+    }
+
+    // Model-specific parameters
+    if (modelId.includes("ideogram")) {
+      if (modelId.includes("turbo")) {
+        payload.rendering_speed = "TURBO";
+      } else if (modelId.includes("balanced")) {
+        payload.rendering_speed = "BALANCED";
+      } else if (modelId.includes("quality")) {
+        payload.rendering_speed = "QUALITY";
+      }
+    }
+
+    if (modelId.includes("flux-kontext-max")) {
+      payload.model = "max";
+    }
+
+    const result = await createKieTask(endpoint, payload);
+
+    if (!result.success || !result.taskId) {
+      return { imageData: null, error: result.error || "Failed to create task" };
+    }
+
+    // Poll for result
+    let attempts = 0;
+    const maxAttempts = 60; // 60 seconds max
+    
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const status = await checkKieTaskStatus(result.taskId);
+      
+      if (status.status === "completed") {
+        const imageUrl = status.resultUrl || status.resultUrls?.[0];
+        
+        if (!imageUrl) {
+          return { imageData: null, error: "No image URL in result" };
+        }
+
+        // Fetch and convert to base64
+        const imgResponse = await fetch(imageUrl);
+        if (!imgResponse.ok) {
+          return { imageData: null, error: "Failed to fetch generated image" };
+        }
+
+        const imgBlob = await imgResponse.blob();
+        const imgArrayBuffer = await imgBlob.arrayBuffer();
+        const imgBase64 = arrayBufferToBase64(imgArrayBuffer);
+        const imageData = `data:${imgBlob.type || "image/png"};base64,${imgBase64}`;
+
+        console.log(`[KIE] ✓ Image generated with ${modelId}`);
+        return { imageData };
+      }
+      
+      if (status.status === "failed") {
+        return { imageData: null, error: status.error || "Generation failed" };
+      }
+      
+      attempts++;
+    }
+
+    return { imageData: null, error: "Generation timed out" };
+  } catch (error) {
+    console.error("[KIE] Exception:", error);
+    return { imageData: null, error: String(error) };
+  }
+}
 
 // ============================================================
 // OPENAI GPT IMAGE GENERATION
@@ -285,19 +403,15 @@ async function generateWithOpenAI(
   }
 
   try {
-    // Map aspect ratio to OpenAI gpt-image-1 supported sizes
-    // Supported: '1024x1024', '1024x1536', '1536x1024', and 'auto'
     const sizeMap: Record<string, string> = {
-      "9:16": "1024x1536",  // Vertical (closest to 9:16)
-      "16:9": "1536x1024",  // Landscape
-      "1:1": "1024x1024",   // Square
+      "9:16": "1024x1536",
+      "16:9": "1536x1024",
+      "1:1": "1024x1024",
     };
     const size = sizeMap[aspectRatio] || "1024x1024";
 
     console.log(`[OpenAI] Generating image with GPT Image, size: ${size}`);
 
-    // Note: gpt-image-1 does NOT support 'response_format' parameter
-    // It returns URL by default, we need to fetch and convert to base64
     const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
@@ -309,7 +423,6 @@ async function generateWithOpenAI(
         prompt: prompt,
         n: 1,
         size: size,
-        // Removed: response_format - not supported by gpt-image-1
       }),
     });
 
@@ -320,30 +433,24 @@ async function generateWithOpenAI(
     }
 
     const data = await response.json();
-    
-    // Handle both URL and base64 response formats
     const imageUrl = data.data?.[0]?.url;
     const base64Image = data.data?.[0]?.b64_json;
 
     if (base64Image) {
-      // Direct base64 response
       const imageData = `data:image/png;base64,${base64Image}`;
       console.log("[OpenAI] ✓ Image generated successfully with GPT Image (b64)");
       return { imageData };
     }
 
     if (imageUrl) {
-      // URL response - need to fetch and convert to base64
       console.log("[OpenAI] Fetching image from URL...");
       const imgResponse = await fetch(imageUrl);
       if (!imgResponse.ok) {
-        console.error("[OpenAI] Failed to fetch generated image");
         return { imageData: null, error: "Failed to fetch generated image" };
       }
       
       const imgBlob = await imgResponse.blob();
       const imgArrayBuffer = await imgBlob.arrayBuffer();
-      // Use chunked conversion to avoid stack overflow
       const imgBase64 = arrayBufferToBase64(imgArrayBuffer);
       const imageData = `data:${imgBlob.type || "image/png"};base64,${imgBase64}`;
       
@@ -351,7 +458,6 @@ async function generateWithOpenAI(
       return { imageData };
     }
 
-    console.error("[OpenAI] No image in response");
     return { imageData: null, error: "No image generated" };
   } catch (error) {
     console.error("[OpenAI] Exception:", error);
@@ -360,12 +466,13 @@ async function generateWithOpenAI(
 }
 
 // ============================================================
-// GEMINI NANO BANANA IMAGE GENERATION (via Lovable AI Gateway)
+// LOVABLE AI GENERATION (Nano Banana)
 // ============================================================
 
-async function generateWithGemini(
+async function generateWithLovable(
   prompt: string,
-  model: string
+  model: string,
+  sourceImage?: string
 ): Promise<{ imageData: string | null; error?: string }> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) {
@@ -374,7 +481,14 @@ async function generateWithGemini(
 
   try {
     const displayName = model.includes("gemini-3") ? "Nano Banana Pro" : "Nano Banana";
-    console.log(`[Gemini] Generating image with ${displayName} (${model})`);
+    console.log(`[Lovable] Generating image with ${displayName} (${model})`);
+
+    const content: any[] = [{ type: "text", text: prompt }];
+    
+    // Add source image if provided
+    if (sourceImage) {
+      content.push({ type: "image_url", image_url: { url: sourceImage } });
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -384,7 +498,7 @@ async function generateWithGemini(
       },
       body: JSON.stringify({
         model,
-        messages: [{ role: "user", content: prompt }],
+        messages: [{ role: "user", content }],
         modalities: ["image", "text"],
       }),
     });
@@ -392,7 +506,7 @@ async function generateWithGemini(
     if (!response.ok) {
       const status = response.status;
       const errorText = await response.text();
-      console.error(`[Gemini] Error ${status}:`, errorText.slice(0, 200));
+      console.error(`[Lovable] Error ${status}:`, errorText.slice(0, 200));
       
       if (status === 429) {
         return { imageData: null, error: "Rate limit exceeded. Please try again later." };
@@ -400,231 +514,69 @@ async function generateWithGemini(
       if (status === 402) {
         return { imageData: null, error: "Payment required. Please add credits." };
       }
-      return { imageData: null, error: `Gemini error: ${status}` };
+      return { imageData: null, error: `Lovable error: ${status}` };
     }
 
     const data = await response.json();
     const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
     if (!imageData) {
-      console.error("[Gemini] No image in response");
       return { imageData: null, error: "No image generated" };
     }
 
-    console.log(`[Gemini] ✓ Image generated successfully with ${displayName}`);
+    console.log(`[Lovable] ✓ Image generated successfully with ${displayName}`);
     return { imageData };
   } catch (error) {
-    console.error("[Gemini] Exception:", error);
+    console.error("[Lovable] Exception:", error);
     return { imageData: null, error: String(error) };
   }
 }
 
 // ============================================================
-// FLUX IMAGE GENERATION (Black Forest Labs via Replicate API)
+// UNIFIED GENERATION WITH ROUTING
 // ============================================================
 
-async function generateWithFlux(
+async function generateImage(
   prompt: string,
-  model: string,
+  modelId: string,
+  sourceImage?: string,
   aspectRatio: string = "1:1"
-): Promise<{ imageData: string | null; error?: string }> {
-  const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
-  if (!REPLICATE_API_KEY) {
-    console.error("[FLUX] No REPLICATE_API_KEY configured");
-    return { imageData: null, error: "REPLICATE_API_KEY not configured" };
-  }
-
-  try {
-    // Determine display name and Replicate model version
-    let displayName = "FLUX";
-    let replicateModel = "black-forest-labs/flux-schnell";
-    
-    if (model.includes("flux-2-pro") || model.includes("flux-pro")) {
-      displayName = "FLUX Pro";
-      replicateModel = "black-forest-labs/flux-pro";
-    } else if (model.includes("flux-2-dev") || model.includes("flux-dev")) {
-      displayName = "FLUX Dev";
-      replicateModel = "black-forest-labs/flux-dev";
-    } else if (model.includes("flux-schnell")) {
-      displayName = "FLUX Schnell";
-      replicateModel = "black-forest-labs/flux-schnell";
-    }
-
-    console.log(`[FLUX] Generating image with ${displayName} via Replicate (${replicateModel})`);
-
-    // Map aspect ratio to Replicate format
-    const aspectMap: Record<string, string> = {
-      "9:16": "9:16",
-      "16:9": "16:9",
-      "1:1": "1:1",
-    };
-    const replicateAspect = aspectMap[aspectRatio] || "1:1";
-
-    // Create prediction
-    const createResponse = await fetch("https://api.replicate.com/v1/predictions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${REPLICATE_API_KEY}`,
-        "Content-Type": "application/json",
-        "Prefer": "wait", // Wait for result synchronously (up to 60s)
-      },
-      body: JSON.stringify({
-        model: replicateModel,
-        input: {
-          prompt: prompt,
-          aspect_ratio: replicateAspect,
-          output_format: "png",
-          output_quality: 90,
-          num_outputs: 1,
-        },
-      }),
-    });
-
-    if (!createResponse.ok) {
-      const errorText = await createResponse.text();
-      console.error(`[FLUX] Replicate error ${createResponse.status}:`, errorText.slice(0, 300));
-      return { imageData: null, error: `Replicate error: ${createResponse.status}` };
-    }
-
-    const prediction = await createResponse.json();
-    console.log(`[FLUX] Prediction status: ${prediction.status}`);
-
-    // If using "Prefer: wait", the result should be ready
-    let output = prediction.output;
-    
-    // If still processing, poll for result
-    if (prediction.status === "processing" || prediction.status === "starting") {
-      console.log("[FLUX] Polling for result...");
-      let attempts = 0;
-      const maxAttempts = 30; // 30 seconds max
-      
-      while (attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        const statusResponse = await fetch(prediction.urls.get, {
-          headers: { "Authorization": `Bearer ${REPLICATE_API_KEY}` },
-        });
-        
-        if (!statusResponse.ok) break;
-        
-        const statusData = await statusResponse.json();
-        
-        if (statusData.status === "succeeded") {
-          output = statusData.output;
-          break;
-        } else if (statusData.status === "failed") {
-          console.error("[FLUX] Generation failed:", statusData.error);
-          return { imageData: null, error: statusData.error || "FLUX generation failed" };
-        }
-        
-        attempts++;
-      }
-    }
-
-    // Get the image URL
-    const imageUrl = Array.isArray(output) ? output[0] : output;
-    
-    if (!imageUrl) {
-      console.error("[FLUX] No image URL in response");
-      return { imageData: null, error: "No image generated" };
-    }
-
-    // Fetch and convert to base64
-    console.log("[FLUX] Fetching generated image...");
-    const imgResponse = await fetch(imageUrl);
-    if (!imgResponse.ok) {
-      console.error("[FLUX] Failed to fetch image");
-      return { imageData: null, error: "Failed to fetch generated image" };
-    }
-
-    const imgBlob = await imgResponse.blob();
-    const imgArrayBuffer = await imgBlob.arrayBuffer();
-    const imgBase64 = arrayBufferToBase64(imgArrayBuffer);
-    const imageData = `data:${imgBlob.type || "image/png"};base64,${imgBase64}`;
-
-    console.log(`[FLUX] ✓ Image generated successfully with ${displayName}`);
-    return { imageData };
-  } catch (error) {
-    console.error("[FLUX] Exception:", error);
-    return { imageData: null, error: String(error) };
-  }
-}
-
-// ============================================================
-// FALLBACK GENERATION - Try primary, then smart fallback chain
-// ============================================================
-
-async function generateWithFallback(
-  prompt: string,
-  selectedModel: ModelOption,
-  qualityId: string,
-  aspectRatio: string = "1:1"
-): Promise<{ imageData: string | null; error?: string; usedModel: ModelOption }> {
+): Promise<{ imageData: string | null; error?: string; provider: string }> {
+  const routing = getModelRouting(modelId);
   
-  // Try primary model first
+  console.log(`[Router] Model: ${modelId} → Provider: ${routing.provider}`);
+
+  // Extract resolution from modelId
+  let resolution: string | undefined;
+  if (modelId.includes("1k")) resolution = "1024";
+  if (modelId.includes("2k")) resolution = "2048";
+  if (modelId.includes("4k")) resolution = "4096";
+
   let result: { imageData: string | null; error?: string };
-  
-  if (selectedModel.provider === "openai") {
-    result = await generateWithOpenAI(prompt, aspectRatio);
-  } else if (selectedModel.provider === "flux") {
-    result = await generateWithFlux(prompt, selectedModel.apiModel, aspectRatio);
-  } else {
-    result = await generateWithGemini(prompt, selectedModel.apiModel);
+
+  switch (routing.provider) {
+    case "kie":
+      result = await generateWithKieApi(
+        prompt,
+        modelId,
+        routing.endpoint!,
+        sourceImage,
+        aspectRatio,
+        resolution
+      );
+      break;
+
+    case "openai":
+      result = await generateWithOpenAI(prompt, aspectRatio);
+      break;
+
+    case "lovable":
+    default:
+      result = await generateWithLovable(prompt, routing.apiModel!, sourceImage);
+      break;
   }
-  
-  if (result.imageData) {
-    return { ...result, usedModel: selectedModel };
-  }
-  
-  console.log(`[Fallback] ${selectedModel.displayName} failed, trying fallback...`);
-  
-  // Smart fallback chain based on provider
-  const fallbackChain: ModelOption[] = [];
-  
-  if (selectedModel.provider === "flux") {
-    // FLUX failed -> try FLUX 2 Pro -> GPT Image -> Nano Banana Pro
-    fallbackChain.push(
-      { id: "flux-2-pro", provider: "flux", weight: 100, apiModel: "black-forest-labs/flux-2-pro", displayName: "FLUX 2 Pro" },
-      { id: "gpt-image", provider: "openai", weight: 100, apiModel: "gpt-image-1", displayName: "GPT Image" },
-      { id: "nano-banana-pro", provider: "gemini", weight: 100, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" }
-    );
-  } else if (selectedModel.provider === "openai") {
-    // OpenAI failed -> try FLUX 2 Pro -> Nano Banana Pro
-    fallbackChain.push(
-      { id: "flux-2-pro", provider: "flux", weight: 100, apiModel: "black-forest-labs/flux-2-pro", displayName: "FLUX 2 Pro" },
-      { id: "nano-banana-pro", provider: "gemini", weight: 100, apiModel: "google/gemini-3-pro-image-preview", displayName: "Nano Banana Pro" }
-    );
-  } else {
-    // Gemini failed -> try FLUX 2 Pro -> GPT Image
-    fallbackChain.push(
-      { id: "flux-2-pro", provider: "flux", weight: 100, apiModel: "black-forest-labs/flux-2-pro", displayName: "FLUX 2 Pro" },
-      { id: "gpt-image", provider: "openai", weight: 100, apiModel: "gpt-image-1", displayName: "GPT Image" }
-    );
-  }
-  
-  // Filter out the model that already failed
-  const filteredFallbacks = fallbackChain.filter(m => m.id !== selectedModel.id);
-  
-  for (const fallbackModel of filteredFallbacks) {
-    let fallbackResult: { imageData: string | null; error?: string };
-    
-    if (fallbackModel.provider === "openai") {
-      fallbackResult = await generateWithOpenAI(prompt, aspectRatio);
-    } else if (fallbackModel.provider === "flux") {
-      fallbackResult = await generateWithFlux(prompt, fallbackModel.apiModel, aspectRatio);
-    } else {
-      fallbackResult = await generateWithGemini(prompt, fallbackModel.apiModel);
-    }
-    
-    if (fallbackResult.imageData) {
-      console.log(`[Fallback] ✓ Success with ${fallbackModel.displayName}`);
-      return { ...fallbackResult, usedModel: fallbackModel };
-    }
-    
-    console.log(`[Fallback] ${fallbackModel.displayName} also failed, trying next...`);
-  }
-  
-  return { imageData: null, error: result.error || "All models failed", usedModel: selectedModel };
+
+  return { ...result, provider: routing.provider };
 }
 
 // ============================================================
@@ -639,11 +591,13 @@ Deno.serve(async (req) => {
   try {
     const { 
       prompt,
+      modelId,
       productId,
       qualityId,
       quality,
       format, 
-      aspectRatio, 
+      aspectRatio,
+      sourceImage,
       sectorId, 
       styleId, 
       toneId, 
@@ -658,7 +612,7 @@ Deno.serve(async (req) => {
       includeAvatar,
       avatarUrl,
       aiContextSummary,
-      marketingContext, // NEW: Rich marketing context
+      marketingContext,
       skipCreditDeduction,
     } = await req.json();
 
@@ -684,17 +638,28 @@ Deno.serve(async (req) => {
       userId = user?.id || null;
     }
 
-    // Determine quality tier
-    const effectiveQuality = quality || LEGACY_QUALITY_MAPPINGS[qualityId] || LEGACY_QUALITY_MAPPINGS[productId] || qualityId || "standard";
-    const creditCost = getCreditCost(effectiveQuality);
+    // Determine model and credit cost
+    let effectiveModelId = modelId;
+    let isLegacyMode = false;
+
+    // Legacy mode: use pool selection
+    if (!modelId && (productId || qualityId || quality)) {
+      isLegacyMode = true;
+      const effectiveQuality = quality || LEGACY_QUALITY_MAPPINGS[qualityId] || LEGACY_QUALITY_MAPPINGS[productId] || qualityId || "standard";
+      const selectedModel = selectModelFromPool(effectiveQuality);
+      effectiveModelId = selectedModel.id;
+      console.log(`[Legacy] Using pool selection: ${effectiveQuality} → ${effectiveModelId}`);
+    }
+
+    const creditCost = getCreditCost(effectiveModelId);
 
     console.log(`=== Image Generation Request ===`);
     console.log(`User: ${userId || "anonymous"}`);
-    console.log(`Quality: ${effectiveQuality} | Credit Cost: ${creditCost}`);
+    console.log(`Model: ${effectiveModelId} | Credit Cost: ${creditCost}`);
     console.log(`Skip credit deduction: ${skipCreditDeduction ? "Yes" : "No"}`);
 
     // ============================================================
-    // CREDIT VALIDATION & DEDUCTION (if user is authenticated)
+    // CREDIT VALIDATION & DEDUCTION
     // ============================================================
     if (userId && !skipCreditDeduction) {
       const { data: creditsData, error: creditsError } = await supabase
@@ -742,21 +707,17 @@ Deno.serve(async (req) => {
         user_id: userId,
         amount: -creditCost,
         type: "consumption",
-        description: `Image generation (${effectiveQuality})`,
+        description: `Image generation (${effectiveModelId})`,
       });
 
       console.log(`✓ Deducted ${creditCost} credits for image generation`);
     }
 
-    // Select model from pool
-    const selectedModel = selectModelFromPool(effectiveQuality);
-    console.log(`Selected Model: ${selectedModel.id} (${selectedModel.provider})`);
-
     // Determine output language
     const outputLanguage = detectedLanguage || "en";
     
     // ============================================================
-    // GENERATION CONTEXT GUARD - Validate & Build Enhanced Prompt
+    // BUILD ENHANCED PROMPT
     // ============================================================
     
     const guardInput: GenerationGuardInput = {
@@ -767,11 +728,10 @@ Deno.serve(async (req) => {
       detectedLanguage: outputLanguage,
       marketingContext: marketingContext as MarketingContext || null,
       aiContextSummary: aiContextSummary,
-      scrapedMarkdown: marketingContext?.scraped_markdown, // Add scraped markdown
-      projectDescription: marketingContext?.project_description, // Add project description
+      scrapedMarkdown: marketingContext?.scraped_markdown,
+      projectDescription: marketingContext?.project_description,
       generationPrompt: prompt,
       generationType: "image",
-      // Brand overlay options for enhanced prompt building
       includeLogo: includeLogo,
       includeUrl: includeUrl,
       includeText: includeText,
@@ -780,167 +740,64 @@ Deno.serve(async (req) => {
     
     const contextGuard = validateAndBuildContext(guardInput);
     logContextValidation(contextGuard, "ImageGeneration");
-    
-    // Log warnings but don't block generation
-    if (contextGuard.warnings.length > 0) {
-      console.warn("[ImageGen] Context warnings:", contextGuard.warnings.join("; "));
-    }
 
-    // Get language configuration
     const langConfig = LANGUAGE_CONFIG[outputLanguage] || LANGUAGE_CONFIG["en"];
     const primaryColor = marketingContext?.visual_identity?.primary_color || guardInput.themeColor;
     
-    // ============================================================
-    // BUILD HIGH-QUALITY PROMPT WITH INTEGRATED TEXT
-    // ============================================================
-    
+    // Build prompt
     const promptParts: string[] = [];
     
-    // 1. QUALITY & STYLE - Premium cinematic, NO AI approximation
-    promptParts.push(`=== ARTISTIC DIRECTION - NON-NEGOTIABLE ===
+    promptParts.push(`=== ARTISTIC DIRECTION ===
+STYLE: Ultra-premium cinematic advertising photography. Stylized realism.
 
-STYLE: Ultra-premium cinematic advertising photography. Stylized realism at its finest. NO "AI approximate" feeling.
+⚠️ HUMAN ANATOMY RULES:
+- ARMS: Proportional, natural joint angles
+- HANDS: 5 fingers, correct proportions
+- POSTURE: Natural, balanced, credible
+- LIGHTING: Unified, consistent shadows
 
-⚠️ CRITICAL HUMAN ANATOMY RULES (STRICTLY ENFORCED):
-When depicting humans (man/woman), you MUST respect:
-- ARMS: Proportional to torso (about 1.5x torso length), natural joint angles, correct elbow/wrist positions
-- HANDS: 5 fingers per hand, correct finger lengths, natural poses, proper palm proportions
-- LEGS: Proper thigh-to-calf ratio, natural knee positions, balanced stance
-- FEET: Correct size relative to height (1:6.5 ratio), proper toe count and shape
-- HEAD: Correct proportions (1:8 to body height), natural neck angle, symmetrical features
-- POSTURE: Natural, balanced, credible. No twisted or impossible joint angles
-- PERSPECTIVE: Body parts must follow same vanishing points, consistent shadow direction
-- LIGHTING: Unified across entire body, shadows match light source direction
-
-🚫 ABSOLUTELY FORBIDDEN:
-- Extra fingers or toes
-- Disproportionate limbs
-- Floating or disconnected body parts
-- Impossible joint angles
-- Hands/feet that look "melted" or deformed
-- Asymmetric faces beyond natural variation
-- Bodies that defy physics or gravity
-
-📸 PHOTOGRAPHY QUALITY:
+📸 QUALITY:
 - Cinematic lighting with depth
 - Professional color grading
-- Sharp details on faces, hands, fabrics
-- Natural skin textures (no plastic/wax look)
-- Realistic environmental reflections
-- Consistent shadow directions`);
+- Sharp details, natural textures`);
     
-    // 2. LANGUAGE ENFORCEMENT (Critical)
     if (outputLanguage !== "en") {
       promptParts.push(`
-⚠️ CRITICAL LANGUAGE REQUIREMENT:
-- Language: ${langConfig.fullName}
-- ${langConfig.instruction}
-- Brand names can remain as-is but ALL other text must be in ${langConfig.name}.
-- This is NON-NEGOTIABLE.`);
+⚠️ LANGUAGE: ${langConfig.fullName}
+${langConfig.instruction}`);
     }
     
-    // 3. ADD BRAND CONTEXT
     if (contextGuard.contextScore >= 40) {
       promptParts.push(contextGuard.brandContext);
-      console.log(`[ImageGen] Using enhanced context (score: ${contextGuard.contextScore})`);
-    } else {
-      // Basic context fallback
-      if (brandName) promptParts.push(`BRAND: ${brandName}`);
-      if (aiContextSummary) promptParts.push(`CONTEXT: ${aiContextSummary.substring(0, 300)}`);
+    } else if (brandName) {
+      promptParts.push(`BRAND: ${brandName}`);
     }
     
-    // 4. VISUAL STORYTELLING FRAMEWORK
-    promptParts.push(`
-=== VISUAL STORYTELLING (CRITICAL) ===
-Each image MUST tell a SILENT STORY through:
-
-📖 NARRATIVE ELEMENTS:
-- A relationship (tension, connection, distance, intimacy)
-- An emotion (hope, determination, joy, yearning, peace)
-- A suspended moment (frozen action, decisive instant, anticipation)
-
-🎬 STORYTELLING TOOLS (NO TEXT NEEDED):
-- FRAMING: Use rule of thirds, leading lines, depth layers
-- DISTANCE: Space between characters conveys emotional state
-- LIGHTING: Dramatic shadows, rim light, motivated sources
-- EXPRESSIONS: Eyes tell the story, micro-expressions matter
-- GESTURES: Body language speaks louder than words
-- ENVIRONMENT: Setting reinforces the narrative
-- COLOR PALETTE: Colors evoke specific emotions
-
-📸 THE IMAGE MUST SPEAK FOR ITSELF - NO EXPLANATORY TEXT NEEDED`);
-    
-    // 5. MAIN GENERATION PROMPT
     promptParts.push(`
 === GENERATION REQUEST ===
 ${prompt}`);
     
-    // 6. TEXT BAN - CRITICAL
     promptParts.push(`
-⛔ ABSOLUTE TEXT BAN ⛔
-- DO NOT generate ANY text, words, letters, or typography in the image
-- NO titles, NO subtitles, NO watermarks, NO labels
-- NO signs, NO banners with text, NO logos with text
-- The image must be 100% VISUAL - pure photography/artwork
-- Text will be added SEPARATELY as premium overlay in post-production
-- Replicate/FLUX/Gemini text integration is FORBIDDEN
-- If text appears, the image will be REJECTED`);
+⛔ TEXT BAN: NO text, words, or typography in the image.`);
     
-    // 7. BRAND COLOR ENFORCEMENT (subtle, through lighting/environment)
     if (primaryColor) {
       promptParts.push(`
-=== BRAND COLOR INTEGRATION (SUBTLE) ===
-Primary color: ${primaryColor}
-Integrate this color naturally through:
-- Lighting tones and color temperature
-- Environmental elements (clothing, objects, backgrounds)
-- Color grading and atmosphere
-- Accent elements that feel organic, not forced`);
+BRAND COLOR: ${primaryColor} - integrate through lighting and environment.`);
     }
     
-    // 8. BOTTOM ZONE RESERVATION FOR POST-PRODUCTION OVERLAY
     if (includeLogo || includeUrl || includeText) {
       promptParts.push(`
-=== COMPOSITION - BOTTOM 20% RESERVED ===
-The BOTTOM 20% of the image must be:
-- Relatively clean and uncluttered
-- Simple background (solid, gradient, or blurred)
-- NO important subjects in this zone
-- This space is reserved for premium text overlay added in post-production
-- Bottom-right corner especially clean for logo placement`);
-    }
-    
-    // 8. FORMAT OPTIMIZATION
-    if (format === "vertical" || aspectRatio === "9:16") {
-      promptParts.push(`FORMAT: Vertical 9:16 portrait, optimized for Instagram Reels, TikTok, Stories.`);
-    } else if (format === "square" || aspectRatio === "1:1") {
-      promptParts.push(`FORMAT: Square 1:1, perfect for Instagram feed.`);
-    } else if (format === "landscape" || aspectRatio === "16:9") {
-      promptParts.push(`FORMAT: Landscape 16:9, optimized for YouTube, presentations.`);
-    }
-    
-    // 9. SCENARIO CONTEXT
-    if (sectorId && SECTOR_CONTEXT[sectorId]) {
-      promptParts.push(`SECTOR: ${SECTOR_CONTEXT[sectorId]}`);
-    }
-    if (styleId && STYLE_CONTEXT[styleId]) {
-      promptParts.push(`VISUAL APPROACH: ${STYLE_CONTEXT[styleId]}`);
-    }
-    if (toneId && TONE_CONTEXT[toneId]) {
-      promptParts.push(`TONE: ${TONE_CONTEXT[toneId]}`);
+COMPOSITION: Keep bottom 20% clean for overlay.`);
     }
     
     const finalPrompt = promptParts.join('\n\n');
-    console.log("Final prompt length:", finalPrompt.length);
-
-    // Determine aspect ratio for CometAPI
     const effectiveAspect = aspectRatio || (format === "vertical" ? "9:16" : format === "landscape" ? "16:9" : "1:1");
 
-    // Generate image with CometAPI (Flux) primary, Lovable AI fallback
-    const { imageData, error, usedModel } = await generateWithFallback(
+    // Generate image
+    const { imageData, error, provider } = await generateImage(
       finalPrompt,
-      selectedModel,
-      effectiveQuality,
+      effectiveModelId,
+      sourceImage,
       effectiveAspect
     );
 
@@ -955,7 +812,7 @@ The BOTTOM 20% of the image must be:
           user_id: userId,
           amount: creditCost,
           type: "refund",
-          description: `Refund: Image generation failed (${effectiveQuality})`,
+          description: `Refund: Image generation failed (${effectiveModelId})`,
         });
         console.log(`✓ Refunded ${creditCost} credits due to generation failure`);
       }
@@ -966,21 +823,20 @@ The BOTTOM 20% of the image must be:
       );
     }
 
-    // Apply logo overlay if requested (post-processing only for logo - text is now integrated)
+    // Apply logo overlay if requested
     let finalImageData = imageData;
     if (includeLogo && logoUrl) {
       console.log("[Main] Applying logo overlay...");
       finalImageData = await overlayLogoOnImage(finalImageData, logoUrl, "bottom-right");
     }
 
-    console.log(`✓ Image generated successfully with ${usedModel.id}`);
+    console.log(`✓ Image generated successfully with ${effectiveModelId}`);
 
     return new Response(
       JSON.stringify({
         imageUrl: finalImageData,
-        model: usedModel.id,
-        provider: usedModel.provider,
-        quality: effectiveQuality,
+        model: effectiveModelId,
+        provider: provider,
         creditCost: skipCreditDeduction ? 0 : creditCost,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

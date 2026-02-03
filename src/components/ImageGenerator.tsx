@@ -1,16 +1,20 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ImageIcon, Sparkles, Loader2, Wand2 } from "lucide-react";
+import { ImageIcon, Sparkles, Loader2, Wand2, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { FormatSelector, ContentFormat, FORMAT_OPTIONS } from "@/components/FormatSelector";
 import { BrandOptions, BrandOptionsState } from "@/components/BrandOptions";
+import { ImageModelSelector } from "@/components/ImageModelSelector";
+import { SourceImageUpload } from "@/components/SourceImageUpload";
 import {
-  COMMERCIAL_PRODUCTS,
-  CommercialProduct,
-} from "@/lib/commercialProducts";
+  IMAGE_MODELS,
+  ImageModel,
+  DEFAULT_MODEL_ID,
+  getModelById,
+} from "@/lib/imageModels";
 
 import {
   Popover,
@@ -50,14 +54,11 @@ interface ImageGeneratorProps {
   onBeforeGenerate?: () => boolean;
 }
 
-// Filter commercial products for images only
-const IMAGE_PRODUCTS = COMMERCIAL_PRODUCTS.filter((p) => p.category === "image");
-
 const PREFS_KEY = "image_generator_prefs";
 const GENERATION_KEY = "image_generation_active";
 
 interface StoredPrefs {
-  productId?: string;
+  modelId?: string;
   format?: ContentFormat;
   brandOptions?: BrandOptionsState;
 }
@@ -116,14 +117,13 @@ const saveGenerationState = (state: GenerationState | null) => {
 
 export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGeneratorProps) => {
   const storedPrefs = loadPrefs();
-  const defaultProduct =
-    IMAGE_PRODUCTS.find((p) => p.id === storedPrefs.productId) ||
-    IMAGE_PRODUCTS.find((p) => p.id === "ai-image-pro") ||
-    IMAGE_PRODUCTS[0];
+  const defaultModel = getModelById(storedPrefs.modelId || DEFAULT_MODEL_ID) || IMAGE_MODELS[0];
 
   const [prompt, setPrompt] = useState("");
-  const [selectedProduct, setSelectedProductState] = useState<CommercialProduct>(defaultProduct);
+  const [selectedModel, setSelectedModelState] = useState<ImageModel>(defaultModel);
   const [selectedFormat, setSelectedFormatState] = useState<ContentFormat>(storedPrefs.format || "vertical");
+  const [sourceImage, setSourceImage] = useState<string | null>(null);
+  
   // Load persistent generation state (survives navigation)
   const [isGenerating, setIsGeneratingState] = useState(() => {
     const saved = loadGenerationState();
@@ -138,6 +138,7 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
       saveGenerationState(null);
     }
   };
+  
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -158,9 +159,13 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
     savePrefs({ format });
   };
 
-  const setSelectedProduct = (product: CommercialProduct) => {
-    setSelectedProductState(product);
-    savePrefs({ productId: product.id });
+  const setSelectedModel = (model: ImageModel) => {
+    setSelectedModelState(model);
+    savePrefs({ modelId: model.id });
+    // Clear source image if switching to text-to-image model
+    if (!model.requiresImage && sourceImage) {
+      setSourceImage(null);
+    }
   };
 
   useEffect(() => {
@@ -202,8 +207,8 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
           projectUrl: project.url,
           scrapedContent,
           contentType: "image_prompt",
-          productName: selectedProduct.name,
-          productCategory: selectedProduct.category,
+          productName: selectedModel.name,
+          productCategory: "image",
           detectedLanguage: finalLanguage,
           logoUrl: project.avatar_url,
           services: project.scraped_data?.services,
@@ -245,6 +250,16 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
       return;
     }
 
+    // Check if source image is required but not provided
+    if (selectedModel.requiresImage && !sourceImage) {
+      toast({
+        title: "Source image required",
+        description: `${selectedModel.name} requires a source image to transform`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Check subscription before generating
     if (onBeforeGenerate && !onBeforeGenerate()) {
       return;
@@ -253,8 +268,8 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
     setIsGenerating(true, prompt.trim());
 
     toast({
-      title: `Generating ${selectedProduct.name}...`,
-      description: "Creating your AI image",
+      title: `Generating with ${selectedModel.name}...`,
+      description: `${selectedModel.credits} credits • ${selectedModel.usage}`,
     });
 
     try {
@@ -263,11 +278,12 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
       const { data, error } = await supabase.functions.invoke("generate-image", {
         body: {
           prompt: prompt.trim(),
-          productId: selectedProduct.id,
+          modelId: selectedModel.id,
           format: selectedFormat,
           aspectRatio: formatConfig.aspectRatio,
           width: formatConfig.dimensions.width,
           height: formatConfig.dimensions.height,
+          sourceImage: sourceImage,
           includeLogo: brandOptions.includeLogo,
           includeUrl: brandOptions.includeUrl,
           includeText: brandOptions.includeText,
@@ -291,16 +307,16 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
           url: data.imageUrl,
           prompt: prompt.trim(),
           createdAt: new Date(),
-          model: data.model,
-          provider: data.provider,
+          model: data.model || selectedModel.id,
+          provider: data.provider || selectedModel.provider,
         };
 
         onImageGenerated(newImage);
 
-        const modelEmoji = data.provider === "gemini" ? "🍌" : "🤖";
+        const modelEmoji = selectedModel.provider === "lovable" ? "🍌" : selectedModel.provider === "kie" ? "⚡" : "🤖";
         toast({
           title: "Image generated! 🎨",
-          description: `Created with ${modelEmoji} ${data.model || "AI"}`,
+          description: `Created with ${modelEmoji} ${selectedModel.name}`,
         });
       } else {
         throw new Error("No image URL received");
@@ -351,8 +367,32 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
             </p>
           </div>
         </div>
-
       </div>
+
+      {/* Model Selector */}
+      <div className="mb-4">
+        <label className="text-xs font-medium text-muted-foreground mb-2 block">
+          AI Model
+        </label>
+        <ImageModelSelector
+          selectedModelId={selectedModel.id}
+          onModelChange={setSelectedModel}
+          disabled={isGenerating}
+        />
+      </div>
+
+      {/* Source Image Upload (for Img→Img models) */}
+      {selectedModel.requiresImage && (
+        <div className="mb-4">
+          <label className="text-xs font-medium text-muted-foreground mb-2 block">
+            Source Image (required)
+          </label>
+          <SourceImageUpload
+            onImageSelect={setSourceImage}
+            disabled={isGenerating}
+          />
+        </div>
+      )}
 
       {/* Format Selector */}
       <div className="flex flex-wrap gap-2 mb-4">
@@ -380,7 +420,11 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
           <Textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Describe your image in detail... e.g., 'A modern coffee shop interior with warm lighting, minimalist decor, and plants'"
+            placeholder={
+              selectedModel.requiresImage
+                ? "Describe how you want to transform this image..."
+                : "Describe your image in detail... e.g., 'A modern coffee shop interior with warm lighting, minimalist decor, and plants'"
+            }
             className="min-h-[120px] pr-12 resize-none"
             disabled={isGenerating}
           />
@@ -449,10 +493,10 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
         </div>
       </div>
 
-      {/* Generate Button */}
+      {/* Generate Button with Credit Display */}
       <Button
         onClick={generateImage}
-        disabled={isGenerating || !prompt.trim()}
+        disabled={isGenerating || !prompt.trim() || (selectedModel.requiresImage && !sourceImage)}
         className="mt-4 w-full gradient-primary text-white"
         size="lg"
       >
@@ -465,6 +509,10 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
           <>
             <Wand2 className="mr-2 h-4 w-4" />
             Generate Image
+            <span className="ml-2 flex items-center gap-1 bg-white/20 px-2 py-0.5 rounded-full text-xs">
+              <Coins className="h-3 w-3" />
+              {selectedModel.credits} cr
+            </span>
           </>
         )}
       </Button>
