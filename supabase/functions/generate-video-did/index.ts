@@ -20,6 +20,7 @@ interface DIDClipCreateRequest {
   text?: string;
   presenterId?: string;
   voiceId?: string;
+  speed?: number; // Voice speed multiplier (default 1.0)
 }
 
 interface DIDClipResponse {
@@ -96,7 +97,7 @@ serve(async (req) => {
 
     /* ---------- CREATE CLIP (Pro Avatar with body movements) ---------- */
     if (action === "create" && req.method === "POST") {
-      const { audioUrl, text, presenterId, voiceId } = (await req.json()) as DIDClipCreateRequest;
+      const { audioUrl, text, presenterId, voiceId, speed } = (await req.json()) as DIDClipCreateRequest;
 
       if (!audioUrl && !text) {
         return new Response(
@@ -112,11 +113,13 @@ serve(async (req) => {
       }
 
       const selectedPresenterId = presenterId || DEFAULT_PRESENTER_ID;
+      const voiceSpeed = speed ?? 1.0; // Default to normal speed
 
       console.log("[D-ID] Creating clip with Pro Avatar...", {
         presenterId: selectedPresenterId,
         hasAudio: !!audioUrl,
         hasText: !!text,
+        speed: voiceSpeed,
       });
 
       // Build the script object based on input
@@ -131,6 +134,9 @@ serve(async (req) => {
             provider: {
               type: "elevenlabs",
               voice_id: voiceId || "21m00Tcm4TlvDq8ikWAM", // Default ElevenLabs voice
+              voice_config: {
+                speed: voiceSpeed, // Apply speed setting
+              },
             },
           };
 
