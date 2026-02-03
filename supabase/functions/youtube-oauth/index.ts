@@ -18,8 +18,9 @@ Deno.serve(async (req) => {
 
   const url = new URL(req.url);
   const action = url.searchParams.get("action");
+  const projectId = url.searchParams.get("project_id");
 
-  console.log(`[youtube-oauth] Action: ${action}, Method: ${req.method}`);
+  console.log(`[youtube-oauth] Action: ${action}, Method: ${req.method}, Project: ${projectId || "global"}`);
 
   try {
     // Check required env vars
@@ -67,8 +68,8 @@ Deno.serve(async (req) => {
 
     // ========== AUTHORIZE ==========
     if (action === "authorize") {
-      // Generate state with user ID for callback
-      const state = btoa(JSON.stringify({ userId, origin }));
+      // Generate state with user ID and project ID for callback
+      const state = btoa(JSON.stringify({ userId, projectId, origin }));
       
       // Only request scopes we actually use
       const scopes = [
@@ -85,7 +86,7 @@ Deno.serve(async (req) => {
       authUrl.searchParams.set("prompt", "consent");
       authUrl.searchParams.set("state", state);
 
-      console.log("[youtube-oauth] Generated auth URL");
+      console.log("[youtube-oauth] Generated auth URL for project:", projectId || "global");
 
       return new Response(
         JSON.stringify({ authUrl: authUrl.toString() }),
@@ -108,7 +109,7 @@ Deno.serve(async (req) => {
       }
 
       // Parse state
-      let stateData: { userId: string; origin: string };
+      let stateData: { userId: string; projectId?: string | null; origin: string };
       try {
         stateData = JSON.parse(atob(stateParam));
       } catch {
@@ -181,7 +182,7 @@ Deno.serve(async (req) => {
       const channelName = channel.snippet.title;
       const channelPictureUrl = channel.snippet.thumbnails?.default?.url || null;
 
-      console.log(`[youtube-oauth] Channel found: ${channelName} (${channelId})`);
+      console.log(`[youtube-oauth] Channel found: ${channelName} (${channelId}) for project: ${stateData.projectId || "global"}`);
 
       // Calculate expiry with fallback
       const expiresAt = new Date(Date.now() + (tokens.expires_in ?? 3600) * 1000).toISOString();
@@ -190,33 +191,92 @@ Deno.serve(async (req) => {
       // Google only returns refresh_token on first consent
       const refreshToken = tokens.refresh_token || undefined;
 
-      // Save to database - undefined values won't overwrite existing data
-      const { error: upsertError } = await supabaseAdmin
-        .from("youtube_connections")
-        .upsert({
-          user_id: stateData.userId,
-          channel_id: channelId,
-          channel_name: channelName,
-          channel_picture_url: channelPictureUrl,
-          access_token: tokens.access_token,
-          refresh_token: refreshToken,
-          expires_at: expiresAt,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "user_id" });
+      // Prepare upsert data
+      const upsertData: Record<string, unknown> = {
+        user_id: stateData.userId,
+        channel_id: channelId,
+        channel_name: channelName,
+        channel_picture_url: channelPictureUrl,
+        access_token: tokens.access_token,
+        expires_at: expiresAt,
+        updated_at: new Date().toISOString(),
+      };
 
-      if (upsertError) {
-        console.error("[youtube-oauth] Database upsert error:", upsertError);
-        return new Response(generateCallbackHtml({ error: "Failed to save connection" }), {
-          headers: { ...corsHeaders, "Content-Type": "text/html" },
-        });
+      // Only include refresh_token if provided
+      if (refreshToken) {
+        upsertData.refresh_token = refreshToken;
       }
 
-      console.log("[youtube-oauth] Connection saved successfully");
+      // Include project_id if provided
+      if (stateData.projectId) {
+        upsertData.project_id = stateData.projectId;
+      }
+
+      // For per-project connections, we need to handle upsert differently
+      if (stateData.projectId) {
+        // Check if connection exists for this user + project
+        const { data: existing } = await supabaseAdmin
+          .from("youtube_connections")
+          .select("id, refresh_token")
+          .eq("user_id", stateData.userId)
+          .eq("project_id", stateData.projectId)
+          .maybeSingle();
+
+        if (existing) {
+          // Update existing - preserve refresh_token if not provided
+          if (!refreshToken) {
+            delete upsertData.refresh_token;
+          }
+          const { error: updateError } = await supabaseAdmin
+            .from("youtube_connections")
+            .update(upsertData)
+            .eq("id", existing.id);
+
+          if (updateError) {
+            console.error("[youtube-oauth] Database update error:", updateError);
+            return new Response(generateCallbackHtml({ error: "Failed to update connection" }), {
+              headers: { ...corsHeaders, "Content-Type": "text/html" },
+            });
+          }
+        } else {
+          // Insert new - refresh_token is required for new connections
+          if (!refreshToken) {
+            return new Response(generateCallbackHtml({ error: "No refresh token received. Please try again." }), {
+              headers: { ...corsHeaders, "Content-Type": "text/html" },
+            });
+          }
+          const { error: insertError } = await supabaseAdmin
+            .from("youtube_connections")
+            .insert(upsertData);
+
+          if (insertError) {
+            console.error("[youtube-oauth] Database insert error:", insertError);
+            return new Response(generateCallbackHtml({ error: "Failed to save connection" }), {
+              headers: { ...corsHeaders, "Content-Type": "text/html" },
+            });
+          }
+        }
+      } else {
+        // Global connection (no project_id) - use original upsert logic
+        const { error: upsertError } = await supabaseAdmin
+          .from("youtube_connections")
+          .upsert(upsertData, { onConflict: "user_id" });
+
+        if (upsertError) {
+          console.error("[youtube-oauth] Database upsert error:", upsertError);
+          return new Response(generateCallbackHtml({ error: "Failed to save connection" }), {
+            headers: { ...corsHeaders, "Content-Type": "text/html" },
+          });
+        }
+      }
+
+      console.log("[youtube-oauth] Connection saved successfully for project:", stateData.projectId || "global");
 
       return new Response(
         generateCallbackHtml({
           success: true,
           channel: { id: channelId, name: channelName, picture: channelPictureUrl },
+          projectId: stateData.projectId,
         }),
         { headers: { ...corsHeaders, "Content-Type": "text/html" } }
       );
@@ -224,11 +284,19 @@ Deno.serve(async (req) => {
 
     // ========== STATUS ==========
     if (action === "status") {
-      const { data: connection } = await supabaseAdmin
+      let query = supabaseAdmin
         .from("youtube_connections")
-        .select("channel_id, channel_name, channel_picture_url, expires_at")
-        .eq("user_id", userId)
-        .maybeSingle();
+        .select("channel_id, channel_name, channel_picture_url, expires_at, project_id")
+        .eq("user_id", userId);
+
+      // Filter by project_id if provided
+      if (projectId) {
+        query = query.eq("project_id", projectId);
+      } else {
+        query = query.is("project_id", null);
+      }
+
+      const { data: connection } = await query.maybeSingle();
 
       if (!connection) {
         return new Response(
@@ -246,6 +314,7 @@ Deno.serve(async (req) => {
             picture: connection.channel_picture_url,
           },
           expiresAt: connection.expires_at,
+          projectId: connection.project_id,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -253,12 +322,21 @@ Deno.serve(async (req) => {
 
     // ========== DISCONNECT ==========
     if (action === "disconnect" && req.method === "POST") {
-      await supabaseAdmin
+      let query = supabaseAdmin
         .from("youtube_connections")
         .delete()
         .eq("user_id", userId);
 
-      console.log("[youtube-oauth] Connection deleted for user:", userId);
+      // Filter by project_id if provided
+      if (projectId) {
+        query = query.eq("project_id", projectId);
+      } else {
+        query = query.is("project_id", null);
+      }
+
+      await query;
+
+      console.log("[youtube-oauth] Connection deleted for user:", userId, "project:", projectId || "global");
 
       return new Response(
         JSON.stringify({ success: true }),
@@ -279,9 +357,9 @@ Deno.serve(async (req) => {
   }
 });
 
-function generateCallbackHtml(result: { success?: boolean; channel?: { id: string; name: string; picture?: string | null }; error?: string }) {
+function generateCallbackHtml(result: { success?: boolean; channel?: { id: string; name: string; picture?: string | null }; error?: string; projectId?: string | null }) {
   const messageData = result.success
-    ? { type: "youtube-oauth-success", channel: result.channel }
+    ? { type: "youtube-oauth-success", channel: result.channel, projectId: result.projectId }
     : { type: "youtube-oauth-error", error: result.error };
 
   return `

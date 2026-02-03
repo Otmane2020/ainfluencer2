@@ -11,11 +11,12 @@ interface YouTubeChannel {
 interface YouTubeConnection {
   channel: YouTubeChannel;
   expiresAt: string;
+  projectId?: string | null;
 }
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
-export const useYouTubeOAuth = () => {
+export const useYouTubeOAuth = (projectId?: string) => {
   const [connection, setConnection] = useState<YouTubeConnection | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,9 +40,10 @@ export const useYouTubeOAuth = () => {
     popupRef.current = null;
   }, []);
 
-  // Check connection status on mount
+  // Check connection status on mount or when projectId changes
   useEffect(() => {
     const checkStatus = async () => {
+      setIsLoading(true);
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
@@ -49,8 +51,13 @@ export const useYouTubeOAuth = () => {
           return;
         }
 
+        const params = new URLSearchParams({ action: "status" });
+        if (projectId) {
+          params.set("project_id", projectId);
+        }
+
         const response = await fetch(
-          `${SUPABASE_URL}/functions/v1/youtube-oauth?action=status`,
+          `${SUPABASE_URL}/functions/v1/youtube-oauth?${params.toString()}`,
           {
             headers: {
               apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
@@ -65,7 +72,10 @@ export const useYouTubeOAuth = () => {
           setConnection({
             channel: data.channel,
             expiresAt: data.expiresAt,
+            projectId: data.projectId,
           });
+        } else {
+          setConnection(null);
         }
       } catch (error) {
         console.error("[useYouTubeOAuth] Status check error:", error);
@@ -75,19 +85,20 @@ export const useYouTubeOAuth = () => {
     };
 
     checkStatus();
-  }, []);
+  }, [projectId]);
 
   // Listen for OAuth callback messages
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === "youtube-oauth-success") {
-        const { channel } = event.data;
+        const { channel, projectId: returnedProjectId } = event.data;
         
-        console.log("[useYouTubeOAuth] OAuth success for channel:", channel?.name);
+        console.log("[useYouTubeOAuth] OAuth success for channel:", channel?.name, "project:", returnedProjectId);
 
         setConnection({
           channel,
-          expiresAt: new Date(Date.now() + 3600000).toISOString(), // Approximate
+          expiresAt: new Date(Date.now() + 3600000).toISOString(),
+          projectId: returnedProjectId,
         });
         
         setIsConnecting(false);
@@ -121,7 +132,7 @@ export const useYouTubeOAuth = () => {
 
   const connect = useCallback(async () => {
     setIsConnecting(true);
-    console.log("[useYouTubeOAuth] Starting OAuth flow...");
+    console.log("[useYouTubeOAuth] Starting OAuth flow for project:", projectId);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -136,8 +147,13 @@ export const useYouTubeOAuth = () => {
         return;
       }
 
+      const params = new URLSearchParams({ action: "authorize" });
+      if (projectId) {
+        params.set("project_id", projectId);
+      }
+
       const response = await fetch(
-        `${SUPABASE_URL}/functions/v1/youtube-oauth?action=authorize`,
+        `${SUPABASE_URL}/functions/v1/youtube-oauth?${params.toString()}`,
         {
           headers: {
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
@@ -187,7 +203,7 @@ export const useYouTubeOAuth = () => {
         variant: "destructive",
       });
     }
-  }, [toast]);
+  }, [toast, projectId, cleanupPopup]);
 
   // Cleanup popup when hook unmounts
   useEffect(() => {
@@ -199,8 +215,13 @@ export const useYouTubeOAuth = () => {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session) {
+        const params = new URLSearchParams({ action: "disconnect" });
+        if (projectId) {
+          params.set("project_id", projectId);
+        }
+
         await fetch(
-          `${SUPABASE_URL}/functions/v1/youtube-oauth?action=disconnect`,
+          `${SUPABASE_URL}/functions/v1/youtube-oauth?${params.toString()}`,
           {
             method: "POST",
             headers: {
@@ -220,7 +241,7 @@ export const useYouTubeOAuth = () => {
       console.error("[useYouTubeOAuth] Disconnect error:", error);
       setConnection(null);
     }
-  }, [toast]);
+  }, [toast, projectId]);
 
   return {
     connection,
@@ -231,5 +252,6 @@ export const useYouTubeOAuth = () => {
     disconnect,
     channelName: connection?.channel?.name,
     channelPicture: connection?.channel?.picture,
+    projectId: connection?.projectId,
   };
 };

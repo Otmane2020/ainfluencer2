@@ -33,6 +33,7 @@ import {
   AlertCircle,
   Link2,
   Brain,
+  LogOut,
 } from "lucide-react";
 import { format } from "date-fns";
 import { enUS } from "date-fns/locale";
@@ -55,6 +56,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MarketingContextEditor, MarketingContext } from "@/components/MarketingContextEditor";
+import { useYouTubeOAuth } from "@/hooks/useYouTubeOAuth";
 
 // TikTok icon
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -121,11 +123,12 @@ interface MetaPage {
   } | null;
 }
 
-interface YouTubeConnection {
+interface YouTubeConnectionData {
   id: string;
   channel_id: string;
   channel_name: string;
   channel_picture_url: string | null;
+  project_id: string | null;
 }
 
 interface LinkedInConnection {
@@ -150,8 +153,19 @@ const ProjectDetail = () => {
   const [isLoadingPages, setIsLoadingPages] = useState(false);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
   const [tokenExpired, setTokenExpired] = useState(false);
-  const [youtubeConnection, setYoutubeConnection] = useState<YouTubeConnection | null>(null);
   const [linkedinConnection, setLinkedinConnection] = useState<LinkedInConnection | null>(null);
+  
+  // Per-project YouTube OAuth
+  const {
+    isConnected: isYouTubeConnected,
+    isConnecting: isYouTubeConnecting,
+    isLoading: isYouTubeLoading,
+    connect: connectYouTube,
+    disconnect: disconnectYouTube,
+    channelName: youtubeChannelName,
+    channelPicture: youtubeChannelPicture,
+  } = useYouTubeOAuth(id);
+  
   // Edit form state
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -175,7 +189,6 @@ const ProjectDetail = () => {
       fetchProject();
       fetchPosts();
       fetchMetaConnection();
-      fetchYoutubeConnection();
       fetchLinkedinConnection();
     }
   }, [id]);
@@ -211,20 +224,7 @@ const ProjectDetail = () => {
     }
   };
 
-  const fetchYoutubeConnection = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data } = await supabase
-      .from("youtube_connections")
-      .select("id, channel_id, channel_name, channel_picture_url")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (data) {
-      setYoutubeConnection(data);
-    }
-  };
+  // YouTube connection is now handled by useYouTubeOAuth hook
 
   const fetchLinkedinConnection = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -980,8 +980,8 @@ const ProjectDetail = () => {
                   )}
                 </div>
 
-                {/* YouTube - With connection status */}
-                <div className={`rounded-lg border p-3 space-y-3 ${!youtubeConnection ? 'opacity-60' : ''}`}>
+                {/* YouTube - Per-project connection */}
+                <div className={`rounded-lg border p-3 space-y-3 ${!isYouTubeConnected ? 'opacity-60' : ''}`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FF0000]">
@@ -991,15 +991,20 @@ const ProjectDetail = () => {
                       </div>
                       <div>
                         <span className="font-medium">YouTube</span>
-                        {youtubeConnection ? (
+                        {isYouTubeLoading ? (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Loading...
+                          </div>
+                        ) : isYouTubeConnected ? (
                           <div className="flex items-center gap-1 text-xs text-green-600">
                             <Check className="h-3 w-3" />
-                            {youtubeConnection.channel_name}
+                            {youtubeChannelName}
                           </div>
                         ) : (
                           <div className="flex items-center gap-1 text-xs text-muted-foreground">
                             <AlertCircle className="h-3 w-3" />
-                            Not connected
+                            Not connected for this project
                           </div>
                         )}
                       </div>
@@ -1007,29 +1012,49 @@ const ProjectDetail = () => {
                     <Switch 
                       checked={editYoutube} 
                       onCheckedChange={setEditYoutube}
-                      disabled={!youtubeConnection}
+                      disabled={!isYouTubeConnected}
                     />
                   </div>
-                  {youtubeConnection && (
-                    <div className="pl-10 text-xs text-muted-foreground">
-                      Videos will be published as YouTube Shorts to this channel.
-                      <Link 
-                        to="/integrations" 
-                        className="inline-flex items-center gap-1 text-primary hover:underline ml-2"
+                  
+                  {/* Connect/Disconnect buttons */}
+                  <div className="pl-10 space-y-2">
+                    {isYouTubeConnected ? (
+                      <>
+                        <p className="text-xs text-muted-foreground">
+                          Videos will be published as YouTube Shorts to this channel.
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={disconnectYouTube}
+                          className="text-xs h-7"
+                        >
+                          <LogOut className="h-3 w-3 mr-1" />
+                          Disconnect
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={connectYouTube}
+                        disabled={isYouTubeConnecting}
+                        className="text-xs h-7"
                       >
-                        Manage
-                      </Link>
-                    </div>
-                  )}
-                  {!youtubeConnection && (
-                    <Link 
-                      to="/integrations" 
-                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline pl-10"
-                    >
-                      <Link2 className="h-3 w-3" />
-                      Connect in Integrations
-                    </Link>
-                  )}
+                        {isYouTubeConnecting ? (
+                          <>
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            Connecting...
+                          </>
+                        ) : (
+                          <>
+                            <Link2 className="h-3 w-3 mr-1" />
+                            Connect YouTube for this project
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {/* TikTok - Download & share */}

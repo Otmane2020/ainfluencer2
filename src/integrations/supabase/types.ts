@@ -655,6 +655,7 @@ export type Database = {
           created_at: string
           expires_at: string
           id: string
+          project_id: string | null
           refresh_token: string
           updated_at: string
           user_id: string
@@ -667,6 +668,7 @@ export type Database = {
           created_at?: string
           expires_at: string
           id?: string
+          project_id?: string | null
           refresh_token: string
           updated_at?: string
           user_id: string
@@ -679,11 +681,20 @@ export type Database = {
           created_at?: string
           expires_at?: string
           id?: string
+          project_id?: string | null
           refresh_token?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "youtube_connections_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
