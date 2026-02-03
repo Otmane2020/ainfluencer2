@@ -1,86 +1,123 @@
 
-# Fix Plan: Kling API "mode" Parameter Error
+
+# Fix Plan: Kling API "image can not be null" Error
 
 ## Problem Analysis
 
-The error `input.mode: must not be null` indicates the Kling API request is missing a required `mode` field. After investigating the Kling API documentation and the current implementation, I found two issues:
+The error `{"code":1201,"message":"image can not be null"}` indicates that the Kling API is not receiving the image URL in the expected format. After analyzing the edge function logs and official Kling API documentation:
 
-### Issue 1: Wrong API Endpoint
-The current code uses `/v1/videos/lip-sync` which is designed for:
-- **Input**: Existing video + audio
-- **Output**: Video with lip-synced audio
-
-But the Video Motion feature needs to create talking videos from:
-- **Input**: Still portrait image + audio
-- **Output**: Animated talking video
-
-This requires the **AI Avatar** endpoint, not the Lip-Sync endpoint.
-
-### Issue 2: Missing Required Field
-Even for the lip-sync endpoint, the `mode` field is required to specify the operation type:
-- `audio_to_video` - Sync audio to video
-- `text_read` - Generate speech from text
-
-## Solution Options
-
-### Option A: Switch to AI Avatar API (Recommended)
-Use the correct Kling AI Avatar endpoint (`/v1/videos/ai-avatar`) which takes:
-- `image_url` - Portrait image URL
-- `audio_url` - Audio file URL  
-- `prompt` - Optional prompt for generation
-
-This matches the Video Motion feature's intended functionality.
-
-### Option B: Fix Lip-Sync Endpoint
-If staying with lip-sync, we would need to:
-1. First generate a still video from the image
-2. Then apply lip-sync with the audio
-3. Add the missing `mode: "audio_to_video"` field
-
-This is more complex and less suitable for the use case.
-
-## Implementation Plan (Option A)
-
-### Step 1: Update Edge Function Endpoint and Payload
-Modify `supabase/functions/generate-video-kling/index.ts`:
-
-```text
-Changes:
-1. Change endpoint from /v1/videos/lip-sync to /v1/videos/ai-avatar
-2. Update request body structure:
-   - Use image_url instead of face_image_url
-   - Remove audio_type field
-   - Add mode: "audio" for audio-driven generation
-   - Include prompt field (optional)
-3. Update status check endpoint to /v1/videos/ai-avatar/{taskId}
-```
-
-### Step 2: Request Body Structure
+### Root Cause
+The current implementation sends the request with an incorrectly nested structure:
 ```json
 {
-  "model_name": "kling-v1",
   "input": {
-    "image_url": "https://...",
-    "audio_url": "https://...",
-    "mode": "audio"
-  }
+    "image_url": "...",    // ❌ Wrong: nested inside "input"
+    "audio_url": "..."
+  },
+  "config": { ... }
 }
 ```
 
-### Step 3: Update Response Handling
-The AI Avatar endpoint may return slightly different response structure - update parsing accordingly.
+But Kling's `/v1/videos/image2video` endpoint expects:
+```json
+{
+  "model_name": "kling-v1-6",
+  "image": "...",           // ✅ Correct: top-level "image" field
+  "prompt": "...",
+  "duration": 5,
+  "mode": "std"             // ✅ Required: "std" or "pro"
+}
+```
 
-## Technical Details
+### Additional Issues Found
+1. The `/v1/images/ai-avatar` endpoint returns 404 — it doesn't exist on `api.klingai.com`
+2. The lip-sync endpoint requires `mode` field which is missing
+3. The `image2video` endpoint requires `image` (not `image_url`) at the top level
 
-| Item | Current | Updated |
-|------|---------|---------|
-| Endpoint | `/v1/videos/lip-sync` | `/v1/videos/ai-avatar` |
-| Image field | `face_image_url` | `image_url` |
-| Mode field | Missing | `"audio"` |
-| Status endpoint | `/v1/videos/lip-sync/{id}` | `/v1/videos/ai-avatar/{id}` |
+## Solution
+
+### Step 1: Fix the Image-to-Video Request Format
+Update the `generate-video-kling` edge function to use the correct Kling API structure:
+
+**For Image-to-Video endpoint** (`/v1/videos/image2video`):
+```json
+{
+  "model_name": "kling-v1-6",
+  "image": "<public_image_url>",
+  "prompt": "Person speaking naturally, lip-synced to audio",
+  "duration": 5,
+  "mode": "std",
+  "aspect_ratio": "9:16"
+}
+```
+
+**For Lip-Sync endpoint** (`/v1/videos/lip-sync`) — when image is actually a video:
+```json
+{
+  "video_url": "...",
+  "audio_url": "...",
+  "mode": "audio2video"
+}
+```
+
+### Step 2: Update Endpoint Strategy
+Since Kling's lip-sync requires a **video** input (not image), the correct flow for talking portraits is:
+1. First: Generate a short looping video from the portrait image using `/v1/videos/image2video`
+2. Then: Apply lip-sync to that video using `/v1/videos/lip-sync`
+
+Alternatively, use the simpler approach of just using image-to-video with a speaking prompt.
+
+### Step 3: Add Missing Mode Parameter
+The `mode` field is **required** for both endpoints:
+- For image2video: `"std"` (standard) or `"pro"` (professional)
+- For lip-sync: `"audio2video"` (sync audio to video)
+
+## Implementation Details
+
+### Changes to `supabase/functions/generate-video-kling/index.ts`
+
+```text
+1. Remove the non-existent /v1/images/ai-avatar attempt
+
+2. Fix /v1/videos/image2video request body:
+   - Change "input.image_url" → top-level "image"
+   - Add required "mode": "std" field
+   - Move prompt to top level
+   - Remove nested "input" and "config" structure
+
+3. Fix /v1/videos/lip-sync request body:
+   - Add required "mode": "audio2video"
+   - Keep video_url and audio_url structure
+
+4. Update status endpoint paths accordingly
+```
+
+### Before vs After
+
+| Field | Before (Wrong) | After (Correct) |
+|-------|----------------|-----------------|
+| Image field | `input.image_url` | `image` (top-level) |
+| Mode field | Missing | `"mode": "std"` |
+| Structure | Nested in `input`/`config` | Flat top-level fields |
+| Model name | In `config` | Top-level `model_name` |
+
+### Request Body Structure (Fixed)
+
+```javascript
+// Image-to-Video (primary for talking portraits)
+{
+  "model_name": "kling-v1-6",
+  "image": imageUrl,
+  "prompt": "Person speaking naturally to camera, expressive face, natural lip movements",
+  "duration": 5,
+  "mode": "std",
+  "aspect_ratio": "9:16"
+}
+```
 
 ## Files to Modify
-- `supabase/functions/generate-video-kling/index.ts`
+- `supabase/functions/generate-video-kling/index.ts` — Fix request body structure
 
 ## Expected Outcome
-After this fix, the Video Motion feature will correctly call the Kling AI Avatar API to generate talking videos from portrait images and audio files.
+After this fix, the Video Motion feature will correctly call the Kling image-to-video API and generate talking portrait videos without the "image can not be null" error.
+
