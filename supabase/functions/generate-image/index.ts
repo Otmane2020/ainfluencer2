@@ -651,11 +651,13 @@ Deno.serve(async (req) => {
       console.log(`[Legacy] Using pool selection: ${effectiveQuality} → ${effectiveModelId}`);
     }
 
-    const creditCost = getCreditCost(effectiveModelId);
+    const creditCostRaw = getCreditCost(effectiveModelId);
+    // Database expects integer - round up to avoid undercharging
+    const creditCost = Math.ceil(creditCostRaw);
 
     console.log(`=== Image Generation Request ===`);
     console.log(`User: ${userId || "anonymous"}`);
-    console.log(`Model: ${effectiveModelId} | Credit Cost: ${creditCost}`);
+    console.log(`Model: ${effectiveModelId} | Credit Cost: ${creditCost} (raw: ${creditCostRaw})`);
     console.log(`Skip credit deduction: ${skipCreditDeduction ? "Yes" : "No"}`);
 
     // ============================================================
