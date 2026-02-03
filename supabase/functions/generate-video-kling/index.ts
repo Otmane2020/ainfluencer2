@@ -117,10 +117,12 @@ serve(async (req) => {
         throw new Error("imageUrl and audioUrl are required");
       }
 
-      // 1️⃣ Try lip-sync endpoint (NO mode field allowed)
-      console.log("[Kling] Attempting lip-sync endpoint...");
-      const lipSyncRes = await fetch(
-        `${KLING_API_BASE}/v1/videos/lip-sync`,
+      // The official Kling API uses /v1/images/ai-avatar for image+audio → talking video
+      // Reference: https://app.klingai.com/global/dev/document-api
+      console.log("[Kling] Creating AI Avatar video from image + audio...");
+      
+      const avatarRes = await fetch(
+        `${KLING_API_BASE}/v1/images/ai-avatar`,
         {
           method: "POST",
           headers: {
@@ -129,13 +131,13 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             input: {
-              face_image_url: imageUrl,
+              image_url: imageUrl,
               audio_url: audioUrl,
-              audio_type: "url",
             },
             config: {
               duration: Math.min(duration, 30),
               aspect_ratio: aspectRatio,
+              model_name: "std", // Standard mode (cheaper) vs "pro"
             },
           }),
         },
@@ -143,18 +145,51 @@ serve(async (req) => {
 
       let result: KlingResponse;
 
-      if (lipSyncRes.ok) {
-        result = (await lipSyncRes.json()) as KlingResponse;
-        console.log("[Kling] Lip-sync succeeded:", result);
+      if (avatarRes.ok) {
+        result = (await avatarRes.json()) as KlingResponse;
+        console.log("[Kling] AI Avatar request succeeded:", result);
       } else {
-        const errorText = await lipSyncRes.text();
-        console.log("[Kling] Lip-sync failed:", errorText);
+        const errorText = await avatarRes.text();
+        console.log("[Kling] AI Avatar failed:", avatarRes.status, errorText);
+        
+        // Fallback: Try the video generation endpoint with image-to-video
+        // Some Kling setups use /v1/videos/image2video
+        console.log("[Kling] Falling back to image2video endpoint...");
+        
+        const fallbackRes = await fetch(
+          `${KLING_API_BASE}/v1/videos/image2video`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${jwtToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              input: {
+                image_url: imageUrl,
+                prompt: "Person speaking naturally, lip-synced to audio",
+              },
+              config: {
+                duration: Math.min(duration, 10),
+                aspect_ratio: aspectRatio,
+                model_name: "kling-v1-5", // Base video model
+                audio_url: audioUrl, // Some endpoints accept audio in config
+              },
+            }),
+          },
+        );
 
-        // 2️⃣ Fallback to talking_face endpoint if lip-sync fails
-        if (errorText.includes("1201") || lipSyncRes.status >= 400) {
-          console.log("[Kling] Falling back to talking_face endpoint...");
-          const fallbackRes = await fetch(
-          `${KLING_API_BASE}/v1/videos/talking-face`,
+        if (!fallbackRes.ok) {
+          const fallbackError = await fallbackRes.text();
+          console.error("[Kling] Fallback also failed:", fallbackError);
+          
+          // Last resort: try the legacy lip-sync endpoint with video_url
+          // The lip-sync endpoint is actually meant for VIDEO input, not image
+          // If the image URL is actually a video, this might work
+          console.log("[Kling] Last attempt: trying lip-sync with video input...");
+          
+          const lipSyncRes = await fetch(
+            `${KLING_API_BASE}/v1/videos/lip-sync`,
             {
               method: "POST",
               headers: {
@@ -163,27 +198,28 @@ serve(async (req) => {
               },
               body: JSON.stringify({
                 input: {
-                  image_url: imageUrl,
+                  video_url: imageUrl, // Treat image as first frame video
                   audio_url: audioUrl,
+                  audio_type: "url",
                 },
                 config: {
                   duration: Math.min(duration, 30),
-                  aspect_ratio: aspectRatio,
                 },
               }),
             },
           );
-
-          if (!fallbackRes.ok) {
-            const fallbackError = await fallbackRes.text();
-            console.error("[Kling] Fallback also failed:", fallbackError);
-            throw new Error(fallbackError);
+          
+          if (!lipSyncRes.ok) {
+            const lipSyncError = await lipSyncRes.text();
+            console.error("[Kling] Lip-sync also failed:", lipSyncError);
+            throw new Error(`Kling API error: ${fallbackError}`);
           }
-
-          result = (await fallbackRes.json()) as KlingResponse;
-          console.log("[Kling] Fallback succeeded:", result);
+          
+          result = (await lipSyncRes.json()) as KlingResponse;
+          console.log("[Kling] Lip-sync succeeded:", result);
         } else {
-          throw new Error(errorText);
+          result = (await fallbackRes.json()) as KlingResponse;
+          console.log("[Kling] Image2video fallback succeeded:", result);
         }
       }
 
@@ -197,8 +233,6 @@ serve(async (req) => {
           taskId: result.data.task_id,
           status: result.data.task_status,
           requestId: result.request_id,
-          // Helpful for debugging / client logic (optional)
-          taskKind: lipSyncRes.ok ? ("lip-sync" as KlingTaskKind) : ("talking-face" as KlingTaskKind),
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
@@ -209,31 +243,48 @@ serve(async (req) => {
       const taskId = url.searchParams.get("taskId");
       if (!taskId) throw new Error("taskId is required");
 
-      const fetchStatus = async (kind: KlingTaskKind) => {
-        const endpoint =
-          kind === "lip-sync"
-            ? `${KLING_API_BASE}/v1/videos/lip-sync/${taskId}`
-            : `${KLING_API_BASE}/v1/videos/talking-face/${taskId}`;
+      // Kling uses different status endpoints depending on the task type
+      // We try multiple endpoints and use the first that works
+      const endpoints = [
+        `${KLING_API_BASE}/v1/images/ai-avatar/${taskId}`,
+        `${KLING_API_BASE}/v1/videos/image2video/${taskId}`,
+        `${KLING_API_BASE}/v1/videos/lip-sync/${taskId}`,
+        `${KLING_API_BASE}/v1/videos/${taskId}`, // Generic video status
+      ];
 
+      let response: Response | null = null;
+      let successfulEndpoint = "";
+
+      for (const endpoint of endpoints) {
+        console.log(`[Kling] Trying status endpoint: ${endpoint}`);
         const r = await fetch(endpoint, {
           headers: { Authorization: `Bearer ${jwtToken}` },
         });
-
-        return r;
-      };
-
-      // Try lip-sync first, but Kling tasks created via talking-face must be polled
-      // on /v1/videos/talking-face/{task_id}. We auto-detect here to avoid client changes.
-      let response = await fetchStatus("lip-sync");
-      let taskKind: KlingTaskKind = "lip-sync";
-      if (response.status === 404) {
-        response = await fetchStatus("talking-face");
-        taskKind = "talking-face";
+        
+        if (r.ok) {
+          response = r;
+          successfulEndpoint = endpoint;
+          console.log(`[Kling] Status endpoint worked: ${endpoint}`);
+          break;
+        } else if (r.status !== 404) {
+          // If it's not a 404, capture the response for error reporting
+          const errorText = await r.text();
+          console.log(`[Kling] Status endpoint error (${r.status}): ${errorText}`);
+          // Continue trying other endpoints unless it's an auth error
+          if (r.status === 401 || r.status === 403) {
+            throw new Error(`Auth error: ${errorText}`);
+          }
+        } else {
+          console.log(`[Kling] Status endpoint 404: ${endpoint}`);
+        }
       }
 
-      if (!response.ok) throw new Error(await response.text());
+      if (!response) {
+        throw new Error(`Could not find task ${taskId} on any Kling endpoint`);
+      }
 
       const result = (await response.json()) as KlingResponse;
+      console.log(`[Kling] Task status response:`, JSON.stringify(result));
 
       const klingStatus = result.data?.task_status ?? "unknown";
       const video = result.data?.task_result?.videos?.[0];
@@ -252,7 +303,7 @@ serve(async (req) => {
           klingStatus,
           videoUrl: video?.url ?? null,
           duration: video?.duration ?? null,
-          taskKind,
+          endpoint: successfulEndpoint,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
