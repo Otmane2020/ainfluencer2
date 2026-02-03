@@ -112,7 +112,7 @@ export async function checkKieTaskStatus(
   try {
     console.log(`[KIE] Checking task status: ${taskId}`);
     
-    const response = await fetch(`${KIE_API_BASE}/task/${taskId}`, {
+    const response = await fetch(`${KIE_API_BASE}/v1/task/${taskId}`, {
       method: "GET",
       headers: getKieHeaders(),
     });
@@ -148,26 +148,27 @@ export async function checkKieTaskStatus(
 
 /**
  * Model endpoints mapping for KIE API
+ * All endpoints require /v1/ prefix
  */
 export const KIE_ENDPOINTS = {
   // Image models
-  "recraft-remove-bg": "/recraft/remove-background",
-  "recraft-upscale": "/recraft/upscale",
-  "qwen-zimage": "/qwen/z-image",
-  "flux-2-flex": "/flux/2-flex",
-  "flux-2-pro": "/flux/2-pro",
-  "flux-kontext": "/flux/kontext",
-  "grok-imagine": "/grok/imagine",
-  "ideogram-v3-remix": "/ideogram/v3-remix",
-  "ideogram-v3-edit": "/ideogram/v3-edit",
-  "ideogram-v3-reframe": "/ideogram/v3-reframe",
+  "recraft-remove-bg": "/v1/recraft/remove-background",
+  "recraft-upscale": "/v1/recraft/crisp-upscale",
+  "qwen-zimage": "/v1/qwen/z-image",
+  "flux-2-flex": "/v1/flux/2-flex",
+  "flux-2-pro": "/v1/flux/2-pro",
+  "flux-kontext": "/v1/flux/kontext",
+  "grok-imagine": "/v1/grok/imagine",
+  "ideogram-v3-remix": "/v1/ideogram/v3-remix",
+  "ideogram-v3-edit": "/v1/ideogram/v3-edit",
+  "ideogram-v3-reframe": "/v1/ideogram/v3-reframe",
   
   // Video models
-  "wan-2.6-text2video": "/wan/2.6/text-to-video",
-  "wan-2.6-image2video": "/wan/2.6/image-to-video",
-  "wan-2.6-video2video": "/wan/2.6/video-to-video",
-  "kling-2.6-text2video": "/kling/2.6/text-to-video",
-  "kling-2.6-image2video": "/kling/2.6/image-to-video",
+  "wan-2.6-text2video": "/v1/wan/2.6/text-to-video",
+  "wan-2.6-image2video": "/v1/wan/2.6/image-to-video",
+  "wan-2.6-video2video": "/v1/wan/2.6/video-to-video",
+  "kling-2.6-text2video": "/v1/kling/2.6/text-to-video",
+  "kling-2.6-image2video": "/v1/kling/2.6/image-to-video",
 } as const;
 
 /**
