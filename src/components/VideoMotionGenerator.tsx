@@ -38,11 +38,11 @@ type MotionProvider = "did" | "sora";
 const MOTION_PROVIDERS = {
   did: {
     id: "did" as MotionProvider,
-    name: "D-ID",
-    description: "Realistic lip-sync from portraits",
-    badge: "LIP-SYNC",
+    name: "D-ID Pro",
+    description: "Pro avatars with full body movements",
+    badge: "FULL BODY",
     badgeClass: "bg-emerald-500/20 text-emerald-400",
-    features: ["Image to talking video", "Natural lip movements", "Fast processing"],
+    features: ["Natural body movements", "Hand gestures", "Full-HD output"],
   },
   sora: {
     id: "sora" as MotionProvider,
@@ -290,56 +290,13 @@ export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorP
           videoUrl: soraResult.videoUrl,
         };
       } else {
-        // For D-ID: Generate audio FIRST, then create lip-sync task with both
+        // For D-ID Pro: Use Clips API with pro avatars (full body movements)
+        // D-ID handles TTS internally via ElevenLabs
         
-        // Step 2a: Generate audio with TTS first
-        setStatus("generating_audio");
-        toast({
-          title: "Generating voice...",
-          description: `Using ${selectedVoice.name} voice`,
-        });
-
-        const audioResponse = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({
-              text: script,
-              voiceId: selectedVoice.id,
-            }),
-          }
-        );
-
-        if (!audioResponse.ok) {
-          throw new Error(`TTS failed: ${audioResponse.status}`);
-        }
-
-        const audioBlob = await audioResponse.blob();
-        const audioFileName = `video-motion/audio-${Date.now()}.mp3`;
-
-        await supabase.storage.from("media").upload(audioFileName, audioBlob, {
-          contentType: "audio/mpeg",
-          upsert: true,
-        });
-
-        const { data: audioUrlData } = supabase.storage
-          .from("media")
-          .getPublicUrl(audioFileName);
-
-        const audioUrl = audioUrlData.publicUrl;
-        console.log("[VideoMotion] Audio generated:", audioUrl);
-        setProgress(40);
-
-        // Step 2b: Now create D-ID talk with BOTH image and audio
         setStatus("generating_video");
         toast({
-          title: "Creating lip-sync video...",
-          description: `${providerName} is syncing lips to audio`,
+          title: "Creating Pro Avatar video...",
+          description: `${providerName} is generating full body animation`,
         });
 
         const createResponse = await fetch(
@@ -352,8 +309,8 @@ export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorP
               Authorization: `Bearer ${accessToken}`,
             },
             body: JSON.stringify({
-              imageUrl,
-              audioUrl,
+              text: script,
+              voiceId: selectedVoice.id, // ElevenLabs voice ID
             }),
           }
         );
@@ -364,6 +321,7 @@ export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorP
         }
 
         createResult = await createResponse.json();
+        setProgress(40);
       }
 
       if (!createResult.success || !createResult.taskId) {
