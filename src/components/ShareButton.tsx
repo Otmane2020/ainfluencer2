@@ -134,17 +134,31 @@ export const ShareButton = ({
     setIsOpen(false);
   };
 
+  // Generate YouTube title from brand + content
+  const generateYouTubeTitle = () => {
+    const brand = brandName || "AI Content";
+    const summary = description?.slice(0, 60) || title?.slice(0, 60) || "";
+    // Clean and format
+    const cleanSummary = summary.replace(/\s+/g, ' ').trim();
+    if (cleanSummary) {
+      return `${brand} | ${cleanSummary}${cleanSummary.length >= 60 ? '...' : ''}`;
+    }
+    return `${brand} | AI Generated Video`;
+  };
+
   const handleYouTubeShare = () => {
     openPopupOrRedirect("https://studio.youtube.com/channel/UC/videos/upload", "width=800,height=600");
+    // Generate title from brand + summary
+    const youtubeTitle = generateYouTubeTitle();
     // Build hashtags with brand name first
     const brandHashtag = brandName ? `#${brandName.replace(/\s+/g, '')}` : '';
     const defaultHashtags = '#AI #AIVideo #ContentCreator #SocialMedia';
     const hashtags = brandHashtag ? `${brandHashtag} ${defaultHashtags}` : defaultHashtags;
-    const caption = `${title}\n\n${description}\n\n${hashtags}${videoUrl ? `\n\n${videoUrl}` : ''}`;
+    const caption = `${youtubeTitle}\n\n${description || ''}\n\n${hashtags}${videoUrl ? `\n\n${videoUrl}` : ''}`;
     void navigator.clipboard.writeText(caption);
     toast({
       title: "YouTube upload",
-      description: "Caption with hashtags copied. Download starts so you can upload to YouTube Studio.",
+      description: "Title & caption copied. Download starts so you can upload to YouTube Studio.",
     });
     handleDownload();
     onShare?.("youtube");
