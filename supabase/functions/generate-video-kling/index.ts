@@ -32,8 +32,6 @@ interface KlingResponse {
   };
 }
 
-type KlingTaskKind = "lip-sync" | "talking-face";
-
 /* ===================== UTILS ===================== */
 const base64Url = (input: Uint8Array | string): string => {
   const bytes =
@@ -117,110 +115,82 @@ serve(async (req) => {
         throw new Error("imageUrl and audioUrl are required");
       }
 
-      // The official Kling API uses /v1/images/ai-avatar for image+audio → talking video
-      // Reference: https://app.klingai.com/global/dev/document-api
-      console.log("[Kling] Creating AI Avatar video from image + audio...");
+      // Use the correct Kling API structure for image2video
+      // Reference: https://docs.qingque.cn/d/home/eZQBqiSN8xDkXPjJwXBDOv3Np
+      console.log("[Kling] Creating video from image using /v1/videos/image2video...");
+      console.log("[Kling] Image URL:", imageUrl);
+      console.log("[Kling] Audio URL:", audioUrl);
       
-      const avatarRes = await fetch(
-        `${KLING_API_BASE}/v1/images/ai-avatar`,
+      // Primary approach: Use image2video with speaking prompt
+      // The Kling API expects flat structure with top-level fields
+      const requestBody = {
+        model_name: "kling-v1-6",
+        image: imageUrl,  // Top-level "image" field (not nested in input)
+        prompt: "Person speaking naturally to camera, expressive face, natural lip movements, talking head video",
+        duration: String(Math.min(duration, 10)), // Kling expects string for duration
+        mode: "std", // Required: "std" (standard) or "pro" (professional)
+        aspect_ratio: aspectRatio,
+      };
+      
+      console.log("[Kling] Request body:", JSON.stringify(requestBody, null, 2));
+
+      const image2videoRes = await fetch(
+        `${KLING_API_BASE}/v1/videos/image2video`,
         {
           method: "POST",
           headers: {
             Authorization: `Bearer ${jwtToken}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            input: {
-              image_url: imageUrl,
-              audio_url: audioUrl,
-            },
-            config: {
-              duration: Math.min(duration, 30),
-              aspect_ratio: aspectRatio,
-              model_name: "std", // Standard mode (cheaper) vs "pro"
-            },
-          }),
+          body: JSON.stringify(requestBody),
         },
       );
 
       let result: KlingResponse;
+      const responseText = await image2videoRes.text();
+      console.log("[Kling] Response status:", image2videoRes.status);
+      console.log("[Kling] Response body:", responseText);
 
-      if (avatarRes.ok) {
-        result = (await avatarRes.json()) as KlingResponse;
-        console.log("[Kling] AI Avatar request succeeded:", result);
+      if (image2videoRes.ok) {
+        result = JSON.parse(responseText) as KlingResponse;
+        console.log("[Kling] Image2video request succeeded:", result);
       } else {
-        const errorText = await avatarRes.text();
-        console.log("[Kling] AI Avatar failed:", avatarRes.status, errorText);
+        console.log("[Kling] Image2video failed:", image2videoRes.status, responseText);
         
-        // Fallback: Try the video generation endpoint with image-to-video
-        // Some Kling setups use /v1/videos/image2video
-        console.log("[Kling] Falling back to image2video endpoint...");
+        // Fallback: Try lip-sync endpoint (requires video input, but worth trying)
+        // Note: lip-sync is designed for VIDEO input, but some setups accept static images
+        console.log("[Kling] Attempting fallback with lip-sync endpoint...");
         
-        const fallbackRes = await fetch(
-          `${KLING_API_BASE}/v1/videos/image2video`,
+        const lipSyncBody = {
+          video_url: imageUrl, // Treat image as single-frame video
+          audio_url: audioUrl,
+          mode: "audio2video", // Required mode for lip-sync
+        };
+        
+        console.log("[Kling] Lip-sync request body:", JSON.stringify(lipSyncBody, null, 2));
+        
+        const lipSyncRes = await fetch(
+          `${KLING_API_BASE}/v1/videos/lip-sync`,
           {
             method: "POST",
             headers: {
               Authorization: `Bearer ${jwtToken}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-              input: {
-                image_url: imageUrl,
-                prompt: "Person speaking naturally, lip-synced to audio",
-              },
-              config: {
-                duration: Math.min(duration, 10),
-                aspect_ratio: aspectRatio,
-                model_name: "kling-v1-5", // Base video model
-                audio_url: audioUrl, // Some endpoints accept audio in config
-              },
-            }),
+            body: JSON.stringify(lipSyncBody),
           },
         );
-
-        if (!fallbackRes.ok) {
-          const fallbackError = await fallbackRes.text();
-          console.error("[Kling] Fallback also failed:", fallbackError);
-          
-          // Last resort: try the legacy lip-sync endpoint with video_url
-          // The lip-sync endpoint is actually meant for VIDEO input, not image
-          // If the image URL is actually a video, this might work
-          console.log("[Kling] Last attempt: trying lip-sync with video input...");
-          
-          const lipSyncRes = await fetch(
-            `${KLING_API_BASE}/v1/videos/lip-sync`,
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${jwtToken}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                input: {
-                  video_url: imageUrl, // Treat image as first frame video
-                  audio_url: audioUrl,
-                  audio_type: "url",
-                },
-                config: {
-                  duration: Math.min(duration, 30),
-                },
-              }),
-            },
-          );
-          
-          if (!lipSyncRes.ok) {
-            const lipSyncError = await lipSyncRes.text();
-            console.error("[Kling] Lip-sync also failed:", lipSyncError);
-            throw new Error(`Kling API error: ${fallbackError}`);
-          }
-          
-          result = (await lipSyncRes.json()) as KlingResponse;
-          console.log("[Kling] Lip-sync succeeded:", result);
-        } else {
-          result = (await fallbackRes.json()) as KlingResponse;
-          console.log("[Kling] Image2video fallback succeeded:", result);
+        
+        const lipSyncText = await lipSyncRes.text();
+        console.log("[Kling] Lip-sync response status:", lipSyncRes.status);
+        console.log("[Kling] Lip-sync response body:", lipSyncText);
+        
+        if (!lipSyncRes.ok) {
+          throw new Error(`Kling API error: ${responseText}`);
         }
+        
+        result = JSON.parse(lipSyncText) as KlingResponse;
+        console.log("[Kling] Lip-sync succeeded:", result);
       }
 
       if (result.code !== 0 || !result.data?.task_id) {
@@ -244,12 +214,10 @@ serve(async (req) => {
       if (!taskId) throw new Error("taskId is required");
 
       // Kling uses different status endpoints depending on the task type
-      // We try multiple endpoints and use the first that works
+      // We try both endpoints and use the first that works
       const endpoints = [
-        `${KLING_API_BASE}/v1/images/ai-avatar/${taskId}`,
         `${KLING_API_BASE}/v1/videos/image2video/${taskId}`,
         `${KLING_API_BASE}/v1/videos/lip-sync/${taskId}`,
-        `${KLING_API_BASE}/v1/videos/${taskId}`, // Generic video status
       ];
 
       let response: Response | null = null;
@@ -311,6 +279,7 @@ serve(async (req) => {
 
     throw new Error(`Unknown action: ${action}`);
   } catch (error) {
+    console.error("[Kling] Error:", error);
     return new Response(
       JSON.stringify({
         success: false,
