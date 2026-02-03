@@ -19,6 +19,8 @@ interface ContentItem {
   platforms: string[] | null;
   campaign_id: string | null;
   campaign?: { name: string } | null;
+  project_id?: string;
+  project?: { name: string } | null;
 }
 
 interface AgendaDay {
@@ -310,6 +312,7 @@ export const PostAgendaView = ({ items, onShare, onPreview }: PostAgendaViewProp
                     thumbnailUrl={getItemThumbnail(selectedItem) || undefined}
                     title={selectedItem.text_content?.slice(0, 50) || "AI Content"}
                     description={selectedItem.ai_prompt || "Created with AI Influencer"}
+                    brandName={selectedItem.project?.name}
                     onShare={(platform) => {
                       console.log(`Shared to ${platform}`);
                     }}
