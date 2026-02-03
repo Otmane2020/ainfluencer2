@@ -120,24 +120,24 @@ interface ModelRouting {
 }
 
 function getModelRouting(modelId: string): ModelRouting {
-  // KIE API models
+  // KIE API models - all endpoints require /v1/ prefix
   const kieModels: Record<string, string> = {
-    "qwen-zimage": "/qwen/z-image",
-    "grok-imagine-text": "/grok/imagine",
-    "grok-imagine-img": "/grok/imagine",
-    "flux-kontext-pro": "/flux/kontext",
-    "flux-kontext-max": "/flux/kontext",
-    "flux-2-pro-1k": "/flux/2-pro",
-    "flux-2-pro-2k": "/flux/2-pro",
-    "flux-2-flex-1k": "/flux/2-flex",
-    "flux-2-flex-2k": "/flux/2-flex",
-    "recraft-remove-bg": "/recraft/remove-background",
-    "recraft-crisp-upscale": "/recraft/upscale",
-    "ideogram-v3-remix-turbo": "/ideogram/v3-remix",
-    "ideogram-v3-remix-balanced": "/ideogram/v3-remix",
-    "ideogram-v3-remix-quality": "/ideogram/v3-remix",
-    "ideogram-v3-edit-quality": "/ideogram/v3-edit",
-    "ideogram-v3-reframe": "/ideogram/v3-reframe",
+    "qwen-zimage": "/v1/qwen/z-image",
+    "grok-imagine-text": "/v1/grok/imagine",
+    "grok-imagine-img": "/v1/grok/imagine",
+    "flux-kontext-pro": "/v1/flux/kontext",
+    "flux-kontext-max": "/v1/flux/kontext",
+    "flux-2-pro-1k": "/v1/flux/2-pro",
+    "flux-2-pro-2k": "/v1/flux/2-pro",
+    "flux-2-flex-1k": "/v1/flux/2-flex",
+    "flux-2-flex-2k": "/v1/flux/2-flex",
+    "recraft-remove-bg": "/v1/recraft/remove-background",
+    "recraft-crisp-upscale": "/v1/recraft/crisp-upscale",
+    "ideogram-v3-remix-turbo": "/v1/ideogram/v3-remix",
+    "ideogram-v3-remix-balanced": "/v1/ideogram/v3-remix",
+    "ideogram-v3-remix-quality": "/v1/ideogram/v3-remix",
+    "ideogram-v3-edit-quality": "/v1/ideogram/v3-edit",
+    "ideogram-v3-reframe": "/v1/ideogram/v3-reframe",
   };
 
   if (kieModels[modelId]) {
