@@ -14,9 +14,10 @@ const KLING_API_BASE = "https://api.klingai.com";
 /* ===================== TYPES ===================== */
 interface KlingLipSyncRequest {
   imageUrl: string;
-  audioUrl?: string; // Optional - if not provided, uses image2video only
+  audioUrl: string;
   duration?: number;
   aspectRatio?: "9:16" | "16:9" | "1:1";
+  modelName?: "std" | "pro";
 }
 
 interface KlingResponse {
@@ -94,7 +95,16 @@ serve(async (req) => {
     const KLING_API_SECRET = Deno.env.get("KLING_API_SECRET");
 
     if (!KLING_API_KEY || !KLING_API_SECRET) {
-      throw new Error("KLING API credentials missing");
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "KLING API credentials missing",
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     const jwtToken = await generateKlingJWT(
@@ -109,176 +119,222 @@ serve(async (req) => {
         audioUrl,
         duration = 5,
         aspectRatio = "9:16",
+        modelName = "std",
       } = (await req.json()) as KlingLipSyncRequest;
 
-      if (!imageUrl) {
-        throw new Error("imageUrl is required");
+      if (!imageUrl || !audioUrl) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "imageUrl and audioUrl are required",
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
 
-      let result: KlingResponse;
+      // Validate duration
+      const validatedDuration = Math.min(Math.max(1, duration), 30);
+      
+      // Validate aspect ratio
+      const validAspectRatios = ["9:16", "16:9", "1:1"];
+      const validatedAspectRatio = validAspectRatios.includes(aspectRatio) 
+        ? aspectRatio 
+        : "9:16";
 
-      // If audioUrl is provided, use lip-sync endpoint for talking video
-      if (audioUrl) {
-        console.log("[Kling] Creating lip-sync video with audio...");
-        console.log("[Kling] Image URL:", imageUrl);
-        console.log("[Kling] Audio URL:", audioUrl);
-        
-        const lipSyncBody = {
-          input: {
-            face_image_url: imageUrl,
-            audio_url: audioUrl,
-          },
-        };
-        
-        console.log("[Kling] Lip-sync request body:", JSON.stringify(lipSyncBody, null, 2));
-        
-        const lipSyncRes = await fetch(
-          `${KLING_API_BASE}/v1/videos/lip-sync`,
+      console.log("[Kling] Creating AI Avatar video...", {
+        imageUrl: imageUrl.substring(0, 100) + "...",
+        audioUrl: audioUrl.substring(0, 100) + "...",
+        duration: validatedDuration,
+        aspectRatio: validatedAspectRatio,
+        modelName,
+      });
+
+      try {
+        const response = await fetch(
+          `${KLING_API_BASE}/v1/images/ai-avatar`,
           {
             method: "POST",
             headers: {
               Authorization: `Bearer ${jwtToken}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify(lipSyncBody),
-          },
-        );
-        
-        const responseText = await lipSyncRes.text();
-        console.log("[Kling] Lip-sync response status:", lipSyncRes.status);
-        console.log("[Kling] Lip-sync response body:", responseText);
-        
-        if (!lipSyncRes.ok) {
-          throw new Error(`Kling lip-sync API error: ${responseText}`);
-        }
-        
-        result = JSON.parse(responseText) as KlingResponse;
-      } else {
-        // No audio: use image2video to validate image and create base video
-        console.log("[Kling] Creating base video from image (no audio)...");
-        console.log("[Kling] Image URL:", imageUrl);
-        
-        const requestBody = {
-          model_name: "kling-v1-6",
-          image: imageUrl,
-          prompt: "Person with subtle natural movements, slight head motion, blinking, breathing",
-          duration: String(Math.min(duration, 10)),
-          mode: "std",
-          aspect_ratio: aspectRatio,
-        };
-        
-        console.log("[Kling] Image2video request body:", JSON.stringify(requestBody, null, 2));
-
-        const image2videoRes = await fetch(
-          `${KLING_API_BASE}/v1/videos/image2video`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${jwtToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(requestBody),
+            body: JSON.stringify({
+              input: {
+                image_url: imageUrl,
+                audio_url: audioUrl,
+              },
+              config: {
+                duration: validatedDuration,
+                aspect_ratio: validatedAspectRatio,
+                model_name: modelName,
+              },
+            }),
           },
         );
 
-        const responseText = await image2videoRes.text();
-        console.log("[Kling] Image2video response status:", image2videoRes.status);
-        console.log("[Kling] Image2video response body:", responseText);
-
-        if (!image2videoRes.ok) {
-          throw new Error(`Kling image2video API error: ${responseText}`);
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("[Kling] API Error:", response.status, errorText);
+          throw new Error(`Kling API error: ${response.status} - ${errorText}`);
         }
-        
-        result = JSON.parse(responseText) as KlingResponse;
-      }
 
-      if (result.code !== 0 || !result.data?.task_id) {
-        throw new Error(result.message || "Failed to create Kling task");
-      }
+        const result = (await response.json()) as KlingResponse;
+        console.log("[Kling] Task created:", result);
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          taskId: result.data.task_id,
-          status: result.data.task_status,
-          requestId: result.request_id,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+        if (result.code !== 0 || !result.data?.task_id) {
+          throw new Error(result.message || "Failed to create Kling task");
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            taskId: result.data.task_id,
+            status: result.data.task_status,
+            requestId: result.request_id,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      } catch (error) {
+        console.error("[Kling] Create task failed:", error);
+        throw error;
+      }
     }
 
     /* ---------- STATUS ---------- */
     if (action === "status") {
       const taskId = url.searchParams.get("taskId");
-      if (!taskId) throw new Error("taskId is required");
+      if (!taskId) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "taskId is required",
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
 
-      // Kling uses different status endpoints depending on the task type
-      // We try both endpoints and use the first that works
+      console.log(`[Kling] Checking status for task: ${taskId}`);
+
+      // Try different endpoints in order
       const endpoints = [
+        `${KLING_API_BASE}/v1/images/ai-avatar/${taskId}`,
         `${KLING_API_BASE}/v1/videos/image2video/${taskId}`,
         `${KLING_API_BASE}/v1/videos/lip-sync/${taskId}`,
       ];
 
       let response: Response | null = null;
       let successfulEndpoint = "";
+      const errorDetails: string[] = [];
 
       for (const endpoint of endpoints) {
-        console.log(`[Kling] Trying status endpoint: ${endpoint}`);
-        const r = await fetch(endpoint, {
-          headers: { Authorization: `Bearer ${jwtToken}` },
-        });
-        
-        if (r.ok) {
-          response = r;
-          successfulEndpoint = endpoint;
-          console.log(`[Kling] Status endpoint worked: ${endpoint}`);
-          break;
-        } else if (r.status !== 404) {
-          // If it's not a 404, capture the response for error reporting
-          const errorText = await r.text();
-          console.log(`[Kling] Status endpoint error (${r.status}): ${errorText}`);
-          // Continue trying other endpoints unless it's an auth error
-          if (r.status === 401 || r.status === 403) {
-            throw new Error(`Auth error: ${errorText}`);
+        try {
+          console.log(`[Kling] Trying endpoint: ${endpoint}`);
+          const r = await fetch(endpoint, {
+            headers: { Authorization: `Bearer ${jwtToken}` },
+          });
+          
+          if (r.ok) {
+            response = r;
+            successfulEndpoint = endpoint;
+            console.log(`[Kling] Found task at: ${endpoint}`);
+            break;
+          } else {
+            const errorText = await r.text();
+            errorDetails.push(`${endpoint}: ${r.status} - ${errorText}`);
+            
+            // If it's a client error (not found), continue to next endpoint
+            if (r.status === 404) {
+              console.log(`[Kling] Task not found at: ${endpoint}`);
+              continue;
+            }
+            // For auth errors, break and throw
+            if (r.status === 401 || r.status === 403) {
+              throw new Error(`Authentication error: ${errorText}`);
+            }
           }
-        } else {
-          console.log(`[Kling] Status endpoint 404: ${endpoint}`);
+        } catch (error) {
+          errorDetails.push(`${endpoint}: ${(error as Error).message}`);
+          // Continue to next endpoint
         }
       }
 
       if (!response) {
-        throw new Error(`Could not find task ${taskId} on any Kling endpoint`);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Task ${taskId} not found on any endpoint`,
+            details: errorDetails,
+          }),
+          {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
 
       const result = (await response.json()) as KlingResponse;
-      console.log(`[Kling] Task status response:`, JSON.stringify(result));
+      console.log(`[Kling] Status response:`, result);
 
+      // Map Kling status to our status
       const klingStatus = result.data?.task_status ?? "unknown";
+      let status: "queued" | "processing" | "completed" | "failed";
+      
+      switch (klingStatus.toLowerCase()) {
+        case "queued":
+        case "pending":
+          status = "queued";
+          break;
+        case "processing":
+        case "running":
+          status = "processing";
+          break;
+        case "completed":
+        case "succeed":
+        case "success":
+          status = "completed";
+          break;
+        case "failed":
+        case "error":
+          status = "failed";
+          break;
+        default:
+          status = "queued";
+      }
+
       const video = result.data?.task_result?.videos?.[0];
 
       return new Response(
         JSON.stringify({
           success: true,
-          status:
-            klingStatus === "processing"
-              ? "in_progress"
-              : klingStatus === "completed" || klingStatus === "succeed"
-              ? "completed"
-              : klingStatus === "failed" || klingStatus === "error"
-              ? "failed"
-              : "queued",
+          status,
           klingStatus,
-          videoUrl: video?.url ?? null,
-          duration: video?.duration ?? null,
+          videoUrl: video?.url || null,
+          duration: video?.duration || null,
           endpoint: successfulEndpoint,
+          message: result.message,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    throw new Error(`Unknown action: ${action}`);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: `Unknown action: ${action}. Use 'create' or 'status'`,
+      }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   } catch (error) {
-    console.error("[Kling] Error:", error);
+    console.error("[Server Error]:", error);
     return new Response(
       JSON.stringify({
         success: false,
