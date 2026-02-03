@@ -18,10 +18,11 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["logo.png", "logo-192.png"],
+      includeAssets: ["logo.png", "favicon-192.png", "favicon-32x32.png", "favicon-16x16.png", "apple-touch-icon.png"],
       manifest: false, // We use our own manifest.json
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,webp,jpg,jpeg}"],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -29,7 +30,7 @@ export default defineConfig(({ mode }) => ({
             options: {
               cacheName: "google-fonts-cache",
               expiration: {
-                maxEntries: 10,
+                maxEntries: 20,
                 maxAgeSeconds: 60 * 60 * 24 * 365,
               },
               cacheableResponse: {
@@ -43,7 +44,7 @@ export default defineConfig(({ mode }) => ({
             options: {
               cacheName: "gstatic-fonts-cache",
               expiration: {
-                maxEntries: 10,
+                maxEntries: 20,
                 maxAgeSeconds: 60 * 60 * 24 * 365,
               },
               cacheableResponse: {
@@ -51,7 +52,46 @@ export default defineConfig(({ mode }) => ({
               },
             },
           },
+          {
+            urlPattern: /^https:\/\/images\.unsplash\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "unsplash-images-cache",
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+          {
+            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "images-cache",
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+              },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "api-cache",
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 5, // 5 minutes
+              },
+              networkTimeoutSeconds: 10,
+            },
+          },
         ],
+        navigateFallback: "/index.html",
+        navigateFallbackDenylist: [/^\/api/, /^\/supabase/],
       },
       devOptions: {
         enabled: false,

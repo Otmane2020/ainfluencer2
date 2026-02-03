@@ -7,6 +7,8 @@ import { PricingPacks } from "@/components/PricingPacks";
 import { TrustedByCarousel } from "@/components/TrustedByCarousel";
 import { SocialPlatformIcons } from "@/components/SocialPlatformIcons";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { MobileLandingPage } from "@/components/landing/MobileLandingPage";
 
 import { MobileStickyCta } from "@/components/MobileStickyeCTA";
 import {
@@ -147,6 +149,7 @@ const stats = [
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   // Redirect authenticated users to dashboard (handles OAuth callback)
   useEffect(() => {
@@ -167,6 +170,11 @@ const LandingPage = () => {
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  // Show mobile-optimized landing page on mobile devices
+  if (isMobile) {
+    return <MobileLandingPage />;
+  }
 
   return (
     <div className="min-h-screen bg-background">
