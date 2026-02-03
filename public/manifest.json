@@ -1,32 +1,18 @@
 {
-  "name": "ClipMotion – AI Video Generator",
+  "name": "ClipMotion",
   "short_name": "ClipMotion",
-  "description": "Create stunning AI-powered videos for TikTok, Instagram, and YouTube. Generate motion design videos, AI influencers, and social content automatically.",
+  "description": "AI platform to automate your social media influence",
   "theme_color": "#0B1118",
   "background_color": "#0B1118",
   "display": "standalone",
   "orientation": "portrait-primary",
   "scope": "/",
   "start_url": "/",
-  "id": "/",
-  "lang": "en",
-  "dir": "ltr",
   "icons": [
-    {
-      "src": "/favicon-16x16.png",
-      "sizes": "16x16",
-      "type": "image/png"
-    },
-    {
-      "src": "/favicon-32x32.png",
-      "sizes": "32x32",
-      "type": "image/png"
-    },
     {
       "src": "/favicon-192.png",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
+      "type": "image/png"
     },
     {
       "src": "/logo.png",
@@ -35,40 +21,7 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["social", "productivity", "business", "entertainment"],
-  "screenshots": [
-    {
-      "src": "/logo.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "ClipMotion AI Video Generator"
-    }
-  ],
-  "shortcuts": [
-    {
-      "name": "Create Video",
-      "short_name": "Video",
-      "url": "/videos",
-      "icons": [{ "src": "/favicon-192.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "Create Image",
-      "short_name": "Image",
-      "url": "/images",
-      "icons": [{ "src": "/favicon-192.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "Dashboard",
-      "short_name": "Home",
-      "url": "/dashboard",
-      "icons": [{ "src": "/favicon-192.png", "sizes": "192x192" }]
-    }
-  ],
-  "related_applications": [],
-  "prefer_related_applications": false,
-  "handle_links": "preferred",
-  "launch_handler": {
-    "client_mode": "navigate-existing"
-  }
+  "categories": ["social", "productivity", "business"],
+  "screenshots": [],
+  "prefer_related_applications": false
 }
