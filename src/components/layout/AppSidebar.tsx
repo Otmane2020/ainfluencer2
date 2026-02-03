@@ -43,9 +43,8 @@ const mainNavItems = [
 ];
 
 const contentNavItems = [
-  { title: "ClipMotion", url: "/clipmotion", icon: Sparkles, label: "NEW" },
-  { title: "Videos", url: "/videos", icon: Video },
-  { title: "Images", url: "/images", icon: Image },
+  { title: "AI Video", url: "/videos", icon: Video },
+  { title: "AI Image", url: "/images", icon: Image },
   { title: "Product Shots", url: "/product-shots", icon: Camera, label: "AI Smart" },
   { title: "Posts", url: "/posts", icon: ImageIcon },
 ];
@@ -87,7 +86,7 @@ export function AppSidebar() {
                 ClipMotion
               </span>
               <span className="text-xs text-muted-foreground truncate">
-                Pro Edition
+                AI Studio
               </span>
             </div>
           )}
@@ -236,7 +235,7 @@ export function AppSidebar() {
                 <p className="font-medium text-sm truncate">
                   {profile?.display_name || "User"}
                 </p>
-                <p className="text-xs text-muted-foreground truncate">Pro Plan</p>
+                <p className="text-xs text-muted-foreground truncate">Creator</p>
               </div>
             )}
             {!collapsed && (

@@ -95,7 +95,7 @@ const Videos = () => {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="font-display text-2xl font-bold">Video Generator</h1>
+            <h1 className="font-display text-2xl font-bold">AI Video</h1>
             <p className="text-muted-foreground">
               Create AI videos for your social media
             </p>

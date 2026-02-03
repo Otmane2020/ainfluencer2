@@ -75,7 +75,7 @@ const Images = () => {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="font-display text-2xl font-bold">Image Generator</h1>
+            <h1 className="font-display text-2xl font-bold">AI Image</h1>
             <p className="text-muted-foreground">
               Create AI images for your social media
             </p>
