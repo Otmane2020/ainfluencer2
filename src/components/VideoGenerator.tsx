@@ -9,7 +9,7 @@ import { VoiceSelector } from "@/components/VoiceSelector";
 
 import { FormatSelector, ContentFormat, FORMAT_OPTIONS } from "@/components/FormatSelector";
 import { BrandOptions, BrandOptionsState } from "@/components/BrandOptions";
-// VideoModeSelector and VideoMotionGenerator imports kept for potential future use
+import { ModelSelector, AI_MODELS, type AIModel } from "@/components/ModelSelector";
 import { AVAILABLE_VOICES, getDefaultVoice, type Voice } from "@/lib/voices";
 import { COMMERCIAL_PRODUCTS, CommercialProduct, getPrimaryInternalModel } from "@/lib/commercialProducts";
 import { VideoScenario, buildScenarioPrompt } from "@/lib/videoScenarios";
@@ -70,12 +70,15 @@ interface VideoGeneratorProps {
 
 // Filter commercial products for video, avatar and image
 const VIDEO_AVATAR_IMAGE_PRODUCTS = COMMERCIAL_PRODUCTS.filter(p => p.category === "video" || p.category === "avatar" || p.category === "image");
+// Filter AI_MODELS for video and avatar only
+const VIDEO_AVATAR_MODELS = AI_MODELS.filter(m => m.category === "video" || m.category === "avatar");
 const PREFS_KEY = "video_generator_prefs";
 type VideoQuality = "720p" | "720p-vertical" | "1080p";
 
 // Quality/Resolution options now come from commercialProducts.ts
 
 interface StoredPrefs {
+  modelId?: string;
   voiceId?: string;
   productId?: string;
   avatarUrl?: string;
@@ -114,6 +117,8 @@ export const VideoGenerator = ({
   const storedPrefs = loadPrefs();
   const defaultProduct = VIDEO_AVATAR_IMAGE_PRODUCTS.find(p => p.id === storedPrefs.productId) || VIDEO_AVATAR_IMAGE_PRODUCTS.find(p => p.id === "ai-reel-pro") || VIDEO_AVATAR_IMAGE_PRODUCTS[0];
   const defaultVoice = AVAILABLE_VOICES.find(v => v.id === storedPrefs.voiceId) || getDefaultVoice();
+  // Default video model - Sora 2 (cost-effective default)
+  const defaultModel = VIDEO_AVATAR_MODELS.find(m => m.id === storedPrefs.modelId) || VIDEO_AVATAR_MODELS.find(m => m.id === "sora-2") || VIDEO_AVATAR_MODELS[0];
   const [generationTasks, setGenerationTasks] = useState<GenerationTask[]>([]);
   // Default duration: 8 seconds for standard video
   const defaultDuration = 8;
@@ -125,6 +130,8 @@ export const VideoGenerator = ({
   }]);
   const [selectedVoice, setSelectedVoiceState] = useState<Voice>(defaultVoice);
   const [selectedProduct, setSelectedProductState] = useState<CommercialProduct>(defaultProduct);
+  const [selectedModel, setSelectedModelState] = useState<AIModel>(defaultModel);
+  const [showModelSelector, setShowModelSelector] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingScript, setIsGeneratingScript] = useState<string | null>(null);
   const [showProductSelector, setShowProductSelector] = useState(false);
@@ -198,6 +205,12 @@ export const VideoGenerator = ({
     setSelectedProductState(product);
     savePrefs({
       productId: product.id
+    });
+  };
+  const setSelectedModel = (model: AIModel) => {
+    setSelectedModelState(model);
+    savePrefs({
+      modelId: model.id
     });
   };
   const setAvatarUrl = (url: string | undefined) => {
@@ -547,7 +560,7 @@ ${formattedHashtags}`;
       progress: 0
     } : s));
     toast({
-      title: `Generating ${selectedProduct.name}...`,
+      title: `Generating with ${selectedModel.name}...`,
       description: "Creating content with ultra-realistic AI voice"
     });
     try {
@@ -674,15 +687,15 @@ ${formattedHashtags}`;
             prompt: buildScenarioPrompt(selectedSector, selectedStyle, selectedTone) + segment.script,
             avatarUrl,
             duration: segment.duration,
-            // FIX: Send product tier (standard/pro/cinema) instead of resolution (720p)
-            quality: selectedProduct.tier === "ultra" ? "cinema" : selectedProduct.tier,
+            // Use selectedModel quality
+            quality: selectedModel.quality,
             format: selectedFormat,
             orientation: selectedFormat === "landscape" ? "landscape" : "portrait",
             startingFrameUrl: startingFrameUrl,
             // Image-to-video: pass reference image if provided
             referenceImageUrl: segment.referenceImageUrl,
-            // FIX: Send specific model ID from product
-            model: selectedProduct.internalModels[0] || "sora-2",
+            // Use selected AI model ID
+            model: selectedModel.id,
             videoMode,
             // Pass ClipMotion mode to edge function
             // Project context for brand-aligned generation
@@ -709,8 +722,8 @@ ${formattedHashtags}`;
           progress: 0,
           submitTime: currentTime,
           duration: segment.duration,
-          model: selectedProduct.name,
-          amount: segment.duration * selectedProduct.salePrice / 10,
+          model: selectedModel.name,
+          amount: segment.duration * selectedModel.priceValue,
           script: segment.script
         };
 
@@ -839,7 +852,7 @@ ${formattedHashtags}`;
       setIsGenerating(false);
       if (anyReady) {
         toast({
-          title: `🎬 ${selectedProduct.name} ready!`,
+          title: `🎬 ${selectedModel.name} ready!`,
           description: "Your video has been generated successfully."
         });
         onVideosGenerated(currentSegments);
@@ -877,6 +890,33 @@ ${formattedHashtags}`;
 
       {/* Quick Settings Bar - Popup buttons */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
+        {/* Model Selector Button */}
+        <Dialog open={showModelSelector} onOpenChange={setShowModelSelector}>
+          <DialogTrigger asChild>
+            <button className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs hover:bg-primary/10 transition-colors">
+              <Video className="h-4 w-4 text-primary" />
+              <span className="font-medium">{selectedModel.name}</span>
+              <ChevronDown className="h-3 w-3 text-muted-foreground" />
+            </button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Select AI Model</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <ModelSelector 
+                selectedModel={selectedModel} 
+                onModelChange={(model) => {
+                  setSelectedModel(model);
+                  setShowModelSelector(false);
+                }} 
+                categories={["video", "avatar"]}
+                showVoiceIndicator={true}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Format Selector */}
         <FormatSelector selectedFormat={selectedFormat} onFormatChange={setSelectedFormat} compact />
         
@@ -936,7 +976,7 @@ ${formattedHashtags}`;
         </Dialog>
 
         {/* Voice Button */}
-        {selectedProduct.needsVoice && <Dialog>
+        {selectedModel.needsVoice && <Dialog>
             <DialogTrigger asChild>
               <button className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-xs hover:bg-muted transition-colors">
                 <Volume2 className="h-4 w-4 text-primary" />
@@ -985,10 +1025,10 @@ ${formattedHashtags}`;
                   {index + 1}
                 </span>
                 <div className="flex items-center gap-2">
-                  {selectedProduct.supportedDurations && <select value={segment.duration} onChange={e => updateSegment(segment.id, {
+                  {selectedModel.supportedDurations && <select value={segment.duration} onChange={e => updateSegment(segment.id, {
                 duration: Number(e.target.value)
               })} className="rounded border border-border bg-background px-2 py-1 text-xs">
-                      {selectedProduct.supportedDurations.map(dur => {
+                      {selectedModel.supportedDurations.map(dur => {
                   return <option key={dur} value={dur}>
                             {dur}s
                           </option>;
@@ -1070,12 +1110,12 @@ ${formattedHashtags}`;
               {segment.status !== "pending" && <div className="mt-2 text-xs">
                   {segment.status === "generating" && <span className="text-accent flex items-center gap-1">
                       <Loader2 className="h-3 w-3 animate-spin" />
-                      {segment.progress}% • {selectedProduct.name}
+                      {segment.progress}% • {selectedModel.name}
                     </span>}
                   {segment.status === "ready" && <span className="text-primary flex items-center gap-1">
-                      <Play className="h-3 w-3" />Ready • {selectedProduct.name}
+                      <Play className="h-3 w-3" />Ready • {selectedModel.name}
                     </span>}
-                  {segment.status === "error" && <span className="text-destructive">Error • {selectedProduct.name}</span>}
+                  {segment.status === "error" && <span className="text-destructive">Error • {selectedModel.name}</span>}
                 </div>}
             </motion.div>)}
         </AnimatePresence>
@@ -1092,7 +1132,7 @@ ${formattedHashtags}`;
       </Button>
 
       {/* Generation Progress Modal */}
-      <GenerationProgressModal isOpen={showProgressModal} onClose={() => setShowProgressModal(false)} tasks={generationTasks} productName={selectedProduct.name} />
+      <GenerationProgressModal isOpen={showProgressModal} onClose={() => setShowProgressModal(false)} tasks={generationTasks} productName={selectedModel.name} />
 
       {/* Scenario Picker Modal */}
       <ScenarioPickerModal open={showScenarioPicker} onOpenChange={open => {
