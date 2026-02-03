@@ -606,7 +606,10 @@ serve(async (req) => {
     }
 
     const url = new URL(req.url);
-    const action = url.searchParams.get("action") || "create";
+    // Determine action: if taskId is present without action, assume "status"
+    const taskIdFromUrl = url.searchParams.get("taskId");
+    const explicitAction = url.searchParams.get("action");
+    const action = explicitAction || (taskIdFromUrl ? "status" : "create");
 
     if (action === "create") {
       const { 
