@@ -63,6 +63,7 @@ export const AVAILABLE_VOICES: Voice[] = [
   { id: "VR6AewLTigWG4xSOukaG", name: "Arnold", gender: "male", language: "en", accent: "American Commercial" },
   { id: "yoZ06aMxZJJ28mfd3POQ", name: "Sam", gender: "male", language: "en", accent: "American Ad" },
   { id: "ZQe5CZNOzWyzPSCn5a3c", name: "James", gender: "male", language: "en", accent: "Australian Commercial" },
+  { id: "SSfU0eLfP3qeuR4j2bwD", name: "Christopher", gender: "male", language: "en", accent: "American Commercial" },
 
   // ============================================================
   // FRENCH VOICES
