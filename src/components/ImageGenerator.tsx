@@ -5,22 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { ProductSelector } from "@/components/ProductSelector";
-import { ScenarioSelector } from "@/components/ScenarioSelector";
 import { FormatSelector, ContentFormat, FORMAT_OPTIONS } from "@/components/FormatSelector";
 import { BrandOptions, BrandOptionsState } from "@/components/BrandOptions";
 import {
   COMMERCIAL_PRODUCTS,
   CommercialProduct,
 } from "@/lib/commercialProducts";
-import { VideoScenario } from "@/lib/videoScenarios";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+
 import {
   Popover,
   PopoverContent,
@@ -148,7 +139,6 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
     }
   };
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
-  const [showProductSelector, setShowProductSelector] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projectSelectorOpen, setProjectSelectorOpen] = useState(false);
@@ -157,10 +147,6 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
   );
   const { toast } = useToast();
 
-  // Scenario state
-  const [selectedSector, setSelectedSector] = useState<VideoScenario | undefined>();
-  const [selectedStyle, setSelectedStyle] = useState<VideoScenario | undefined>();
-  const [selectedTone, setSelectedTone] = useState<VideoScenario | undefined>();
 
   const setBrandOptions = (options: BrandOptionsState) => {
     setBrandOptionsState(options);
@@ -218,9 +204,6 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
           contentType: "image_prompt",
           productName: selectedProduct.name,
           productCategory: selectedProduct.category,
-          sectorId: selectedSector?.id,
-          styleId: selectedStyle?.id,
-          toneId: selectedTone?.id,
           detectedLanguage: finalLanguage,
           logoUrl: project.avatar_url,
           services: project.scraped_data?.services,
@@ -238,7 +221,7 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
 
       toast({
         title: "Prompt generated! ✨",
-        description: `${selectedSector?.name || ""} ${selectedStyle?.name || ""} ${selectedTone?.name || ""}`.trim() || project.name,
+        description: project.name,
       });
     } catch (error) {
       console.error("AI prompt generation error:", error);
@@ -285,9 +268,6 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
           aspectRatio: formatConfig.aspectRatio,
           width: formatConfig.dimensions.width,
           height: formatConfig.dimensions.height,
-          sectorId: selectedSector?.id,
-          styleId: selectedStyle?.id,
-          toneId: selectedTone?.id,
           includeLogo: brandOptions.includeLogo,
           includeUrl: brandOptions.includeUrl,
           includeText: brandOptions.includeText,
@@ -372,50 +352,15 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
           </div>
         </div>
 
-        {/* Scenario Selector */}
-        <ScenarioSelector
-          selectedSector={selectedSector}
-          selectedStyle={selectedStyle}
-          selectedTone={selectedTone}
-          onSectorChange={setSelectedSector}
-          onStyleChange={setSelectedStyle}
-          onToneChange={setSelectedTone}
-        />
       </div>
 
-      {/* Format, Quality & Brand Options */}
+      {/* Format Selector */}
       <div className="flex flex-wrap gap-2 mb-4">
         <FormatSelector
           selectedFormat={selectedFormat}
           onFormatChange={setSelectedFormat}
           compact
         />
-        
-        <Dialog open={showProductSelector} onOpenChange={setShowProductSelector}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="flex-1 justify-between">
-              <span className="flex items-center gap-2">
-                <span className="text-lg">🖼️</span>
-                {selectedProduct.name}
-              </span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-2xl max-h-[85vh]">
-            <DialogHeader>
-              <DialogTitle>Select Image Quality</DialogTitle>
-            </DialogHeader>
-            <ScrollArea className="max-h-[60vh] pr-4">
-              <ProductSelector
-                selectedProduct={selectedProduct}
-                onProductChange={(p) => {
-                  setSelectedProduct(p);
-                  setShowProductSelector(false);
-                }}
-                category="image"
-              />
-            </ScrollArea>
-          </DialogContent>
-        </Dialog>
       </div>
 
       {/* Brand Options */}

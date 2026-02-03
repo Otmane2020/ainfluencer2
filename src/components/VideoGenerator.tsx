@@ -1,23 +1,21 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Video, Wand2, Loader2, Play, Plus, Trash2, Settings2, ChevronDown, ImagePlus, X, User, Upload, Volume2 } from "lucide-react";
+import { Video, Wand2, Loader2, Play, Plus, Trash2, ChevronDown, ImagePlus, X, User, Upload, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { AI_MODELS, type AIModel } from "@/components/ModelSelector";
-import { ProductSelector } from "@/components/ProductSelector";
 import { VoiceSelector } from "@/components/VoiceSelector";
-import { ScenarioSelector } from "@/components/ScenarioSelector";
+
 import { FormatSelector, ContentFormat, FORMAT_OPTIONS } from "@/components/FormatSelector";
 import { BrandOptions, BrandOptionsState } from "@/components/BrandOptions";
 // VideoModeSelector and VideoMotionGenerator imports kept for potential future use
 import { AVAILABLE_VOICES, getDefaultVoice, type Voice } from "@/lib/voices";
-import { COMMERCIAL_PRODUCTS, CommercialProduct, getPrimaryInternalModel, VIDEO_RESOLUTIONS, VideoResolution, getResolutionsForModel, getVideoCreditCost, formatVideoPrice } from "@/lib/commercialProducts";
+import { COMMERCIAL_PRODUCTS, CommercialProduct, getPrimaryInternalModel } from "@/lib/commercialProducts";
 import { VideoScenario, buildScenarioPrompt } from "@/lib/videoScenarios";
 import { ScenarioPickerModal, GeneratedScenario } from "@/components/ScenarioPickerModal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { GenerationProgressModal } from "@/components/GenerationProgressModal";
@@ -508,7 +506,7 @@ ${formattedHashtags}`;
   };
 
   // Get the internal model for API calls (hidden from UI)
-  const getInternalModel = (): AIModel | null => {
+  const getInternalModel = () => {
     return getPrimaryInternalModel(selectedProduct.id);
   };
   const addSegment = () => {
@@ -955,56 +953,6 @@ ${formattedHashtags}`;
             </DialogContent>
           </Dialog>}
 
-        {/* Resolution/Quality Selector with Price */}
-        {(() => {
-        const modelId = selectedProduct.internalModels?.[0] || "sora-2";
-        const duration = segments[0]?.duration || 8;
-        const resolutions = getResolutionsForModel(modelId);
-        const currentRes = resolutions.find(r => r.id === selectedQuality) || resolutions[0];
-        return <Popover>
-              <PopoverTrigger asChild>
-                <button className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-xs hover:bg-muted transition-colors">
-                  <Settings2 className="h-4 w-4 text-primary" />
-                  <span>{currentRes?.label || selectedQuality}</span>
-                  <span className="text-muted-foreground font-medium">
-                    {formatVideoPrice(modelId, duration, selectedQuality)}
-                  </span>
-                  <ChevronDown className="h-3 w-3" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-72 p-2">
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground mb-2 px-2">
-                    Resolution & Pricing
-                  </p>
-                  {resolutions.map(res => {
-                const priceUSD = formatVideoPrice(modelId, duration, res.id);
-                const credits = getVideoCreditCost(modelId, duration, res.id);
-                return <button key={res.id} onClick={() => setSelectedQuality(res.id as VideoQuality)} className={`w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left transition-colors ${selectedQuality === res.id ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium">{res.label}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {res.width}×{res.height} • ${res.pricePerSecond.toFixed(2)}/sec
-                          </span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-sm font-bold text-primary">{priceUSD}</span>
-                          <p className="text-xs text-muted-foreground">{credits} cr</p>
-                        </div>
-                      </button>;
-              })}
-                  <div className="mt-2 px-2 pt-2 border-t border-border">
-                    <p className="text-xs text-muted-foreground">
-                      💡 ${currentRes?.pricePerSecond.toFixed(2) || "0.10"}/sec × {duration}s = {formatVideoPrice(modelId, duration, selectedQuality)}
-                    </p>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>;
-      })()}
-
-        {/* Scenario Selector */}
-        <ScenarioSelector selectedSector={selectedSector} selectedStyle={selectedStyle} selectedTone={selectedTone} onSectorChange={setSelectedSector} onStyleChange={setSelectedStyle} onToneChange={setSelectedTone} />
 
         {/* Starting Frame Indicator (for video continuation) */}
         {startingFrameUrl && <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs">
@@ -1137,33 +1085,6 @@ ${formattedHashtags}`;
         </Button>
       </div>
 
-      {/* Video Type Button - Bottom */}
-      <div className="mb-3">
-        <Dialog>
-          <DialogTrigger asChild>
-            <button className="w-full flex items-center justify-center gap-2 rounded-lg border border-border bg-muted/50 px-4 py-2.5 text-sm hover:bg-muted transition-colors">
-              <Video className="h-4 w-4 text-primary" />
-              <span>{selectedProduct.name}</span>
-              <ChevronDown className="h-3 w-3 ml-auto text-muted-foreground" />
-            </button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>AI Models</DialogTitle>
-            </DialogHeader>
-            <div className="py-4">
-              <ProductSelector selectedProduct={selectedProduct} categories={["video", "avatar", "image"]} onProductChange={product => {
-              setSelectedProduct(product);
-              const newDefaultDuration = product.supportedDurations?.[0] || 8;
-              setSegments(prev => prev.map(s => ({
-                ...s,
-                duration: newDefaultDuration
-              })));
-            }} />
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
 
       {/* Generate Button */}
       <Button onClick={generateContent} disabled={isGenerating || segments.every(s => !s.script.trim())} variant="gradient" className="w-full">
