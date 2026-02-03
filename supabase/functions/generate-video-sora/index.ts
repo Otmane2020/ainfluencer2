@@ -197,6 +197,7 @@ async function tryVideoGeneration(
   referenceImageUrl?: string // Optional image for image-to-video
 ): Promise<{ success: boolean; model: VideoModelConfig; taskId?: string; status?: string; mediaUrl?: string; error?: string }> {
   let lastBillingLimitError: string | null = null;
+  let lastQuotaOrRateLimitError: string | null = null;
 
   for (let i = 0; i < models.length; i++) {
     const model = models[i];
@@ -307,9 +308,17 @@ async function tryVideoGeneration(
         continue;
       }
       
-      // Check for 429 (rate limit)
+      // Check for 429 (rate limit / quota)
       if (response.status === 429) {
-        console.warn(`[${model.model}] Rate limited (429) - trying next model`);
+        // Capture provider message so we can surface a useful error if all fallbacks fail.
+        try {
+          const errorJson = JSON.parse(responseText);
+          const msg = errorJson.error?.message || errorJson.message || "Rate limited";
+          lastQuotaOrRateLimitError = `${model.displayName}: ${msg}`;
+        } catch {
+          lastQuotaOrRateLimitError = `${model.displayName}: Rate limited (429)`;
+        }
+        console.warn(`[${model.model}] Rate limited/quota (429) - trying next model`);
         continue;
       }
       
@@ -366,11 +375,15 @@ async function tryVideoGeneration(
   }
   
   // All models failed
+  const details: string[] = [];
+  if (lastBillingLimitError) details.push(`OpenAI billing limit: ${lastBillingLimitError}`);
+  if (lastQuotaOrRateLimitError) details.push(`Quota/rate limit: ${lastQuotaOrRateLimitError}`);
+
   return {
     success: false,
     model: models[0],
-    error: lastBillingLimitError
-      ? `Video generation is blocked by provider billing limits: ${lastBillingLimitError}`
+    error: details.length
+      ? `Video generation is unavailable due to provider limits. ${details.join(" | ")}`
       : "All video models are currently unavailable. Please try again later.",
   };
 }
