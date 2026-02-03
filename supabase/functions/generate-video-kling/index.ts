@@ -14,7 +14,7 @@ const KLING_API_BASE = "https://api.klingai.com";
 /* ===================== TYPES ===================== */
 interface KlingLipSyncRequest {
   imageUrl: string;
-  audioUrl: string;
+  audioUrl?: string; // Optional - if not provided, uses image2video only
   duration?: number;
   aspectRatio?: "9:16" | "16:9" | "1:1";
 }
@@ -111,60 +111,23 @@ serve(async (req) => {
         aspectRatio = "9:16",
       } = (await req.json()) as KlingLipSyncRequest;
 
-      if (!imageUrl || !audioUrl) {
-        throw new Error("imageUrl and audioUrl are required");
+      if (!imageUrl) {
+        throw new Error("imageUrl is required");
       }
 
-      // Use the correct Kling API structure for image2video
-      // Reference: https://docs.qingque.cn/d/home/eZQBqiSN8xDkXPjJwXBDOv3Np
-      console.log("[Kling] Creating video from image using /v1/videos/image2video...");
-      console.log("[Kling] Image URL:", imageUrl);
-      console.log("[Kling] Audio URL:", audioUrl);
-      
-      // Primary approach: Use image2video with speaking prompt
-      // The Kling API expects flat structure with top-level fields
-      const requestBody = {
-        model_name: "kling-v1-6",
-        image: imageUrl,  // Top-level "image" field (not nested in input)
-        prompt: "Person speaking naturally to camera, expressive face, natural lip movements, talking head video",
-        duration: String(Math.min(duration, 10)), // Kling expects string for duration
-        mode: "std", // Required: "std" (standard) or "pro" (professional)
-        aspect_ratio: aspectRatio,
-      };
-      
-      console.log("[Kling] Request body:", JSON.stringify(requestBody, null, 2));
-
-      const image2videoRes = await fetch(
-        `${KLING_API_BASE}/v1/videos/image2video`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${jwtToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(requestBody),
-        },
-      );
-
       let result: KlingResponse;
-      const responseText = await image2videoRes.text();
-      console.log("[Kling] Response status:", image2videoRes.status);
-      console.log("[Kling] Response body:", responseText);
 
-      if (image2videoRes.ok) {
-        result = JSON.parse(responseText) as KlingResponse;
-        console.log("[Kling] Image2video request succeeded:", result);
-      } else {
-        console.log("[Kling] Image2video failed:", image2videoRes.status, responseText);
-        
-        // Fallback: Try lip-sync endpoint (requires video input, but worth trying)
-        // Note: lip-sync is designed for VIDEO input, but some setups accept static images
-        console.log("[Kling] Attempting fallback with lip-sync endpoint...");
+      // If audioUrl is provided, use lip-sync endpoint for talking video
+      if (audioUrl) {
+        console.log("[Kling] Creating lip-sync video with audio...");
+        console.log("[Kling] Image URL:", imageUrl);
+        console.log("[Kling] Audio URL:", audioUrl);
         
         const lipSyncBody = {
-          video_url: imageUrl, // Treat image as single-frame video
-          audio_url: audioUrl,
-          mode: "audio2video", // Required mode for lip-sync
+          input: {
+            face_image_url: imageUrl,
+            audio_url: audioUrl,
+          },
         };
         
         console.log("[Kling] Lip-sync request body:", JSON.stringify(lipSyncBody, null, 2));
@@ -181,16 +144,52 @@ serve(async (req) => {
           },
         );
         
-        const lipSyncText = await lipSyncRes.text();
+        const responseText = await lipSyncRes.text();
         console.log("[Kling] Lip-sync response status:", lipSyncRes.status);
-        console.log("[Kling] Lip-sync response body:", lipSyncText);
+        console.log("[Kling] Lip-sync response body:", responseText);
         
         if (!lipSyncRes.ok) {
-          throw new Error(`Kling API error: ${responseText}`);
+          throw new Error(`Kling lip-sync API error: ${responseText}`);
         }
         
-        result = JSON.parse(lipSyncText) as KlingResponse;
-        console.log("[Kling] Lip-sync succeeded:", result);
+        result = JSON.parse(responseText) as KlingResponse;
+      } else {
+        // No audio: use image2video to validate image and create base video
+        console.log("[Kling] Creating base video from image (no audio)...");
+        console.log("[Kling] Image URL:", imageUrl);
+        
+        const requestBody = {
+          model_name: "kling-v1-6",
+          image: imageUrl,
+          prompt: "Person with subtle natural movements, slight head motion, blinking, breathing",
+          duration: String(Math.min(duration, 10)),
+          mode: "std",
+          aspect_ratio: aspectRatio,
+        };
+        
+        console.log("[Kling] Image2video request body:", JSON.stringify(requestBody, null, 2));
+
+        const image2videoRes = await fetch(
+          `${KLING_API_BASE}/v1/videos/image2video`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${jwtToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(requestBody),
+          },
+        );
+
+        const responseText = await image2videoRes.text();
+        console.log("[Kling] Image2video response status:", image2videoRes.status);
+        console.log("[Kling] Image2video response body:", responseText);
+
+        if (!image2videoRes.ok) {
+          throw new Error(`Kling image2video API error: ${responseText}`);
+        }
+        
+        result = JSON.parse(responseText) as KlingResponse;
       }
 
       if (result.code !== 0 || !result.data?.task_id) {
