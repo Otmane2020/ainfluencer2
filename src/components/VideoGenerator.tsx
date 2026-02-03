@@ -11,12 +11,10 @@ import { VoiceSelector } from "@/components/VoiceSelector";
 import { ScenarioSelector } from "@/components/ScenarioSelector";
 import { FormatSelector, ContentFormat, FORMAT_OPTIONS } from "@/components/FormatSelector";
 import { BrandOptions, BrandOptionsState } from "@/components/BrandOptions";
-import { VideoModeSelector } from "@/components/VideoModeSelector";
-import { VideoMotionGenerator } from "@/components/VideoMotionGenerator";
+// VideoModeSelector and VideoMotionGenerator imports kept for potential future use
 import { AVAILABLE_VOICES, getDefaultVoice, type Voice } from "@/lib/voices";
 import { COMMERCIAL_PRODUCTS, CommercialProduct, getPrimaryInternalModel, VIDEO_RESOLUTIONS, VideoResolution, getResolutionsForModel, getVideoCreditCost, formatVideoPrice } from "@/lib/commercialProducts";
 import { VideoScenario, buildScenarioPrompt } from "@/lib/videoScenarios";
-import { type VideoMode, CLIPMOTION_DURATIONS, CLIPMOTION_DEFAULT_FORMAT, CLIPMOTION_FEATURES, CLIPMOTION_DEFAULT_DURATION, getClipMotionCreditCost, getClipMotionDurationTier } from "@/lib/clipMotionConfig";
 import { ScenarioPickerModal, GeneratedScenario } from "@/components/ScenarioPickerModal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -67,8 +65,8 @@ interface VideoGeneratorProps {
   onVideosGenerated?: (videos: VideoSegment[]) => void;
   onTasksUpdated?: (tasks: GenerationTask[]) => void;
   initialStartingFrameUrl?: string;
-  defaultVideoMode?: VideoMode;
-  hideVideoModeSelector?: boolean;
+  defaultVideoMode?: string; // Kept for backwards compatibility but ignored
+  hideVideoModeSelector?: boolean; // Kept for backwards compatibility but ignored
   onBeforeGenerate?: () => boolean;
 }
 
@@ -87,7 +85,6 @@ interface StoredPrefs {
   startingFrameUrl?: string;
   format?: ContentFormat;
   brandOptions?: BrandOptionsState;
-  videoMode?: VideoMode;
 }
 const loadPrefs = (): StoredPrefs => {
   try {
@@ -120,8 +117,8 @@ export const VideoGenerator = ({
   const defaultProduct = VIDEO_AVATAR_IMAGE_PRODUCTS.find(p => p.id === storedPrefs.productId) || VIDEO_AVATAR_IMAGE_PRODUCTS.find(p => p.id === "ai-reel-pro") || VIDEO_AVATAR_IMAGE_PRODUCTS[0];
   const defaultVoice = AVAILABLE_VOICES.find(v => v.id === storedPrefs.voiceId) || getDefaultVoice();
   const [generationTasks, setGenerationTasks] = useState<GenerationTask[]>([]);
-  // Default duration: 6s for ClipMotion (social optimal), 8s for standard
-  const defaultDuration = defaultVideoMode === "clipmotion" ? CLIPMOTION_DEFAULT_DURATION : 8;
+  // Default duration: 8 seconds for standard video
+  const defaultDuration = 8;
   const [segments, setSegments] = useState<VideoSegment[]>([{
     id: "1",
     script: "",
@@ -177,26 +174,13 @@ export const VideoGenerator = ({
     includeAvatar: false
   });
 
-  // Video mode state (standard or clipmotion)
-  const [videoMode, setVideoModeState] = useState<VideoMode>(defaultVideoMode || storedPrefs.videoMode || "standard");
+  // Video mode - always "standard" now (clipmotion and motion modes removed)
+  const videoMode = "standard";
   const setBrandOptions = (options: BrandOptionsState) => {
     setBrandOptionsState(options);
     savePrefs({
       brandOptions: options
     });
-  };
-  const setVideoMode = (mode: VideoMode) => {
-    setVideoModeState(mode);
-    savePrefs({
-      videoMode: mode
-    });
-    // Auto-set format to reel for ClipMotion
-    if (mode === "clipmotion") {
-      setSelectedFormatState(CLIPMOTION_DEFAULT_FORMAT as ContentFormat);
-      savePrefs({
-        format: CLIPMOTION_DEFAULT_FORMAT as ContentFormat
-      });
-    }
   };
   const setSelectedFormat = (format: ContentFormat) => {
     setSelectedFormatState(format);
@@ -893,32 +877,10 @@ ${formattedHashtags}`;
         </div>
       </div>
 
-      {/* Video Mode Toggle */}
-      {!hideVideoModeSelector && <div className="mb-3">
-        <VideoModeSelector mode={videoMode} onModeChange={setVideoMode} showMotion={!hideVideoModeSelector} />
-      </div>}
-
-      {/* Motion Mode - Kling AI Lip Sync */}
-      {videoMode === "motion" && (
-        <VideoMotionGenerator onBeforeGenerate={onBeforeGenerate} />
-      )}
-
-      {/* Standard and ClipMotion Modes */}
-      {videoMode !== "motion" && <>
-      {/* ClipMotion Info Banner */}
-      {videoMode === "clipmotion" && <div className="mb-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
-          <p className="text-xs text-primary">
-            <strong>ClipMotion Mode:</strong> Fast-paced, social-optimized videos with dynamic cuts, zoom effects, and animated text overlays. Perfect for TikTok, Reels, and Shorts.
-          </p>
-        </div>}
-
       {/* Quick Settings Bar - Popup buttons */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        {/* Format Selector - disabled in ClipMotion mode (always reel) */}
-        {videoMode === "standard" ? <FormatSelector selectedFormat={selectedFormat} onFormatChange={setSelectedFormat} compact /> : <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs">
-            <span>📱</span>
-            <span className="text-primary font-medium">Reel (9:16)</span>
-          </div>}
+        {/* Format Selector */}
+        <FormatSelector selectedFormat={selectedFormat} onFormatChange={setSelectedFormat} compact />
         
         {/* Avatar Button */}
         <Dialog>
@@ -1079,12 +1041,8 @@ ${formattedHashtags}`;
                 duration: Number(e.target.value)
               })} className="rounded border border-border bg-background px-2 py-1 text-xs">
                       {selectedProduct.supportedDurations.map(dur => {
-                  // Show tier and credits for ClipMotion mode
-                  const tier = getClipMotionDurationTier(dur);
-                  const credits = getClipMotionCreditCost(dur);
-                  const tierLabel = videoMode === "clipmotion" ? ` (${credits}cr)` : "";
                   return <option key={dur} value={dur}>
-                            {dur}s{tierLabel}
+                            {dur}s
                           </option>;
                 })}
                     </select>}
@@ -1223,6 +1181,5 @@ ${formattedHashtags}`;
         setGeneratedScenarios([]);
       }
     }} scenarios={generatedScenarios} onSelect={handleScenarioSelect} onRegenerate={handleScenarioRegenerate} isRegenerating={isRegeneratingScenarios} />
-    </>}
     </motion.div>;
 };

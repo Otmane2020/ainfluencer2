@@ -23,7 +23,7 @@ import PostHistoryPage from "./pages/PostHistoryPage";
 
 import NotFound from "./pages/NotFound";
 import ProductShotsPage from "./pages/ProductShotsPage";
-import ClipMotionPage from "./pages/ClipMotionPage";
+// ClipMotion page removed - functionality consolidated into Videos page
 // SEO Pages
 import FeaturesPage from "./pages/FeaturesPage";
 import PricingPage from "./pages/PricingPage";
@@ -70,7 +70,7 @@ const App = () => (
             <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/campaigns" element={<CampaignsPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
-            <Route path="/clipmotion" element={<ClipMotionPage />} />
+            {/* ClipMotion route removed - consolidated into Videos */}
             <Route path="/videos" element={<Videos />} />
             {/* AI Video route removed - consolidated into /videos */}
             <Route path="/images" element={<Images />} />
