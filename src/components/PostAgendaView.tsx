@@ -1,11 +1,11 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format, isToday, isYesterday, startOfDay } from "date-fns";
-import { Calendar, Image, Video, FileText, ExternalLink, X, Play } from "lucide-react";
+import { Calendar, Image, Video, FileText, ExternalLink, Play } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ShareButton } from "@/components/ShareButton";
 
 interface ContentItem {
   id: string;
@@ -305,31 +305,15 @@ export const PostAgendaView = ({ items, onShare, onPreview }: PostAgendaViewProp
                     </span>
                   </div>
 
-                  <div className="flex gap-2">
-                    {selectedItem.media_url && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => window.open(selectedItem.media_url!, "_blank")}
-                        className="gap-1"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        Open
-                      </Button>
-                    )}
-                    {onShare && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => {
-                          onShare(selectedItem);
-                          setSelectedItem(null);
-                        }}
-                      >
-                        Share
-                      </Button>
-                    )}
-                  </div>
+                  <ShareButton
+                    videoUrl={selectedItem.media_url || undefined}
+                    thumbnailUrl={getItemThumbnail(selectedItem) || undefined}
+                    title={selectedItem.text_content?.slice(0, 50) || "AI Content"}
+                    description={selectedItem.ai_prompt || "Created with AI Influencer"}
+                    onShare={(platform) => {
+                      console.log(`Shared to ${platform}`);
+                    }}
+                  />
                 </div>
 
                 {/* Text content */}

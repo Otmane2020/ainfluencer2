@@ -231,7 +231,7 @@ export const ShareButton = ({
               className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-border bg-card p-2 shadow-lg"
             >
               <div className="mb-2 flex items-center justify-between px-2">
-                <span className="text-sm font-medium">Partager</span>
+                <span className="text-sm font-medium">Share</span>
                 <Button
                   variant="ghost"
                   size="icon"
