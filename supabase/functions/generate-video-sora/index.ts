@@ -165,8 +165,80 @@ function getVideoModel(quality: string): VideoModelConfig {
 const VALID_DURATIONS: Record<string, number[]> = {
   "sora-2-pro": [4, 8, 12, 16, 20],  // Sora 2 Pro supports up to 20s
   "sora-2": [4, 8, 12],               // Sora 2 standard up to 12s
-  gemini: [5, 6, 7, 8],               // Veo accepts 5-8 seconds
+  // Veo accepts 4-8 seconds (observed from API error messaging)
+  gemini: [4, 5, 6, 7, 8],
 };
+
+function getSupportedOpenAISizes(modelId: string): string[] {
+  // Sora requires the reference image to EXACTLY match the requested size.
+  // Supported sizes vary by tier; keep this conservative.
+  if (modelId === "sora-2-pro") {
+    return ["1280x720", "720x1280", "1792x1024", "1024x1792"];
+  }
+  return ["1280x720", "720x1280"];
+}
+
+function readPngDimensions(bytes: Uint8Array): { width: number; height: number } | null {
+  // PNG signature (8 bytes) then IHDR chunk: width/height at bytes 16..23 (big-endian)
+  if (bytes.length < 24) return null;
+  const sig = [137, 80, 78, 71, 13, 10, 26, 10];
+  for (let i = 0; i < sig.length; i++) {
+    if (bytes[i] !== sig[i]) return null;
+  }
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const width = dv.getUint32(16, false);
+  const height = dv.getUint32(20, false);
+  if (!width || !height) return null;
+  return { width, height };
+}
+
+function readJpegDimensions(bytes: Uint8Array): { width: number; height: number } | null {
+  // Minimal JPEG parser: locate SOF0/SOF2 markers (0xFFC0 / 0xFFC2)
+  if (bytes.length < 4) return null;
+  if (bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
+
+  let offset = 2;
+  while (offset + 4 < bytes.length) {
+    // Find next marker
+    if (bytes[offset] !== 0xff) {
+      offset++;
+      continue;
+    }
+    // Skip fill bytes 0xFF
+    while (offset < bytes.length && bytes[offset] === 0xff) offset++;
+    if (offset >= bytes.length) break;
+    const marker = bytes[offset++];
+    // Standalone markers without length
+    if (marker === 0xd9 || marker === 0xda) break; // EOI or SOS
+    if (offset + 2 > bytes.length) break;
+    const length = (bytes[offset] << 8) + bytes[offset + 1];
+    if (length < 2 || offset + length > bytes.length) break;
+
+    // SOF0 / SOF2 contain dimensions
+    if (marker === 0xc0 || marker === 0xc2) {
+      // layout: [len(2)] [precision(1)] [height(2)] [width(2)] ...
+      const height = (bytes[offset + 3] << 8) + bytes[offset + 4];
+      const width = (bytes[offset + 5] << 8) + bytes[offset + 6];
+      if (!width || !height) return null;
+      return { width, height };
+    }
+
+    offset += length;
+  }
+  return null;
+}
+
+function getImageDimensions(
+  bytes: Uint8Array,
+  contentType?: string,
+): { width: number; height: number } | null {
+  const ct = (contentType || "").toLowerCase();
+  if (ct.includes("png")) return readPngDimensions(bytes);
+  if (ct.includes("jpeg") || ct.includes("jpg")) return readJpegDimensions(bytes);
+
+  // Best-effort sniff
+  return readPngDimensions(bytes) || readJpegDimensions(bytes);
+}
 
 function clampDuration(duration: number, config: VideoModelConfig): number {
   // Use model-specific durations, not provider-level
@@ -230,7 +302,8 @@ async function tryVideoGeneration(
           formData.append(key, String(value));
         });
         
-        // Image-to-video: fetch the reference image and attach as input_reference
+        // Image-to-video: fetch the reference image and attach as input_reference.
+        // IMPORTANT: Sora requires the reference image dimensions to match the requested `size` exactly.
         if (referenceImageUrl) {
           try {
             console.log(`[VIDEO] Fetching reference image for image-to-video...`);
@@ -242,6 +315,34 @@ async function tryVideoGeneration(
               // Determine content type from URL or default to png
               const contentType = imageResponse.headers.get("content-type") || "image/png";
               const extension = contentType.includes("jpeg") || contentType.includes("jpg") ? "jpg" : "png";
+
+              const dims = getImageDimensions(imageBytes, contentType);
+              const desiredSize = String(requestBody.size || "");
+              const supportedSizes = getSupportedOpenAISizes(String(requestBody.model || model.model));
+
+              // If we can read dimensions, ensure `size` matches to avoid:
+              // "Inpaint image must match the requested width and height"
+              if (dims) {
+                const actualSize = `${dims.width}x${dims.height}`;
+                if (desiredSize && actualSize !== desiredSize) {
+                  if (supportedSizes.includes(actualSize)) {
+                    console.log(`[VIDEO] Reference image is ${actualSize}; overriding requested size from ${desiredSize} → ${actualSize}`);
+                    // Deno FormData supports set(); prefer it so we don't duplicate keys.
+                    try {
+                      (formData as any).set?.("size", actualSize);
+                    } catch {
+                      // Fallback: add another size field (some servers take the last one)
+                      formData.append("size", actualSize);
+                    }
+                  } else {
+                    console.warn(
+                      `[VIDEO] Reference image size ${actualSize} is not supported for ${String(requestBody.model || model.model)}. Supported: ${supportedSizes.join(", ")}. Skipping reference image to avoid size mismatch error.`,
+                    );
+                    // Continue without reference image (fallback to text-to-video)
+                    throw new Error(`Unsupported reference image size: ${actualSize}`);
+                  }
+                }
+              }
               
               // Create a Blob and append to FormData
               const imageBlob = new Blob([imageBytes], { type: contentType });
@@ -251,7 +352,7 @@ async function tryVideoGeneration(
               console.warn(`[VIDEO] Failed to fetch reference image: ${imageResponse.status}`);
             }
           } catch (imgErr) {
-            console.warn(`[VIDEO] Error fetching reference image:`, imgErr);
+            console.warn(`[VIDEO] Reference image skipped:`, imgErr);
             // Continue without image - fall back to text-to-video
           }
         }
