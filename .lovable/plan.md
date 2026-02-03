@@ -1,123 +1,146 @@
 
 
-# Fix Plan: Kling API "image can not be null" Error
+# Fix Plan: Kling Motion Video Generation
 
-## Problem Analysis
+## Problem Summary
 
-The error `{"code":1201,"message":"image can not be null"}` indicates that the Kling API is not receiving the image URL in the expected format. After analyzing the edge function logs and official Kling API documentation:
+The Video Motion feature fails because the Kling API request format is incorrect. The current implementation sends a nested structure (`input`/`config`) while the Kling API expects flat top-level fields.
 
-### Root Cause
-The current implementation sends the request with an incorrectly nested structure:
+Additionally, **Kling's lip-sync endpoint requires a video input, not an image** - making it incompatible with the portrait image use case.
+
+## Solution: Use D-ID API for Talking Portraits
+
+Since Kling's lip-sync requires a video (not image), we'll switch to **D-ID API** which is specifically designed for generating talking head videos from a portrait image + audio.
+
+---
+
+## Implementation Steps
+
+### Step 1: Create D-ID Edge Function
+
+Create a new edge function `generate-video-did` that uses the D-ID Talks API:
+
+- **Endpoint**: `https://api.d-id.com/talks`
+- **Method**: POST with source image URL and audio URL
+- **Status polling**: `GET /talks/{id}` to check completion
+
+Request format:
 ```json
 {
-  "input": {
-    "image_url": "...",    // ❌ Wrong: nested inside "input"
-    "audio_url": "..."
+  "source_url": "<portrait_image_url>",
+  "script": {
+    "type": "audio",
+    "audio_url": "<audio_url>"
   },
-  "config": { ... }
+  "config": {
+    "stitch": true,
+    "result_format": "mp4"
+  }
 }
 ```
 
-But Kling's `/v1/videos/image2video` endpoint expects:
-```json
+### Step 2: Update VideoMotionGenerator
+
+Modify the component to call the new D-ID edge function instead of Kling:
+
+1. Keep Sora as a premium option
+2. Replace Kling with D-ID for lip-sync generation
+3. Update the provider configuration and UI labels
+
+### Step 3: Add D-ID API Secret
+
+Request the user to add their D-ID API key via the secrets tool.
+
+---
+
+## Technical Details
+
+### Files to Create/Modify
+
+| File | Action | Description |
+|------|--------|-------------|
+| `supabase/functions/generate-video-did/index.ts` | Create | New D-ID API integration |
+| `supabase/config.toml` | Update | Add function config |
+| `src/components/VideoMotionGenerator.tsx` | Update | Switch from Kling to D-ID |
+
+### D-ID API Request Structure
+
+```typescript
+// Create talk
+POST https://api.d-id.com/talks
 {
-  "model_name": "kling-v1-6",
-  "image": "...",           // ✅ Correct: top-level "image" field
-  "prompt": "...",
-  "duration": 5,
-  "mode": "std"             // ✅ Required: "std" or "pro"
+  "source_url": imageUrl,
+  "script": {
+    "type": "audio",
+    "audio_url": audioUrl
+  },
+  "config": {
+    "stitch": true,
+    "result_format": "mp4"
+  }
 }
+
+// Check status
+GET https://api.d-id.com/talks/{id}
 ```
 
-### Additional Issues Found
-1. The `/v1/images/ai-avatar` endpoint returns 404 — it doesn't exist on `api.klingai.com`
-2. The lip-sync endpoint requires `mode` field which is missing
-3. The `image2video` endpoint requires `image` (not `image_url`) at the top level
+### Provider Configuration Update
 
-## Solution
+```typescript
+const MOTION_PROVIDERS = {
+  did: {
+    id: "did" as MotionProvider,
+    name: "D-ID",
+    description: "Realistic lip-sync from portraits",
+    badge: "LIP-SYNC",
+    features: ["Image to talking video", "Natural lip movements", "Fast processing"],
+  },
+  sora: {
+    id: "sora" as MotionProvider,
+    name: "Sora 2",
+    description: "Premium cinematic quality",
+    badge: "PREMIUM",
+    features: ["Natural expressions", "Micro-gestures", "Cinema quality"],
+  },
+};
+```
 
-### Step 1: Fix the Image-to-Video Request Format
-Update the `generate-video-kling` edge function to use the correct Kling API structure:
+---
 
-**For Image-to-Video endpoint** (`/v1/videos/image2video`):
-```json
+## Why D-ID Instead of Kling?
+
+| Feature | Kling | D-ID |
+|---------|-------|------|
+| Input type for lip-sync | Video only ❌ | Image + Audio ✅ |
+| Purpose | General video animation | Talking portraits |
+| API complexity | Complex, multiple endpoints | Simple, single endpoint |
+| Lip-sync quality | Not designed for images | Specialized for this |
+
+---
+
+## Alternative: Fix Kling for Animation Only
+
+If you want to keep Kling as an option for **animation without lip-sync**, we can fix the request format:
+
+```typescript
+// Correct Kling image2video format (NO lip-sync)
 {
-  "model_name": "kling-v1-6",
-  "image": "<public_image_url>",
-  "prompt": "Person speaking naturally, lip-synced to audio",
-  "duration": 5,
-  "mode": "std",
-  "aspect_ratio": "9:16"
+  "model": "kling-video/v1.6/pro/image-to-video",
+  "image_url": imageUrl,
+  "prompt": "Person speaking naturally",
+  "duration": 5
 }
 ```
 
-**For Lip-Sync endpoint** (`/v1/videos/lip-sync`) — when image is actually a video:
-```json
-{
-  "video_url": "...",
-  "audio_url": "...",
-  "mode": "audio2video"
-}
-```
+But this won't sync lips to audio - it will just animate the portrait generically.
 
-### Step 2: Update Endpoint Strategy
-Since Kling's lip-sync requires a **video** input (not image), the correct flow for talking portraits is:
-1. First: Generate a short looping video from the portrait image using `/v1/videos/image2video`
-2. Then: Apply lip-sync to that video using `/v1/videos/lip-sync`
-
-Alternatively, use the simpler approach of just using image-to-video with a speaking prompt.
-
-### Step 3: Add Missing Mode Parameter
-The `mode` field is **required** for both endpoints:
-- For image2video: `"std"` (standard) or `"pro"` (professional)
-- For lip-sync: `"audio2video"` (sync audio to video)
-
-## Implementation Details
-
-### Changes to `supabase/functions/generate-video-kling/index.ts`
-
-```text
-1. Remove the non-existent /v1/images/ai-avatar attempt
-
-2. Fix /v1/videos/image2video request body:
-   - Change "input.image_url" → top-level "image"
-   - Add required "mode": "std" field
-   - Move prompt to top level
-   - Remove nested "input" and "config" structure
-
-3. Fix /v1/videos/lip-sync request body:
-   - Add required "mode": "audio2video"
-   - Keep video_url and audio_url structure
-
-4. Update status endpoint paths accordingly
-```
-
-### Before vs After
-
-| Field | Before (Wrong) | After (Correct) |
-|-------|----------------|-----------------|
-| Image field | `input.image_url` | `image` (top-level) |
-| Mode field | Missing | `"mode": "std"` |
-| Structure | Nested in `input`/`config` | Flat top-level fields |
-| Model name | In `config` | Top-level `model_name` |
-
-### Request Body Structure (Fixed)
-
-```javascript
-// Image-to-Video (primary for talking portraits)
-{
-  "model_name": "kling-v1-6",
-  "image": imageUrl,
-  "prompt": "Person speaking naturally to camera, expressive face, natural lip movements",
-  "duration": 5,
-  "mode": "std",
-  "aspect_ratio": "9:16"
-}
-```
-
-## Files to Modify
-- `supabase/functions/generate-video-kling/index.ts` — Fix request body structure
+---
 
 ## Expected Outcome
-After this fix, the Video Motion feature will correctly call the Kling image-to-video API and generate talking portrait videos without the "image can not be null" error.
+
+After implementing D-ID:
+- Upload a portrait image
+- Enter script text (converted to audio via TTS)
+- D-ID generates a video with realistic lip-sync
+- Video is returned and playable in the UI
 
