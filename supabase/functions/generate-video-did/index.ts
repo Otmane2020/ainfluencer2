@@ -96,7 +96,7 @@ serve(async (req) => {
       });
 
       // Build the script object based on input
-      // D-ID Talks API uses different structure than Clips
+      // D-ID Talks API structure
       let requestBody: Record<string, unknown>;
 
       if (audioUrl) {
@@ -109,11 +109,11 @@ serve(async (req) => {
           },
           config: {
             result_format: "mp4",
-            stitch: true, // Smooth stitching for better quality
           },
         };
       } else {
         // Use text-to-speech with ElevenLabs
+        // Note: D-ID's ElevenLabs integration uses stability/similarity_boost, not speed
         requestBody = {
           source_url: imageUrl,
           script: {
@@ -122,14 +122,10 @@ serve(async (req) => {
             provider: {
               type: "elevenlabs",
               voice_id: voiceId || "21m00Tcm4TlvDq8ikWAM",
-              voice_config: {
-                speed: voiceSpeed,
-              },
             },
           },
           config: {
             result_format: "mp4",
-            stitch: true,
           },
         };
       }
