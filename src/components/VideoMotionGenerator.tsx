@@ -290,13 +290,13 @@ export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorP
           videoUrl: soraResult.videoUrl,
         };
       } else {
-        // For D-ID Pro: Use Clips API with pro avatars (full body movements)
+        // For D-ID: Use Talks API with custom portrait (lip-sync + head movements)
         // D-ID handles TTS internally via ElevenLabs
         
         setStatus("generating_video");
         toast({
-          title: "Creating Pro Avatar video...",
-          description: `${providerName} is generating full body animation`,
+          title: "Creating talking portrait...",
+          description: `${providerName} is generating lip-sync animation`,
         });
 
         const createResponse = await fetch(
@@ -309,8 +309,10 @@ export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorP
               Authorization: `Bearer ${accessToken}`,
             },
             body: JSON.stringify({
+              imageUrl: imageUrl, // Send the uploaded portrait
               text: script,
-              voiceId: selectedVoice.id, // ElevenLabs voice ID
+              voiceId: selectedVoice.id,
+              speed: 1.0,
             }),
           }
         );

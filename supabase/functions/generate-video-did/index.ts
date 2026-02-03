@@ -11,19 +11,16 @@ const corsHeaders = {
 /* ===================== CONSTANTS ===================== */
 const DID_API_BASE = "https://api.d-id.com";
 
-// Default Pro Avatar presenter with natural body movements
-const DEFAULT_PRESENTER_ID = "amy-Aq6OmGZnMt";
-
 /* ===================== TYPES ===================== */
-interface DIDClipCreateRequest {
+interface DIDTalkCreateRequest {
+  imageUrl: string; // Required: portrait image URL
   audioUrl?: string;
   text?: string;
-  presenterId?: string;
   voiceId?: string;
   speed?: number; // Voice speed multiplier (default 1.0)
 }
 
-interface DIDClipResponse {
+interface DIDTalkResponse {
   id: string;
   status: string;
   result_url?: string;
@@ -58,46 +55,22 @@ serve(async (req) => {
 
     const authHeader = `Basic ${btoa(D_ID_API_KEY + ":")}`;
 
-    /* ---------- LIST PRESENTERS ---------- */
-    if (action === "presenters") {
-      console.log("[D-ID] Fetching available presenters...");
+    /* ---------- CREATE TALK (Custom portrait with lip-sync) ---------- */
+    if (action === "create" && req.method === "POST") {
+      const { imageUrl, audioUrl, text, voiceId, speed } = (await req.json()) as DIDTalkCreateRequest;
 
-      const response = await fetch(`${DID_API_BASE}/clips/presenters`, {
-        method: "GET",
-        headers: {
-          Authorization: authHeader,
-        },
-      });
-
-      const responseText = await response.text();
-      console.log("[D-ID] Presenters response:", response.status);
-
-      if (!response.ok) {
+      if (!imageUrl) {
         return new Response(
           JSON.stringify({
             success: false,
-            error: `Failed to fetch presenters: ${response.status}`,
+            error: "imageUrl is required - provide a portrait image URL",
           }),
           {
-            status: response.status,
+            status: 400,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           },
         );
       }
-
-      const presenters = JSON.parse(responseText);
-      return new Response(
-        JSON.stringify({
-          success: true,
-          presenters: presenters.clips_presenters || [],
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    /* ---------- CREATE CLIP (Pro Avatar with body movements) ---------- */
-    if (action === "create" && req.method === "POST") {
-      const { audioUrl, text, presenterId, voiceId, speed } = (await req.json()) as DIDClipCreateRequest;
 
       if (!audioUrl && !text) {
         return new Response(
@@ -112,45 +85,58 @@ serve(async (req) => {
         );
       }
 
-      const selectedPresenterId = presenterId || DEFAULT_PRESENTER_ID;
-      const voiceSpeed = speed ?? 1.0; // Default to normal speed
+      const voiceSpeed = speed ?? 1.0;
 
-      console.log("[D-ID] Creating clip with Pro Avatar...", {
-        presenterId: selectedPresenterId,
+      console.log("[D-ID] Creating talk with custom portrait...", {
+        imageUrl: imageUrl.slice(0, 100),
         hasAudio: !!audioUrl,
         hasText: !!text,
+        voiceId,
         speed: voiceSpeed,
       });
 
       // Build the script object based on input
-      const script: Record<string, unknown> = audioUrl
-        ? {
+      // D-ID Talks API uses different structure than Clips
+      let requestBody: Record<string, unknown>;
+
+      if (audioUrl) {
+        // Use pre-generated audio
+        requestBody = {
+          source_url: imageUrl,
+          script: {
             type: "audio",
             audio_url: audioUrl,
-          }
-        : {
+          },
+          config: {
+            result_format: "mp4",
+            stitch: true, // Smooth stitching for better quality
+          },
+        };
+      } else {
+        // Use text-to-speech with ElevenLabs
+        requestBody = {
+          source_url: imageUrl,
+          script: {
             type: "text",
             input: text,
             provider: {
               type: "elevenlabs",
-              voice_id: voiceId || "21m00Tcm4TlvDq8ikWAM", // Default ElevenLabs voice
+              voice_id: voiceId || "21m00Tcm4TlvDq8ikWAM",
               voice_config: {
-                speed: voiceSpeed, // Apply speed setting
+                speed: voiceSpeed,
               },
             },
-          };
+          },
+          config: {
+            result_format: "mp4",
+            stitch: true,
+          },
+        };
+      }
 
-      const requestBody = {
-        presenter_id: selectedPresenterId,
-        script,
-        config: {
-          result_format: "mp4",
-        },
-      };
+      console.log("[D-ID] Talks request body:", JSON.stringify(requestBody));
 
-      console.log("[D-ID] Clips request body:", JSON.stringify(requestBody));
-
-      const response = await fetch(`${DID_API_BASE}/clips`, {
+      const response = await fetch(`${DID_API_BASE}/talks`, {
         method: "POST",
         headers: {
           Authorization: authHeader,
@@ -192,8 +178,8 @@ serve(async (req) => {
         );
       }
 
-      const result = JSON.parse(responseText) as DIDClipResponse;
-      console.log("[D-ID] Clip created:", result.id, "Status:", result.status);
+      const result = JSON.parse(responseText) as DIDTalkResponse;
+      console.log("[D-ID] Talk created:", result.id, "Status:", result.status);
 
       return new Response(
         JSON.stringify({
@@ -222,9 +208,9 @@ serve(async (req) => {
         );
       }
 
-      console.log(`[D-ID] Checking status for clip: ${taskId}`);
+      console.log(`[D-ID] Checking status for talk: ${taskId}`);
 
-      const response = await fetch(`${DID_API_BASE}/clips/${taskId}`, {
+      const response = await fetch(`${DID_API_BASE}/talks/${taskId}`, {
         method: "GET",
         headers: {
           Authorization: authHeader,
@@ -241,7 +227,7 @@ serve(async (req) => {
           return new Response(
             JSON.stringify({
               success: false,
-              error: `Clip ${taskId} not found`,
+              error: `Talk ${taskId} not found`,
             }),
             {
               status: 404,
@@ -262,10 +248,10 @@ serve(async (req) => {
         );
       }
 
-      const result = JSON.parse(responseText) as DIDClipResponse;
+      const result = JSON.parse(responseText) as DIDTalkResponse;
       const status = mapDIDStatus(result.status);
 
-      console.log("[D-ID] Clip status:", result.status, "->", status);
+      console.log("[D-ID] Talk status:", result.status, "->", status);
 
       return new Response(
         JSON.stringify({
@@ -283,7 +269,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: `Unknown action: ${action}. Use 'create', 'status', or 'presenters'`,
+        error: `Unknown action: ${action}. Use 'create' or 'status'`,
       }),
       {
         status: 400,
