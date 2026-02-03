@@ -242,9 +242,89 @@ export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorP
 
       const imageUrl = imageUrlData.publicUrl;
       console.log("[VideoMotion] Portrait uploaded:", imageUrl);
-      setProgress(25);
+      setProgress(20);
 
-      // Step 2: Generate audio with TTS
+      // Step 2: Create video task FIRST (before TTS to avoid wasting ElevenLabs quota)
+      setStatus("generating_video");
+      const providerName = MOTION_PROVIDERS[selectedProvider].name;
+      toast({
+        title: "Creating video...",
+        description: `${providerName} is processing your portrait`,
+      });
+
+      let createResult: { success: boolean; taskId?: string; error?: string; videoUrl?: string };
+      const estimatedDuration = Math.min(Math.ceil(script.length / 15), 30);
+
+      if (selectedProvider === "sora") {
+        // Use Sora 2 for premium quality
+        const createResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-sora`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              prompt: `A person speaking directly to camera, lip-syncing to audio. Natural head movements, expressive face, professional lighting. The person says: "${script.slice(0, 200)}..."`,
+              referenceImageUrl: imageUrl,
+              duration: Math.min(estimatedDuration, 12),
+              format: "vertical",
+              quality: "pro",
+              videoMode: "motion",
+            }),
+          }
+        );
+
+        if (!createResponse.ok) {
+          const errorData = await createResponse.json();
+          throw new Error(errorData.error || `Sora creation failed: ${createResponse.status}`);
+        }
+
+        const soraResult = await createResponse.json();
+        createResult = {
+          success: soraResult.success,
+          taskId: soraResult.taskId || soraResult.id,
+          error: soraResult.error,
+          videoUrl: soraResult.videoUrl,
+        };
+      } else {
+        // Use Kling for fast lip-sync - first just validate image works
+        const createResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-kling?action=create`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              imageUrl,
+              duration: estimatedDuration,
+              aspectRatio: "9:16",
+            }),
+          }
+        );
+
+        if (!createResponse.ok) {
+          const errorData = await createResponse.json();
+          throw new Error(errorData.error || `Kling creation failed: ${createResponse.status}`);
+        }
+
+        createResult = await createResponse.json();
+      }
+
+      if (!createResult.success || !createResult.taskId) {
+        throw new Error(createResult.error || `Failed to create ${providerName} task`);
+      }
+
+      console.log(`[VideoMotion] ${providerName} task created:`, createResult.taskId);
+      setTaskId(createResult.taskId);
+      setProgress(40);
+
+      // Step 3: Generate audio with TTS (only after video task is accepted)
       setStatus("generating_audio");
       toast({
         title: "Generating voice...",
@@ -285,87 +365,6 @@ export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorP
 
       const audioUrl = audioUrlData.publicUrl;
       console.log("[VideoMotion] Audio generated:", audioUrl);
-      setProgress(50);
-
-      // Step 3: Create video task based on selected provider
-      setStatus("generating_video");
-      const providerName = MOTION_PROVIDERS[selectedProvider].name;
-      toast({
-        title: "Creating video...",
-        description: `${providerName} is generating your talking video`,
-      });
-
-      let createResult: { success: boolean; taskId?: string; error?: string; videoUrl?: string };
-      const estimatedDuration = Math.min(Math.ceil(script.length / 15), 30);
-
-      if (selectedProvider === "sora") {
-        // Use Sora 2 for premium quality
-        const createResponse = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-sora`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({
-              prompt: `A person speaking directly to camera, lip-syncing to audio. Natural head movements, expressive face, professional lighting. The person says: "${script.slice(0, 200)}..."`,
-              referenceImageUrl: imageUrl,
-              duration: Math.min(estimatedDuration, 12), // Sora max 12s for standard
-              format: "vertical",
-              quality: "pro",
-              videoMode: "motion",
-            }),
-          }
-        );
-
-        if (!createResponse.ok) {
-          const errorData = await createResponse.json();
-          throw new Error(errorData.error || `Sora creation failed: ${createResponse.status}`);
-        }
-
-        const soraResult = await createResponse.json();
-        createResult = {
-          success: soraResult.success,
-          taskId: soraResult.taskId || soraResult.id,
-          error: soraResult.error,
-          videoUrl: soraResult.videoUrl,
-        };
-      } else {
-        // Use Kling for fast lip-sync
-        const createResponse = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-kling?action=create`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({
-              imageUrl,
-              audioUrl,
-              duration: estimatedDuration,
-              aspectRatio: "9:16",
-            }),
-          }
-        );
-
-        if (!createResponse.ok) {
-          const errorData = await createResponse.json();
-          throw new Error(errorData.error || `Kling creation failed: ${createResponse.status}`);
-        }
-
-        createResult = await createResponse.json();
-      }
-
-      if (!createResult.success || !createResult.taskId) {
-        throw new Error(createResult.error || `Failed to create ${providerName} task`);
-      }
-
-      console.log(`[VideoMotion] ${providerName} task created:`, createResult.taskId);
-      setTaskId(createResult.taskId);
       setProgress(60);
 
       // If video URL already available (some providers return immediately)
