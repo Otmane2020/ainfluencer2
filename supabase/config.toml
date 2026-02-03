@@ -142,3 +142,6 @@ verify_jwt = false
 
 [functions.generate-video-comet]
 verify_jwt = false
+
+[functions.generate-video-did]
+verify_jwt = false
