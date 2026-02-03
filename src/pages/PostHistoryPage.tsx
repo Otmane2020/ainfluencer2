@@ -31,6 +31,8 @@ interface ContentItem {
   platforms: string[] | null;
   campaign_id: string | null;
   campaign?: { name: string } | null;
+  project_id: string;
+  project?: { name: string } | null;
 }
 
 interface ShareContent {
@@ -81,7 +83,7 @@ const PostHistoryPage = () => {
     try {
       let query = supabase
         .from("scheduled_posts")
-        .select("id, content_type, text_content, media_url, thumbnail_url, ai_prompt, status, created_at, platforms, campaign_id, campaigns(name)")
+        .select("id, content_type, text_content, media_url, thumbnail_url, ai_prompt, status, created_at, platforms, campaign_id, project_id, campaigns(name), projects(name)")
         .eq("status", "published")
         .order("created_at", { ascending: false })
         .limit(100);
@@ -119,6 +121,7 @@ const PostHistoryPage = () => {
       const mappedData = (data || []).map((item: any) => ({
         ...item,
         campaign: item.campaigns ? { name: item.campaigns.name } : null,
+        project: item.projects ? { name: item.projects.name } : null,
       }));
 
       setItems(mappedData as ContentItem[]);

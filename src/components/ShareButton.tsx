@@ -21,6 +21,7 @@ interface ShareButtonProps {
   thumbnailUrl?: string;
   title?: string;
   description?: string;
+  brandName?: string;
   onShare?: (platform: "facebook" | "instagram" | "linkedin" | "tiktok" | "youtube" | "copy" | "download") => void;
 }
 
@@ -29,6 +30,7 @@ export const ShareButton = ({
   thumbnailUrl,
   title = "AI video",
   description = "Created with AI Influencer",
+  brandName,
   onShare,
 }: ShareButtonProps) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -134,10 +136,15 @@ export const ShareButton = ({
 
   const handleYouTubeShare = () => {
     openPopupOrRedirect("https://studio.youtube.com/channel/UC/videos/upload", "width=800,height=600");
-    if (videoUrl) void navigator.clipboard.writeText(`${title} - ${description}\n\n${videoUrl}`);
+    // Build hashtags with brand name first
+    const brandHashtag = brandName ? `#${brandName.replace(/\s+/g, '')}` : '';
+    const defaultHashtags = '#AI #AIVideo #ContentCreator #SocialMedia';
+    const hashtags = brandHashtag ? `${brandHashtag} ${defaultHashtags}` : defaultHashtags;
+    const caption = `${title}\n\n${description}\n\n${hashtags}${videoUrl ? `\n\n${videoUrl}` : ''}`;
+    void navigator.clipboard.writeText(caption);
     toast({
       title: "YouTube upload",
-      description: "Caption + link copied. Download starts so you can upload to YouTube Studio.",
+      description: "Caption with hashtags copied. Download starts so you can upload to YouTube Studio.",
     });
     handleDownload();
     onShare?.("youtube");
