@@ -133,17 +133,20 @@ const GEMINI_VEO_MODELS: Record<string, VideoModelConfig> = {
   },
 };
 
-// All available models
-// All available models - Sora 2 only (no Veo)
+// All available models (Sora 2 + Veo 3.1)
+// NOTE: Veo models are only attempted when GEMINI_API_KEY is present.
 const ALL_MODELS: Record<string, VideoModelConfig> = {
   ...OPENAI_MODELS,
+  ...GEMINI_VEO_MODELS,
 };
 
-// Quality tier mapping with fallbacks - Sora 2 only
+// Quality tier mapping with fallbacks
+// Prefer OpenAI Sora models first, then fall back to Gemini Veo when configured.
+// This prevents total outages when OpenAI is rate-limited or billing-limited.
 const MODEL_FALLBACK_CHAINS: Record<string, string[]> = {
-  cinema: ["sora-2-pro", "sora-2"],
-  pro: ["sora-2-pro", "sora-2"],
-  standard: ["sora-2", "sora-2-pro"],
+  cinema: ["sora-2-pro", "sora-2", "veo-3.1-pro", "veo-3.1"],
+  pro: ["sora-2-pro", "sora-2", "veo-3.1-pro", "veo-3.1"],
+  standard: ["sora-2", "sora-2-pro", "veo-3.1", "veo-3.1-pro"],
 };
 
 function getModelFallbackChain(quality: string): VideoModelConfig[] {
@@ -193,7 +196,8 @@ async function tryVideoGeneration(
   geminiApiKey: string,
   referenceImageUrl?: string // Optional image for image-to-video
 ): Promise<{ success: boolean; model: VideoModelConfig; taskId?: string; status?: string; mediaUrl?: string; error?: string }> {
-  
+  let lastBillingLimitError: string | null = null;
+
   for (let i = 0; i < models.length; i++) {
     const model = models[i];
     const clampedDuration = clampDuration(duration, model);
@@ -313,6 +317,14 @@ async function tryVideoGeneration(
         try {
           const errorJson = JSON.parse(responseText);
           const errorMsg = errorJson.error?.message || errorJson.error || errorJson.message || errorJson.detail || "";
+
+           // Special-case: surface OpenAI billing limit clearly (and keep trying fallbacks)
+           if (errorMsg.toLowerCase().includes("billing") && errorMsg.toLowerCase().includes("hard limit")) {
+             lastBillingLimitError = errorMsg;
+             console.warn(`[${model.model}] Billing limit hit: ${errorMsg} - trying next model`);
+             continue;
+           }
+
           if (errorMsg.toLowerCase().includes("unavailable") || 
               errorMsg.toLowerCase().includes("not found") ||
               errorMsg.toLowerCase().includes("invalid") ||
@@ -357,7 +369,9 @@ async function tryVideoGeneration(
   return {
     success: false,
     model: models[0],
-    error: "All video models are currently unavailable. Please try again later.",
+    error: lastBillingLimitError
+      ? `Video generation is blocked by provider billing limits: ${lastBillingLimitError}`
+      : "All video models are currently unavailable. Please try again later.",
   };
 }
 
