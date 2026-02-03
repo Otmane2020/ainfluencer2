@@ -19,6 +19,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { GenerationProgressModal } from "@/components/GenerationProgressModal";
+import { VideoModelSelector } from "@/components/VideoModelSelector";
+import { VideoModel, VIDEO_MODELS, getDefaultVideoModel, parseModelIdForKie } from "@/lib/videoModels";
 import { useGenerationTasks, type GenerationTask as PersistentTask } from "@/hooks/useGenerationTasks";
 interface Project {
   id: string;
@@ -86,6 +88,7 @@ interface StoredPrefs {
   startingFrameUrl?: string;
   format?: ContentFormat;
   brandOptions?: BrandOptionsState;
+  kieVideoModelId?: string; // New KIE video model (Wan/Kling)
 }
 const loadPrefs = (): StoredPrefs => {
   try {
@@ -119,18 +122,21 @@ export const VideoGenerator = ({
   const defaultVoice = AVAILABLE_VOICES.find(v => v.id === storedPrefs.voiceId) || getDefaultVoice();
   // Default video model - Sora 2 (cost-effective default)
   const defaultModel = VIDEO_AVATAR_MODELS.find(m => m.id === storedPrefs.modelId) || VIDEO_AVATAR_MODELS.find(m => m.id === "sora-2") || VIDEO_AVATAR_MODELS[0];
+  // New KIE video model (Wan/Kling)
+  const defaultKieVideoModel = VIDEO_MODELS.find(m => m.id === storedPrefs.kieVideoModelId) || getDefaultVideoModel();
   const [generationTasks, setGenerationTasks] = useState<GenerationTask[]>([]);
-  // Default duration: 8 seconds for standard video
-  const defaultDuration = 8;
+  // Default duration: use the KIE model duration or 5 seconds
   const [segments, setSegments] = useState<VideoSegment[]>([{
     id: "1",
     script: "",
-    duration: defaultDuration,
+    duration: defaultKieVideoModel.duration,
     status: "pending"
   }]);
   const [selectedVoice, setSelectedVoiceState] = useState<Voice>(defaultVoice);
   const [selectedProduct, setSelectedProductState] = useState<CommercialProduct>(defaultProduct);
   const [selectedModel, setSelectedModelState] = useState<AIModel>(defaultModel);
+  // New KIE model state
+  const [selectedKieModel, setSelectedKieModelState] = useState<VideoModel>(defaultKieVideoModel);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingScript, setIsGeneratingScript] = useState<string | null>(null);
@@ -211,6 +217,17 @@ export const VideoGenerator = ({
     setSelectedModelState(model);
     savePrefs({
       modelId: model.id
+    });
+  };
+  const setSelectedKieModel = (model: VideoModel) => {
+    setSelectedKieModelState(model);
+    // Update segment durations when model changes
+    setSegments(prev => prev.map(s => ({
+      ...s,
+      duration: model.duration
+    })));
+    savePrefs({
+      kieVideoModelId: model.id
     });
   };
   const setAvatarUrl = (url: string | undefined) => {
@@ -560,8 +577,8 @@ ${formattedHashtags}`;
       progress: 0
     } : s));
     toast({
-      title: `Generating with ${selectedModel.name}...`,
-      description: "Creating content with ultra-realistic AI voice"
+      title: `Generating with ${selectedKieModel.name}...`,
+      description: `${selectedKieModel.credits} credits • ${selectedKieModel.duration}s ${selectedKieModel.resolution}`
     });
     try {
       // Video and Avatar generation only on this page
@@ -671,12 +688,15 @@ ${formattedHashtags}`;
       }
     }));
 
-    // Step 2: Generate videos with selected model
+    // Step 2: Generate videos with KIE API (Wan 2.6 / Kling 2.6)
     const currentTime = Math.floor(Date.now() / 1000);
+    const kieParams = parseModelIdForKie(selectedKieModel.id);
+    
     const segmentsWithTasks = await Promise.all(segmentsWithAudio.map(async segment => {
       if (segment.status === "error" || !segment.script.trim()) return segment;
       try {
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-sora?action=create`, {
+        // Use KIE video endpoint for Wan/Kling models
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kie-video?action=create`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -684,28 +704,14 @@ ${formattedHashtags}`;
             Authorization: `Bearer ${accessToken}`
           },
           body: JSON.stringify({
+            model: kieParams.model,
+            mode: segment.referenceImageUrl ? "image-to-video" : kieParams.mode,
             prompt: buildScenarioPrompt(selectedSector, selectedStyle, selectedTone) + segment.script,
-            avatarUrl,
-            duration: segment.duration,
-            // Use selectedModel quality
-            quality: selectedModel.quality,
-            format: selectedFormat,
-            orientation: selectedFormat === "landscape" ? "landscape" : "portrait",
-            startingFrameUrl: startingFrameUrl,
-            // Image-to-video: pass reference image if provided
-            referenceImageUrl: segment.referenceImageUrl,
-            // Use selected AI model ID
-            model: selectedModel.id,
-            videoMode,
-            // Pass ClipMotion mode to edge function
-            // Project context for brand-aligned generation
-            projectId: selectedProject?.id,
-            projectName: selectedProject?.name,
-            projectUrl: selectedProject?.url,
-            logoUrl: selectedProject?.logo_url,
-            detectedLanguage: selectedProject?.detected_language,
-            aiContextSummary: selectedProject?.ai_context_summary,
-            marketingContext: selectedProject?.marketing_context
+            imageUrl: segment.referenceImageUrl,
+            duration: selectedKieModel.duration,
+            resolution: selectedKieModel.resolution,
+            withAudio: selectedKieModel.hasAudio || false,
+            aspectRatio: selectedFormat === "landscape" ? "16:9" : "9:16",
           })
         });
         if (!response.ok) {
@@ -721,9 +727,9 @@ ${formattedHashtags}`;
           status: "queued",
           progress: 0,
           submitTime: currentTime,
-          duration: segment.duration,
-          model: selectedModel.name,
-          amount: segment.duration * selectedModel.priceValue,
+          duration: selectedKieModel.duration,
+          model: selectedKieModel.name,
+          amount: selectedKieModel.credits,
           script: segment.script
         };
 
@@ -888,35 +894,16 @@ ${formattedHashtags}`;
         </div>
       </div>
 
+      {/* Video Model Selector (Wan 2.6 / Kling 2.6) */}
+      <div className="mb-3">
+        <VideoModelSelector 
+          selectedModel={selectedKieModel} 
+          onModelChange={setSelectedKieModel}
+        />
+      </div>
+
       {/* Quick Settings Bar - Popup buttons */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        {/* Model Selector Button */}
-        <Dialog open={showModelSelector} onOpenChange={setShowModelSelector}>
-          <DialogTrigger asChild>
-            <button className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs hover:bg-primary/10 transition-colors">
-              <Video className="h-4 w-4 text-primary" />
-              <span className="font-medium">{selectedModel.name}</span>
-              <ChevronDown className="h-3 w-3 text-muted-foreground" />
-            </button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Select AI Model</DialogTitle>
-            </DialogHeader>
-            <div className="py-4">
-              <ModelSelector 
-                selectedModel={selectedModel} 
-                onModelChange={(model) => {
-                  setSelectedModel(model);
-                  setShowModelSelector(false);
-                }} 
-                categories={["video", "avatar"]}
-                showVoiceIndicator={true}
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
-
         {/* Format Selector */}
         <FormatSelector selectedFormat={selectedFormat} onFormatChange={setSelectedFormat} compact />
         
@@ -1025,15 +1012,10 @@ ${formattedHashtags}`;
                   {index + 1}
                 </span>
                 <div className="flex items-center gap-2">
-                  {selectedModel.supportedDurations && <select value={segment.duration} onChange={e => updateSegment(segment.id, {
-                duration: Number(e.target.value)
-              })} className="rounded border border-border bg-background px-2 py-1 text-xs">
-                      {selectedModel.supportedDurations.map(dur => {
-                  return <option key={dur} value={dur}>
-                            {dur}s
-                          </option>;
-                })}
-                    </select>}
+                  {/* Duration is fixed based on selected model */}
+                  <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                    {selectedKieModel.duration}s • {selectedKieModel.resolution}
+                  </span>
                   {segments.length > 1 && <Button variant="ghost" size="icon" onClick={() => removeSegment(segment.id)} className="h-6 w-6 text-destructive">
                       <Trash2 className="h-3 w-3" />
                     </Button>}
@@ -1110,12 +1092,12 @@ ${formattedHashtags}`;
               {segment.status !== "pending" && <div className="mt-2 text-xs">
                   {segment.status === "generating" && <span className="text-accent flex items-center gap-1">
                       <Loader2 className="h-3 w-3 animate-spin" />
-                      {segment.progress}% • {selectedModel.name}
+                      {segment.progress}% • {selectedKieModel.name}
                     </span>}
                   {segment.status === "ready" && <span className="text-primary flex items-center gap-1">
-                      <Play className="h-3 w-3" />Ready • {selectedModel.name}
+                      <Play className="h-3 w-3" />Ready • {selectedKieModel.name}
                     </span>}
-                  {segment.status === "error" && <span className="text-destructive">Error • {selectedModel.name}</span>}
+                  {segment.status === "error" && <span className="text-destructive">Error • {selectedKieModel.name}</span>}
                 </div>}
             </motion.div>)}
         </AnimatePresence>
@@ -1126,13 +1108,13 @@ ${formattedHashtags}`;
       </div>
 
 
-      {/* Generate Button */}
+      {/* Generate Button with Credit Cost */}
       <Button onClick={generateContent} disabled={isGenerating || segments.every(s => !s.script.trim())} variant="gradient" className="w-full">
-        {isGenerating ? <><Loader2 className="h-4 w-4 animate-spin" />Generating...</> : <><Wand2 className="h-4 w-4" />Generate</>}
+        {isGenerating ? <><Loader2 className="h-4 w-4 animate-spin" />Generating...</> : <><Wand2 className="h-4 w-4" />Generate ({selectedKieModel.credits} credits)</>}
       </Button>
 
       {/* Generation Progress Modal */}
-      <GenerationProgressModal isOpen={showProgressModal} onClose={() => setShowProgressModal(false)} tasks={generationTasks} productName={selectedModel.name} />
+      <GenerationProgressModal isOpen={showProgressModal} onClose={() => setShowProgressModal(false)} tasks={generationTasks} productName={selectedKieModel.name} />
 
       {/* Scenario Picker Modal */}
       <ScenarioPickerModal open={showScenarioPicker} onOpenChange={open => {
