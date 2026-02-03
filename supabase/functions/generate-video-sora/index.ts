@@ -632,8 +632,13 @@ serve(async (req) => {
         marketingContext,
       }: VideoRequest = await req.json();
 
-      // Use referenceImageUrl or startingFrameUrl for image-to-video
-      const imageToVideoUrl = referenceImageUrl || startingFrameUrl;
+      // Use referenceImageUrl, avatarUrl, or startingFrameUrl for image-to-video
+      // Priority: referenceImageUrl > avatarUrl > startingFrameUrl
+      const imageToVideoUrl = referenceImageUrl || avatarUrl || startingFrameUrl;
+      
+      if (imageToVideoUrl) {
+        console.log(`[IMAGE-TO-VIDEO] Using reference image: ${imageToVideoUrl.substring(0, 100)}...`);
+      }
 
       if (!prompt) {
         throw new Error("Prompt is required");
