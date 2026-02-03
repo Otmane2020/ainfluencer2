@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Video, Upload, Wand2, Loader2, User, Volume2, Play, CheckCircle, AlertCircle, Sparkles, ChevronDown } from "lucide-react";
+import { Video, Upload, Wand2, Loader2, User, Volume2, Play, CheckCircle, AlertCircle, Sparkles, ChevronDown, Zap, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { VoiceSelector } from "@/components/VoiceSelector";
 import { AVAILABLE_VOICES, getDefaultVoice, type Voice } from "@/lib/voices";
+import { cn } from "@/lib/utils";
 
 interface Project {
   id: string;
@@ -31,6 +32,27 @@ interface VideoMotionGeneratorProps {
 }
 
 type GenerationStatus = "idle" | "uploading" | "generating_audio" | "generating_video" | "polling" | "completed" | "error";
+type MotionProvider = "kling" | "sora";
+
+// Provider configurations
+const MOTION_PROVIDERS = {
+  kling: {
+    id: "kling" as MotionProvider,
+    name: "Kling AI",
+    description: "Fast lip-sync generation",
+    badge: "FAST",
+    badgeClass: "bg-blue-500/20 text-blue-400",
+    features: ["Quick processing", "Good for MVPs", "Lower cost"],
+  },
+  sora: {
+    id: "sora" as MotionProvider,
+    name: "Sora 2",
+    description: "Premium quality & expressions",
+    badge: "PREMIUM",
+    badgeClass: "bg-amber-500/20 text-amber-400",
+    features: ["Natural expressions", "Micro-gestures", "Cinema quality"],
+  },
+};
 
 export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorProps) => {
   const { toast } = useToast();
@@ -41,6 +63,7 @@ export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorP
   const [portraitFile, setPortraitFile] = useState<File | null>(null);
   const [script, setScript] = useState("");
   const [selectedVoice, setSelectedVoice] = useState<Voice>(getDefaultVoice());
+  const [selectedProvider, setSelectedProvider] = useState<MotionProvider>("kling");
   const [status, setStatus] = useState<GenerationStatus>("idle");
   const [progress, setProgress] = useState(0);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
@@ -264,54 +287,113 @@ export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorP
       console.log("[VideoMotion] Audio generated:", audioUrl);
       setProgress(50);
 
-      // Step 3: Create Kling lip-sync task
+      // Step 3: Create video task based on selected provider
       setStatus("generating_video");
+      const providerName = MOTION_PROVIDERS[selectedProvider].name;
       toast({
         title: "Creating video...",
-        description: "Kling AI is generating your talking video",
+        description: `${providerName} is generating your talking video`,
       });
 
-      const createResponse = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-kling?action=create`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            imageUrl,
-            audioUrl,
-            duration: Math.min(Math.ceil(script.length / 15), 30), // Estimate duration from script length
-            aspectRatio: "9:16",
-          }),
+      let createResult: { success: boolean; taskId?: string; error?: string; videoUrl?: string };
+      const estimatedDuration = Math.min(Math.ceil(script.length / 15), 30);
+
+      if (selectedProvider === "sora") {
+        // Use Sora 2 for premium quality
+        const createResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-sora`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              prompt: `A person speaking directly to camera, lip-syncing to audio. Natural head movements, expressive face, professional lighting. The person says: "${script.slice(0, 200)}..."`,
+              referenceImageUrl: imageUrl,
+              duration: Math.min(estimatedDuration, 12), // Sora max 12s for standard
+              format: "vertical",
+              quality: "pro",
+              videoMode: "motion",
+            }),
+          }
+        );
+
+        if (!createResponse.ok) {
+          const errorData = await createResponse.json();
+          throw new Error(errorData.error || `Sora creation failed: ${createResponse.status}`);
         }
-      );
 
-      if (!createResponse.ok) {
-        const errorData = await createResponse.json();
-        throw new Error(errorData.error || `Kling creation failed: ${createResponse.status}`);
+        const soraResult = await createResponse.json();
+        createResult = {
+          success: soraResult.success,
+          taskId: soraResult.taskId || soraResult.id,
+          error: soraResult.error,
+          videoUrl: soraResult.videoUrl,
+        };
+      } else {
+        // Use Kling for fast lip-sync
+        const createResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-kling?action=create`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              imageUrl,
+              audioUrl,
+              duration: estimatedDuration,
+              aspectRatio: "9:16",
+            }),
+          }
+        );
+
+        if (!createResponse.ok) {
+          const errorData = await createResponse.json();
+          throw new Error(errorData.error || `Kling creation failed: ${createResponse.status}`);
+        }
+
+        createResult = await createResponse.json();
       }
 
-      const createResult = await createResponse.json();
       if (!createResult.success || !createResult.taskId) {
-        throw new Error(createResult.error || "Failed to create Kling task");
+        throw new Error(createResult.error || `Failed to create ${providerName} task`);
       }
 
-      console.log("[VideoMotion] Kling task created:", createResult.taskId);
+      console.log(`[VideoMotion] ${providerName} task created:`, createResult.taskId);
       setTaskId(createResult.taskId);
       setProgress(60);
+
+      // If video URL already available (some providers return immediately)
+      if (createResult.videoUrl) {
+        setGeneratedVideoUrl(createResult.videoUrl);
+        setStatus("completed");
+        setProgress(100);
+        toast({
+          title: "Video ready!",
+          description: "Your talking influencer video is complete",
+        });
+        return;
+      }
 
       // Step 4: Poll for completion
       setStatus("polling");
       toast({
         title: "Processing video...",
-        description: "This may take 1-3 minutes",
+        description: selectedProvider === "sora" ? "This may take 2-5 minutes for premium quality" : "This may take 1-3 minutes",
       });
 
-      const maxPolls = 60; // 5 minutes max
+      const maxPolls = selectedProvider === "sora" ? 90 : 60; // Sora needs more time
       let pollCount = 0;
+
+      // Determine status endpoint based on provider
+      const statusEndpoint = selectedProvider === "sora" 
+        ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-sora?taskId=${createResult.taskId}`
+        : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-kling?action=status&taskId=${createResult.taskId}`;
 
       const pollInterval = setInterval(async () => {
         pollCount++;
@@ -324,16 +406,13 @@ export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorP
         }
 
         try {
-          const statusResponse = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video-kling?action=status&taskId=${createResult.taskId}`,
-            {
-              method: "GET",
-              headers: {
-                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                Authorization: `Bearer ${accessToken}`,
-              },
-            }
-          );
+          const statusResponse = await fetch(statusEndpoint, {
+            method: "GET",
+            headers: {
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
 
           if (!statusResponse.ok) {
             console.warn("[VideoMotion] Status check failed:", statusResponse.status);
@@ -347,16 +426,20 @@ export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorP
           const currentProgress = 60 + Math.min(pollCount * 0.5, 35);
           setProgress(currentProgress);
 
-          if (statusResult.status === "completed" && statusResult.videoUrl) {
+          const videoUrl = statusResult.videoUrl || statusResult.media_url || statusResult.video_url;
+          const isCompleted = statusResult.status === "completed" || statusResult.status === "succeed";
+          const isFailed = statusResult.status === "failed" || statusResult.status === "error";
+
+          if (isCompleted && videoUrl) {
             clearInterval(pollInterval);
-            setGeneratedVideoUrl(statusResult.videoUrl);
+            setGeneratedVideoUrl(videoUrl);
             setStatus("completed");
             setProgress(100);
             toast({
               title: "Video ready!",
-              description: "Your talking influencer video is complete",
+              description: `Your ${providerName} talking video is complete`,
             });
-          } else if (statusResult.status === "failed") {
+          } else if (isFailed) {
             clearInterval(pollInterval);
             setStatus("error");
             setErrorMessage("Video generation failed. Please try again.");
@@ -410,8 +493,8 @@ export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorP
           <div>
             <CardTitle className="flex items-center gap-2">
               Video Motion
-              <Badge variant="secondary" className="bg-violet-500/20 text-violet-400 border-0">
-                KLING AI
+              <Badge variant="secondary" className={MOTION_PROVIDERS[selectedProvider].badgeClass + " border-0"}>
+                {MOTION_PROVIDERS[selectedProvider].name.toUpperCase()}
               </Badge>
             </CardTitle>
             <CardDescription>
@@ -421,6 +504,63 @@ export const VideoMotionGenerator = ({ onBeforeGenerate }: VideoMotionGeneratorP
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Provider Selector */}
+        <div className="space-y-3">
+          <label className="text-sm font-medium text-muted-foreground">
+            AI Engine
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            {Object.values(MOTION_PROVIDERS).map((provider) => (
+              <button
+                key={provider.id}
+                type="button"
+                onClick={() => setSelectedProvider(provider.id)}
+                disabled={isGenerating}
+                className={cn(
+                  "relative p-4 rounded-xl border-2 transition-all text-left",
+                  selectedProvider === provider.id
+                    ? provider.id === "sora"
+                      ? "border-amber-500/50 bg-gradient-to-br from-amber-500/10 to-orange-500/10"
+                      : "border-blue-500/50 bg-gradient-to-br from-blue-500/10 to-cyan-500/10"
+                    : "border-border hover:border-muted-foreground/30",
+                  isGenerating && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    {provider.id === "sora" ? (
+                      <Crown className="h-4 w-4 text-amber-400" />
+                    ) : (
+                      <Zap className="h-4 w-4 text-blue-400" />
+                    )}
+                    <span className="font-semibold text-sm">{provider.name}</span>
+                  </div>
+                  <Badge variant="secondary" className={cn("text-[10px] px-1.5 py-0.5", provider.badgeClass)}>
+                    {provider.badge}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mb-2">{provider.description}</p>
+                <ul className="space-y-1">
+                  {provider.features.map((feature, idx) => (
+                    <li key={idx} className="text-[10px] text-muted-foreground flex items-center gap-1">
+                      <CheckCircle className="h-2.5 w-2.5 text-primary" />
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+                {selectedProvider === provider.id && (
+                  <div className="absolute top-2 right-2">
+                    <CheckCircle className={cn(
+                      "h-4 w-4",
+                      provider.id === "sora" ? "text-amber-400" : "text-blue-400"
+                    )} />
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Portrait Upload Section */}
         <div className="space-y-3">
           <label className="text-sm font-medium text-muted-foreground">
