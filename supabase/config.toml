@@ -145,3 +145,9 @@ verify_jwt = false
 
 [functions.generate-video-did]
 verify_jwt = false
+
+[functions.kie-image]
+verify_jwt = false
+
+[functions.kie-video]
+verify_jwt = false
