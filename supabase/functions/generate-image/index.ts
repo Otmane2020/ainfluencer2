@@ -313,13 +313,14 @@ async function generateWithKieApi(
       // Market API - wrap params in input object
       const input: Record<string, unknown> = { prompt };
 
-      // Map aspect ratio format
+      // Map aspect ratio to KIE image_size values
+      // Allowed: square_hd, square, portrait_4_3, portrait_16_9, landscape_4_3, landscape_16_9
       const sizeMap: Record<string, string> = {
         "1:1": "square_hd",
         "16:9": "landscape_16_9",
-        "9:16": "portrait_9_16",
+        "9:16": "portrait_16_9",
         "4:3": "landscape_4_3",
-        "3:4": "portrait_3_4",
+        "3:4": "portrait_4_3",
       };
 
       // Some models use aspect_ratio, others use image_size
