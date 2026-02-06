@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
 };
 
-const KIE_API_BASE = "https://kie.ai/api";
+const KIE_API_BASE = "https://api.kie.ai/api";
 
 function getKieHeaders(): Record<string, string> {
   const key = Deno.env.get("KIE_API_KEY");
@@ -15,6 +15,21 @@ function getKieHeaders(): Record<string, string> {
     "Authorization": `Bearer ${key}`,
     "Content-Type": "application/json",
   };
+}
+
+// Map internal model/mode combos to KIE Market API model names
+function getKieModelName(model: string, mode: string): string {
+  const modelMap: Record<string, Record<string, string>> = {
+    "wan-2.6": {
+      "text-to-video": "wan/2-6-text-to-video",
+      "image-to-video": "wan/2-6-image-to-video",
+    },
+    "kling-2.6": {
+      "text-to-video": "kling-2.6/text-to-video",
+      "image-to-video": "kling-2.6/image-to-video",
+    },
+  };
+  return modelMap[model]?.[mode] || `${model}/${mode}`;
 }
 
 serve(async (req: Request) => {
@@ -37,10 +52,10 @@ serve(async (req: Request) => {
       }
 
       console.log(`[KIE-Video] Checking status: ${taskId}`);
-      const resp = await fetch(`${KIE_API_BASE}/v1/task/${taskId}`, {
-        method: "GET",
-        headers: getKieHeaders(),
-      });
+      const resp = await fetch(
+        `${KIE_API_BASE}/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`,
+        { method: "GET", headers: getKieHeaders() }
+      );
 
       if (!resp.ok) {
         return new Response(
@@ -50,21 +65,43 @@ serve(async (req: Request) => {
       }
 
       const data = await resp.json();
-      const rawStatus = (data.status || data.data?.status || "pending").toLowerCase();
-      const statusMap: Record<string, string> = {
-        success: "completed", completed: "completed", succeed: "completed",
-        failed: "failed", error: "failed",
-        processing: "processing", running: "processing",
+      const taskData = data.data;
+
+      if (!taskData) {
+        return new Response(
+          JSON.stringify({ success: false, error: "No task data in response" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Map KIE states to our internal states
+      const stateMap: Record<string, string> = {
+        waiting: "pending",
+        queuing: "pending",
+        generating: "processing",
+        success: "completed",
+        fail: "failed",
       };
-      const result = data.result || data.data?.result || data.data;
+
+      // Parse resultJson for video URL
+      let videoUrl: string | undefined;
+      if (taskData.state === "success" && taskData.resultJson) {
+        try {
+          const resultData = typeof taskData.resultJson === "string"
+            ? JSON.parse(taskData.resultJson)
+            : taskData.resultJson;
+          videoUrl = resultData.resultUrls?.[0] || resultData.url || resultData.video_url;
+        } catch (e) {
+          console.error("[KIE-Video] Failed to parse resultJson:", e);
+        }
+      }
 
       return new Response(
         JSON.stringify({
           success: true,
-          status: statusMap[rawStatus] || "pending",
-          videoUrl: result?.url || result?.video_url,
-          duration: result?.duration,
-          error: data.error || data.data?.error,
+          status: stateMap[taskData.state] || "pending",
+          videoUrl,
+          error: taskData.failMsg || undefined,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -73,25 +110,32 @@ serve(async (req: Request) => {
     // ── Create task ──
     if (action === "create" && req.method === "POST") {
       const body = await req.json();
-      const { model, mode, prompt, imageUrl, videoUrl, duration = 5, resolution = "720p", withAudio = false, aspectRatio = "16:9" } = body;
+      const { model, mode, prompt, imageUrl, duration = 5, resolution = "720p", withAudio = false, aspectRatio = "16:9" } = body;
 
       if (!model) return new Response(JSON.stringify({ success: false, error: "model is required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       if (!mode) return new Response(JSON.stringify({ success: false, error: "mode is required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       if (mode === "text-to-video" && !prompt) return new Response(JSON.stringify({ success: false, error: "prompt is required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-      const modelPath = model === "wan-2.6" ? "wan/2.6" : "kling/2.6";
-      const endpoint = `${KIE_API_BASE}/v1/${modelPath}/${mode}`;
+      const kieModelName = getKieModelName(model, mode);
 
-      const payload: Record<string, unknown> = { prompt: prompt || "", aspect_ratio: aspectRatio };
-      if (imageUrl) payload.image_url = imageUrl;
-      if (videoUrl) payload.video_url = videoUrl;
-      payload.duration = `${duration}s`;
-      if (model === "wan-2.6") payload.resolution = resolution;
-      if (model === "kling-2.6") payload.with_audio = withAudio;
+      // Build input payload
+      const input: Record<string, unknown> = {
+        prompt: prompt || "",
+        aspect_ratio: aspectRatio,
+        duration: String(duration),
+      };
 
-      console.log(`[KIE-Video] Creating: ${model} ${mode} | ${duration}s`);
+      if (imageUrl) input.image_url = imageUrl;
+      if (model === "wan-2.6") input.resolution = resolution;
+      if (model === "kling-2.6") input.sound = withAudio;
 
-      const resp = await fetch(endpoint, { method: "POST", headers: getKieHeaders(), body: JSON.stringify(payload) });
+      console.log(`[KIE-Video] Creating: ${kieModelName} | ${duration}s`);
+
+      const resp = await fetch(`${KIE_API_BASE}/v1/jobs/createTask`, {
+        method: "POST",
+        headers: getKieHeaders(),
+        body: JSON.stringify({ model: kieModelName, input }),
+      });
 
       if (!resp.ok) {
         const errText = await resp.text();
@@ -103,8 +147,8 @@ serve(async (req: Request) => {
       }
 
       const data = await resp.json();
-      const taskId = data.task_id || data.data?.task_id;
-      if (!taskId) return new Response(JSON.stringify({ success: false, error: "No task_id in response" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const taskId = data.data?.taskId;
+      if (!taskId) return new Response(JSON.stringify({ success: false, error: "No taskId in response" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
       console.log(`[KIE-Video] Task created: ${taskId}`);
       return new Response(
@@ -119,7 +163,7 @@ serve(async (req: Request) => {
         JSON.stringify({
           success: true,
           models: [
-            { id: "wan-2.6", name: "Wan 2.6", modes: ["text-to-video", "image-to-video", "video-to-video"], durations: [5, 10, 15], resolutions: ["720p", "1080p"] },
+            { id: "wan-2.6", name: "Wan 2.6", modes: ["text-to-video", "image-to-video"], durations: [5, 10, 15], resolutions: ["720p", "1080p"] },
             { id: "kling-2.6", name: "Kling 2.6", modes: ["text-to-video", "image-to-video"], durations: [5, 10], supportsAudio: true },
           ],
         }),

@@ -9,7 +9,9 @@ import {
 import {
   createKieTask,
   checkKieTaskStatus,
-  KIE_ENDPOINTS,
+  createFluxKontextTask,
+  checkFluxKontextStatus,
+  KIE_MODEL_NAMES,
 } from "../_shared/kie-api-client.ts";
 
 const corsHeaders = {
@@ -120,28 +122,15 @@ interface ModelRouting {
 }
 
 function getModelRouting(modelId: string): ModelRouting {
-  // KIE API models - all endpoints require /v1/ prefix
-  const kieModels: Record<string, string> = {
-    "qwen-zimage": "/v1/qwen/z-image",
-    "grok-imagine-text": "/v1/grok/imagine",
-    "grok-imagine-img": "/v1/grok/imagine",
-    "flux-kontext-pro": "/v1/flux/kontext",
-    "flux-kontext-max": "/v1/flux/kontext",
-    "flux-2-pro-1k": "/v1/flux/2-pro",
-    "flux-2-pro-2k": "/v1/flux/2-pro",
-    "flux-2-flex-1k": "/v1/flux/2-flex",
-    "flux-2-flex-2k": "/v1/flux/2-flex",
-    "recraft-remove-bg": "/v1/recraft/remove-background",
-    "recraft-crisp-upscale": "/v1/recraft/crisp-upscale",
-    "ideogram-v3-remix-turbo": "/v1/ideogram/v3-remix",
-    "ideogram-v3-remix-balanced": "/v1/ideogram/v3-remix",
-    "ideogram-v3-remix-quality": "/v1/ideogram/v3-remix",
-    "ideogram-v3-edit-quality": "/v1/ideogram/v3-edit",
-    "ideogram-v3-reframe": "/v1/ideogram/v3-reframe",
-  };
+  // Flux Kontext uses a separate API endpoint
+  if (modelId === "flux-kontext-pro" || modelId === "flux-kontext-max") {
+    return { provider: "kie", endpoint: "flux-kontext", apiModel: modelId };
+  }
 
-  if (kieModels[modelId]) {
-    return { provider: "kie", endpoint: kieModels[modelId] };
+  // KIE Market API models - use unified createTask endpoint
+  const kieModelName = KIE_MODEL_NAMES[modelId];
+  if (kieModelName) {
+    return { provider: "kie", endpoint: kieModelName };
   }
 
   // Lovable AI (Nano Banana)
@@ -304,53 +293,78 @@ async function generateWithKieApi(
   resolution?: string
 ): Promise<{ imageData: string | null; error?: string }> {
   try {
-    console.log(`[KIE] Generating with ${modelId} via ${endpoint}`);
-    
-    // Build payload based on model type
-    const payload: Record<string, unknown> = {
-      prompt,
-      aspect_ratio: aspectRatio,
-    };
+    const isFluxKontext = endpoint === "flux-kontext";
+    console.log(`[KIE] Generating with ${modelId} via ${isFluxKontext ? "Flux Kontext API" : `Market API (${endpoint})`}`);
 
-    // Add source image for img→img models
-    if (sourceImage) {
-      payload.image = sourceImage;
-    }
+    let taskResult: { success: boolean; taskId?: string; error?: string };
 
-    // Add resolution for specific models
-    if (resolution) {
-      payload.resolution = resolution;
-    }
-
-    // Model-specific parameters
-    if (modelId.includes("ideogram")) {
-      if (modelId.includes("turbo")) {
-        payload.rendering_speed = "TURBO";
-      } else if (modelId.includes("balanced")) {
-        payload.rendering_speed = "BALANCED";
-      } else if (modelId.includes("quality")) {
-        payload.rendering_speed = "QUALITY";
+    if (isFluxKontext) {
+      // Flux Kontext uses a separate flat-body endpoint
+      const kontextPayload: Record<string, unknown> = {
+        prompt,
+        aspectRatio: aspectRatio,
+        model: modelId === "flux-kontext-max" ? "flux-kontext-max" : "flux-kontext-pro",
+      };
+      if (sourceImage) {
+        kontextPayload.inputImage = sourceImage;
       }
+      taskResult = await createFluxKontextTask(kontextPayload);
+    } else {
+      // Market API - wrap params in input object
+      const input: Record<string, unknown> = { prompt };
+
+      // Map aspect ratio format
+      const sizeMap: Record<string, string> = {
+        "1:1": "square_hd",
+        "16:9": "landscape_16_9",
+        "9:16": "portrait_9_16",
+        "4:3": "landscape_4_3",
+        "3:4": "portrait_3_4",
+      };
+
+      // Some models use aspect_ratio, others use image_size
+      if (modelId.includes("ideogram") || modelId.includes("grok")) {
+        input.aspect_ratio = aspectRatio;
+      } else if (modelId.includes("qwen")) {
+        input.image_size = sizeMap[aspectRatio] || "square_hd";
+      } else {
+        input.aspect_ratio = aspectRatio;
+      }
+
+      if (sourceImage) {
+        input.image_url = sourceImage;
+      }
+      if (resolution) {
+        input.resolution = resolution;
+      }
+
+      // Model-specific parameters
+      if (modelId.includes("ideogram")) {
+        if (modelId.includes("turbo")) {
+          input.rendering_speed = "TURBO";
+        } else if (modelId.includes("balanced")) {
+          input.rendering_speed = "BALANCED";
+        } else if (modelId.includes("quality")) {
+          input.rendering_speed = "QUALITY";
+        }
+      }
+
+      taskResult = await createKieTask(endpoint, input);
     }
 
-    if (modelId.includes("flux-kontext-max")) {
-      payload.model = "max";
-    }
-
-    const result = await createKieTask(endpoint, payload);
-
-    if (!result.success || !result.taskId) {
-      return { imageData: null, error: result.error || "Failed to create task" };
+    if (!taskResult.success || !taskResult.taskId) {
+      return { imageData: null, error: taskResult.error || "Failed to create task" };
     }
 
     // Poll for result
     let attempts = 0;
-    const maxAttempts = 60; // 60 seconds max
+    const maxAttempts = 90; // 90 seconds max
+    const pollFn = isFluxKontext ? checkFluxKontextStatus : checkKieTaskStatus;
     
     while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, attempts < 10 ? 1000 : 2000));
       
-      const status = await checkKieTaskStatus(result.taskId);
+      const status = await pollFn(taskResult.taskId);
       
       if (status.status === "completed") {
         const imageUrl = status.resultUrl || status.resultUrls?.[0];

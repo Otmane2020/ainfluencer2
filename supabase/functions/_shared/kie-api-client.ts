@@ -1,36 +1,17 @@
 /**
  * KIE API Client - Shared utilities for KIE API integration
- * https://kie.ai - Async task-based API for AI models
+ * https://api.kie.ai - Async task-based API for AI models
  * 
- * Rate Limits: 20 requests per 10 seconds, 100+ concurrent tasks
- * Data Retention: 14 days for media, 2 months for logs
+ * TWO API patterns:
+ * 1. Market API (qwen, grok, flux-2, recraft, ideogram, kling, wan)
+ *    - Create: POST /v1/jobs/createTask  { model, input: {...} }
+ *    - Status: GET /v1/jobs/recordInfo?taskId=xxx
+ * 2. Flux Kontext API (separate endpoints)
+ *    - Create: POST /v1/flux/kontext/generate { prompt, model, ... }
+ *    - Status: GET /v1/flux/kontext/record-info?taskId=xxx
  */
 
-const KIE_API_BASE = "https://kie.ai/api";
-
-export interface KieTaskResponse {
-  code: number;
-  message: string;
-  data?: {
-    task_id: string;
-    status?: string;
-  };
-}
-
-export interface KieTaskStatusResponse {
-  code: number;
-  message: string;
-  data?: {
-    task_id: string;
-    status: "pending" | "processing" | "completed" | "failed";
-    result?: {
-      url?: string;
-      urls?: string[];
-      duration?: number;
-    };
-    error?: string;
-  };
-}
+const KIE_API_BASE = "https://api.kie.ai/api";
 
 export function getKieApiKey(): string {
   const key = Deno.env.get("KIE_API_KEY");
@@ -47,20 +28,24 @@ export function getKieHeaders(): Record<string, string> {
   };
 }
 
+// ============================================================
+// Market API - Unified task creation
+// ============================================================
+
 /**
- * Create a KIE API task
+ * Create a KIE Market API task (for qwen, grok, flux-2, recraft, ideogram, kling, wan)
  */
 export async function createKieTask(
-  endpoint: string,
-  payload: Record<string, unknown>
+  model: string,
+  input: Record<string, unknown>
 ): Promise<{ success: boolean; taskId?: string; error?: string }> {
   try {
-    console.log(`[KIE] Creating task: ${endpoint}`);
+    console.log(`[KIE] Creating Market task: model=${model}`);
     
-    const response = await fetch(`${KIE_API_BASE}${endpoint}`, {
+    const response = await fetch(`${KIE_API_BASE}/v1/jobs/createTask`, {
       method: "POST",
       headers: getKieHeaders(),
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ model, input }),
     });
 
     if (!response.ok) {
@@ -77,15 +62,15 @@ export async function createKieTask(
       return { success: false, error: `KIE API error: ${response.status}` };
     }
 
-    const data: KieTaskResponse = await response.json();
+    const data = await response.json();
     
-    if (data.code !== 0 && data.code !== 200) {
-      return { success: false, error: data.message || "Unknown KIE error" };
+    if (data.code !== 200) {
+      return { success: false, error: data.msg || data.message || "Unknown KIE error" };
     }
 
-    const taskId = data.data?.task_id;
+    const taskId = data.data?.taskId;
     if (!taskId) {
-      return { success: false, error: "No task_id in response" };
+      return { success: false, error: "No taskId in response" };
     }
 
     console.log(`[KIE] Task created: ${taskId}`);
@@ -97,7 +82,8 @@ export async function createKieTask(
 }
 
 /**
- * Check KIE task status
+ * Check KIE Market API task status
+ * States: waiting, queuing, generating, success, fail
  */
 export async function checkKieTaskStatus(
   taskId: string
@@ -106,16 +92,15 @@ export async function checkKieTaskStatus(
   status?: "pending" | "processing" | "completed" | "failed";
   resultUrl?: string;
   resultUrls?: string[];
-  duration?: number;
   error?: string;
 }> {
   try {
     console.log(`[KIE] Checking task status: ${taskId}`);
     
-    const response = await fetch(`${KIE_API_BASE}/v1/task/${taskId}`, {
-      method: "GET",
-      headers: getKieHeaders(),
-    });
+    const response = await fetch(
+      `${KIE_API_BASE}/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`,
+      { method: "GET", headers: getKieHeaders() }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -123,22 +108,47 @@ export async function checkKieTaskStatus(
       return { success: false, error: `Status check failed: ${response.status}` };
     }
 
-    const data: KieTaskStatusResponse = await response.json();
+    const data = await response.json();
     
-    if (data.code !== 0 && data.code !== 200) {
-      return { success: false, error: data.message || "Status check failed" };
+    if (data.code !== 200) {
+      return { success: false, error: data.message || data.msg || "Status check failed" };
     }
 
-    const status = data.data?.status || "pending";
-    const result = data.data?.result;
+    const taskData = data.data;
+    if (!taskData) {
+      return { success: false, error: "No task data in response" };
+    }
+
+    // Map KIE states to our internal states
+    const stateMap: Record<string, "pending" | "processing" | "completed" | "failed"> = {
+      waiting: "pending",
+      queuing: "pending",
+      generating: "processing",
+      success: "completed",
+      fail: "failed",
+    };
+
+    const status = stateMap[taskData.state] || "pending";
+
+    // Parse resultJson if task succeeded
+    let resultUrls: string[] | undefined;
+    if (taskData.state === "success" && taskData.resultJson) {
+      try {
+        const resultData = typeof taskData.resultJson === "string" 
+          ? JSON.parse(taskData.resultJson) 
+          : taskData.resultJson;
+        resultUrls = resultData.resultUrls || resultData.result_urls;
+      } catch (e) {
+        console.error("[KIE] Failed to parse resultJson:", e);
+      }
+    }
 
     return {
       success: true,
       status,
-      resultUrl: result?.url,
-      resultUrls: result?.urls,
-      duration: result?.duration,
-      error: data.data?.error,
+      resultUrl: resultUrls?.[0],
+      resultUrls,
+      error: taskData.failMsg || undefined,
     };
   } catch (error) {
     console.error("[KIE] Status check exception:", error);
@@ -146,29 +156,135 @@ export async function checkKieTaskStatus(
   }
 }
 
+// ============================================================
+// Flux Kontext API - Separate endpoints
+// ============================================================
+
 /**
- * Model endpoints mapping for KIE API
- * All endpoints require /v1/ prefix
+ * Create a Flux Kontext generation task
  */
-export const KIE_ENDPOINTS = {
-  // Image models
-  "recraft-remove-bg": "/v1/recraft/remove-background",
-  "recraft-upscale": "/v1/recraft/crisp-upscale",
-  "qwen-zimage": "/v1/qwen/z-image",
-  "flux-2-flex": "/v1/flux/2-flex",
-  "flux-2-pro": "/v1/flux/2-pro",
-  "flux-kontext": "/v1/flux/kontext",
-  "grok-imagine": "/v1/grok/imagine",
-  "ideogram-v3-remix": "/v1/ideogram/v3-remix",
-  "ideogram-v3-edit": "/v1/ideogram/v3-edit",
-  "ideogram-v3-reframe": "/v1/ideogram/v3-reframe",
-  
+export async function createFluxKontextTask(
+  payload: Record<string, unknown>
+): Promise<{ success: boolean; taskId?: string; error?: string }> {
+  try {
+    console.log(`[KIE-Kontext] Creating task`);
+    
+    const response = await fetch(`${KIE_API_BASE}/v1/flux/kontext/generate`, {
+      method: "POST",
+      headers: getKieHeaders(),
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[KIE-Kontext] Error ${response.status}:`, errorText.slice(0, 300));
+      return { success: false, error: `Flux Kontext API error: ${response.status}` };
+    }
+
+    const data = await response.json();
+    if (data.code !== 200) {
+      return { success: false, error: data.msg || "Unknown error" };
+    }
+
+    const taskId = data.data?.taskId;
+    if (!taskId) {
+      return { success: false, error: "No taskId in response" };
+    }
+
+    console.log(`[KIE-Kontext] Task created: ${taskId}`);
+    return { success: true, taskId };
+  } catch (error) {
+    console.error("[KIE-Kontext] Exception:", error);
+    return { success: false, error: String(error) };
+  }
+}
+
+/**
+ * Check Flux Kontext task status
+ * successFlag: 0=generating, 1=success, 2=create_failed, 3=generate_failed
+ */
+export async function checkFluxKontextStatus(
+  taskId: string
+): Promise<{
+  success: boolean;
+  status?: "pending" | "processing" | "completed" | "failed";
+  resultUrl?: string;
+  resultUrls?: string[];
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${KIE_API_BASE}/v1/flux/kontext/record-info?taskId=${encodeURIComponent(taskId)}`,
+      { method: "GET", headers: getKieHeaders() }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[KIE-Kontext] Status check failed:`, errorText.slice(0, 300));
+      return { success: false, error: `Status check failed: ${response.status}` };
+    }
+
+    const data = await response.json();
+    const taskData = data.data || data;
+    const flag = taskData.successFlag ?? taskData.success_flag;
+
+    if (flag === 1) {
+      // Success - extract result URLs
+      const resultUrls = taskData.response?.resultUrls 
+        || taskData.resultUrls 
+        || (taskData.response?.url ? [taskData.response.url] : undefined);
+      return {
+        success: true,
+        status: "completed",
+        resultUrl: resultUrls?.[0],
+        resultUrls,
+      };
+    }
+
+    if (flag === 2 || flag === 3) {
+      return {
+        success: true,
+        status: "failed",
+        error: taskData.errorMessage || taskData.error_message || "Generation failed",
+      };
+    }
+
+    // flag === 0 or undefined = still processing
+    return { success: true, status: "processing" };
+  } catch (error) {
+    console.error("[KIE-Kontext] Status check exception:", error);
+    return { success: false, error: String(error) };
+  }
+}
+
+// ============================================================
+// Model name mappings for the new KIE Market API
+// ============================================================
+
+export const KIE_MODEL_NAMES: Record<string, string> = {
+  // Image: Text → Image
+  "qwen-zimage": "qwen/text-to-image",
+  "grok-imagine-text": "grok-imagine/text-to-image",
+  "flux-2-pro-1k": "flux-2/pro-text-to-image",
+  "flux-2-pro-2k": "flux-2/pro-text-to-image",
+  "flux-2-flex-1k": "flux-2/flex-text-to-image",
+  "flux-2-flex-2k": "flux-2/flex-text-to-image",
+
+  // Image: Image → Image
+  "grok-imagine-img": "grok-imagine/image-to-image",
+  "recraft-remove-bg": "recraft/remove-background",
+  "recraft-crisp-upscale": "recraft/crisp-upscale",
+  "ideogram-v3-remix-turbo": "ideogram/v3-remix",
+  "ideogram-v3-remix-balanced": "ideogram/v3-remix",
+  "ideogram-v3-remix-quality": "ideogram/v3-remix",
+  "ideogram-v3-edit-quality": "ideogram/v3-edit",
+  "ideogram-v3-reframe": "ideogram/v3-reframe",
+
   // Video models
-  "wan-2.6-text2video": "/v1/wan/2.6/text-to-video",
-  "wan-2.6-image2video": "/v1/wan/2.6/image-to-video",
-  "wan-2.6-video2video": "/v1/wan/2.6/video-to-video",
-  "kling-2.6-text2video": "/v1/kling/2.6/text-to-video",
-  "kling-2.6-image2video": "/v1/kling/2.6/image-to-video",
+  "wan-2.6-text2video": "wan/2-6-text-to-video",
+  "wan-2.6-image2video": "wan/2-6-image-to-video",
+  "kling-2.6-text2video": "kling-2.6/text-to-video",
+  "kling-2.6-image2video": "kling-2.6/image-to-video",
 } as const;
 
 /**
