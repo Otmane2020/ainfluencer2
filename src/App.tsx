@@ -38,6 +38,18 @@ import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsPage from "./pages/TermsPage";
 import ContactPage from "./pages/ContactPage";
 import NanoBananaVideoPage from "./pages/NanoBananaVideoPage";
+// Blog article pages
+import KlingVideoAIPage from "./pages/blog/KlingVideoAIPage";
+import KlingImageAIPage from "./pages/blog/KlingImageAIPage";
+import SoraAIVideoPage from "./pages/blog/SoraAIVideoPage";
+import NanoBananaVideoGuidePage from "./pages/blog/NanoBananaVideoGuidePage";
+import NanoBananaProPage from "./pages/blog/NanoBananaProPage";
+import BestAIVideoGenerators2026Page from "./pages/blog/BestAIVideoGenerators2026Page";
+import TextToVideoAIGuidePage from "./pages/blog/TextToVideoAIGuidePage";
+import AIVideoAdsGeneratorPage from "./pages/blog/AIVideoAdsGeneratorPage";
+import TikTokVideosWithAIPage from "./pages/blog/TikTokVideosWithAIPage";
+import InstagramReelsAIPage from "./pages/blog/InstagramReelsAIPage";
+import AIVideoForEcommercePage from "./pages/blog/AIVideoForEcommercePage";
 
 const queryClient = new QueryClient();
 
@@ -57,6 +69,17 @@ const App = () => (
           <Route path="/faq" element={<FAQPage />} />
           <Route path="/blog" element={<BlogPage />} />
           <Route path="/blog/clip-motion" element={<BlogClipMotionPage />} />
+          <Route path="/blog/kling-video-ai" element={<KlingVideoAIPage />} />
+          <Route path="/blog/kling-image-ai" element={<KlingImageAIPage />} />
+          <Route path="/blog/sora-ai-video-generator" element={<SoraAIVideoPage />} />
+          <Route path="/blog/nano-banana-video-guide" element={<NanoBananaVideoGuidePage />} />
+          <Route path="/blog/nano-banana-pro" element={<NanoBananaProPage />} />
+          <Route path="/blog/best-ai-video-generators-2026" element={<BestAIVideoGenerators2026Page />} />
+          <Route path="/blog/text-to-video-ai-complete-guide" element={<TextToVideoAIGuidePage />} />
+          <Route path="/blog/ai-video-ads-generator" element={<AIVideoAdsGeneratorPage />} />
+          <Route path="/blog/tiktok-videos-with-ai" element={<TikTokVideosWithAIPage />} />
+          <Route path="/blog/instagram-reels-ai-generator" element={<InstagramReelsAIPage />} />
+          <Route path="/blog/ai-video-for-ecommerce" element={<AIVideoForEcommercePage />} />
           <Route path="/clip-motion-faq" element={<ClipMotionFAQPage />} />
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsPage />} />
