@@ -144,26 +144,26 @@ const GEMINI_VEO_MODELS: Record<string, VideoModelConfig> = {
 const KIE_VIDEO_MODELS: Record<string, VideoModelConfig> = {
   "kie-wan-2.6": {
     model: "wan-2.6",
-    endpoint: "/v1/wan/2.6/text-to-video",
+    endpoint: "wan/2-6-text-to-video",
     maxDuration: 15,
     displayName: "Wan 2.6",
     provider: "kie" as any,
     requestBody: (prompt, duration, aspectRatio) => ({
       prompt,
-      duration: `${Math.min(duration, 15)}s`,
+      duration: `${Math.min(duration, 15)}`,
       resolution: "720p",
       aspect_ratio: aspectRatio,
     }),
   },
   "kie-kling-2.6": {
     model: "kling-2.6",
-    endpoint: "/v1/kling/2.6/text-to-video",
+    endpoint: "kling-2.6/text-to-video",
     maxDuration: 10,
     displayName: "Kling 2.6",
     provider: "kie" as any,
     requestBody: (prompt, duration, aspectRatio) => ({
       prompt,
-      duration: `${Math.min(duration, 10)}s`,
+      duration: `${Math.min(duration, 10)}`,
       aspect_ratio: aspectRatio,
     }),
   },
@@ -416,7 +416,7 @@ async function tryVideoGeneration(
           body: formData,
         });
       } else if (model.provider === "kie") {
-        // KIE API - use the shared client for async task creation
+        // KIE API - use the shared client with Market API (model name as first arg)
         console.log(`[VIDEO] Using KIE API for ${model.displayName}`);
         const kieResult = await createKieTask(model.endpoint, requestBody);
         
