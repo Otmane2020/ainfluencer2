@@ -6,6 +6,10 @@ import {
   type BrandContext, 
   type VideoPromptConfig 
 } from "../_shared/video-prompt-compiler.ts";
+import {
+  createKieTask,
+  checkKieTaskStatus,
+} from "../_shared/kie-api-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -56,7 +60,7 @@ interface VideoModelConfig {
   endpoint: string;
   maxDuration: number;
   displayName: string;
-  provider: "openai" | "gemini";
+  provider: "openai" | "gemini" | "kie";
   requestBody: (prompt: string, duration: number, aspectRatio: string) => Record<string, any>;
 }
 
@@ -133,20 +137,54 @@ const GEMINI_VEO_MODELS: Record<string, VideoModelConfig> = {
   },
 };
 
-// All available models (Sora 2 + Veo 3.1)
+// ============================================================
+// KIE VIDEO MODELS (Wan 2.6 / Kling 2.6 via KIE API)
+// Used as final fallback when OpenAI and Gemini are unavailable
+// ============================================================
+const KIE_VIDEO_MODELS: Record<string, VideoModelConfig> = {
+  "kie-wan-2.6": {
+    model: "wan-2.6",
+    endpoint: "/v1/wan/2.6/text-to-video",
+    maxDuration: 15,
+    displayName: "Wan 2.6",
+    provider: "kie" as any,
+    requestBody: (prompt, duration, aspectRatio) => ({
+      prompt,
+      duration: `${Math.min(duration, 15)}s`,
+      resolution: "720p",
+      aspect_ratio: aspectRatio,
+    }),
+  },
+  "kie-kling-2.6": {
+    model: "kling-2.6",
+    endpoint: "/v1/kling/2.6/text-to-video",
+    maxDuration: 10,
+    displayName: "Kling 2.6",
+    provider: "kie" as any,
+    requestBody: (prompt, duration, aspectRatio) => ({
+      prompt,
+      duration: `${Math.min(duration, 10)}s`,
+      aspect_ratio: aspectRatio,
+    }),
+  },
+};
+
+// All available models (Sora 2 + Veo 3.1 + KIE)
 // NOTE: Veo models are only attempted when GEMINI_API_KEY is present.
+// NOTE: KIE models are only attempted when KIE_API_KEY is present.
 const ALL_MODELS: Record<string, VideoModelConfig> = {
   ...OPENAI_MODELS,
   ...GEMINI_VEO_MODELS,
+  ...KIE_VIDEO_MODELS,
 };
 
 // Quality tier mapping with fallbacks
-// Prefer OpenAI Sora models first, then fall back to Gemini Veo when configured.
-// This prevents total outages when OpenAI is rate-limited or billing-limited.
+// Prefer OpenAI Sora models first, then fall back to Gemini Veo, then KIE as last resort.
+// This prevents total outages when premium providers hit billing/quota limits.
 const MODEL_FALLBACK_CHAINS: Record<string, string[]> = {
-  cinema: ["sora-2-pro", "sora-2", "veo-3.1-pro", "veo-3.1"],
-  pro: ["sora-2-pro", "sora-2", "veo-3.1-pro", "veo-3.1"],
-  standard: ["sora-2", "sora-2-pro", "veo-3.1", "veo-3.1-pro"],
+  cinema: ["sora-2-pro", "sora-2", "veo-3.1-pro", "veo-3.1", "kie-wan-2.6", "kie-kling-2.6"],
+  pro: ["sora-2-pro", "sora-2", "veo-3.1-pro", "veo-3.1", "kie-wan-2.6", "kie-kling-2.6"],
+  standard: ["sora-2", "sora-2-pro", "veo-3.1", "veo-3.1-pro", "kie-wan-2.6", "kie-kling-2.6"],
 };
 
 function getModelFallbackChain(quality: string): VideoModelConfig[] {
@@ -167,6 +205,9 @@ const VALID_DURATIONS: Record<string, number[]> = {
   "sora-2": [4, 8, 12],               // Sora 2 standard up to 12s
   // Veo accepts 4-8 seconds (observed from API error messaging)
   gemini: [4, 5, 6, 7, 8],
+  // KIE models
+  "wan-2.6": [5, 10, 15],
+  "kling-2.6": [5, 10],
 };
 
 function getSupportedOpenAISizes(modelId: string): string[] {
@@ -268,6 +309,7 @@ async function tryVideoGeneration(
   geminiApiKey: string,
   referenceImageUrl?: string // Optional image for image-to-video
 ): Promise<{ success: boolean; model: VideoModelConfig; taskId?: string; status?: string; mediaUrl?: string; error?: string }> {
+  const kieApiKey = Deno.env.get("KIE_API_KEY") || "";
   let lastBillingLimitError: string | null = null;
   let lastQuotaOrRateLimitError: string | null = null;
 
@@ -276,7 +318,16 @@ async function tryVideoGeneration(
     const clampedDuration = clampDuration(duration, model);
     
     // Check if we have the API key for this provider
-    const apiKey = model.provider === "openai" ? openaiApiKey : geminiApiKey;
+    let apiKey: string;
+    if (model.provider === "openai") {
+      apiKey = openaiApiKey;
+    } else if (model.provider === "gemini") {
+      apiKey = geminiApiKey;
+    } else if (model.provider === "kie") {
+      apiKey = kieApiKey;
+    } else {
+      apiKey = "";
+    }
     if (!apiKey) {
       console.log(`[${model.displayName}] Skipping - no API key for ${model.provider}`);
       continue;
@@ -364,6 +415,24 @@ async function tryVideoGeneration(
           },
           body: formData,
         });
+      } else if (model.provider === "kie") {
+        // KIE API - use the shared client for async task creation
+        console.log(`[VIDEO] Using KIE API for ${model.displayName}`);
+        const kieResult = await createKieTask(model.endpoint, requestBody);
+        
+        if (!kieResult.success || !kieResult.taskId) {
+          console.warn(`[${model.model}] KIE task creation failed: ${kieResult.error} - trying next model`);
+          continue;
+        }
+        
+        console.log(`✓ [${model.displayName}] KIE task created! Task ID: ${kieResult.taskId}`);
+        
+        return {
+          success: true,
+          model,
+          taskId: kieResult.taskId,
+          status: "queued",
+        };
       } else {
         // Gemini Veo API uses x-goog-api-key header
         response = await fetch(model.endpoint, {
@@ -965,6 +1034,47 @@ serve(async (req) => {
             progress,
             videoUrl: result.output_video || result.video_url || result.output?.video,
             error: result.error,
+          };
+        }
+      } else if (provider === "kie") {
+        // KIE API status check (Wan 2.6 / Kling 2.6)
+        const kieStatus = await checkKieTaskStatus(taskId);
+        
+        if (!kieStatus.success) {
+          statusResponse = {
+            id: taskId,
+            status: "failed",
+            progress: 0,
+            error: kieStatus.error || "KIE status check failed",
+          };
+        } else {
+          let mappedStatus: VideoStatusResponse["status"] = "queued";
+          let progress = 0;
+          
+          switch (kieStatus.status) {
+            case "completed":
+              mappedStatus = "completed";
+              progress = 100;
+              break;
+            case "failed":
+              mappedStatus = "failed";
+              progress = 0;
+              break;
+            case "processing":
+              mappedStatus = "in_progress";
+              progress = 50;
+              break;
+            default:
+              mappedStatus = "queued";
+              progress = 10;
+          }
+          
+          statusResponse = {
+            id: taskId,
+            status: mappedStatus,
+            progress,
+            videoUrl: kieStatus.resultUrl,
+            error: kieStatus.error,
           };
         }
       } else {
