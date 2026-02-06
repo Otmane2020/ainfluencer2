@@ -560,11 +560,11 @@ async function generateImage(
   
   console.log(`[Router] Model: ${modelId} → Provider: ${routing.provider}`);
 
-  // Extract resolution from modelId
+  // Extract resolution from modelId - KIE API expects "1K", "2K", "4K" format
   let resolution: string | undefined;
-  if (modelId.includes("1k")) resolution = "1024";
-  if (modelId.includes("2k")) resolution = "2048";
-  if (modelId.includes("4k")) resolution = "4096";
+  if (modelId.includes("1k")) resolution = "1K";
+  if (modelId.includes("2k")) resolution = "2K";
+  if (modelId.includes("4k")) resolution = "4K";
 
   let result: { imageData: string | null; error?: string };
 
