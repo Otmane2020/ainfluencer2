@@ -1,215 +1,81 @@
 
-# Add Comprehensive Image Model Selector with Pricing Display
 
-## Overview
+# AI Generation Audit - Full Diagnostic Report
 
-Add a dropdown model selector to the AI Images page (`/images`) that displays all available image generation models with their quality ratings, credit costs, and recommended usage - visible BEFORE generation.
+## Issues Found
 
----
+### 1. CRITICAL: Video Generation Completely Down (Sora + Veo)
+Both video providers have hit their billing/quota limits:
+- **OpenAI Sora 2**: "Billing hard limit has been reached"
+- **Google Veo 3.1**: "You exceeded your current quota"
 
-## Models to Add (18 models total)
+The fallback chain (Sora 2 -> Sora 2 Pro -> Veo 3.1 Pro -> Veo 3.1) fails entirely -- all 4 models are unavailable.
 
-| Model | Type | Quality | Credits | Cost Level | Usage |
-|-------|------|---------|---------|------------|-------|
-| Recraft Remove Background | Img → Img | ⭐⭐⭐⭐ | 1.0 | — | E-commerce cutouts |
-| Qwen z-image | Text → Img | ⭐⭐⭐ | 0.8 | Very Low | Testing, volume |
-| Flux 2 Flex (2K) | Text/Img → Img | ⭐⭐⭐⭐⭐ | 24 | High | Premium ads |
-| Flux 2 Flex (1K) | Text/Img → Img | ⭐⭐⭐⭐ | 14 | Medium | Ads / e-commerce |
-| Flux-2 Pro (2K) | Text/Img → Img | ⭐⭐⭐⭐⭐ | 7 | Very Good | Photorealism |
-| Flux-2 Pro (1K) | Text/Img → Img | ⭐⭐⭐⭐ | 5 | Low | Ads, products |
-| Google Nano Banana Pro (2K) | Text → Img | ⭐⭐⭐⭐⭐ | 18 | Medium | Social ads |
-| Google Nano Banana Pro (4K) | Text → Img | ⭐⭐⭐⭐⭐⭐ | 24 | High | Hero / branding |
-| Grok Imagine (img→img) | Img → Img | ⭐⭐⭐ | 4 / 2 img | Low | Fun, remix |
-| Grok Imagine (text→img) | Text → Img | ⭐⭐⭐ | 4 / 6 img | Very Low | Volume |
-| OpenAI 4o Image | Text → Img | ⭐⭐⭐⭐ | 6 | Good | Polyvalent |
-| Flux1-Kontext Pro | Text → Img | ⭐⭐⭐⭐ | 5 | Low | Clean generation |
-| Flux1-Kontext Max | Text → Img | ⭐⭐⭐⭐⭐ | 10 | Medium | Stable quality |
-| Recraft Crisp Upscale | Img → Img | ⭐⭐⭐⭐ | 0.5 | Ultra Low | Upscale |
-| Ideogram v3 Remix – TURBO | Img → Img | ⭐⭐⭐ | 3.5 | Low | Fast |
-| Ideogram v3 Remix – BALANCED | Img → Img | ⭐⭐⭐⭐ | 7 | Good | Good balance |
-| Ideogram v3 Remix – QUALITY | Img → Img | ⭐⭐⭐⭐⭐ | 10 | Medium | Clean visuals |
-| Ideogram v3 Edit – QUALITY | Img → Img | ⭐⭐⭐⭐⭐ | 10 | Medium | Pro retouching |
-| Ideogram V3 Reframe | Img → Img | ⭐⭐⭐⭐⭐ | 10 | Medium | Reframing |
+**Resolution**: The `kie-video` function (Wan 2.6 / Kling 2.6 via KIE API) was added as an alternative, BUT it's not working either (see issue #2).
 
----
+### 2. CRITICAL: `kie-video` Edge Function Not Deployed (404)
+The KIE video function exists in code and in `config.toml`, but returns 404 when called. This means the function failed to deploy silently. The VideoGenerator component already routes to `kie-video` for Wan/Kling models, so all video generation via the new models fails.
 
-## Files to Create/Modify
+**Resolution**: Redeploy the `kie-video` function. May need to check for import/syntax issues preventing deployment.
 
-### 1. NEW: `src/lib/imageModels.ts`
-
-Centralized configuration for all image models:
-
+### 3. MODERATE: CORS Headers Missing on `generate-image`
+The `generate-image` function uses incomplete CORS headers:
 ```text
-Model configuration structure:
-- id: Unique identifier
-- name: Display name
-- type: "text-to-image" | "image-to-image" | "utility"
-- quality: 1-6 (star rating)
-- credits: Cost per generation
-- costLevel: "ultra-low" | "low" | "medium" | "high"
-- costPerImage: Dollar cost (for display)
-- usage: Recommended use case
-- provider: "kie" | "lovable" | "openai" | "replicate"
-- apiEndpoint: Backend endpoint mapping
-- requiresImage: Whether source image is needed
+Current:  "authorization, x-client-info, apikey, content-type"
+Required: "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version"
+```
+The Supabase JS SDK sends these additional headers automatically. The browser's preflight (OPTIONS) request will be rejected, causing CORS errors even though the function itself works fine (confirmed via direct API test - returns 200).
+
+**Resolution**: Update CORS headers in `generate-image/index.ts`.
+
+### 4. INFO: Image Generation Backend Works
+Direct API test to `generate-image` returned 200 successfully. The function logic, credit deduction, and model routing are all functional. The only barrier is the CORS header issue preventing browser calls.
+
+### 5. INFO: KIE Image Function Works
+The `kie-image` function is deployed and responds (returns 400 for missing params, meaning it's alive). It has correct CORS headers. However, the `generate-image` function already handles KIE models internally, so `kie-image` may be redundant.
+
+---
+
+## Fix Plan
+
+### Step 1: Fix CORS on `generate-image` (Unblocks Image Generation)
+Update `supabase/functions/generate-image/index.ts` line 16-18 to include the full set of required CORS headers. This single change will fix image generation from the browser.
+
+### Step 2: Redeploy `kie-video` (Unblocks Video Generation)
+Force-deploy the `kie-video` edge function. If deployment fails, investigate and fix any syntax or import issues in the function code.
+
+### Step 3: Reroute Video Generation Fallback to KIE
+Since OpenAI Sora and Google Veo are both at their billing/quota limits, update the `generate-video-sora` function to add KIE (Wan 2.6 / Kling 2.6) as a final fallback in the chain. This ensures video generation works even when premium providers are down.
+
+Current fallback chain:
+```text
+Sora 2 Pro -> Sora 2 -> Veo 3.1 Pro -> Veo 3.1 -> (all fail)
 ```
 
-### 2. NEW: `src/components/ImageModelSelector.tsx`
-
-Dropdown component displaying models with:
-- Model name and type badge (Text→Img / Img→Img)
-- Star rating (quality)
-- Credit cost with colored badge (green/yellow/red based on cost level)
-- Recommended usage text
-- Grouped by category (Text-to-Image / Image-to-Image / Utilities)
-
-Visual layout:
+Proposed chain:
 ```text
-┌─────────────────────────────────────────────────┐
-│ 🎨 Model: Flux-2 Pro (1K)              ▼        │
-└─────────────────────────────────────────────────┘
-   ┌────────────────────────────────────────────┐
-   │ TEXT → IMAGE                               │
-   │ ├─ Nano Banana Pro (2K)  ⭐⭐⭐⭐⭐  18 cr   │
-   │ │   Social ads                    🟠 Medium │
-   │ ├─ Flux-2 Pro (1K)       ⭐⭐⭐⭐   5 cr    │
-   │ │   Ads, products                 🟢 Low    │
-   │ ...                                         │
-   │ IMAGE → IMAGE                               │
-   │ ├─ Recraft Remove BG     ⭐⭐⭐⭐   1 cr    │
-   │ │   E-commerce cutouts            🟢 Low    │
-   │ ...                                         │
-   │ UTILITIES                                   │
-   │ ├─ Recraft Crisp Upscale ⭐⭐⭐⭐   0.5 cr  │
-   │ │   Upscale                       🟢 Ultra  │
-   └────────────────────────────────────────────┘
+Sora 2 Pro -> Sora 2 -> Veo 3.1 Pro -> Veo 3.1 -> KIE Wan 2.6 (new)
 ```
 
-### 3. MODIFY: `src/components/ImageGenerator.tsx`
-
-- Import and add `ImageModelSelector` component
-- Add state for selected model
-- Pass model ID to generate-image function
-- Show conditional UI for "Img→Img" models (source image upload)
-- Display credit cost next to Generate button
-
-### 4. MODIFY: `supabase/functions/generate-image/index.ts`
-
-- Add routing logic based on `modelId` parameter
-- Route to appropriate provider:
-  - KIE API models: Recraft, Qwen, Grok, Ideogram, Flux 2 Flex/Pro
-  - Lovable AI: Nano Banana, Nano Banana Pro
-  - OpenAI: GPT Image
-  - Replicate: FLUX Schnell/Dev/Pro
-- Add credit deduction based on model-specific costs
-
-### 5. UPDATE: `supabase/functions/_shared/kie-api-client.ts`
-
-- Add missing endpoints for new models
-- Update credit cost mappings
+### Step 4: Verify both flows end-to-end
+Test image and video generation from the browser to confirm everything works.
 
 ---
 
-## UI/UX Flow
+## Technical Details
 
-1. User opens `/images` page
-2. Model selector dropdown shows **current model** with preview (name + credits + stars)
-3. Click to expand full dropdown with grouped models
-4. Each model row shows:
-   - Icon/emoji for type
-   - Model name
-   - Star rating (⭐⭐⭐⭐⭐)
-   - Credit cost with color badge
-   - Short usage description
-5. Select model → updates state + credit display on Generate button
-6. For Img→Img models: Show source image upload zone
-7. Click Generate → uses selected model with correct pricing
+### Files to Modify
 
----
+| File | Change | Impact |
+|------|--------|--------|
+| `supabase/functions/generate-image/index.ts` | Fix CORS headers (line 16-18) | Unblocks image generation |
+| `supabase/functions/generate-video-sora/index.ts` | Add KIE fallback at end of chain | Video generation resilience |
+| `supabase/config.toml` | Verify `kie-video` entry (already present) | -- |
 
-## Technical Architecture
+### Functions to Deploy
+- `generate-image` (CORS fix)
+- `kie-video` (force redeploy)
+- `generate-video-sora` (KIE fallback)
 
-```text
-┌──────────────────────────────────────────────────────┐
-│  ImageGenerator.tsx                                  │
-│  ├── ImageModelSelector (dropdown)                   │
-│  ├── SourceImageUpload (conditional for Img→Img)     │
-│  ├── Prompt textarea                                 │
-│  └── Generate button [💰 X credits]                  │
-└──────────────────────────────────────────────────────┘
-                        │
-                        ▼
-┌──────────────────────────────────────────────────────┐
-│  generate-image Edge Function                        │
-│  ├── Route by modelId                                │
-│  │   ├── kie-* → KIE API                             │
-│  │   ├── nano-banana-* → Lovable AI Gateway          │
-│  │   ├── gpt-image → OpenAI API                      │
-│  │   └── flux-* → Replicate API                      │
-│  ├── Deduct credits based on model                   │
-│  └── Store generation with model info                │
-└──────────────────────────────────────────────────────┘
-```
+### No Database Changes Required
 
----
-
-## Model Categories
-
-**Text → Image (Generation)**
-- Qwen z-image (budget)
-- Grok Imagine text
-- OpenAI 4o Image
-- Flux1-Kontext Pro/Max
-- Flux-2 Pro 1K/2K
-- Flux 2 Flex 1K/2K
-- Nano Banana Pro 2K/4K
-
-**Image → Image (Transformation)**
-- Recraft Remove Background
-- Recraft Crisp Upscale
-- Grok Imagine img
-- Ideogram v3 Remix (TURBO/BALANCED/QUALITY)
-- Ideogram v3 Edit QUALITY
-- Ideogram V3 Reframe
-
----
-
-## Credit Cost Color System
-
-- 🟢 **Ultra Low** (0-2 cr): Green badge
-- 🟢 **Low** (3-5 cr): Light green badge
-- 🟠 **Medium** (6-15 cr): Orange badge
-- 🔴 **High** (16+ cr): Red badge
-
----
-
-## Implementation Steps
-
-1. Create `src/lib/imageModels.ts` with all 18+ model configurations
-2. Create `src/components/ImageModelSelector.tsx` dropdown component
-3. Update `ImageGenerator.tsx` to integrate model selector
-4. Add source image upload for Img→Img models
-5. Update `generate-image` edge function with model routing
-6. Update KIE API client with new endpoints
-7. Test all model integrations
-8. Update credit deduction logic per model
-
----
-
-## Existing Models (Keep)
-
-The current models will be retained and integrated:
-- Nano Banana (Gemini Flash) - 1 credit
-- Nano Banana Pro (Gemini Pro) - 3 credits
-- FLUX Schnell (Replicate) - 1 credit
-- FLUX Dev (Replicate) - 3 credits
-- FLUX Pro (Replicate) - 5 credits
-- GPT Image (OpenAI) - 4 credits
-
----
-
-## SEO Considerations
-
-- Add descriptive alt text for generated images
-- Structured data for image generation tool
-- Meta descriptions optimized for "AI image generator" keywords
