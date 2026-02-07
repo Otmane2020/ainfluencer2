@@ -357,9 +357,9 @@ async function generateWithKieApi(
       return { imageData: null, error: taskResult.error || "Failed to create task" };
     }
 
-    // Poll for result
+    // Poll for result - keep within Supabase edge function timeout (60s)
     let attempts = 0;
-    const maxAttempts = 90; // 90 seconds max
+    const maxAttempts = 30; // 30 seconds max to stay within edge function limits
     const pollFn = isFluxKontext ? checkFluxKontextStatus : checkKieTaskStatus;
     
     while (attempts < maxAttempts) {
@@ -444,6 +444,17 @@ async function generateWithOpenAI(
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[OpenAI] Error ${response.status}:`, errorText.slice(0, 300));
+      
+      // Detect billing limit error specifically
+      try {
+        const errorJson = JSON.parse(errorText);
+        const errorCode = errorJson?.error?.code || errorJson?.error?.type || "";
+        if (errorCode === "billing_hard_limit_reached" || errorText.includes("billing_hard_limit_reached") || errorText.includes("Billing hard limit")) {
+          console.error("[OpenAI] Billing hard limit reached - triggering fallback");
+          return { imageData: null, error: "BILLING_LIMIT_REACHED" };
+        }
+      } catch { /* not JSON, continue */ }
+      
       return { imageData: null, error: `OpenAI error: ${response.status}` };
     }
 
@@ -809,18 +820,41 @@ COMPOSITION: Keep bottom 20% clean for overlay.`);
     
     // Truncate to KIE API limit (3000 chars max)
     const finalPrompt = promptParts.join('\n\n').slice(0, 2950);
+    console.log(`[Prompt] Final prompt length: ${finalPrompt.length} chars (truncated from ${promptParts.join('\n\n').length})`);
     const effectiveAspect = aspectRatio || (format === "vertical" ? "9:16" : format === "landscape" ? "16:9" : "1:1");
 
-    // Generate image
-    const { imageData, error, provider } = await generateImage(
+    // Generate image with primary model
+    let { imageData, error, provider } = await generateImage(
       finalPrompt,
       effectiveModelId,
       sourceImage,
       effectiveAspect
     );
 
+    // ============================================================
+    // AUTOMATIC FALLBACK - Retry with Nano Banana if primary fails
+    // ============================================================
+    if (!imageData && provider !== "lovable") {
+      console.log(`[Fallback] Primary model ${effectiveModelId} failed (${error}). Retrying with Nano Banana...`);
+      
+      const fallbackResult = await generateWithLovable(
+        finalPrompt,
+        "google/gemini-2.5-flash-image",
+        sourceImage
+      );
+      
+      if (fallbackResult.imageData) {
+        console.log(`[Fallback] ✓ Nano Banana succeeded as fallback for ${effectiveModelId}`);
+        imageData = fallbackResult.imageData;
+        error = undefined;
+        provider = "lovable";
+      } else {
+        console.error(`[Fallback] ✗ Nano Banana also failed: ${fallbackResult.error}`);
+      }
+    }
+
     if (!imageData) {
-      // Refund credits on failure
+      // Refund credits on failure (both primary and fallback failed)
       if (userId && !skipCreditDeduction) {
         await supabase.rpc("add_credits", {
           p_user_id: userId,
@@ -830,7 +864,7 @@ COMPOSITION: Keep bottom 20% clean for overlay.`);
           user_id: userId,
           amount: creditCost,
           type: "refund",
-          description: `Refund: Image generation failed (${effectiveModelId})`,
+          description: `Refund: Image generation failed (${effectiveModelId} + fallback)`,
         });
         console.log(`✓ Refunded ${creditCost} credits due to generation failure`);
       }
