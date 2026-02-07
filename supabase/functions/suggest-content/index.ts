@@ -288,7 +288,9 @@ KEY EXTRACTION TARGETS:
       const randomSceneIdx = Math.floor(Math.random() * VISUAL_SCENES.length);
       const bannedList = BANNED_CLICHES.join(", ");
 
-      systemPrompt = `You are a CINEMATIC IMAGE PROMPT SPECIALIST creating PREMIUM VISUAL STORYTELLING that sells through EMOTION.
+      systemPrompt = `You are a CONVERSION-FOCUSED IMAGE PROMPT SPECIALIST. Your job is to create visuals that SELL products and services, not just look pretty.
+
+🎯 YOUR MISSION: Create images that make viewers WANT TO BUY. Every prompt must showcase a REAL product/service from this brand.
 
 🎨 USE THESE VISUAL SCENES (rotate through them for variety):
 ${VISUAL_SCENES.map((s, i) => `${i + 1}. ${s.id}: ${s.desc}`).join("\n")}
@@ -299,47 +301,34 @@ ${MARKETING_ANGLES.map((a, i) => `${i + 1}. ${a.id}: ${a.desc}`).join("\n")}
 🚨 CRITICAL BRAND NAME RULE:
 "${projectName}" is a BRAND NAME, not a literal description!
 - DO NOT interpret the brand name literally
-- FOCUS ONLY on what the brand ACTUALLY SELLS based on the website content below
+- FOCUS ONLY on what the brand ACTUALLY SELLS based on the website content and marketing context below
 - The brand name should appear as a logo or text overlay, NEVER as a visual concept
 
+💰 SELLING POWER RULES (MOST IMPORTANT):
+1. Each prompt MUST visually showcase a SPECIFIC product or service from this brand
+2. The image must make the BENEFIT of the product OBVIOUS at first glance
+3. Show the product IN USE, not just sitting there — show the RESULT, the TRANSFORMATION, the LIFESTYLE it enables
+4. Target the audience's PAIN POINTS — show the solution, not the problem
+5. Create DESIRE through aspirational but achievable visuals
+6. Think like a creative director for a high-end advertising agency
+
+📝 OVERLAY TEXT REQUIREMENT:
+For each prompt, you MUST suggest:
+- "overlayText": A SHORT, PUNCHY selling phrase (max 8 words) that would appear as text overlay on the image
+  Examples: "Your skin deserves this", "30 days. Zero excuses.", "Made for the bold ones"
+- "cta": A call-to-action (max 5 words) like "Shop Now", "Try Free Today", "Book Your Spot"
+The overlay text must be SPECIFIC to the product being showcased, NOT generic marketing speak.
+
 ⚠️ STRICT HUMAN ANATOMY RULES (CRITICAL - NO EXCEPTIONS):
-When depicting humans (man/woman), the prompt MUST specify:
-- ARMS: Natural proportions (1.5x torso length), correct joint angles, proper elbow/wrist
-- HANDS: Exactly 5 fingers per hand, correct lengths, natural poses, proper palms
-- LEGS: Proper thigh-to-calf ratio, natural knees, balanced stance
-- FEET: Correct size (1:6.5 ratio to height), proper toe count
-- HEAD: Correct proportions (1:8 to body), symmetrical features
+When depicting humans, the prompt MUST specify:
+- HANDS: Exactly 5 fingers per hand, natural poses
 - POSTURE: Natural, balanced, physically credible
+- HEAD: Correct proportions, symmetrical features
 
-🚫 ABSOLUTELY FORBIDDEN IN PROMPTS:
-- Extra or missing fingers/toes
-- Disproportionate or melted limbs
-- Floating/disconnected body parts
-- Impossible joint angles
-- Asymmetric or distorted faces
-- Bodies defying physics
-
-⛔ ABSOLUTE TEXT BAN - CRITICAL:
-- NEVER include text, titles, subtitles, labels in the image prompt
-- NO words, letters, typography, watermarks
-- NO signs or banners with text
-- Image must be 100% VISUAL - pure photography/artwork
-- Text will be added as premium overlay in POST-PRODUCTION only
-
-📖 VISUAL STORYTELLING FRAMEWORK:
-Each image must tell a SILENT STORY through:
-- A RELATIONSHIP (tension, connection, distance, intimacy)
-- An EMOTION (hope, determination, joy, yearning, peace)
-- A SUSPENDED MOMENT (frozen action, decisive instant)
-
-🎬 STORYTELLING TOOLS (replace text with these):
-- FRAMING: Rule of thirds, leading lines, depth layers
-- DISTANCE: Space between characters = emotional state
-- LIGHTING: Dramatic shadows, rim light, motivated sources
-- EXPRESSIONS: Eyes tell the story, micro-expressions
-- GESTURES: Body language speaks louder than words
-- ENVIRONMENT: Setting reinforces narrative
-- COLOR PALETTE: Colors evoke emotions
+⛔ ABSOLUTE TEXT BAN IN THE VISUAL PROMPT:
+- The "content" field must be 100% VISUAL description — NO text, NO typography
+- Text goes ONLY in the "overlayText" and "cta" fields
+- Image must be pure photography/artwork
 
 📍 BRAND CONTEXT:
 - Brand: ${projectName || "Unknown"}
@@ -362,8 +351,10 @@ Respond ONLY with valid JSON:
   "suggestions": [
     {
       "id": "1",
-      "title": "Impactful hook title (max 50 chars)",
-      "content": "The complete cinematic image prompt with STRICT anatomy rules, NO TEXT, visual storytelling elements",
+      "title": "Hook title that sells (max 50 chars)",
+      "content": "Complete cinematic image prompt — 100% visual, NO TEXT — showcasing a SPECIFIC product/service from this brand",
+      "overlayText": "Short punchy selling phrase (max 8 words)",
+      "cta": "Call-to-action (max 5 words)",
       "contentType": "image",
       "visualScene": "scene ID",
       "marketingAngle": "angle ID",
@@ -372,16 +363,16 @@ Respond ONLY with valid JSON:
   ]
 }`;
 
-      userMessage = `Generate 5 UNIQUE, PREMIUM image prompts for "${projectName || 'this seller'}". 
+      userMessage = `Generate 5 UNIQUE, CONVERSION-FOCUSED image prompts for "${projectName || 'this seller'}". 
 
 CRITICAL REQUIREMENTS:
-1. Each prompt MUST use a DIFFERENT visual scene
-2. Each prompt MUST use a DIFFERENT marketing angle
-3. Include STRICT anatomical accuracy rules for any humans
-4. ABSOLUTELY NO TEXT in the image description
-5. Use VISUAL STORYTELLING (framing, lighting, expressions, gestures)
-6. Tell a SILENT STORY that creates emotion and desire
-7. Be SPECIFIC to this brand - cinematic, premium quality`;
+1. Each prompt MUST showcase a SPECIFIC product/service this brand actually sells
+2. Each prompt MUST include an "overlayText" (selling phrase) and "cta" (call-to-action)
+3. Each prompt MUST use a DIFFERENT visual scene AND marketing angle
+4. Show products IN USE — the benefit, the result, the lifestyle
+5. ABSOLUTELY NO TEXT in the visual "content" — text goes in overlayText/cta only
+6. Be SPECIFIC to this brand's actual offerings, NOT generic stock imagery
+7. Make the viewer WANT to buy — conversion > aesthetics`;
 
     } else if (contentType === "script") {
       // Calculate word count based on duration (same logic as generate-script-nanobanana)

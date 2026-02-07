@@ -35,7 +35,8 @@ interface RequestBody {
   duration: number;
   detectedLanguage?: string;
   logoUrl?: string;
-  videoMode?: "standard" | "clipmotion"; // NEW: Video generation mode
+  videoMode?: "standard" | "clipmotion";
+  marketingContext?: any;
 }
 
 // Business sectors context
@@ -141,7 +142,8 @@ Deno.serve(async (req) => {
       duration,
       detectedLanguage,
       logoUrl,
-      videoMode = "standard", // NEW: Default to standard mode
+      videoMode = "standard",
+      marketingContext,
     } = body;
 
     // Detect language from scraped content or use provided
@@ -157,8 +159,43 @@ Deno.serve(async (req) => {
       toneId,
       detectedLanguage: language,
       hasLogo: !!logoUrl,
-      videoMode, // NEW: Log video mode
+      videoMode,
+      hasMarketingContext: !!marketingContext,
     });
+
+    // Build marketing context block for injection into prompt
+    let marketingContextBlock = "";
+    if (marketingContext && typeof marketingContext === "object") {
+      const mc = marketingContext as any;
+      const parts: string[] = [];
+      
+      if (mc.target_audience?.primary) {
+        parts.push(`TARGET AUDIENCE: ${mc.target_audience.primary}`);
+      }
+      if (mc.target_audience?.pain_points?.length > 0) {
+        parts.push(`PAIN POINTS to address: ${mc.target_audience.pain_points.join(", ")}`);
+      }
+      if (mc.target_audience?.desires?.length > 0) {
+        parts.push(`DESIRES to fulfill: ${mc.target_audience.desires.join(", ")}`);
+      }
+      if (mc.brand_personality?.tone) {
+        parts.push(`BRAND TONE: ${mc.brand_personality.tone}`);
+      }
+      if (mc.products_services?.length > 0) {
+        const productsList = mc.products_services
+          .slice(0, 5)
+          .map((p: any) => `- ${p.name}: ${p.key_benefit}`)
+          .join("\n");
+        parts.push(`PRODUCTS/SERVICES TO SELL:\n${productsList}`);
+      }
+      if (mc.competitive_positioning) {
+        parts.push(`UNIQUE SELLING POINT: ${mc.competitive_positioning}`);
+      }
+      
+      if (parts.length > 0) {
+        marketingContextBlock = `\n\n=== MARKETING CONTEXT (USE THIS TO SELL!) ===\n${parts.join("\n")}\n=== END MARKETING CONTEXT ===\n`;
+      }
+    }
 
     // Build context from scenario selections
     const sectorContext = sectorId ? SECTOR_CONTEXT[sectorId] || "" : "";
@@ -212,7 +249,7 @@ CLIPMOTION MODE - SOCIAL MEDIA VIRAL OPTIMIZATION:
 - HIGH ENERGY throughout - never static or boring
 ` : "";
 
-    const systemPrompt = `You are an expert multilingual video scriptwriter creating viral social media content.
+    const systemPrompt = `You are an expert multilingual video scriptwriter creating viral social media content that SELLS.
 
 CRITICAL RULES:
 1. ${languageInstruction}
@@ -221,6 +258,15 @@ CRITICAL RULES:
 4. NO generic marketing clichés - be specific, authentic, relatable
 5. Use conversational language that feels real
 6. Each scene needs: [timestamp], visual description, voiceover text
+7. Each scenario MUST reference a SPECIFIC product/service from this brand
+8. Address a REAL pain point or desire of the target audience
+
+💰 SELLING POWER (CRITICAL):
+- Every scenario must make the viewer WANT to buy/use the product
+- Show the BENEFIT, not just the feature
+- Include a clear call-to-action in the final scene
+- Hook must address a pain point or desire within 2 seconds
+${marketingContextBlock}
 
 ${scriptTypeInstructions[scriptType] || scriptTypeInstructions.reel}
 ${clipMotionInstructions}
