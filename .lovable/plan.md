@@ -1,89 +1,71 @@
 
 
-# Fix AI Prompt Generation to Sell Projects Effectively
+# Fix Image Generation -- Multiple Provider Failures
 
-## Problem
+## Diagnosis
 
-The AI-generated prompts for images and videos don't effectively sell projects because:
+After investigating the edge function logs, I found **three distinct issues** causing image generation to fail for every model:
 
-1. **Missing marketing data**: The ImageGenerator and VideoGenerator don't send the project's `marketing_context` (products, USP, target audience, brand tone) to the backend. The AI generates prompts "blind" -- without knowing what the brand sells.
-2. **No overlay text suggestions**: Image prompts generate pure visual descriptions but never suggest overlay text (catchphrases, CTAs, selling hooks) that would appear on top of the image in post-production.
-3. **Too artistic, not enough commercial**: The current system prompt focuses on "cinematic storytelling" and "visual emotions" but lacks instructions to showcase actual products, benefits, and conversion triggers.
-
-## Solution
-
-### Step 1: Send marketing context from frontend components
-
-**ImageGenerator.tsx**:
-- Add `marketing_context` to the Project interface
-- Fetch `marketing_context` in the project query
-- Send `marketingContext` in the `suggest-content` API call body
-
-**VideoGenerator.tsx**:
-- Send `marketingContext: project.marketing_context` in the `generate-video-scenario` call (already fetched but not sent)
-
-### Step 2: Enhance image prompt generation with selling power
-
-**suggest-content/index.ts** (`image_prompt` section):
-- Add `overlayText` field to the JSON response schema -- the AI must suggest a catchy selling phrase for each prompt
-- Add `cta` field -- a call-to-action recommendation
-- Inject marketing context data (products, USP, audience pain points) directly into the system prompt
-- Shift prompt instructions from "tell a silent story" to "SELL the product through visual impact + overlay copy"
-- Each suggestion must reference a specific product/service from the project
-
-### Step 3: Enhance video scenario generation with selling context
-
-**generate-video-scenario/index.ts**:
-- Accept and use `marketingContext` parameter
-- Inject products/services, audience pain points, and USP into the system prompt
-- Ensure each scenario directly addresses a real audience pain point or showcases a real product benefit
-
-### Step 4: Auto-apply overlay text from suggestions
-
-**ImageGenerator.tsx**:
-- When a suggestion is selected, auto-fill the `overlayText` in `brandOptions` with the suggested text
-- Auto-enable the `includeText` brand option when overlay text is provided
-
-## Technical Details
-
-### Files to modify
-
-| File | Changes |
-|------|---------|
-| `src/components/ImageGenerator.tsx` | Add `marketing_context` to Project type, fetch it, send as `marketingContext` to API, auto-fill overlay text from suggestion |
-| `src/components/VideoGenerator.tsx` | Send `marketingContext: project.marketing_context` in both scenario generation calls |
-| `supabase/functions/suggest-content/index.ts` | Rework `image_prompt` system prompt to be sales-oriented, add `overlayText` and `cta` to JSON schema, inject marketing context |
-| `supabase/functions/generate-video-scenario/index.ts` | Accept and inject `marketingContext` into system prompt for product-aware scripts |
-
-### New image suggestion JSON schema
-
-```json
-{
-  "suggestions": [
-    {
-      "id": "1",
-      "title": "Hook title (max 50 chars)",
-      "content": "Visual-only cinematic image prompt (no text)",
-      "overlayText": "Catchy selling phrase for overlay (max 8 words)",
-      "cta": "Call-to-action text (e.g. 'Try Free Today')",
-      "contentType": "image",
-      "estimatedEngagement": "high"
-    }
-  ]
-}
+### Issue 1: OpenAI billing limit reached (openai-4o-image)
+The OpenAI API key has hit its billing hard limit. The error is:
 ```
+"Billing hard limit has been reached."
+```
+This is an account-level issue -- your OpenAI account needs more funds or the billing limit needs to be raised on https://platform.openai.com.
 
-### Key prompt changes for image generation
+### Issue 2: KIE Flux Kontext timeout (flux-kontext-pro)
+Tasks are created successfully but the edge function times out during the polling phase. No status check logs appear after task creation, suggesting the function hits the Supabase edge function timeout limit (60s) while waiting.
 
-The system prompt will shift from:
-- "Tell a SILENT STORY through emotions" (current)
+### Issue 3: No automatic fallback
+When one provider fails, there's no retry with an alternative model. The user gets a generic error instead of the system trying another model.
 
-To:
-- "Create a CONVERSION-FOCUSED visual that SELLS the product"
-- "Each prompt MUST reference a specific product/service from the brand"
-- "Suggest an overlay text: a short, punchy phrase that sells"
-- "Suggest a CTA aligned with the audience's pain points"
+## Fix Plan
 
-### No database changes required
+### Step 1: Add automatic model fallback in generate-image
 
-All data (marketing_context, products, audience) already exists in the projects table. The fix is purely about connecting and using this data in the prompt generation pipeline.
+When a model fails, automatically retry with a reliable fallback model (Nano Banana via Lovable AI) instead of returning an error. This ensures users always get an image.
+
+**File**: `supabase/functions/generate-image/index.ts`
+
+- After the primary model fails, check if it was NOT already a Lovable model
+- If so, retry with `google/gemini-2.5-flash-image` (Nano Banana) which is reliable and free
+- Log the fallback attempt for monitoring
+- Only refund credits if BOTH primary and fallback fail
+
+### Step 2: Better OpenAI error handling
+
+Instead of returning a generic "OpenAI error: 400", detect the billing limit error specifically and trigger the fallback immediately.
+
+**File**: `supabase/functions/generate-image/index.ts` (generateWithOpenAI function)
+
+- Parse the OpenAI error response JSON to detect `billing_hard_limit_reached`
+- Return a specific error code that the main handler can use to trigger fallback
+
+### Step 3: Reduce Flux Kontext polling timeout
+
+The current 90-second timeout exceeds Supabase edge function limits. Reduce to a safer value and ensure earlier fallback.
+
+**File**: `supabase/functions/generate-image/index.ts`
+
+- Reduce `maxAttempts` from 90 to 30 (30 seconds max)
+- If Flux Kontext times out, trigger fallback to Lovable
+
+### Step 4: Ensure prompt truncation is applied before KIE API call
+
+The prompt is truncated at line 811 (2950 chars), but the log shows 3313 chars. The truncation IS applied, but we need to ensure the truncated version is what gets sent to all providers.
+
+**File**: `supabase/functions/generate-image/index.ts`
+
+- Add a log line after truncation to confirm the final prompt length
+- Verify the `finalPrompt` variable is the one passed to `generateImage()`
+
+### Summary of changes
+
+| File | Change |
+|------|--------|
+| `supabase/functions/generate-image/index.ts` | Add automatic fallback to Nano Banana when primary model fails. Better OpenAI error detection. Reduce polling timeout. Add truncation confirmation log. |
+
+### What you need to do separately
+
+- **OpenAI billing**: If you want the `openai-4o-image` model to work again, you need to add funds or raise the billing limit on your OpenAI account at https://platform.openai.com/settings/organization/billing
+
