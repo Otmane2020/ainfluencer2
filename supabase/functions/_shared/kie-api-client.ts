@@ -137,9 +137,54 @@ export async function checkKieTaskStatus(
         const resultData = typeof taskData.resultJson === "string" 
           ? JSON.parse(taskData.resultJson) 
           : taskData.resultJson;
-        resultUrls = resultData.resultUrls || resultData.result_urls;
+        
+        console.log("[KIE] resultJson keys:", Object.keys(resultData));
+        
+        // Try multiple known keys for result URLs
+        resultUrls = resultData.resultUrls 
+          || resultData.result_urls 
+          || resultData.images 
+          || resultData.output;
+        
+        // Handle single URL fields
+        if (!resultUrls || resultUrls.length === 0) {
+          const singleUrl = resultData.url || resultData.image_url || resultData.image || resultData.result;
+          if (typeof singleUrl === "string" && singleUrl.startsWith("http")) {
+            resultUrls = [singleUrl];
+          }
+        }
+        
+        // Deep search: if resultData has nested objects, look for URLs
+        if (!resultUrls || resultUrls.length === 0) {
+          console.log("[KIE] resultJson full content:", JSON.stringify(resultData).slice(0, 500));
+          // Search all string values for URLs
+          const urls: string[] = [];
+          const searchForUrls = (obj: unknown) => {
+            if (typeof obj === "string" && (obj.startsWith("http://") || obj.startsWith("https://"))) {
+              urls.push(obj);
+            } else if (Array.isArray(obj)) {
+              obj.forEach(searchForUrls);
+            } else if (obj && typeof obj === "object") {
+              Object.values(obj as Record<string, unknown>).forEach(searchForUrls);
+            }
+          };
+          searchForUrls(resultData);
+          if (urls.length > 0) {
+            resultUrls = urls;
+            console.log("[KIE] Found URLs via deep search:", urls.length);
+          }
+        }
       } catch (e) {
         console.error("[KIE] Failed to parse resultJson:", e);
+      }
+    }
+    
+    // Also check top-level taskData for URLs if resultJson parsing found nothing
+    if ((!resultUrls || resultUrls.length === 0) && taskData.state === "success") {
+      const fallbackUrl = taskData.resultUrl || taskData.result_url || taskData.imageUrl || taskData.image_url;
+      if (typeof fallbackUrl === "string" && fallbackUrl.startsWith("http")) {
+        resultUrls = [fallbackUrl];
+        console.log("[KIE] Found URL in taskData top-level");
       }
     }
 
