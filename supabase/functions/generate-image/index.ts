@@ -559,6 +559,78 @@ async function generateWithLovable(
 }
 
 // ============================================================
+// DIRECT GEMINI FALLBACK (uses GEMINI_API_KEY directly)
+// ============================================================
+
+async function generateWithGeminiDirect(
+  prompt: string,
+  sourceImage?: string
+): Promise<{ imageData: string | null; error?: string }> {
+  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+  if (!GEMINI_API_KEY) {
+    return { imageData: null, error: "GEMINI_API_KEY not configured" };
+  }
+
+  try {
+    console.log("[GeminiDirect] Generating image with Gemini 2.5 Flash (direct API)");
+
+    const parts: any[] = [{ text: prompt }];
+
+    if (sourceImage && sourceImage.startsWith("data:")) {
+      const match = sourceImage.match(/^data:([^;]+);base64,(.+)$/);
+      if (match) {
+        parts.push({
+          inline_data: { mime_type: match[1], data: match[2] }
+        });
+      }
+    }
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: {
+            responseModalities: ["TEXT", "IMAGE"],
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[GeminiDirect] Error ${response.status}:`, errorText.slice(0, 300));
+      return { imageData: null, error: `Gemini direct error: ${response.status}` };
+    }
+
+    const data = await response.json();
+    const candidates = data.candidates;
+    if (!candidates?.[0]?.content?.parts) {
+      console.error("[GeminiDirect] No candidates in response");
+      return { imageData: null, error: "No image in Gemini response" };
+    }
+
+    for (const part of candidates[0].content.parts) {
+      if (part.inlineData || part.inline_data) {
+        const inlineData = part.inlineData || part.inline_data;
+        const mimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
+        const imageData = `data:${mimeType};base64,${inlineData.data}`;
+        console.log("[GeminiDirect] ✓ Image generated successfully");
+        return { imageData };
+      }
+    }
+
+    console.error("[GeminiDirect] No inline image data found in parts");
+    return { imageData: null, error: "No image data in Gemini response" };
+  } catch (error) {
+    console.error("[GeminiDirect] Exception:", error);
+    return { imageData: null, error: String(error) };
+  }
+}
+
+// ============================================================
 // UNIFIED GENERATION WITH ROUTING
 // ============================================================
 
@@ -832,7 +904,9 @@ COMPOSITION: Keep bottom 20% clean for overlay.`);
     );
 
     // ============================================================
-    // AUTOMATIC FALLBACK - Retry with Nano Banana if primary fails
+    // AUTOMATIC FALLBACK CHAIN
+    // 1. Try Nano Banana (Lovable AI gateway)
+    // 2. If that fails (402/credits), try Gemini direct API
     // ============================================================
     if (!imageData && provider !== "lovable") {
       console.log(`[Fallback] Primary model ${effectiveModelId} failed (${error}). Retrying with Nano Banana...`);
@@ -849,7 +923,20 @@ COMPOSITION: Keep bottom 20% clean for overlay.`);
         error = undefined;
         provider = "lovable";
       } else {
-        console.error(`[Fallback] ✗ Nano Banana also failed: ${fallbackResult.error}`);
+        console.error(`[Fallback] ✗ Nano Banana failed: ${fallbackResult.error}`);
+        
+        // Second fallback: try Gemini direct API
+        console.log(`[Fallback] Trying Gemini direct API as second fallback...`);
+        const geminiResult = await generateWithGeminiDirect(finalPrompt, sourceImage);
+        
+        if (geminiResult.imageData) {
+          console.log(`[Fallback] ✓ Gemini direct succeeded as fallback`);
+          imageData = geminiResult.imageData;
+          error = undefined;
+          provider = "gemini-direct";
+        } else {
+          console.error(`[Fallback] ✗ Gemini direct also failed: ${geminiResult.error}`);
+        }
       }
     }
 
