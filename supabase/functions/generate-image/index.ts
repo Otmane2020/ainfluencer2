@@ -572,28 +572,19 @@ async function generateWithGeminiDirect(
   }
 
   try {
-    console.log("[GeminiDirect] Generating image with Gemini 2.5 Flash (direct API)");
+    console.log("[GeminiDirect] Generating image with Imagen 3 (direct API)");
 
-    const parts: any[] = [{ text: prompt }];
-
-    if (sourceImage && sourceImage.startsWith("data:")) {
-      const match = sourceImage.match(/^data:([^;]+);base64,(.+)$/);
-      if (match) {
-        parts.push({
-          inline_data: { mime_type: match[1], data: match[2] }
-        });
-      }
-    }
-
+    // Use Imagen 3 - Google's dedicated image generation model
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts }],
-          generationConfig: {
-            responseModalities: ["TEXT", "IMAGE"],
+          instances: [{ prompt }],
+          parameters: {
+            sampleCount: 1,
+            aspectRatio: "1:1",
           },
         }),
       }
@@ -601,29 +592,64 @@ async function generateWithGeminiDirect(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[GeminiDirect] Error ${response.status}:`, errorText.slice(0, 300));
-      return { imageData: null, error: `Gemini direct error: ${response.status}` };
-    }
-
-    const data = await response.json();
-    const candidates = data.candidates;
-    if (!candidates?.[0]?.content?.parts) {
-      console.error("[GeminiDirect] No candidates in response");
-      return { imageData: null, error: "No image in Gemini response" };
-    }
-
-    for (const part of candidates[0].content.parts) {
-      if (part.inlineData || part.inline_data) {
-        const inlineData = part.inlineData || part.inline_data;
-        const mimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
-        const imageData = `data:${mimeType};base64,${inlineData.data}`;
-        console.log("[GeminiDirect] ✓ Image generated successfully");
-        return { imageData };
+      console.error(`[GeminiDirect] Imagen error ${response.status}:`, errorText.slice(0, 300));
+      
+      // Fallback: try gemini-2.0-flash-exp which supports image generation experimentally
+      console.log("[GeminiDirect] Trying gemini-2.0-flash-exp as sub-fallback...");
+      
+      const parts: any[] = [{ text: prompt }];
+      if (sourceImage && sourceImage.startsWith("data:")) {
+        const match = sourceImage.match(/^data:([^;]+);base64,(.+)$/);
+        if (match) {
+          parts.push({ inline_data: { mime_type: match[1], data: match[2] } });
+        }
       }
+
+      const expResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts }],
+            generationConfig: { responseModalities: ["IMAGE"] },
+          }),
+        }
+      );
+
+      if (!expResponse.ok) {
+        const expError = await expResponse.text();
+        console.error(`[GeminiDirect] Exp model also failed ${expResponse.status}:`, expError.slice(0, 300));
+        return { imageData: null, error: `Gemini direct error: ${response.status} / ${expResponse.status}` };
+      }
+
+      const expData = await expResponse.json();
+      const expParts = expData.candidates?.[0]?.content?.parts;
+      if (expParts) {
+        for (const part of expParts) {
+          if (part.inlineData || part.inline_data) {
+            const inlineData = part.inlineData || part.inline_data;
+            const mimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
+            const imageData = `data:${mimeType};base64,${inlineData.data}`;
+            console.log("[GeminiDirect] ✓ Image generated with gemini-2.0-flash-exp");
+            return { imageData };
+          }
+        }
+      }
+      return { imageData: null, error: "No image data in Gemini exp response" };
     }
 
-    console.error("[GeminiDirect] No inline image data found in parts");
-    return { imageData: null, error: "No image data in Gemini response" };
+    // Imagen 3 returns predictions with bytesBase64Encoded
+    const data = await response.json();
+    const predictions = data.predictions;
+    if (predictions?.[0]?.bytesBase64Encoded) {
+      const imageData = `data:image/png;base64,${predictions[0].bytesBase64Encoded}`;
+      console.log("[GeminiDirect] ✓ Image generated with Imagen 3");
+      return { imageData };
+    }
+
+    console.error("[GeminiDirect] No predictions in Imagen response");
+    return { imageData: null, error: "No image in Imagen response" };
   } catch (error) {
     console.error("[GeminiDirect] Exception:", error);
     return { imageData: null, error: String(error) };
@@ -844,50 +870,46 @@ Deno.serve(async (req) => {
     const langConfig = LANGUAGE_CONFIG[outputLanguage] || LANGUAGE_CONFIG["en"];
     const primaryColor = marketingContext?.visual_identity?.primary_color || guardInput.themeColor;
     
-    // Build prompt
+    // Build prompt - PRODUCT-FIRST approach
     const promptParts: string[] = [];
     
-    promptParts.push(`=== ARTISTIC DIRECTION ===
-STYLE: Ultra-premium cinematic advertising photography. Stylized realism.
-
-⚠️ HUMAN ANATOMY RULES:
-- ARMS: Proportional, natural joint angles
-- HANDS: 5 fingers, correct proportions
-- POSTURE: Natural, balanced, credible
-- LIGHTING: Unified, consistent shadows
-
-📸 QUALITY:
-- Cinematic lighting with depth
-- Professional color grading
-- Sharp details, natural textures`);
-    
-    if (outputLanguage !== "en") {
-      promptParts.push(`
-⚠️ LANGUAGE: ${langConfig.fullName}
-${langConfig.instruction}`);
-    }
-    
+    // 1. BRAND CONTEXT FIRST (most important for product promotion)
     if (contextGuard.contextScore >= 40) {
       promptParts.push(contextGuard.brandContext);
     } else if (brandName) {
       promptParts.push(`BRAND: ${brandName}`);
     }
-    
-    promptParts.push(`
-=== GENERATION REQUEST ===
+
+    // 2. THE USER'S REQUEST
+    promptParts.push(`=== GENERATION REQUEST ===
 ${prompt}`);
-    
-    promptParts.push(`
-⛔ TEXT BAN: NO text, words, or typography in the image.`);
+
+    // 3. VISUAL QUALITY (concise, no anatomy bias)
+    promptParts.push(`=== VISUAL STYLE ===
+STYLE: Ultra-premium commercial photography. Product-focused.
+QUALITY: Cinematic lighting, professional color grading, sharp details.
+FOCUS: Showcase the product/service prominently. The product is the hero of the image.`);
+
+    // 4. Only add anatomy rules if prompt explicitly mentions people/humans
+    const mentionsPeople = /\b(person|people|human|man|woman|model|customer|user|client|portrait)\b/i.test(prompt);
+    if (mentionsPeople) {
+      promptParts.push(`HUMAN FIGURES: If people appear, ensure natural proportions, 5 fingers, balanced posture.`);
+    }
+
+    // 5. Language
+    if (outputLanguage !== "en") {
+      promptParts.push(`LANGUAGE: ${langConfig.fullName} — ${langConfig.instruction}`);
+    }
+
+    // 6. Constraints
+    promptParts.push(`⛔ NO text, words, letters, or typography in the image.`);
     
     if (primaryColor) {
-      promptParts.push(`
-BRAND COLOR: ${primaryColor} - integrate through lighting and environment.`);
+      promptParts.push(`BRAND COLOR: ${primaryColor} — integrate through lighting and environment.`);
     }
     
     if (includeLogo || includeUrl || includeText) {
-      promptParts.push(`
-COMPOSITION: Keep bottom 20% clean for overlay.`);
+      promptParts.push(`COMPOSITION: Keep bottom 20% clean for text overlay.`);
     }
     
     // Truncate to KIE API limit (3000 chars max)
