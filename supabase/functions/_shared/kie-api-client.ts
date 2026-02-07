@@ -273,11 +273,36 @@ export async function checkFluxKontextStatus(
     const taskData = data.data || data;
     const flag = taskData.successFlag ?? taskData.success_flag;
 
+    console.log(`[KIE-Kontext] Status check - flag: ${flag}, keys: ${JSON.stringify(Object.keys(taskData))}`);
+
     if (flag === 1) {
-      // Success - extract result URLs
-      const resultUrls = taskData.response?.resultUrls 
+      // Success - extract result URLs from multiple possible locations
+      let resultUrls = taskData.response?.resultUrls 
         || taskData.resultUrls 
-        || (taskData.response?.url ? [taskData.response.url] : undefined);
+        || taskData.result_urls
+        || (taskData.response?.url ? [taskData.response.url] : undefined)
+        || (taskData.response?.image_url ? [taskData.response.image_url] : undefined);
+      
+      // If still not found, deep search the entire taskData for URLs
+      if (!resultUrls || resultUrls.length === 0) {
+        console.log("[KIE-Kontext] Deep searching for URLs in:", JSON.stringify(taskData).slice(0, 500));
+        const urls: string[] = [];
+        const searchForUrls = (obj: unknown) => {
+          if (typeof obj === "string" && (obj.startsWith("http://") || obj.startsWith("https://"))) {
+            urls.push(obj);
+          } else if (Array.isArray(obj)) {
+            obj.forEach(searchForUrls);
+          } else if (obj && typeof obj === "object") {
+            Object.values(obj as Record<string, unknown>).forEach(searchForUrls);
+          }
+        };
+        searchForUrls(taskData);
+        if (urls.length > 0) {
+          resultUrls = urls;
+          console.log(`[KIE-Kontext] Found ${urls.length} URLs via deep search`);
+        }
+      }
+
       return {
         success: true,
         status: "completed",
