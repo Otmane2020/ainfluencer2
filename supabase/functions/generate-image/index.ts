@@ -869,8 +869,20 @@ COMPOSITION: Keep bottom 20% clean for overlay.`);
         console.log(`✓ Refunded ${creditCost} credits due to generation failure`);
       }
 
+      // Return a user-friendly error message
+      let userMessage = "Image generation failed. Please try again.";
+      if (error === "BILLING_LIMIT_REACHED") {
+        userMessage = "The selected model is temporarily unavailable. Your credits have been refunded. Please try a different model (e.g. Nano Banana or Qwen).";
+      } else if (error?.includes("Payment required") || error?.includes("Not enough credits")) {
+        userMessage = "AI service credits exhausted. Your credits have been refunded. Please try again later.";
+      } else if (error?.includes("Rate limit") || error?.includes("429")) {
+        userMessage = "Too many requests. Your credits have been refunded. Please wait a moment and try again.";
+      } else if (error?.includes("timeout") || error?.includes("Timeout")) {
+        userMessage = "Image generation timed out. Your credits have been refunded. Please try again.";
+      }
+
       return new Response(
-        JSON.stringify({ error: error || "Image generation failed" }),
+        JSON.stringify({ error: userMessage }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
