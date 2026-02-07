@@ -807,7 +807,8 @@ BRAND COLOR: ${primaryColor} - integrate through lighting and environment.`);
 COMPOSITION: Keep bottom 20% clean for overlay.`);
     }
     
-    const finalPrompt = promptParts.join('\n\n');
+    // Truncate to KIE API limit (3000 chars max)
+    const finalPrompt = promptParts.join('\n\n').slice(0, 2950);
     const effectiveAspect = aspectRatio || (format === "vertical" ? "9:16" : format === "landscape" ? "16:9" : "1:1");
 
     // Generate image
