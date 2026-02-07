@@ -586,7 +586,7 @@ async function generateWithGeminiDirect(
     }
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -936,6 +936,25 @@ COMPOSITION: Keep bottom 20% clean for overlay.`);
           provider = "gemini-direct";
         } else {
           console.error(`[Fallback] ✗ Gemini direct also failed: ${geminiResult.error}`);
+          
+          // Third fallback: try KIE Qwen (cheapest model at 0.8 credits)
+          console.log(`[Fallback] Trying KIE Qwen Z-Image as last resort...`);
+          const qwenResult = await generateWithKieApi(
+            finalPrompt,
+            "qwen-zimage",
+            "qwen/text-to-image",
+            undefined, // no source image for text-to-image
+            effectiveAspect
+          );
+          
+          if (qwenResult.imageData) {
+            console.log(`[Fallback] ✓ KIE Qwen succeeded as last-resort fallback`);
+            imageData = qwenResult.imageData;
+            error = undefined;
+            provider = "kie-qwen-fallback";
+          } else {
+            console.error(`[Fallback] ✗ KIE Qwen also failed: ${qwenResult.error}`);
+          }
         }
       }
     }

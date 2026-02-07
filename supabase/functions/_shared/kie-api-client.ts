@@ -276,20 +276,39 @@ export async function checkFluxKontextStatus(
     console.log(`[KIE-Kontext] Status check - flag: ${flag}, keys: ${JSON.stringify(Object.keys(taskData))}`);
 
     if (flag === 1) {
-      // Success - extract result URLs from multiple possible locations
-      let resultUrls = taskData.response?.resultUrls 
-        || taskData.resultUrls 
-        || taskData.result_urls
-        || (taskData.response?.url ? [taskData.response.url] : undefined)
-        || (taskData.response?.image_url ? [taskData.response.image_url] : undefined);
+      // Success - extract result URLs using documented field names:
+      // data.response.resultImageUrl = generated image URL
+      // data.response.originImageUrl = original image (valid 10 min)
+      const resultImageUrl = taskData.response?.resultImageUrl;
+      const originImageUrl = taskData.response?.originImageUrl;
       
-      // If still not found, deep search the entire taskData for URLs
-      if (!resultUrls || resultUrls.length === 0) {
+      let resultUrls: string[] = [];
+      
+      if (resultImageUrl) {
+        resultUrls.push(resultImageUrl);
+        console.log(`[KIE-Kontext] Found resultImageUrl`);
+      }
+      if (originImageUrl && originImageUrl !== resultImageUrl) {
+        resultUrls.push(originImageUrl);
+      }
+      
+      // Fallback: also check legacy field names just in case
+      if (resultUrls.length === 0) {
+        const legacyUrls = taskData.response?.resultUrls 
+          || taskData.resultUrls 
+          || taskData.result_urls;
+        if (legacyUrls && legacyUrls.length > 0) {
+          resultUrls = legacyUrls;
+          console.log(`[KIE-Kontext] Found URLs via legacy fields`);
+        }
+      }
+      
+      // Last resort: deep search
+      if (resultUrls.length === 0) {
         console.log("[KIE-Kontext] Deep searching for URLs in:", JSON.stringify(taskData).slice(0, 500));
-        const urls: string[] = [];
         const searchForUrls = (obj: unknown) => {
           if (typeof obj === "string" && (obj.startsWith("http://") || obj.startsWith("https://"))) {
-            urls.push(obj);
+            resultUrls.push(obj);
           } else if (Array.isArray(obj)) {
             obj.forEach(searchForUrls);
           } else if (obj && typeof obj === "object") {
@@ -297,17 +316,16 @@ export async function checkFluxKontextStatus(
           }
         };
         searchForUrls(taskData);
-        if (urls.length > 0) {
-          resultUrls = urls;
-          console.log(`[KIE-Kontext] Found ${urls.length} URLs via deep search`);
+        if (resultUrls.length > 0) {
+          console.log(`[KIE-Kontext] Found ${resultUrls.length} URLs via deep search`);
         }
       }
 
       return {
         success: true,
         status: "completed",
-        resultUrl: resultUrls?.[0],
-        resultUrls,
+        resultUrl: resultUrls[0],
+        resultUrls: resultUrls.length > 0 ? resultUrls : undefined,
       };
     }
 

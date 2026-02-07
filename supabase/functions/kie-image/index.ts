@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
 };
 
-const KIE_API_BASE = "https://kie.ai/api";
+const KIE_API_BASE = "https://api.kie.ai/api";
 
 type ImageModel = 
   | "recraft-remove-bg"
