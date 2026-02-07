@@ -905,56 +905,63 @@ COMPOSITION: Keep bottom 20% clean for overlay.`);
 
     // ============================================================
     // AUTOMATIC FALLBACK CHAIN
-    // 1. Try Nano Banana (Lovable AI gateway)
-    // 2. If that fails (402/credits), try Gemini direct API
+    // When primary fails, try alternatives in order:
+    // 1. Nano Banana (only if primary wasn't already lovable)
+    // 2. Gemini direct API (using GEMINI_API_KEY)
+    // 3. KIE Qwen Z-Image (cheapest KIE model)
     // ============================================================
-    if (!imageData && provider !== "lovable") {
-      console.log(`[Fallback] Primary model ${effectiveModelId} failed (${error}). Retrying with Nano Banana...`);
-      
-      const fallbackResult = await generateWithLovable(
-        finalPrompt,
-        "google/gemini-2.5-flash-image",
-        sourceImage
-      );
-      
-      if (fallbackResult.imageData) {
-        console.log(`[Fallback] ✓ Nano Banana succeeded as fallback for ${effectiveModelId}`);
-        imageData = fallbackResult.imageData;
-        error = undefined;
-        provider = "lovable";
-      } else {
-        console.error(`[Fallback] ✗ Nano Banana failed: ${fallbackResult.error}`);
-        
-        // Second fallback: try Gemini direct API
-        console.log(`[Fallback] Trying Gemini direct API as second fallback...`);
+    if (!imageData) {
+      console.log(`[Fallback] Primary model ${effectiveModelId} (${provider}) failed: ${error}`);
+
+      // Step 1: Try Nano Banana — skip if primary was already lovable
+      if (provider !== "lovable") {
+        console.log(`[Fallback] Step 1: Trying Nano Banana...`);
+        const fallbackResult = await generateWithLovable(
+          finalPrompt,
+          "google/gemini-2.5-flash-image",
+          sourceImage
+        );
+        if (fallbackResult.imageData) {
+          console.log(`[Fallback] ✓ Nano Banana succeeded`);
+          imageData = fallbackResult.imageData;
+          error = undefined;
+          provider = "lovable";
+        } else {
+          console.error(`[Fallback] ✗ Nano Banana failed: ${fallbackResult.error}`);
+        }
+      }
+
+      // Step 2: Try Gemini direct API
+      if (!imageData) {
+        console.log(`[Fallback] Step 2: Trying Gemini direct API...`);
         const geminiResult = await generateWithGeminiDirect(finalPrompt, sourceImage);
-        
         if (geminiResult.imageData) {
-          console.log(`[Fallback] ✓ Gemini direct succeeded as fallback`);
+          console.log(`[Fallback] ✓ Gemini direct succeeded`);
           imageData = geminiResult.imageData;
           error = undefined;
           provider = "gemini-direct";
         } else {
-          console.error(`[Fallback] ✗ Gemini direct also failed: ${geminiResult.error}`);
-          
-          // Third fallback: try KIE Qwen (cheapest model at 0.8 credits)
-          console.log(`[Fallback] Trying KIE Qwen Z-Image as last resort...`);
-          const qwenResult = await generateWithKieApi(
-            finalPrompt,
-            "qwen-zimage",
-            "qwen/text-to-image",
-            undefined, // no source image for text-to-image
-            effectiveAspect
-          );
-          
-          if (qwenResult.imageData) {
-            console.log(`[Fallback] ✓ KIE Qwen succeeded as last-resort fallback`);
-            imageData = qwenResult.imageData;
-            error = undefined;
-            provider = "kie-qwen-fallback";
-          } else {
-            console.error(`[Fallback] ✗ KIE Qwen also failed: ${qwenResult.error}`);
-          }
+          console.error(`[Fallback] ✗ Gemini direct failed: ${geminiResult.error}`);
+        }
+      }
+
+      // Step 3: Try KIE Qwen Z-Image as last resort
+      if (!imageData) {
+        console.log(`[Fallback] Step 3: Trying KIE Qwen Z-Image...`);
+        const qwenResult = await generateWithKieApi(
+          finalPrompt,
+          "qwen-zimage",
+          "qwen/text-to-image",
+          undefined,
+          effectiveAspect
+        );
+        if (qwenResult.imageData) {
+          console.log(`[Fallback] ✓ KIE Qwen succeeded`);
+          imageData = qwenResult.imageData;
+          error = undefined;
+          provider = "kie-qwen-fallback";
+        } else {
+          console.error(`[Fallback] ✗ KIE Qwen failed: ${qwenResult.error}`);
         }
       }
     }
