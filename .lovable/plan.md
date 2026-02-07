@@ -1,71 +1,104 @@
 
+# Fix Image Generation -- KIE API Documentation Compliance
 
-# Fix Image Generation -- Multiple Provider Failures
+## Root Cause Analysis
 
-## Diagnosis
+After thoroughly reading the official KIE API documentation and comparing it with the current code, I found **3 critical bugs** that explain why image generation fails:
 
-After investigating the edge function logs, I found **three distinct issues** causing image generation to fail for every model:
+### Bug 1: Flux Kontext -- Wrong result field name (CRITICAL)
 
-### Issue 1: OpenAI billing limit reached (openai-4o-image)
-The OpenAI API key has hit its billing hard limit. The error is:
+The documentation clearly states the Flux Kontext status response returns:
+```text
+data.response.resultImageUrl  -- Generated image URL
+data.response.originImageUrl  -- Original (valid 10 min)
 ```
-"Billing hard limit has been reached."
+
+But our code checks for WRONG fields:
+```text
+taskData.response?.resultUrls      -- DOES NOT EXIST
+taskData.response?.url             -- DOES NOT EXIST
+taskData.response?.image_url       -- DOES NOT EXIST
 ```
-This is an account-level issue -- your OpenAI account needs more funds or the billing limit needs to be raised on https://platform.openai.com.
 
-### Issue 2: KIE Flux Kontext timeout (flux-kontext-pro)
-Tasks are created successfully but the edge function times out during the polling phase. No status check logs appear after task creation, suggesting the function hits the Supabase edge function timeout limit (60s) while waiting.
+This is why Flux Kontext always returns "No image URL in result" even when generation succeeds.
 
-### Issue 3: No automatic fallback
-When one provider fails, there's no retry with an alternative model. The user gets a generic error instead of the system trying another model.
+### Bug 2: Old kie-image edge function uses wrong base URL
+
+The old `supabase/functions/kie-image/index.ts` uses:
+```text
+https://kie.ai/api     (WRONG)
+```
+
+The documentation specifies:
+```text
+https://api.kie.ai/api  (CORRECT)
+```
+
+The shared client (`_shared/kie-api-client.ts`) uses the correct URL, but the old standalone function does not.
+
+### Bug 3: All fallbacks exhausted -- no working provider left
+
+The fallback chain currently is:
+1. Primary model (OpenAI = billing limit, KIE = wrong URL parsing)
+2. Lovable AI gateway = 402 Payment required (credits exhausted)
+3. Gemini direct = likely failing because `gemini-2.0-flash-exp` may not support image generation
+
+The Gemini direct fallback uses `gemini-2.0-flash-exp` which is an experimental model that may not be available or support `responseModalities: ["IMAGE"]`. A better fallback would use `gemini-2.0-flash` or `imagen-3.0-generate-002`.
 
 ## Fix Plan
 
-### Step 1: Add automatic model fallback in generate-image
+### Step 1: Fix Flux Kontext result URL extraction
 
-When a model fails, automatically retry with a reliable fallback model (Nano Banana via Lovable AI) instead of returning an error. This ensures users always get an image.
+**File**: `supabase/functions/_shared/kie-api-client.ts`
 
-**File**: `supabase/functions/generate-image/index.ts`
+In the `checkFluxKontextStatus` function, change the URL extraction to use the documented field names:
 
-- After the primary model fails, check if it was NOT already a Lovable model
-- If so, retry with `google/gemini-2.5-flash-image` (Nano Banana) which is reliable and free
-- Log the fallback attempt for monitoring
-- Only refund credits if BOTH primary and fallback fail
+```text
+BEFORE (wrong):
+  taskData.response?.resultUrls
+  taskData.response?.url
+  taskData.response?.image_url
 
-### Step 2: Better OpenAI error handling
+AFTER (correct per documentation):
+  taskData.response?.resultImageUrl    -- primary result
+  taskData.response?.originImageUrl    -- fallback (valid 10 min)
+```
 
-Instead of returning a generic "OpenAI error: 400", detect the billing limit error specifically and trigger the fallback immediately.
-
-**File**: `supabase/functions/generate-image/index.ts` (generateWithOpenAI function)
-
-- Parse the OpenAI error response JSON to detect `billing_hard_limit_reached`
-- Return a specific error code that the main handler can use to trigger fallback
-
-### Step 3: Reduce Flux Kontext polling timeout
-
-The current 90-second timeout exceeds Supabase edge function limits. Reduce to a safer value and ensure earlier fallback.
+### Step 2: Fix the Gemini direct fallback model
 
 **File**: `supabase/functions/generate-image/index.ts`
 
-- Reduce `maxAttempts` from 90 to 30 (30 seconds max)
-- If Flux Kontext times out, trigger fallback to Lovable
+Change the Gemini direct API call to use a model that actually supports image generation:
+- Use `gemini-2.0-flash` instead of `gemini-2.0-flash-exp`
+- Also try `imagen-3.0-generate-002` as an alternative
 
-### Step 4: Ensure prompt truncation is applied before KIE API call
-
-The prompt is truncated at line 811 (2950 chars), but the log shows 3313 chars. The truncation IS applied, but we need to ensure the truncated version is what gets sent to all providers.
+### Step 3: Fix fallback chain to also try KIE models
 
 **File**: `supabase/functions/generate-image/index.ts`
 
-- Add a log line after truncation to confirm the final prompt length
-- Verify the `finalPrompt` variable is the one passed to `generateImage()`
+Update the fallback chain so that when Lovable AI is out of credits:
+1. Try primary model (current behavior)
+2. If Lovable (Nano Banana) fallback fails with 402
+3. Try Gemini direct API with correct model
+4. Try KIE `qwen/text-to-image` as last resort (cheapest KIE model at 0.8 credits)
+
+### Step 4: Fix old kie-image edge function base URL
+
+**File**: `supabase/functions/kie-image/index.ts`
+
+Change the base URL from `https://kie.ai/api` to `https://api.kie.ai/api` to match the documentation.
 
 ### Summary of changes
 
 | File | Change |
 |------|--------|
-| `supabase/functions/generate-image/index.ts` | Add automatic fallback to Nano Banana when primary model fails. Better OpenAI error detection. Reduce polling timeout. Add truncation confirmation log. |
+| `supabase/functions/_shared/kie-api-client.ts` | Fix Flux Kontext to use `response.resultImageUrl` (documented field) |
+| `supabase/functions/generate-image/index.ts` | Fix Gemini direct model name, add KIE Qwen as last-resort fallback |
+| `supabase/functions/kie-image/index.ts` | Fix base URL from `kie.ai/api` to `api.kie.ai/api` |
 
-### What you need to do separately
+### What this fixes
 
-- **OpenAI billing**: If you want the `openai-4o-image` model to work again, you need to add funds or raise the billing limit on your OpenAI account at https://platform.openai.com/settings/organization/billing
-
+- Flux Kontext Pro/Max will now correctly extract the generated image URL
+- Qwen Z-Image, Grok Imagine, and all other KIE Market models will work correctly (Market API parsing was already correct)
+- If OpenAI and Lovable AI are both out of credits, the system will fall back to Gemini direct or KIE Qwen instead of failing
+- The old kie-image endpoint will hit the correct API server
