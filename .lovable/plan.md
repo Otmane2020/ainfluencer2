@@ -1,81 +1,89 @@
 
 
-# AI Generation Audit - Full Diagnostic Report
+# Fix AI Prompt Generation to Sell Projects Effectively
 
-## Issues Found
+## Problem
 
-### 1. CRITICAL: Video Generation Completely Down (Sora + Veo)
-Both video providers have hit their billing/quota limits:
-- **OpenAI Sora 2**: "Billing hard limit has been reached"
-- **Google Veo 3.1**: "You exceeded your current quota"
+The AI-generated prompts for images and videos don't effectively sell projects because:
 
-The fallback chain (Sora 2 -> Sora 2 Pro -> Veo 3.1 Pro -> Veo 3.1) fails entirely -- all 4 models are unavailable.
+1. **Missing marketing data**: The ImageGenerator and VideoGenerator don't send the project's `marketing_context` (products, USP, target audience, brand tone) to the backend. The AI generates prompts "blind" -- without knowing what the brand sells.
+2. **No overlay text suggestions**: Image prompts generate pure visual descriptions but never suggest overlay text (catchphrases, CTAs, selling hooks) that would appear on top of the image in post-production.
+3. **Too artistic, not enough commercial**: The current system prompt focuses on "cinematic storytelling" and "visual emotions" but lacks instructions to showcase actual products, benefits, and conversion triggers.
 
-**Resolution**: The `kie-video` function (Wan 2.6 / Kling 2.6 via KIE API) was added as an alternative, BUT it's not working either (see issue #2).
+## Solution
 
-### 2. CRITICAL: `kie-video` Edge Function Not Deployed (404)
-The KIE video function exists in code and in `config.toml`, but returns 404 when called. This means the function failed to deploy silently. The VideoGenerator component already routes to `kie-video` for Wan/Kling models, so all video generation via the new models fails.
+### Step 1: Send marketing context from frontend components
 
-**Resolution**: Redeploy the `kie-video` function. May need to check for import/syntax issues preventing deployment.
+**ImageGenerator.tsx**:
+- Add `marketing_context` to the Project interface
+- Fetch `marketing_context` in the project query
+- Send `marketingContext` in the `suggest-content` API call body
 
-### 3. MODERATE: CORS Headers Missing on `generate-image`
-The `generate-image` function uses incomplete CORS headers:
-```text
-Current:  "authorization, x-client-info, apikey, content-type"
-Required: "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version"
-```
-The Supabase JS SDK sends these additional headers automatically. The browser's preflight (OPTIONS) request will be rejected, causing CORS errors even though the function itself works fine (confirmed via direct API test - returns 200).
+**VideoGenerator.tsx**:
+- Send `marketingContext: project.marketing_context` in the `generate-video-scenario` call (already fetched but not sent)
 
-**Resolution**: Update CORS headers in `generate-image/index.ts`.
+### Step 2: Enhance image prompt generation with selling power
 
-### 4. INFO: Image Generation Backend Works
-Direct API test to `generate-image` returned 200 successfully. The function logic, credit deduction, and model routing are all functional. The only barrier is the CORS header issue preventing browser calls.
+**suggest-content/index.ts** (`image_prompt` section):
+- Add `overlayText` field to the JSON response schema -- the AI must suggest a catchy selling phrase for each prompt
+- Add `cta` field -- a call-to-action recommendation
+- Inject marketing context data (products, USP, audience pain points) directly into the system prompt
+- Shift prompt instructions from "tell a silent story" to "SELL the product through visual impact + overlay copy"
+- Each suggestion must reference a specific product/service from the project
 
-### 5. INFO: KIE Image Function Works
-The `kie-image` function is deployed and responds (returns 400 for missing params, meaning it's alive). It has correct CORS headers. However, the `generate-image` function already handles KIE models internally, so `kie-image` may be redundant.
+### Step 3: Enhance video scenario generation with selling context
 
----
+**generate-video-scenario/index.ts**:
+- Accept and use `marketingContext` parameter
+- Inject products/services, audience pain points, and USP into the system prompt
+- Ensure each scenario directly addresses a real audience pain point or showcases a real product benefit
 
-## Fix Plan
+### Step 4: Auto-apply overlay text from suggestions
 
-### Step 1: Fix CORS on `generate-image` (Unblocks Image Generation)
-Update `supabase/functions/generate-image/index.ts` line 16-18 to include the full set of required CORS headers. This single change will fix image generation from the browser.
-
-### Step 2: Redeploy `kie-video` (Unblocks Video Generation)
-Force-deploy the `kie-video` edge function. If deployment fails, investigate and fix any syntax or import issues in the function code.
-
-### Step 3: Reroute Video Generation Fallback to KIE
-Since OpenAI Sora and Google Veo are both at their billing/quota limits, update the `generate-video-sora` function to add KIE (Wan 2.6 / Kling 2.6) as a final fallback in the chain. This ensures video generation works even when premium providers are down.
-
-Current fallback chain:
-```text
-Sora 2 Pro -> Sora 2 -> Veo 3.1 Pro -> Veo 3.1 -> (all fail)
-```
-
-Proposed chain:
-```text
-Sora 2 Pro -> Sora 2 -> Veo 3.1 Pro -> Veo 3.1 -> KIE Wan 2.6 (new)
-```
-
-### Step 4: Verify both flows end-to-end
-Test image and video generation from the browser to confirm everything works.
-
----
+**ImageGenerator.tsx**:
+- When a suggestion is selected, auto-fill the `overlayText` in `brandOptions` with the suggested text
+- Auto-enable the `includeText` brand option when overlay text is provided
 
 ## Technical Details
 
-### Files to Modify
+### Files to modify
 
-| File | Change | Impact |
-|------|--------|--------|
-| `supabase/functions/generate-image/index.ts` | Fix CORS headers (line 16-18) | Unblocks image generation |
-| `supabase/functions/generate-video-sora/index.ts` | Add KIE fallback at end of chain | Video generation resilience |
-| `supabase/config.toml` | Verify `kie-video` entry (already present) | -- |
+| File | Changes |
+|------|---------|
+| `src/components/ImageGenerator.tsx` | Add `marketing_context` to Project type, fetch it, send as `marketingContext` to API, auto-fill overlay text from suggestion |
+| `src/components/VideoGenerator.tsx` | Send `marketingContext: project.marketing_context` in both scenario generation calls |
+| `supabase/functions/suggest-content/index.ts` | Rework `image_prompt` system prompt to be sales-oriented, add `overlayText` and `cta` to JSON schema, inject marketing context |
+| `supabase/functions/generate-video-scenario/index.ts` | Accept and inject `marketingContext` into system prompt for product-aware scripts |
 
-### Functions to Deploy
-- `generate-image` (CORS fix)
-- `kie-video` (force redeploy)
-- `generate-video-sora` (KIE fallback)
+### New image suggestion JSON schema
 
-### No Database Changes Required
+```json
+{
+  "suggestions": [
+    {
+      "id": "1",
+      "title": "Hook title (max 50 chars)",
+      "content": "Visual-only cinematic image prompt (no text)",
+      "overlayText": "Catchy selling phrase for overlay (max 8 words)",
+      "cta": "Call-to-action text (e.g. 'Try Free Today')",
+      "contentType": "image",
+      "estimatedEngagement": "high"
+    }
+  ]
+}
+```
 
+### Key prompt changes for image generation
+
+The system prompt will shift from:
+- "Tell a SILENT STORY through emotions" (current)
+
+To:
+- "Create a CONVERSION-FOCUSED visual that SELLS the product"
+- "Each prompt MUST reference a specific product/service from the brand"
+- "Suggest an overlay text: a short, punchy phrase that sells"
+- "Suggest a CTA aligned with the audience's pain points"
+
+### No database changes required
+
+All data (marketing_context, products, audience) already exists in the projects table. The fix is purely about connecting and using this data in the prompt generation pipeline.
