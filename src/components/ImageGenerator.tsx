@@ -34,6 +34,7 @@ interface Project {
   logo_url: string | null;
   ai_context_summary: string | null;
   scraped_markdown: string | null;
+  marketing_context: any | null;
   scraped_data: {
     branding?: any;
     services?: string[];
@@ -172,7 +173,7 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
     const fetchProjects = async () => {
       const { data } = await supabase
         .from("projects")
-        .select("id, name, description, theme_color, url, detected_language, avatar_url, logo_url, ai_context_summary, scraped_markdown, scraped_data")
+        .select("id, name, description, theme_color, url, detected_language, avatar_url, logo_url, ai_context_summary, scraped_markdown, scraped_data, marketing_context")
         .order("name");
       if (data) setProjects(data as Project[]);
     };
@@ -212,6 +213,7 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
           detectedLanguage: finalLanguage,
           logoUrl: project.avatar_url,
           services: project.scraped_data?.services,
+          marketingContext: project.marketing_context,
         },
       });
 
@@ -224,9 +226,21 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
 
       setPrompt(suggestions[0].content);
 
+      // Auto-apply overlay text from AI suggestion if available
+      const suggestion = suggestions[0];
+      if (suggestion.overlayText) {
+        setBrandOptions({
+          ...brandOptions,
+          includeText: true,
+          overlayText: suggestion.overlayText,
+        });
+      }
+
       toast({
         title: "Prompt generated! ✨",
-        description: project.name,
+        description: suggestion.overlayText 
+          ? `${project.name} — overlay text applied`
+          : project.name,
       });
     } catch (error) {
       console.error("AI prompt generation error:", error);

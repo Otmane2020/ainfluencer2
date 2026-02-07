@@ -429,7 +429,8 @@ export const VideoGenerator = ({
           scriptType: selectedProduct.category === "avatar" ? "testimonial" : "reel",
           duration,
           detectedLanguage: finalLanguage,
-          logoUrl: project.avatar_url
+          logoUrl: project.avatar_url,
+          marketingContext: project.marketing_context,
         }
       });
       if (error) throw error;
