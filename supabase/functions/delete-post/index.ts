@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
     const userId = claims.claims.sub as string;
 
     // Parse request body
-    const { postId, postIds, deleteFromPlatforms = true } = await req.json();
+    const { postId, postIds, deleteFromPlatforms = true, keepInDatabase = false } = await req.json();
 
     // Support both single and batch delete
     const idsToDelete = postIds || (postId ? [postId] : []);
@@ -163,34 +163,40 @@ Deno.serve(async (req) => {
       results.push(result);
     }
 
-    // Delete posts from database (RLS ensures user can only delete their own)
-    const { data, error } = await supabase
-      .from("scheduled_posts")
-      .delete()
-      .in("id", idsToDelete)
-      .eq("user_id", userId)
-      .select("id");
+    let deletedIds: string[] = [];
 
-    if (error) {
-      console.error("[delete-post] Database delete error:", error);
-      return new Response(
-        JSON.stringify({ error: error.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (!keepInDatabase) {
+      // Delete posts from database (RLS ensures user can only delete their own)
+      const { data, error } = await supabase
+        .from("scheduled_posts")
+        .delete()
+        .in("id", idsToDelete)
+        .eq("user_id", userId)
+        .select("id");
+
+      if (error) {
+        console.error("[delete-post] Database delete error:", error);
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      deletedIds = data?.map(p => p.id) || [];
+      // Mark db deletion successful for all
+      results.forEach(r => {
+        r.dbDeleted = deletedIds.includes(r.postId);
+      });
+
+      console.log(`[delete-post] Successfully deleted ${data?.length || 0} posts from database`);
+    } else {
+      console.log(`[delete-post] keepInDatabase=true, skipping DB deletion`);
     }
-
-    // Mark db deletion successful for all
-    const deletedIds = data?.map(p => p.id) || [];
-    results.forEach(r => {
-      r.dbDeleted = deletedIds.includes(r.postId);
-    });
-
-    console.log(`[delete-post] Successfully deleted ${data?.length || 0} posts from database`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        deleted: data?.length || 0,
+        deleted: keepInDatabase ? 0 : deletedIds.length,
         deletedIds,
         results,
       }),
