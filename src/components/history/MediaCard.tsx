@@ -3,6 +3,27 @@ import { Video, Play, Download, Trash2, Loader2, Image as ImageIcon, ExternalLin
 import { Button } from "@/components/ui/button";
 import { useState, useRef, useEffect } from "react";
 
+const PLATFORM_COLORS: Record<string, string> = {
+  instagram: "#E4405F",
+  facebook: "#1877F2",
+  tiktok: "#000000",
+  linkedin: "#0A66C2",
+  youtube: "#FF0000",
+};
+
+const PlatformDot = ({ platform }: { platform: string }) => {
+  const color = PLATFORM_COLORS[platform.toLowerCase()] || "#888";
+  return (
+    <div
+      className="h-5 w-5 rounded-full border-2 border-white/80 shadow-sm flex items-center justify-center"
+      style={{ backgroundColor: color }}
+      title={platform}
+    >
+      <span className="text-white text-[8px] font-bold uppercase">{platform[0]}</span>
+    </div>
+  );
+};
+
 export interface MediaItem {
   id: string;
   type: "video" | "image";
@@ -18,8 +39,10 @@ export interface MediaItem {
   campaignId?: string;
   campaignName?: string;
   isProductShot?: boolean;
-  storagePath?: string; // Full path in storage bucket for deletion
+  storagePath?: string;
   aspectRatio?: "vertical" | "square" | "horizontal";
+  platforms?: string[];
+  textContent?: string;
 }
 
 interface MediaCardProps {
@@ -148,6 +171,15 @@ export const MediaCard = ({
           </div>
         )}
       </div>
+
+      {/* Platform icons overlay */}
+      {item.platforms && item.platforms.length > 0 && !isHovered && (
+        <div className="absolute bottom-2 left-2 flex gap-1 pointer-events-none">
+          {item.platforms.map((platform) => (
+            <PlatformDot key={platform} platform={platform} />
+          ))}
+        </div>
+      )}
 
       {/* Play icon for videos - only show when not playing and not hovered */}
       {item.type === "video" && !isPlaying && !isHovered && !isInView && (
