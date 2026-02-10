@@ -88,7 +88,7 @@ export const PricingPacks = ({
       return;
     }
 
-    const isCurrentPlan = effectiveCurrentPlanId === plan.id;
+    const isCurrentPlan = subscription.isSubscribed && effectiveCurrentPlanId === plan.id;
     if (isCurrentPlan) return;
 
     // If user has an active subscription, open customer portal to manage/upgrade
@@ -171,7 +171,7 @@ export const PricingPacks = ({
       )}>
         {PRICING_PLANS.map((plan, index) => {
           const Icon = getPlanIcon(plan.id);
-          const isCurrentPlan = effectiveCurrentPlanId === plan.id;
+          const isCurrentPlan = subscription.isSubscribed && effectiveCurrentPlanId === plan.id;
           const isPopular = plan.popular;
           const isLoading = loadingPlanId === plan.id;
           const flashSale = showFlashSale ? FLASH_SALE_DISCOUNTS[plan.id] : null;
