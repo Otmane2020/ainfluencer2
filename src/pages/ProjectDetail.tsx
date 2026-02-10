@@ -94,6 +94,9 @@ interface Project {
   ai_context_summary: string | null;
   scraped_markdown: string | null;
   marketing_context: unknown;
+  meta_page_id: string | null;
+  meta_instagram_id: string | null;
+  meta_instagram_username: string | null;
   created_at: string;
 }
 
@@ -205,6 +208,8 @@ const ProjectDetail = () => {
       setEditTiktok(project.tiktok_enabled);
       setEditYoutube(project.youtube_enabled);
       setEditLanguage(project.detected_language || "en");
+      // Load per-project page selection
+      setSelectedPageId(project.meta_page_id || null);
     }
   }, [project]);
 
@@ -220,7 +225,7 @@ const ProjectDetail = () => {
 
     if (data) {
       setMetaConnection(data);
-      setSelectedPageId(data.page_id);
+      // Don't set selectedPageId from global connection - use project-level instead
     }
   };
 
@@ -289,41 +294,46 @@ const ProjectDetail = () => {
   };
 
   const handleSelectPage = async (pageId: string) => {
+    if (!project) return;
     try {
+      const selectedPage = metaPages.find(p => p.id === pageId);
+      const instagramId = selectedPage?.instagram?.id || null;
+      const instagramUsername = selectedPage?.instagram?.username || null;
+
+      // Save to project (per-project)
+      const { error } = await supabase
+        .from("projects")
+        .update({
+          meta_page_id: pageId,
+          meta_instagram_id: instagramId,
+          meta_instagram_username: instagramUsername,
+        })
+        .eq("id", project.id);
+
+      if (error) throw error;
+
+      setSelectedPageId(pageId);
+      
+      // Also update the global meta_connections for backward compatibility
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meta-oauth?action=select-page`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ pageId }),
-        }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        setSelectedPageId(pageId);
-        
-        // Update local state
-        if (metaConnection) {
-          setMetaConnection({
-            ...metaConnection,
-            page_id: pageId,
-            instagram_id: data.instagram?.id || null,
-            instagram_username: data.instagram?.username || null,
-          });
-        }
-
-        toast({
-          title: "Page selected ✓",
-          description: `Now posting to ${data.page?.name}`,
-        });
+      if (session) {
+        await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meta-oauth?action=select-page`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ pageId }),
+          }
+        );
       }
+
+      toast({
+        title: "Page selected ✓",
+        description: `Now posting to ${selectedPage?.name || pageId}`,
+      });
     } catch (error) {
       console.error("Error selecting page:", error);
       toast({

@@ -429,6 +429,9 @@ export type Database = {
           linkedin_enabled: boolean | null
           logo_url: string | null
           marketing_context: Json | null
+          meta_instagram_id: string | null
+          meta_instagram_username: string | null
+          meta_page_id: string | null
           name: string
           posts_per_week: number | null
           scraped_at: string | null
@@ -454,6 +457,9 @@ export type Database = {
           linkedin_enabled?: boolean | null
           logo_url?: string | null
           marketing_context?: Json | null
+          meta_instagram_id?: string | null
+          meta_instagram_username?: string | null
+          meta_page_id?: string | null
           name: string
           posts_per_week?: number | null
           scraped_at?: string | null
@@ -479,6 +485,9 @@ export type Database = {
           linkedin_enabled?: boolean | null
           logo_url?: string | null
           marketing_context?: Json | null
+          meta_instagram_id?: string | null
+          meta_instagram_username?: string | null
+          meta_page_id?: string | null
           name?: string
           posts_per_week?: number | null
           scraped_at?: string | null
