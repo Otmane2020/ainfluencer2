@@ -821,8 +821,95 @@ const ProjectDetail = () => {
 
             <TabsContent value="platforms" className="space-y-4 mt-4">
               <div className="space-y-4">
-                {/* Facebook - Connected via Meta */}
-                <div className="rounded-lg border p-3 space-y-3">
+                {/* Shared Meta Page Selector - for both Facebook & Instagram */}
+                {metaConnection && (editFacebook || editInstagram) && (
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="flex gap-1">
+                        <Facebook className="h-4 w-4 text-[#1877F2]" />
+                        <Instagram className="h-4 w-4 text-[#E1306C]" />
+                      </div>
+                      <Label className="text-sm font-medium">Facebook Page & Instagram for this project</Label>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Each project can have its own Facebook Page and linked Instagram account.
+                    </p>
+                    {isLoadingPages ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading your pages...
+                      </div>
+                    ) : tokenExpired ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm text-destructive">
+                          <AlertCircle className="h-4 w-4" />
+                          Your Meta connection has expired
+                        </div>
+                        <Link 
+                          to="/integrations" 
+                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                        >
+                          <Link2 className="h-3 w-3" />
+                          Reconnect in Integrations
+                        </Link>
+                      </div>
+                    ) : metaPages.length > 0 ? (
+                      <Select value={selectedPageId || ""} onValueChange={handleSelectPage}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select a page for this project..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {metaPages.map((page) => (
+                            <SelectItem key={page.id} value={page.id}>
+                              {page.name}
+                              {page.instagram && ` + @${page.instagram.username}`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">
+                          No pages found. Make sure you have admin access to a Facebook Page.
+                        </p>
+                        <Button variant="outline" size="sm" className="text-xs h-7" onClick={fetchMetaPages}>
+                          Retry
+                        </Button>
+                      </div>
+                    )}
+                    {selectedPageId && (
+                      <div className="flex items-center gap-2 text-xs text-green-600">
+                        <Check className="h-3 w-3" />
+                        Page selected for this project
+                        {project?.meta_instagram_username && (
+                          <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+                            @{project.meta_instagram_username}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!metaConnection && (editFacebook || editInstagram) && (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm text-amber-600">
+                        <AlertCircle className="h-4 w-4" />
+                        Connect Meta to select pages for this project
+                      </div>
+                      <Link to="/integrations">
+                        <Button variant="outline" size="sm" className="text-xs h-7">
+                          <Link2 className="h-3 w-3 mr-1" />
+                          Connect
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
+                {/* Facebook toggle */}
+                <div className="rounded-lg border p-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1877F2]">
@@ -849,60 +936,6 @@ const ProjectDetail = () => {
                       disabled={!metaConnection}
                     />
                   </div>
-                  
-                  {/* Page Selector */}
-                  {metaConnection && editFacebook && (
-                    <div className="pl-10 space-y-3">
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Select page to post</Label>
-                        {isLoadingPages ? (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Loading pages...
-                          </div>
-                        ) : tokenExpired ? (
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-sm text-destructive">
-                              <AlertCircle className="h-4 w-4" />
-                              Your Meta connection has expired
-                            </div>
-                            <Link 
-                              to="/integrations" 
-                              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                            >
-                              <Link2 className="h-3 w-3" />
-                              Reconnect in Integrations
-                            </Link>
-                          </div>
-                        ) : metaPages.length > 0 ? (
-                          <Select value={selectedPageId || ""} onValueChange={handleSelectPage}>
-                            <SelectTrigger className="h-9">
-                              <SelectValue placeholder="Select a page..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {metaPages.map((page) => (
-                                <SelectItem key={page.id} value={page.id}>
-                                  {page.name}
-                                  {page.instagram && ` + @${page.instagram.username}`}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            No pages found. Make sure you have admin access to a Facebook Page.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {!metaConnection && (
-                    <Link to="/integrations" className="text-xs text-primary hover:underline flex items-center gap-1 pl-10">
-                      <Link2 className="h-3 w-3" />
-                      Connect in Integrations
-                    </Link>
-                  )}
                 </div>
 
                 {/* Instagram - Connected via Meta */}
