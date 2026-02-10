@@ -389,6 +389,9 @@ export const CampaignWizardModal = ({
 
     const campaignName = name || `${campaignType.charAt(0).toUpperCase() + campaignType.slice(1)} Campaign`;
 
+    // Calculate target for polling
+    const targetTotal = (campaignType === "video" ? 0 : imagesPerMonth) + (campaignType === "image" ? 0 : videosPerMonth);
+
     try {
       // Create the campaign
       setProgressValue(20);
@@ -409,12 +412,10 @@ export const CampaignWizardModal = ({
           posting_hour: postingHour,
           timezone,
           status: "draft",
-          // Brand options - now stored in DB
           include_logo: brandOptions.includeLogo,
           include_url: brandOptions.includeUrl,
           include_avatar: brandOptions.includeAvatar,
           include_text: brandOptions.includeText,
-          // Content options
           image_as_reel: imageAsReel,
           audio_category: audioCategory,
           clipmotion: clipmotion,
@@ -424,102 +425,80 @@ export const CampaignWizardModal = ({
 
       if (error) throw error;
 
-      // Campaign created, now scheduling posts
+      // Fire-and-forget: invoke edge function WITHOUT awaiting response
       setProgressStatus("scheduling");
-      setProgressValue(40);
+      setProgressValue(30);
 
-      // Generate content in batches (edge function handles 15 posts at a time to avoid timeout)
-      let totalGenerated = 0;
-      let totalVideos = 0;
-      let totalImages = 0;
-      let batchCount = 0;
-      const maxBatches = 5; // Safety limit
+      supabase.functions.invoke("generate-campaign-content", {
+        body: {
+          campaignId: newCampaign.id,
+          platforms: selectedPlatforms,
+          includeLogo: brandOptions.includeLogo,
+          includeUrl: brandOptions.includeUrl,
+          includeAvatar: brandOptions.includeAvatar,
+          includeText: brandOptions.includeText,
+          format,
+          tone,
+          subject: subject || null,
+          imageAsReel,
+          audioCategory,
+          clipmotion,
+          serviceTags: serviceTags.length > 0 ? serviceTags : null,
+        },
+      }).catch((err: any) => console.warn("Edge function fire-and-forget:", err));
 
-      const generateBatch = async (): Promise<boolean> => {
-        batchCount++;
-        if (batchCount > maxBatches) {
-          console.log("Max batch limit reached");
-          return true;
+      // Poll scheduled_posts table for progress
+      const pollInterval = setInterval(async () => {
+        try {
+          const { count } = await supabase
+            .from("scheduled_posts")
+            .select("*", { count: "exact", head: true })
+            .eq("campaign_id", newCampaign.id);
+
+          const done = count || 0;
+          const pct = Math.min(95, 30 + Math.round((done / Math.max(targetTotal, 1)) * 65));
+          setProgressValue(pct);
+
+          if (done >= targetTotal) {
+            clearInterval(pollInterval);
+            setProgressValue(100);
+            setProgressStatus("completed");
+            setProgressStats({ videos: 0, images: done, total: done });
+            setIsSubmitting(false);
+            onSuccess();
+          }
+        } catch (e) {
+          console.warn("Polling error:", e);
         }
+      }, 3000);
 
-        const { data: genResult, error: genError } = await supabase.functions.invoke(
-          "generate-campaign-content",
-          { 
-            body: { 
-              campaignId: newCampaign.id, 
-              platforms: selectedPlatforms,
-              includeLogo: brandOptions.includeLogo,
-              includeUrl: brandOptions.includeUrl,
-              includeAvatar: brandOptions.includeAvatar,
-              includeText: brandOptions.includeText,
-              format: format,
-              tone: tone,
-              subject: subject || null,
-              imageAsReel: imageAsReel,
-              audioCategory: audioCategory,
-              clipmotion: clipmotion,
-              serviceTags: serviceTags.length > 0 ? serviceTags : null,
+      // Safety timeout: 5 minutes max
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        // Check final count
+        supabase
+          .from("scheduled_posts")
+          .select("*", { count: "exact", head: true })
+          .eq("campaign_id", newCampaign.id)
+          .then(({ count }: { count: number | null }) => {
+            const done = count || 0;
+            if (done > 0) {
+              setProgressValue(100);
+              setProgressStatus("completed");
+              setProgressStats({ videos: 0, images: done, total: done });
+              onSuccess();
+            } else {
+              setProgressStatus("error");
+              setProgressError("Generation is taking longer than expected. Posts will appear in your calendar shortly.");
             }
-          }
-        );
+            setIsSubmitting(false);
+          });
+      }, 5 * 60 * 1000);
 
-        if (genError) {
-          console.error("Content generation error:", genError);
-          // If we already generated some posts, consider it a partial success
-          if (totalGenerated > 0) {
-            return true;
-          }
-          throw new Error(genError.message || "Content generation failed");
-        }
-
-        if (genResult) {
-          totalGenerated += genResult.generated || 0;
-          totalVideos += genResult.videos || 0;
-          totalImages += genResult.images || 0;
-          
-          // Update progress (40-90% range for scheduling)
-          const progressPct = 40 + Math.min(50, (totalGenerated / (videosPerMonth + imagesPerMonth)) * 50);
-          setProgressValue(Math.round(progressPct));
-        }
-
-        // If batch is complete or no remaining, we're done
-        return genResult?.batchComplete || (genResult?.remaining || 0) <= 0;
-      };
-
-      // Run batches until complete
-      let isComplete = false;
-      while (!isComplete) {
-        isComplete = await generateBatch();
-        
-        // Small delay between batches to avoid rate limiting
-        if (!isComplete) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
-
-      // If no posts were generated at all, show error
-      if (totalGenerated === 0) {
-        setProgressStatus("error");
-        setProgressError("No content was generated. Please try again.");
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Success!
-      setProgressValue(100);
-      setProgressStatus("completed");
-      setProgressStats({
-        videos: totalVideos,
-        images: totalImages,
-        total: totalGenerated,
-      });
-      
-      onSuccess();
     } catch (error) {
       console.error("Campaign creation error:", error);
       setProgressStatus("error");
       setProgressError("Unable to create campaign. Please try again.");
-    } finally {
       setIsSubmitting(false);
     }
   };
