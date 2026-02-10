@@ -45,7 +45,7 @@ const MARKETING_ANGLES = [
 const BANNED_CLICHES = ["laptop in café", "person smiling at phone", "man in suit with graph", "rocket launch growth"];
 
 // ============================================================
-// CORE FUNCTIONS - CometAPI with Flux.1 Pro
+// IMAGE GENERATION
 // ============================================================
 
 async function generateAndUploadImage(prompt: string, format: string, supabase: any): Promise<string | null> {
@@ -58,41 +58,27 @@ async function generateAndUploadImage(prompt: string, format: string, supabase: 
     else if (format === "landscape") size = "1344x768";
 
     const enhancedPrompt = `${prompt}. Professional photography, high-end advertising style.`;
-    console.log("[Image Gen] Generating with CometAPI Flux Pro:", enhancedPrompt.slice(0, 100) + "...");
+    console.log("[Image Gen] Generating:", enhancedPrompt.slice(0, 80) + "...");
 
     let imageBase64: string | null = null;
 
-    // Try CometAPI first (Flux.1 Pro - best for text rendering)
     if (COMETAPI_API_KEY) {
       const response = await fetch("https://api.cometapi.com/v1/images/generations", {
         method: "POST",
-        headers: { 
-          "Authorization": `Bearer ${COMETAPI_API_KEY}`, 
-          "Content-Type": "application/json" 
-        },
-        body: JSON.stringify({
-          model: "flux-pro",
-          prompt: enhancedPrompt,
-          n: 1,
-          size: size,
-          response_format: "b64_json",
-        }),
+        headers: { "Authorization": `Bearer ${COMETAPI_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "flux-pro", prompt: enhancedPrompt, n: 1, size, response_format: "b64_json" }),
       });
-
       if (response.ok) {
         const data = await response.json();
         imageBase64 = data.data?.[0]?.b64_json;
-        if (imageBase64) {
-          console.log("[Image Gen] CometAPI Flux Pro success");
-        }
+        if (imageBase64) console.log("[Image Gen] CometAPI success");
       } else {
         console.warn("[Image Gen] CometAPI failed:", response.status);
       }
     }
 
-    // Fallback to OpenRouter API if CometAPI fails
     if (!imageBase64 && OPENROUTER_API_KEY) {
-      console.log("[Image Gen] Falling back to OpenRouter API...");
+      console.log("[Image Gen] Falling back to OpenRouter...");
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
@@ -102,13 +88,12 @@ async function generateAndUploadImage(prompt: string, format: string, supabase: 
           modalities: ["image"],
         }),
       });
-
       if (response.ok) {
         const data = await response.json();
         const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
         if (imageData) {
           imageBase64 = imageData.replace(/^data:image\/\w+;base64,/, "");
-          console.log("[Image Gen] OpenRouter API fallback success");
+          console.log("[Image Gen] OpenRouter fallback success");
         }
       }
     }
@@ -118,15 +103,10 @@ async function generateAndUploadImage(prompt: string, format: string, supabase: 
       return null;
     }
 
-    // Upload to Supabase Storage
     const imageBytes = Uint8Array.from(atob(imageBase64), (c) => c.charCodeAt(0));
     const fileName = `campaign-gen/${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
-
     const { error: uploadError } = await supabase.storage.from("media").upload(fileName, imageBytes, { contentType: "image/png" });
-    if (uploadError) {
-      console.error("[Image Gen] Upload error:", uploadError);
-      return null;
-    }
+    if (uploadError) { console.error("[Image Gen] Upload error:", uploadError); return null; }
 
     const publicUrl = supabase.storage.from("media").getPublicUrl(fileName).data.publicUrl;
     console.log("[Image Gen] Uploaded:", publicUrl);
@@ -146,6 +126,96 @@ function safeJsonParse(text: string) {
 }
 
 // ============================================================
+// GENERATE A SINGLE POST (extracted for clarity)
+// ============================================================
+
+async function generateSinglePost(
+  idx: number,
+  campaign: any,
+  project: any,
+  contextGuard: any,
+  effectiveFormat: string,
+  platforms: string[],
+  totalTarget: number,
+  supabase: any,
+  OPENROUTER_API_KEY: string,
+): Promise<any | null> {
+  const lang = project.detected_language || "en";
+  const scene = VISUAL_SCENES[idx % VISUAL_SCENES.length];
+  const angle = MARKETING_ANGLES[idx % MARKETING_ANGLES.length];
+  const isVideo = campaign.campaign_type === "video" || (campaign.campaign_type === "mixed" && idx % 2 === 0);
+
+  console.log(`[Campaign] Post ${idx + 1}: ${isVideo ? "VIDEO" : "IMAGE"} | Scene: ${scene.id} | Angle: ${angle.id}`);
+
+  const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-3-flash-preview",
+      messages: [{
+        role: "system",
+        content: `You are a marketing expert for ${project.name}. 
+
+${contextGuard.enhancedPrompt}
+
+CURRENT TASK: Create a ${isVideo ? "video script concept" : "static image prompt"} for social media.
+
+VISUAL SCENE TO USE: ${scene.desc}
+MARKETING ANGLE TO APPLY: ${angle.desc}
+FORMAT: ${effectiveFormat} (${effectiveFormat === "reel" || effectiveFormat === "story" ? "vertical 9:16" : effectiveFormat === "landscape" ? "horizontal 16:9" : "square 1:1"})
+
+${campaign.include_logo ? "LOGO: Reserve clear space in bottom-right corner for brand logo placement." : ""}
+${campaign.include_url ? `WEBSITE: Include URL ${project.url} in the design.` : ""}
+${campaign.overlay_text ? `OVERLAY TEXT: "${campaign.overlay_text}" must appear prominently.` : ""}
+
+DIVERSITY RULES:
+- This is post #${idx + 1} in the campaign series - make it UNIQUE from previous posts
+- DO NOT use these clichés: ${BANNED_CLICHES.join(", ")}
+- Focus on REAL products/services from the brand context above
+- Match the brand's tone and target audience
+
+OUTPUT: Return ONLY valid JSON:
+{
+  "aiPrompt": "detailed visual description for AI image generation (include colors, composition, subjects, mood)",
+  "textContent": "engaging social media caption with hashtags (in ${lang})"
+}`
+      }],
+      temperature: 0.92,
+    }),
+  });
+
+  const aiData = await aiResponse.json();
+  const parsed = safeJsonParse(aiData.choices?.[0]?.message?.content);
+  
+  if (!parsed?.aiPrompt) {
+    console.warn(`[Campaign] Post ${idx + 1}: AI parsing failed, skipping`);
+    return null;
+  }
+
+  let mediaUrl = null;
+  if (!isVideo) {
+    mediaUrl = await generateAndUploadImage(parsed.aiPrompt, effectiveFormat, supabase);
+  }
+
+  const scheduledDate = new Date();
+  scheduledDate.setDate(scheduledDate.getDate() + Math.floor(idx * (30 / totalTarget)) + 1);
+  scheduledDate.setHours(campaign.posting_hour || 10, Math.floor(Math.random() * 60));
+
+  return {
+    user_id: campaign.user_id,
+    project_id: campaign.project_id,
+    campaign_id: campaign.id,
+    content_type: isVideo ? "video" : "image",
+    scheduled_for: scheduledDate.toISOString(),
+    ai_prompt: parsed.aiPrompt,
+    text_content: parsed.textContent || "",
+    media_url: mediaUrl,
+    status: "scheduled",
+    platforms: platforms || campaign.platforms || ["instagram"],
+  };
+}
+
+// ============================================================
 // SERVER HANDLER
 // ============================================================
 
@@ -158,32 +228,27 @@ serve(async (req) => {
 
     if (!campaignId) {
       return new Response(JSON.stringify({ error: "Campaign ID is required" }), { 
-        status: 400, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } 
       });
     }
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
 
-    if (!OPENROUTER_API_KEY) {
-      throw new Error("OPENROUTER_API_KEY is not configured");
-    }
+    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is not configured");
 
     // 1. Fetch Campaign & Project
     const { data: campaign, error: campaignError } = await supabase.from("campaigns").select("*").eq("id", campaignId).single();
     if (campaignError || !campaign) {
       return new Response(JSON.stringify({ error: "Campaign not found" }), { 
-        status: 404, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } 
       });
     }
 
     const { data: project, error: projectError } = await supabase.from("projects").select("*").eq("id", campaign.project_id).single();
     if (projectError || !project) {
       return new Response(JSON.stringify({ error: "Project not found" }), { 
-        status: 404, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } 
       });
     }
 
@@ -211,144 +276,84 @@ serve(async (req) => {
     });
     logContextValidation(contextGuard, "CampaignGeneration");
 
-    // 3. Planning
+    // 3. Planning - BATCH SIZE = 5 (reduced from 10 to avoid timeout)
     const totalVideos = campaign.campaign_type === "image" ? 0 : (campaign.videos_per_month || 4);
     const totalImages = campaign.campaign_type === "video" ? 0 : (campaign.images_per_month || 12);
     const totalTarget = totalVideos + totalImages;
     
     const { count } = await supabase.from("scheduled_posts").select("*", { count: "exact", head: true }).eq("campaign_id", campaignId);
     const alreadyDone = count || 0;
-    const toGen = Math.min(Math.max(0, totalTarget - alreadyDone), 10); // Batch limit 10
+    const BATCH_SIZE = 5;
+    const toGen = Math.min(Math.max(0, totalTarget - alreadyDone), BATCH_SIZE);
 
-    console.log(`[Campaign] Target: ${totalTarget}, Already done: ${alreadyDone}, To generate: ${toGen}`);
+    console.log(`[Campaign] Target: ${totalTarget}, Already done: ${alreadyDone}, Batch: ${toGen}`);
 
     if (toGen <= 0) {
       return new Response(JSON.stringify({ 
-        success: true, 
-        message: "Campaign generation complete",
-        count: 0,
-        batchComplete: true 
-      }), { 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      });
+        success: true, message: "Campaign generation complete", count: 0, batchComplete: true 
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const generatedPosts = [];
-    const lang = project.detected_language || "en";
+    // 4. Generate posts one by one, inserting each immediately
     const effectiveFormat = campaign.format || "reel";
+    let generated = 0;
 
     for (let i = 0; i < toGen; i++) {
       const idx = alreadyDone + i;
-      const scene = VISUAL_SCENES[idx % VISUAL_SCENES.length];
-      const angle = MARKETING_ANGLES[idx % MARKETING_ANGLES.length];
-      const isVideo = campaign.campaign_type === "video" || (campaign.campaign_type === "mixed" && idx % 2 === 0);
+      const post = await generateSinglePost(
+        idx, campaign, project, contextGuard, effectiveFormat,
+        platforms, totalTarget, supabase, OPENROUTER_API_KEY
+      );
 
-      console.log(`[Campaign] Post ${idx + 1}: ${isVideo ? "VIDEO" : "IMAGE"} | Scene: ${scene.id} | Angle: ${angle.id}`);
+      if (post) {
+        // Insert each post immediately so polling can see progress
+        const { error: insertError } = await supabase.from("scheduled_posts").insert(post);
+        if (insertError) {
+          console.error(`[Campaign] Insert error post ${idx + 1}:`, insertError);
+        } else {
+          generated++;
+          console.log(`[Campaign] Post ${idx + 1} saved (${generated}/${toGen})`);
+        }
+      }
+    }
 
-      // 4. AI Prompting - Use FULL context from guard
-      const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [{
-            role: "system",
-            content: `You are a marketing expert for ${project.name}. 
+    // 5. Update campaign totals
+    const newTotal = alreadyDone + generated;
+    await supabase.from("campaigns").update({ 
+      total_generated: newTotal,
+      status: "active" 
+    }).eq("id", campaignId);
 
-${contextGuard.enhancedPrompt}
+    console.log(`[Campaign] Batch done: ${generated} posts. Total: ${newTotal}/${totalTarget}`);
 
-CURRENT TASK: Create a ${isVideo ? "video script concept" : "static image prompt"} for social media.
-
-VISUAL SCENE TO USE: ${scene.desc}
-MARKETING ANGLE TO APPLY: ${angle.desc}
-FORMAT: ${effectiveFormat} (${effectiveFormat === "reel" || effectiveFormat === "story" ? "vertical 9:16" : effectiveFormat === "landscape" ? "horizontal 16:9" : "square 1:1"})
-
-${campaign.include_logo ? "LOGO: Reserve clear space in bottom-right corner for brand logo placement." : ""}
-${campaign.include_url ? `WEBSITE: Include URL ${project.url} in the design.` : ""}
-${campaign.overlay_text ? `OVERLAY TEXT: "${campaign.overlay_text}" must appear prominently.` : ""}
-
-DIVERSITY RULES:
-- This is post #${idx + 1} in the campaign series - make it UNIQUE from previous posts
-- DO NOT use these clichés: ${BANNED_CLICHES.join(", ")}
-- Focus on REAL products/services from the brand context above
-- Match the brand's tone and target audience
-
-OUTPUT: Return ONLY valid JSON:
-{
-  "aiPrompt": "detailed visual description for AI image generation (include colors, composition, subjects, mood)",
-  "textContent": "engaging social media caption with hashtags (in ${lang})"
-}`
-          }],
-          temperature: 0.92,
-        }),
-      });
-
-      const aiData = await aiResponse.json();
-      const parsed = safeJsonParse(aiData.choices?.[0]?.message?.content);
+    // 6. Self-reinvoke if more posts remain
+    const remaining = totalTarget - newTotal;
+    if (remaining > 0) {
+      console.log(`[Campaign] ${remaining} posts remaining, self-reinvoking...`);
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       
-      if (!parsed?.aiPrompt) {
-        console.warn(`[Campaign] Post ${idx + 1}: AI parsing failed, using fallback`);
-        continue;
-      }
-
-      // 5. Image Generation (for non-video posts) - CometAPI Flux Pro
-      let mediaUrl = null;
-      if (!isVideo) {
-        mediaUrl = await generateAndUploadImage(parsed.aiPrompt, effectiveFormat, supabase);
-      }
-
-      // 6. Scheduling
-      const scheduledDate = new Date();
-      scheduledDate.setDate(scheduledDate.getDate() + Math.floor(idx * (30 / totalTarget)) + 1);
-      scheduledDate.setHours(campaign.posting_hour || 10, Math.floor(Math.random() * 60));
-
-      generatedPosts.push({
-        user_id: campaign.user_id,
-        project_id: campaign.project_id,
-        campaign_id: campaign.id,
-        content_type: isVideo ? "video" : "image",
-        scheduled_for: scheduledDate.toISOString(),
-        ai_prompt: parsed.aiPrompt,
-        text_content: parsed.textContent || "",
-        media_url: mediaUrl,
-        status: "scheduled",
-        platforms: platforms || campaign.platforms || ["instagram"],
-      });
+      // Fire-and-forget: don't await
+      fetch(`${supabaseUrl}/functions/v1/generate-campaign-content`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${serviceRoleKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ campaignId, platforms, productDescription }),
+      }).catch(err => console.error("[Campaign] Self-reinvoke error:", err));
     }
-
-    // 7. Database Sync
-    if (generatedPosts.length > 0) {
-      const { error: insertError } = await supabase.from("scheduled_posts").insert(generatedPosts);
-      if (insertError) {
-        console.error("[Campaign] Insert error:", insertError);
-        throw new Error("Failed to save posts");
-      }
-
-      await supabase.from("campaigns").update({ 
-        total_generated: alreadyDone + generatedPosts.length,
-        status: "active" 
-      }).eq("id", campaignId);
-    }
-
-    const newTotal = alreadyDone + generatedPosts.length;
-    console.log(`[Campaign] Generated ${generatedPosts.length} posts. Total: ${newTotal}/${totalTarget}`);
 
     return new Response(JSON.stringify({ 
-      success: true, 
-      count: generatedPosts.length,
-      total: newTotal,
-      target: totalTarget,
+      success: true, count: generated, total: newTotal, target: totalTarget,
       batchComplete: newTotal >= totalTarget
-    }), { 
-      headers: { ...corsHeaders, "Content-Type": "application/json" } 
-    });
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (e: unknown) {
     const errorMessage = e instanceof Error ? e.message : "Unknown error";
     console.error("[Campaign] Critical error:", errorMessage);
     return new Response(JSON.stringify({ error: errorMessage }), { 
-      status: 500, 
-      headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } 
     });
   }
 });
