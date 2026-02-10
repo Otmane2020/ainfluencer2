@@ -894,21 +894,6 @@ const ProjectDetail = () => {
                           </p>
                         )}
                       </div>
-                      
-                      {selectedPageId && (
-                        <div className="space-y-2">
-                          <Label className="text-xs text-muted-foreground">Publish mode</Label>
-                          <Select value={selectedPublishMode} onValueChange={(v) => setSelectedPublishMode(v as "auto" | "manual")}>
-                            <SelectTrigger className="h-8 text-sm">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="auto">Automatic</SelectItem>
-                              <SelectItem value="manual">Manual approval</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
                     </div>
                   )}
                   
