@@ -551,9 +551,13 @@ const ProjectDetail = () => {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
+        <Card
+          className="cursor-pointer hover:border-primary/50 transition-colors"
+          onClick={() => openEditModal("platforms")}
+        >
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Platforms</CardTitle>
+            <Pencil className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
