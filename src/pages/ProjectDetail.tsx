@@ -582,9 +582,9 @@ const ProjectDetail = () => {
                     <span className="text-muted-foreground">
                       Meta connected as <span className="font-medium text-foreground">{metaConnection.fb_user_name}</span>
                     </span>
-                    {metaConnection.instagram_username && (
+                    {(project.meta_instagram_username || metaConnection?.instagram_username) && (
                       <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
-                        @{metaConnection.instagram_username}
+                        @{project.meta_instagram_username || metaConnection.instagram_username}
                       </Badge>
                     )}
                   </div>
@@ -929,10 +929,10 @@ const ProjectDetail = () => {
                       </div>
                       <div>
                         <span className="font-medium">Instagram</span>
-                        {metaConnection?.instagram_id ? (
+                        {(project?.meta_instagram_id || metaConnection?.instagram_id) ? (
                           <div className="flex items-center gap-1 text-xs text-green-600">
                             <Check className="h-3 w-3" />
-                            @{metaConnection.instagram_username}
+                            @{project?.meta_instagram_username || metaConnection?.instagram_username}
                           </div>
                         ) : (
                           <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -945,10 +945,10 @@ const ProjectDetail = () => {
                     <Switch 
                       checked={editInstagram} 
                       onCheckedChange={setEditInstagram}
-                      disabled={!metaConnection?.instagram_id}
+                      disabled={!(project?.meta_instagram_id || metaConnection?.instagram_id)}
                     />
                   </div>
-                  {!metaConnection?.instagram_id && metaConnection && (
+                  {!(project?.meta_instagram_id || metaConnection?.instagram_id) && metaConnection && (
                     <p className="text-xs text-muted-foreground pl-10">
                       Link an Instagram Business account to your Facebook Page
                     </p>
