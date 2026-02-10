@@ -146,7 +146,7 @@ export const CampaignWizardModal = ({
   const [videosPerMonth, setVideosPerMonth] = useState(4);
   const [imagesPerMonth, setImagesPerMonth] = useState(12);
   const [postsPerWeek, setPostsPerWeek] = useState(3);
-  const [format, setFormat] = useState("vertical");
+  const [format, setFormat] = useState("reel");
   const [tone, setTone] = useState("professional");
   const [subject, setSubject] = useState("");
   const [serviceTags, setServiceTags] = useState<string[]>([]);
@@ -186,7 +186,7 @@ export const CampaignWizardModal = ({
       setVideosPerMonth(4);
       setImagesPerMonth(12);
       setPostsPerWeek(3);
-      setFormat("vertical");
+      setFormat("reel");
       setTone("professional");
       setSubject("");
       setServiceTags([]);
