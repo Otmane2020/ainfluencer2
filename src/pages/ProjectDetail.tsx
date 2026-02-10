@@ -273,9 +273,7 @@ const ProjectDetail = () => {
       
       if (res.ok) {
         setMetaPages(data.pages || []);
-        if (data.selectedPageId) {
-          setSelectedPageId(data.selectedPageId);
-        }
+        // Project-level selectedPageId is already set from project.meta_page_id on load
       } else {
         // Check for token expiration/authorization errors
         const errorMsg = data.error || "";
@@ -314,21 +312,7 @@ const ProjectDetail = () => {
 
       setSelectedPageId(pageId);
       
-      // Also update the global meta_connections for backward compatibility
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meta-oauth?action=select-page`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${session.access_token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ pageId }),
-          }
-        );
-      }
+      // Per-project only — no global meta_connections update
 
       toast({
         title: "Page selected ✓",
