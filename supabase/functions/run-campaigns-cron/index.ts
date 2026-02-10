@@ -920,26 +920,34 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Determine which platforms actually succeeded
+      const succeededPlatforms = publishResults
+        .filter(r => r.success)
+        .map(r => r.platform);
+
       // Update post status
       if (errors.length === 0) {
         await supabase.from("scheduled_posts").update({
           status: "published",
           published_at: now.toISOString(),
           error_message: null,
+          platforms: succeededPlatforms,
         }).eq("id", post.id);
         totalPublished++;
-        console.log(`[cron] Post ${post.id} published successfully`);
+        console.log(`[cron] Post ${post.id} published successfully to: ${succeededPlatforms.join(", ")}`);
       } else if (errors.length < platforms.length) {
         await supabase.from("scheduled_posts").update({
           status: "published",
           published_at: now.toISOString(),
           error_message: `Partial: ${errors.join(", ")}`,
+          platforms: succeededPlatforms,
         }).eq("id", post.id);
         totalPublished++;
-        console.log(`[cron] Post ${post.id} partially published`);
+        console.log(`[cron] Post ${post.id} partially published to: ${succeededPlatforms.join(", ")}`);
       } else {
         await supabase.from("scheduled_posts").update({
           error_message: errors.join(", "),
+          platforms: [],
         }).eq("id", post.id);
         console.log(`[cron] Post ${post.id} publish failed: ${errors.join(", ")}`);
       }

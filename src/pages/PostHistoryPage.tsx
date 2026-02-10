@@ -121,11 +121,30 @@ const PostHistoryPage = () => {
 
   const handleDelete = async (id: string) => {
     try {
-      await supabase.from("scheduled_posts").delete().eq("id", id);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) {
+        toast({ title: "Please log in first", variant: "destructive" });
+        return;
+      }
+
+      const res = await supabase.functions.invoke("delete-post", {
+        body: { postId: id, deleteFromPlatforms: true },
+      });
+
+      if (res.error) throw res.error;
+
       setItems(prev => prev.filter(m => m.id !== id));
       setSelectedItem(null);
-      toast({ title: "Post deleted" });
+
+      const result = res.data?.results?.[0];
+      const platformDeleted = result?.facebookDeleted || result?.instagramDeleted;
+      toast({ 
+        title: "Post deleted", 
+        description: platformDeleted ? "Also removed from platform" : "Removed from database",
+      });
     } catch (error) {
+      console.error("Delete failed:", error);
       toast({ title: "Delete failed", variant: "destructive" });
     }
   };
