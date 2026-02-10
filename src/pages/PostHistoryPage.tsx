@@ -119,32 +119,34 @@ const PostHistoryPage = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDeleteFromPlatform = async (id: string) => {
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-      if (!token) {
-        toast({ title: "Please log in first", variant: "destructive" });
-        return;
-      }
-
       const res = await supabase.functions.invoke("delete-post", {
-        body: { postId: id, deleteFromPlatforms: true },
+        body: { postId: id, deleteFromPlatforms: true, keepInDatabase: true },
       });
 
       if (res.error) throw res.error;
 
-      setItems(prev => prev.filter(m => m.id !== id));
-      setSelectedItem(null);
-
       const result = res.data?.results?.[0];
       const platformDeleted = result?.facebookDeleted || result?.instagramDeleted;
       toast({ 
-        title: "Post deleted", 
-        description: platformDeleted ? "Also removed from platform" : "Removed from database",
+        title: platformDeleted ? "Removed from platform" : "Platform deletion failed",
+        description: platformDeleted ? "Post kept in history" : result?.error || "Could not remove from platform",
+        variant: platformDeleted ? "default" : "destructive",
       });
     } catch (error) {
-      console.error("Delete failed:", error);
+      console.error("Platform delete failed:", error);
+      toast({ title: "Platform delete failed", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteFromDB = async (id: string) => {
+    try {
+      await supabase.from("scheduled_posts").delete().eq("id", id);
+      setItems(prev => prev.filter(m => m.id !== id));
+      setSelectedItem(null);
+      toast({ title: "Post removed from history" });
+    } catch (error) {
       toast({ title: "Delete failed", variant: "destructive" });
     }
   };
@@ -276,7 +278,7 @@ const PostHistoryPage = () => {
             <MasonryGrid
               items={filteredItems}
               onItemClick={handleItemClick}
-              onDelete={(id) => handleDelete(id)}
+              onDelete={(id) => handleDeleteFromDB(id)}
               onDownload={handleDownload}
               downloadingId={downloadingId}
             />
@@ -370,11 +372,20 @@ const PostHistoryPage = () => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="gap-1.5 text-xs text-destructive hover:text-destructive"
-                    onClick={() => handleDelete(selectedItem.id)}
+                    className="gap-1.5 text-xs text-orange-500 hover:text-orange-600"
+                    onClick={() => handleDeleteFromPlatform(selectedItem.id)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                    Delete
+                    Remove from Platform
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 text-xs text-destructive hover:text-destructive"
+                    onClick={() => handleDeleteFromDB(selectedItem.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete from History
                   </Button>
                 </div>
               </div>
