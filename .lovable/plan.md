@@ -1,43 +1,37 @@
 
 
-# Fix: Campaign Creation Timeout Error
+# Fix: Per-Project Facebook/Instagram Page Selection
 
 ## Problem
-The `generate-campaign-content` edge function works correctly (logs confirm images are being generated), but it takes 3-5 minutes per batch (10 images x ~20-30s each with CometAPI fallback). The browser's `supabase.functions.invoke()` fetch request times out before the function responds, causing "Failed to send a request to the Edge Function" error.
+When you select a Facebook page (e.g., "ClipMotion") for one project (e.g., Starlinko), it applies to ALL projects. Two bugs cause this:
 
-## Solution: Fire-and-Forget with Polling
+1. **Global override on load**: When loading the page list, the system fetches the "global" selected page from your Meta connection and overwrites the project-specific selection. So every project shows the same page.
 
-Instead of waiting for the edge function to finish, the wizard will:
-1. Create the campaign in the database
-2. Call the edge function **without waiting** for a response
-3. Poll the `scheduled_posts` table to track progress in real-time
+2. **Global update on selection**: When you pick a page for a project, it also updates the global Meta connection setting, which then gets loaded by every other project.
 
-## Technical Changes
+## Solution
 
-### 1. Update `CampaignWizardModal.tsx` - handleSubmit
-- After creating the campaign record, invoke `generate-campaign-content` but **do not await** the response
-- Instead, start a polling interval that checks `scheduled_posts` count for the campaign ID
-- Update the progress bar based on actual posts created in the DB
-- Mark as complete when target is reached or after a max timeout (5 minutes)
+Two small but critical fixes in `ProjectDetail.tsx`:
 
-### 2. Update `generate-campaign-content/index.ts`
-- Reduce batch size from 10 to 5 images per invocation to reduce per-call duration
-- Add a self-re-invocation mechanism: after generating 5 posts, if more remain, the function calls itself again (chain pattern)
-- This avoids needing the client to re-call the function
-
-### 3. Progress Polling Logic (in wizard)
-```text
-1. Create campaign in DB --> immediate
-2. Fire edge function (no await) --> immediate
-3. Poll every 3s:
-   SELECT count(*) FROM scheduled_posts WHERE campaign_id = X
-4. Update progress bar: (count / target) * 100
-5. Complete when count >= target OR timeout after 5 min
+### Fix 1 - Stop overwriting project-level selection with global value
+When fetching the list of available pages, the code currently does:
 ```
+if (data.selectedPageId) {
+  setSelectedPageId(data.selectedPageId);  // <-- overwrites project setting!
+}
+```
+This line will be removed. The project-level `selectedPageId` is already correctly set from `project.meta_page_id` when the project loads.
 
-## Benefits
-- No more timeout errors
-- User sees real-time progress as posts appear in DB
-- Resilient to network interruptions during generation
-- The generation continues server-side even if user closes the modal
+### Fix 2 - Stop updating the global Meta connection
+When selecting a page, the code currently calls `meta-oauth?action=select-page` which updates the global `meta_connections` table. This entire block (calling the edge function to update global state) will be removed. Only the project-level `projects` table update should happen.
+
+## Technical Details
+
+**File**: `src/pages/ProjectDetail.tsx`
+
+**Change 1** (lines 276-278): Remove the block that sets `selectedPageId` from the global `data.selectedPageId` returned by the pages API.
+
+**Change 2** (lines 317-331): Remove the block that calls `meta-oauth?action=select-page` to update the global `meta_connections` record. Keep only the per-project `projects` table update.
+
+These two changes ensure each project maintains its own independent Facebook/Instagram page selection without affecting other projects.
 
