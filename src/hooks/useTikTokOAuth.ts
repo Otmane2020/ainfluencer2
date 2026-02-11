@@ -15,7 +15,11 @@ interface TikTokConnection {
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
-export const useTikTokOAuth = () => {
+/**
+ * TikTok OAuth hook – scoped per project.
+ * Pass `projectId` to scope connections to a specific project.
+ */
+export const useTikTokOAuth = (projectId?: string) => {
   const [connection, setConnection] = useState<TikTokConnection | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,28 +33,23 @@ export const useTikTokOAuth = () => {
       window.clearInterval(popupMonitorRef.current);
       popupMonitorRef.current = null;
     }
-
-    try {
-      popupRef.current?.close();
-    } catch {
-      // ignore
-    }
-
+    try { popupRef.current?.close(); } catch { /* ignore */ }
     popupRef.current = null;
   }, []);
 
-  // Check connection status on mount
+  // Check connection status on mount / projectId change
   useEffect(() => {
     const checkStatus = async () => {
+      setIsLoading(true);
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          setIsLoading(false);
-          return;
-        }
+        if (!session) { setIsLoading(false); return; }
+
+        const params = new URLSearchParams({ action: "status" });
+        if (projectId) params.set("projectId", projectId);
 
         const response = await fetch(
-          `${SUPABASE_URL}/functions/v1/tiktok-oauth?action=status`,
+          `${SUPABASE_URL}/functions/v1/tiktok-oauth?${params.toString()}`,
           {
             headers: {
               apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
@@ -60,12 +59,10 @@ export const useTikTokOAuth = () => {
         );
 
         const data = await response.json();
-        
         if (data.connected) {
-          setConnection({
-            user: data.user,
-            expiresAt: data.expiresAt,
-          });
+          setConnection({ user: data.user, expiresAt: data.expiresAt });
+        } else {
+          setConnection(null);
         }
       } catch (error) {
         console.error("[useTikTokOAuth] Status check error:", error);
@@ -75,38 +72,29 @@ export const useTikTokOAuth = () => {
     };
 
     checkStatus();
-  }, []);
+  }, [projectId]);
 
   // Listen for OAuth callback messages
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === "tiktok-oauth-success") {
         const { user } = event.data;
-        
         console.log("[useTikTokOAuth] OAuth success for user:", user?.displayName);
-
         setConnection({
           user,
-          expiresAt: new Date(Date.now() + 86400000).toISOString(), // Approximate 24h
+          expiresAt: new Date(Date.now() + 86400000).toISOString(),
         });
-        
         setIsConnecting(false);
-
         cleanupPopup();
-        
         toast({
           title: "TikTok Connected! 🎉",
           description: `Account "${user?.displayName || "TikTok User"}" linked successfully`,
         });
-
-        // Refresh parent to update all pages that read connection state.
         setTimeout(() => window.location.reload(), 300);
       } else if (event.data?.type === "tiktok-oauth-error") {
         console.error("[useTikTokOAuth] OAuth error:", event.data.error);
         setIsConnecting(false);
-
         cleanupPopup();
-
         toast({
           title: "Connection Error",
           description: event.data.error || "Failed to connect to TikTok",
@@ -120,24 +108,30 @@ export const useTikTokOAuth = () => {
   }, [toast, cleanupPopup]);
 
   const connect = useCallback(async () => {
+    if (!projectId) {
+      toast({
+        title: "Project Required",
+        description: "Please connect TikTok from a specific project's settings",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsConnecting(true);
-    console.log("[useTikTokOAuth] Starting OAuth flow...");
+    console.log("[useTikTokOAuth] Starting OAuth flow for project:", projectId);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
       if (!session) {
-        toast({
-          title: "Not Authenticated",
-          description: "Please sign in first",
-          variant: "destructive",
-        });
+        toast({ title: "Not Authenticated", description: "Please sign in first", variant: "destructive" });
         setIsConnecting(false);
         return;
       }
 
+      const params = new URLSearchParams({ action: "authorize", projectId });
+
       const response = await fetch(
-        `${SUPABASE_URL}/functions/v1/tiktok-oauth?action=authorize`,
+        `${SUPABASE_URL}/functions/v1/tiktok-oauth?${params.toString()}`,
         {
           headers: {
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
@@ -147,31 +141,16 @@ export const useTikTokOAuth = () => {
       );
 
       const data = await response.json();
+      if (!response.ok || data.error) throw new Error(data.error || "Failed to get auth URL");
 
-      if (!response.ok || data.error) {
-        throw new Error(data.error || "Failed to get auth URL");
-      }
-
-      // Open OAuth popup
-      const popup = window.open(
-        data.authUrl,
-        "tiktok-oauth",
-        "width=600,height=700,left=100,top=100"
-      );
-
+      const popup = window.open(data.authUrl, "tiktok-oauth", "width=600,height=700,left=100,top=100");
       if (!popup) {
         setIsConnecting(false);
-        toast({
-          title: "Popup Blocked",
-          description: "Please allow popups to connect to TikTok",
-          variant: "destructive",
-        });
+        toast({ title: "Popup Blocked", description: "Please allow popups to connect to TikTok", variant: "destructive" });
         return;
       }
 
       popupRef.current = popup;
-
-      // Monitor popup closing
       popupMonitorRef.current = window.setInterval(() => {
         if (popup.closed) {
           cleanupPopup();
@@ -187,9 +166,8 @@ export const useTikTokOAuth = () => {
         variant: "destructive",
       });
     }
-  }, [toast, cleanupPopup]);
+  }, [projectId, toast, cleanupPopup]);
 
-  // Cleanup popup when hook unmounts
   useEffect(() => {
     return () => cleanupPopup();
   }, [cleanupPopup]);
@@ -197,10 +175,12 @@ export const useTikTokOAuth = () => {
   const disconnect = useCallback(async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
       if (session) {
+        const params = new URLSearchParams({ action: "disconnect" });
+        if (projectId) params.set("projectId", projectId);
+
         await fetch(
-          `${SUPABASE_URL}/functions/v1/tiktok-oauth?action=disconnect`,
+          `${SUPABASE_URL}/functions/v1/tiktok-oauth?${params.toString()}`,
           {
             method: "POST",
             headers: {
@@ -212,15 +192,12 @@ export const useTikTokOAuth = () => {
       }
 
       setConnection(null);
-      toast({
-        title: "Disconnected",
-        description: "Your TikTok account has been disconnected",
-      });
+      toast({ title: "Disconnected", description: "Your TikTok account has been disconnected" });
     } catch (error) {
       console.error("[useTikTokOAuth] Disconnect error:", error);
       setConnection(null);
     }
-  }, [toast]);
+  }, [projectId, toast]);
 
   return {
     connection,

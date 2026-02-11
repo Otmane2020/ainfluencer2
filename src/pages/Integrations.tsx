@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useMetaOAuth } from "@/hooks/useMetaOAuth";
 import { useYouTubeOAuth } from "@/hooks/useYouTubeOAuth";
 import { useLinkedInOAuth } from "@/hooks/useLinkedInOAuth";
-import { useTikTokOAuth } from "@/hooks/useTikTokOAuth";
+// TikTok is per-project, no global import needed
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { enUS } from "date-fns/locale";
@@ -64,14 +64,7 @@ const Integrations = () => {
     profileName: linkedinProfileName,
     isLoading: isLinkedInLoading 
   } = useLinkedInOAuth();
-  const {
-    isConnected: isTikTokConnected,
-    isConnecting: isTikTokConnecting,
-    connect: connectTikTok,
-    disconnect: disconnectTikTok,
-    displayName: tiktokDisplayName,
-    isLoading: isTikTokLoading,
-  } = useTikTokOAuth();
+  // TikTok is now per-project – no global hook needed
   const [metaConnectionData, setMetaConnectionData] = useState<MetaConnectionData | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
 
@@ -531,7 +524,7 @@ const Integrations = () => {
         </CardContent>
       </Card>
 
-      {/* TikTok Integration */}
+      {/* TikTok Integration – per-project */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -541,52 +534,40 @@ const Integrations = () => {
               </div>
               <div>
                 <CardTitle className="text-base">TikTok</CardTitle>
-                <CardDescription>Auto-publish videos to your TikTok account</CardDescription>
+                <CardDescription>Auto-publish videos to TikTok</CardDescription>
               </div>
             </div>
-            {isTikTokConnected && (
-              <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
-                <Check className="h-3 w-3 mr-1" />
-                Connected
-              </Badge>
-            )}
+            <Badge variant="outline" className="text-xs">Per project</Badge>
           </div>
         </CardHeader>
         <CardContent>
-          {isTikTokLoading ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : isTikTokConnected ? (
-            <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-              <div className="flex items-center gap-3">
-                <Check className="h-4 w-4 text-green-500" />
-                <span className="text-sm">{tiktokDisplayName || "TikTok Account"}</span>
+          <div className="text-center py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              TikTok connections are managed per project. Open a project's settings to connect your TikTok account.
+            </p>
+            {projects.length > 0 && (
+              <div className="space-y-2">
+                {projects.slice(0, 3).map((project) => (
+                  <Link
+                    key={project.id}
+                    to={`/projects/${project.id}`}
+                    className="flex items-center justify-between p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-muted/50 transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="h-8 w-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+                        style={{ backgroundColor: project.theme_color || "#6366F1" }}
+                      >
+                        {project.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="font-medium text-sm">{project.name}</span>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  </Link>
+                ))}
               </div>
-              <Button variant="outline" size="sm" onClick={disconnectTikTok}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Disconnect
-              </Button>
-            </div>
-          ) : (
-            <div className="text-center py-4">
-              <p className="text-sm text-muted-foreground mb-4">
-                Connect your TikTok account to auto-publish viral video content
-              </p>
-              <Button 
-                onClick={connectTikTok} 
-                disabled={isTikTokConnecting}
-                className="bg-gradient-to-r from-pink-500 to-cyan-400 hover:from-pink-600 hover:to-cyan-500"
-              >
-                {isTikTokConnecting ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <TikTokIcon className="h-4 w-4 mr-2" />
-                )}
-                Connect TikTok
-              </Button>
-            </div>
-          )}
+            )}
+          </div>
         </CardContent>
       </Card>
 

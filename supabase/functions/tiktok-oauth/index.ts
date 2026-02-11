@@ -10,12 +10,10 @@ const TIKTOK_CLIENT_KEY = Deno.env.get("TIKTOK_CLIENT_KEY")?.trim();
 const TIKTOK_CLIENT_SECRET = Deno.env.get("TIKTOK_CLIENT_SECRET")?.trim();
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -28,11 +26,9 @@ serve(async (req) => {
 
   console.log("[tiktok-oauth] Action:", action, "Has code:", !!code, "Has state:", !!state);
 
-  // Build redirect URI – must match the URL registered in TikTok Developer Portal
   const redirectUri = "https://clipmotion.ai/api/tiktok/callback";
 
   try {
-    // Validate credentials
     if (!TIKTOK_CLIENT_KEY || !TIKTOK_CLIENT_SECRET) {
       console.error("[tiktok-oauth] Missing TikTok credentials");
       return new Response(
@@ -44,7 +40,7 @@ serve(async (req) => {
     // Get user from token for protected actions
     let userId: string | null = null;
     const authHeader = req.headers.get("Authorization");
-    
+
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "");
       const { data: claims } = await supabaseAdmin.auth.getUser(token);
@@ -60,17 +56,22 @@ serve(async (req) => {
         );
       }
 
-      const statePayload = btoa(JSON.stringify({ userId }));
-      
-      // TikTok Login Kit scopes for content posting
-      // https://developers.tiktok.com/doc/login-kit-manage-user-access-tokens/
+      const projectId = url.searchParams.get("projectId");
+      if (!projectId) {
+        return new Response(
+          JSON.stringify({ error: "projectId is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const statePayload = btoa(JSON.stringify({ userId, projectId }));
+
       const scopes = [
         "user.info.basic",
         "video.publish",
         "video.upload",
       ].join(",");
 
-      // TikTok uses v2 OAuth
       const authUrl = new URL("https://www.tiktok.com/v2/auth/authorize/");
       authUrl.searchParams.set("client_key", TIKTOK_CLIENT_KEY);
       authUrl.searchParams.set("response_type", "code");
@@ -78,7 +79,7 @@ serve(async (req) => {
       authUrl.searchParams.set("redirect_uri", redirectUri);
       authUrl.searchParams.set("state", statePayload);
 
-      console.log("[tiktok-oauth] Generated auth URL with scopes:", scopes);
+      console.log("[tiktok-oauth] Generated auth URL for project:", projectId);
 
       return new Response(
         JSON.stringify({ authUrl: authUrl.toString() }),
@@ -90,7 +91,6 @@ serve(async (req) => {
     if (action === "callback" || code) {
       console.log("[tiktok-oauth] Processing callback...");
 
-      // Handle OAuth errors
       if (error) {
         console.error("[tiktok-oauth] OAuth error from TikTok:", error);
         return generateCallbackHtml(false, null, error);
@@ -101,24 +101,19 @@ serve(async (req) => {
         return generateCallbackHtml(false, null, "Missing authorization code or state");
       }
 
-      // Decode state
-      let stateData: { userId: string };
+      let stateData: { userId: string; projectId?: string };
       try {
         stateData = JSON.parse(atob(state));
-        console.log("[tiktok-oauth] State decoded, userId:", stateData.userId);
+        console.log("[tiktok-oauth] State decoded, userId:", stateData.userId, "projectId:", stateData.projectId);
       } catch (e) {
         console.error("[tiktok-oauth] Failed to decode state:", e);
         return generateCallbackHtml(false, null, "Invalid state parameter");
       }
 
       // Exchange code for token
-      console.log("[tiktok-oauth] Exchanging code for token...");
-      
       const tokenResponse = await fetch("https://open.tiktokapis.com/v2/oauth/token/", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
           client_key: TIKTOK_CLIENT_KEY,
           client_secret: TIKTOK_CLIENT_SECRET,
@@ -129,42 +124,22 @@ serve(async (req) => {
       });
 
       const tokenData = await tokenResponse.json();
-      console.log("[tiktok-oauth] Token response status:", tokenResponse.status);
 
       if (!tokenResponse.ok || tokenData.error) {
         console.error("[tiktok-oauth] Token exchange failed:", tokenData);
-        return generateCallbackHtml(
-          false, 
-          null, 
-          tokenData.error_description || tokenData.error || "Failed to exchange authorization code"
-        );
+        return generateCallbackHtml(false, null, tokenData.error_description || tokenData.error || "Failed to exchange authorization code");
       }
 
-      const {
-        access_token,
-        refresh_token,
-        expires_in,
-        open_id,
-        scope,
-      } = tokenData;
-
+      const { access_token, refresh_token, expires_in, open_id, scope } = tokenData;
       console.log("[tiktok-oauth] Got tokens, open_id:", open_id, "scope:", scope);
 
       // Fetch user info
-      console.log("[tiktok-oauth] Fetching user info...");
-      
       const userInfoResponse = await fetch(
         "https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name,avatar_url",
-        {
-          headers: {
-            Authorization: `Bearer ${access_token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${access_token}` } }
       );
 
       const userInfoData = await userInfoResponse.json();
-      console.log("[tiktok-oauth] User info response:", JSON.stringify(userInfoData));
-
       let displayName = "TikTok User";
       let avatarUrl: string | null = null;
 
@@ -173,32 +148,31 @@ serve(async (req) => {
         avatarUrl = userInfoData.data.user.avatar_url || null;
       }
 
-      // Calculate expiry
       const expiresAt = new Date(Date.now() + (expires_in * 1000)).toISOString();
 
-      // Upsert connection
+      // Upsert connection scoped to user + project
+      const upsertData: Record<string, unknown> = {
+        user_id: stateData.userId,
+        project_id: stateData.projectId || null,
+        open_id,
+        display_name: displayName,
+        avatar_url: avatarUrl,
+        access_token,
+        refresh_token,
+        expires_at: expiresAt,
+        updated_at: new Date().toISOString(),
+      };
+
       const { error: upsertError } = await supabaseAdmin
         .from("tiktok_connections")
-        .upsert(
-          {
-            user_id: stateData.userId,
-            open_id,
-            display_name: displayName,
-            avatar_url: avatarUrl,
-            access_token,
-            refresh_token,
-            expires_at: expiresAt,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id" }
-        );
+        .upsert(upsertData, { onConflict: "user_id,project_id" });
 
       if (upsertError) {
         console.error("[tiktok-oauth] Failed to save connection:", upsertError);
         return generateCallbackHtml(false, null, "Failed to save connection");
       }
 
-      console.log("[tiktok-oauth] Connection saved successfully for:", displayName);
+      console.log("[tiktok-oauth] Connection saved for project:", stateData.projectId);
 
       return generateCallbackHtml(true, { displayName, avatarUrl, openId: open_id }, null);
     }
@@ -212,11 +186,18 @@ serve(async (req) => {
         );
       }
 
-      const { data: connection } = await supabaseAdmin
+      const projectId = url.searchParams.get("projectId");
+
+      let query = supabaseAdmin
         .from("tiktok_connections")
-        .select("open_id, display_name, avatar_url, expires_at")
-        .eq("user_id", userId)
-        .maybeSingle();
+        .select("open_id, display_name, avatar_url, expires_at, project_id")
+        .eq("user_id", userId);
+
+      if (projectId) {
+        query = query.eq("project_id", projectId);
+      }
+
+      const { data: connection } = await query.maybeSingle();
 
       if (connection) {
         return new Response(
@@ -248,10 +229,18 @@ serve(async (req) => {
         );
       }
 
-      const { error: deleteError } = await supabaseAdmin
+      const projectId = url.searchParams.get("projectId");
+
+      let query = supabaseAdmin
         .from("tiktok_connections")
         .delete()
         .eq("user_id", userId);
+
+      if (projectId) {
+        query = query.eq("project_id", projectId);
+      }
+
+      const { error: deleteError } = await query;
 
       if (deleteError) {
         console.error("[tiktok-oauth] Delete error:", deleteError);
@@ -263,7 +252,6 @@ serve(async (req) => {
       );
     }
 
-    // Unknown action
     return new Response(
       JSON.stringify({ error: "Unknown action" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -279,7 +267,6 @@ serve(async (req) => {
   }
 });
 
-// Generate HTML for OAuth callback popup
 function generateCallbackHtml(
   success: boolean,
   user: { displayName: string; avatarUrl: string | null; openId: string } | null,
@@ -293,26 +280,16 @@ function generateCallbackHtml(
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; margin: 0;
       background: linear-gradient(135deg, #000 0%, #25F4EE 50%, #FE2C55 100%);
       color: white;
     }
-    .container {
-      text-align: center;
-      padding: 2rem;
-      background: rgba(0, 0, 0, 0.8);
-      border-radius: 1rem;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-      max-width: 400px;
-    }
+    .container { text-align: center; padding: 2rem; background: rgba(0,0,0,0.8); border-radius: 1rem; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 400px; }
     .success { color: #25F4EE; }
     .error { color: #FE2C55; }
     h1 { margin-bottom: 0.5rem; font-size: 1.5rem; }
-    p { color: rgba(255, 255, 255, 0.8); margin-top: 0.5rem; }
+    p { color: rgba(255,255,255,0.8); margin-top: 0.5rem; }
   </style>
 </head>
 <body>
@@ -349,7 +326,5 @@ function generateCallbackHtml(
 </html>
   `;
 
-  return new Response(html, {
-    headers: { "Content-Type": "text/html" },
-  });
+  return new Response(html, { headers: { "Content-Type": "text/html" } });
 }
