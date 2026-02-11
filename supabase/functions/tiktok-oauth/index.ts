@@ -28,8 +28,8 @@ serve(async (req) => {
 
   console.log("[tiktok-oauth] Action:", action, "Has code:", !!code, "Has state:", !!state);
 
-  // Build redirect URI
-  const redirectUri = `${SUPABASE_URL}/functions/v1/tiktok-oauth?action=callback`;
+  // Build redirect URI – must match the URL registered in TikTok Developer Portal
+  const redirectUri = "https://clipmotion.ai/api/tiktok/callback";
 
   try {
     // Validate credentials
