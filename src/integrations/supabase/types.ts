@@ -625,6 +625,7 @@ export type Database = {
           expires_at: string
           id: string
           open_id: string
+          project_id: string | null
           refresh_token: string
           updated_at: string
           user_id: string
@@ -637,6 +638,7 @@ export type Database = {
           expires_at: string
           id?: string
           open_id: string
+          project_id?: string | null
           refresh_token: string
           updated_at?: string
           user_id: string
@@ -649,11 +651,20 @@ export type Database = {
           expires_at?: string
           id?: string
           open_id?: string
+          project_id?: string | null
           refresh_token?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tiktok_connections_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       youtube_connections: {
         Row: {

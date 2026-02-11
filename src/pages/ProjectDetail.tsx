@@ -57,6 +57,7 @@ import {
 } from "@/components/ui/select";
 import { MarketingContextEditor, MarketingContext } from "@/components/MarketingContextEditor";
 import { useYouTubeOAuth } from "@/hooks/useYouTubeOAuth";
+import { useTikTokOAuth } from "@/hooks/useTikTokOAuth";
 
 // TikTok icon
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -168,6 +169,16 @@ const ProjectDetail = () => {
     channelName: youtubeChannelName,
     channelPicture: youtubeChannelPicture,
   } = useYouTubeOAuth(id);
+
+  // Per-project TikTok OAuth
+  const {
+    isConnected: isTikTokConnected,
+    isConnecting: isTikTokConnecting,
+    isLoading: isTikTokLoading,
+    connect: connectTikTok,
+    disconnect: disconnectTikTok,
+    displayName: tiktokDisplayName,
+  } = useTikTokOAuth(id);
   
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -1084,8 +1095,8 @@ const ProjectDetail = () => {
                   </div>
                 </div>
 
-                {/* TikTok - Download & share */}
-                <div className="rounded-lg border p-3 opacity-60">
+                {/* TikTok - Per-project OAuth */}
+                <div className="rounded-lg border p-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-black">
@@ -1093,11 +1104,52 @@ const ProjectDetail = () => {
                       </div>
                       <div>
                         <span className="font-medium">TikTok</span>
-                        <div className="text-xs text-muted-foreground">Download & share</div>
+                        {isTikTokConnected && tiktokDisplayName && (
+                          <div className="text-xs text-muted-foreground">@{tiktokDisplayName}</div>
+                        )}
+                        {!isTikTokConnected && (
+                          <div className="text-xs text-muted-foreground">Auto-publish videos</div>
+                        )}
                       </div>
                     </div>
-                    <Switch checked={editTiktok} onCheckedChange={setEditTiktok} />
+                    <div className="flex items-center gap-2">
+                      <Switch checked={editTiktok} onCheckedChange={setEditTiktok} />
+                    </div>
                   </div>
+                  {editTiktok && (
+                    <div className="mt-3 pt-3 border-t border-border">
+                      {isTikTokLoading ? (
+                        <div className="flex items-center justify-center py-2">
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : isTikTokConnected ? (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Check className="h-4 w-4 text-green-500" />
+                            <span className="text-sm">{tiktokDisplayName || "TikTok Account"}</span>
+                          </div>
+                          <Button variant="outline" size="sm" onClick={disconnectTikTok} className="h-7 text-xs">
+                            <LogOut className="h-3 w-3 mr-1" />
+                            Disconnect
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={connectTikTok}
+                          disabled={isTikTokConnecting}
+                          className="w-full bg-gradient-to-r from-pink-500 to-cyan-400 hover:from-pink-600 hover:to-cyan-500 h-8 text-xs"
+                        >
+                          {isTikTokConnecting ? (
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          ) : (
+                            <TikTokIcon className="h-3 w-3 mr-1" />
+                          )}
+                          Connect TikTok
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </TabsContent>
