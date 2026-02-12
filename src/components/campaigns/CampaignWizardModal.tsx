@@ -138,6 +138,10 @@ export const CampaignWizardModal = ({
   const [progressValue, setProgressValue] = useState(0);
   const [progressStats, setProgressStats] = useState<{ videos: number; images: number; total: number } | undefined>();
   const [progressError, setProgressError] = useState<string | undefined>();
+  const [progressStalled, setProgressStalled] = useState(false);
+  const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
+  const lastPollCountRef = useRef(0);
+  const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Form state
   const [campaignType, setCampaignType] = useState<"video" | "image" | "mixed">("mixed");
@@ -428,6 +432,10 @@ export const CampaignWizardModal = ({
       // Fire-and-forget: invoke edge function WITHOUT awaiting response
       setProgressStatus("scheduling");
       setProgressValue(30);
+      // Store campaign ID for resume functionality
+      setActiveCampaignId(newCampaign.id);
+      setProgressStalled(false);
+      lastPollCountRef.current = 0;
 
       supabase.functions.invoke("generate-campaign-content", {
         body: {
@@ -447,7 +455,7 @@ export const CampaignWizardModal = ({
         },
       }).catch((err: any) => console.warn("Edge function fire-and-forget:", err));
 
-      // Poll scheduled_posts table for progress
+      // Poll scheduled_posts table for progress with stall detection
       const pollInterval = setInterval(async () => {
         try {
           const { count } = await supabase
@@ -459,8 +467,26 @@ export const CampaignWizardModal = ({
           const pct = Math.min(95, 30 + Math.round((done / Math.max(targetTotal, 1)) * 65));
           setProgressValue(pct);
 
+          // Stall detection: if count hasn't changed, start a 30s timer
+          if (done > 0 && done === lastPollCountRef.current) {
+            if (!stallTimerRef.current) {
+              stallTimerRef.current = setTimeout(() => {
+                setProgressStalled(true);
+              }, 30000);
+            }
+          } else {
+            // Progress detected — reset stall
+            lastPollCountRef.current = done;
+            setProgressStalled(false);
+            if (stallTimerRef.current) {
+              clearTimeout(stallTimerRef.current);
+              stallTimerRef.current = null;
+            }
+          }
+
           if (done >= targetTotal) {
             clearInterval(pollInterval);
+            if (stallTimerRef.current) { clearTimeout(stallTimerRef.current); stallTimerRef.current = null; }
             setProgressValue(100);
             setProgressStatus("completed");
             setProgressStats({ videos: 0, images: done, total: done });
@@ -505,9 +531,23 @@ export const CampaignWizardModal = ({
 
   const handleProgressClose = () => {
     setShowProgress(false);
+    if (stallTimerRef.current) { clearTimeout(stallTimerRef.current); stallTimerRef.current = null; }
     if (progressStatus === "completed") {
       onClose();
     }
+  };
+
+  const handleResumeCampaign = () => {
+    if (!activeCampaignId) return;
+    setProgressStalled(false);
+    lastPollCountRef.current = 0;
+    if (stallTimerRef.current) { clearTimeout(stallTimerRef.current); stallTimerRef.current = null; }
+    
+    supabase.functions.invoke("generate-campaign-content", {
+      body: { campaignId: activeCampaignId, platforms: selectedPlatforms },
+    }).catch((err: any) => console.warn("Resume invocation error:", err));
+
+    toast({ title: "Resuming generation", description: "The campaign generation has been re-triggered." });
   };
 
   const canProceed = () => {
@@ -1067,6 +1107,8 @@ export const CampaignWizardModal = ({
           progress={progressValue}
           stats={progressStats}
           errorMessage={progressError}
+          onResume={handleResumeCampaign}
+          isStalled={progressStalled}
         />
       </>
     );
@@ -1094,6 +1136,8 @@ export const CampaignWizardModal = ({
         progress={progressValue}
         stats={progressStats}
         errorMessage={progressError}
+        onResume={handleResumeCampaign}
+        isStalled={progressStalled}
       />
     </>
   );
