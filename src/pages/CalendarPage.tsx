@@ -127,7 +127,7 @@ const CalendarPage = () => {
 
   useEffect(() => {
     fetchPosts();
-  }, [selectedProject, selectedCampaign]);
+  }, [selectedProject, selectedCampaign, currentMonth]);
 
   // Reset campaign when project changes
   useEffect(() => {
@@ -321,15 +321,15 @@ const CalendarPage = () => {
 
   const fetchPosts = async () => {
     setIsLoading(true);
-    // Fetch posts for 5 weeks starting from current week
-    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-    const weekEnd = addWeeks(weekStart, 5);
+    // Fetch posts for the displayed month
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
 
     let query = supabase
       .from("scheduled_posts")
       .select("*")
-      .gte("scheduled_for", weekStart.toISOString())
-      .lte("scheduled_for", weekEnd.toISOString())
+      .gte("scheduled_for", monthStart.toISOString())
+      .lte("scheduled_for", monthEnd.toISOString())
       // Calendar only shows pending posts (draft/scheduled), not published
       .neq("status", "published")
       .order("scheduled_for");
@@ -347,8 +347,8 @@ const CalendarPage = () => {
     setIsLoading(false);
   };
 
-  // Start calendar from today and show 5 weeks
-  const calendarStart = startOfWeek(new Date(), { weekStartsOn: 1 }); // Start on Monday
+  // Calendar grid based on currentMonth
+  const calendarStart = startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 });
   const calendarEnd = addWeeks(calendarStart, 5);
   
   const days = eachDayOfInterval({
