@@ -321,15 +321,16 @@ const CalendarPage = () => {
 
   const fetchPosts = async () => {
     setIsLoading(true);
-    // Fetch posts for the displayed month
-    const monthStart = startOfMonth(currentMonth);
-    const monthEnd = endOfMonth(currentMonth);
+    // Fetch posts: from today if current month, or full month otherwise
+    const isCurrent = startOfMonth(currentMonth).getTime() === startOfMonth(new Date()).getTime();
+    const fetchStart = isCurrent ? startOfDay(new Date()) : startOfMonth(currentMonth);
+    const fetchEnd = addWeeks(fetchStart, 5);
 
     let query = supabase
       .from("scheduled_posts")
       .select("*")
-      .gte("scheduled_for", monthStart.toISOString())
-      .lte("scheduled_for", monthEnd.toISOString())
+      .gte("scheduled_for", fetchStart.toISOString())
+      .lte("scheduled_for", fetchEnd.toISOString())
       // Calendar only shows pending posts (draft/scheduled), not published
       .neq("status", "published")
       .order("scheduled_for");
@@ -347,8 +348,9 @@ const CalendarPage = () => {
     setIsLoading(false);
   };
 
-  // Calendar grid based on currentMonth
-  const calendarStart = startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 });
+  // Calendar grid: start from today (or navigated month's first day if not current month)
+  const isCurrentMonth = startOfMonth(currentMonth).getTime() === startOfMonth(new Date()).getTime();
+  const calendarStart = isCurrentMonth ? startOfDay(new Date()) : startOfMonth(currentMonth);
   const calendarEnd = addWeeks(calendarStart, 5);
   
   const days = eachDayOfInterval({
@@ -475,14 +477,16 @@ const CalendarPage = () => {
           </div>
         </CardHeader>
         <CardContent className="p-2 md:p-3">
-          {/* Week days header - Facebook style */}
-          <div className="grid grid-cols-7 gap-1 mb-2">
-            {weekDays.map((day) => (
-              <div key={day} className="text-center text-xs font-semibold text-gray-500 py-2 bg-white rounded">
-                {day}
-              </div>
-            ))}
-          </div>
+          {/* Week days header - only show when grid is week-aligned */}
+          {!isCurrentMonth && (
+            <div className="grid grid-cols-7 gap-1 mb-2">
+              {weekDays.map((day) => (
+                <div key={day} className="text-center text-xs font-semibold text-gray-500 py-2 bg-white rounded">
+                  {day}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Calendar grid - Facebook post cards style */}
           <div className="grid grid-cols-7 gap-1 md:gap-2">
