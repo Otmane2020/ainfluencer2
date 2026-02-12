@@ -321,6 +321,7 @@ const SmartImagePage = () => {
                         <span className="font-semibold truncate">{model.name}</span>
                         {isSelected && <CheckCircle className="h-3.5 w-3.5 text-primary shrink-0" />}
                       </div>
+                      <span className="text-[10px] text-muted-foreground truncate mb-1">{model.provider === "kie" ? "KIE API" : model.provider === "lovable" ? "Lovable AI" : model.provider === "openai" ? "OpenAI" : model.provider}</span>
                       <div className="flex items-center gap-1.5">
                         <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getCostLevelColor(model.costLevel)}`}>
                           {model.credits} cr
