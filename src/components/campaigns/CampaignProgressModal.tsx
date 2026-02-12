@@ -22,6 +22,8 @@ interface CampaignProgressModalProps {
     total: number;
   };
   errorMessage?: string;
+  onResume?: () => void;
+  isStalled?: boolean;
 }
 
 const statusMessages = {
@@ -39,6 +41,8 @@ export const CampaignProgressModal = ({
   progress,
   stats,
   errorMessage,
+  onResume,
+  isStalled,
 }: CampaignProgressModalProps) => {
   const navigate = useNavigate();
   const isComplete = status === "completed";
@@ -163,12 +167,21 @@ export const CampaignProgressModal = ({
             </div>
           )}
 
+          {/* Stall detection - Resume button */}
+          {!isComplete && !isError && isStalled && onResume && (
+            <div className="rounded-lg bg-destructive/10 p-3 flex flex-col items-center gap-2">
+              <p className="text-sm text-destructive text-center">Generation seems stalled. You can resume it manually.</p>
+              <Button variant="outline" size="sm" onClick={onResume} className="border-destructive text-destructive hover:bg-destructive/10">
+                <Wand2 className="h-4 w-4 mr-1" /> Resume Generation
+              </Button>
+            </div>
+          )}
+
           {/* Info message */}
-          {!isComplete && !isError && (
+          {!isComplete && !isError && !isStalled && (
             <div className="rounded-lg bg-primary/10 p-3 flex items-center justify-center gap-2">
               <Lightbulb className="h-4 w-4 text-primary" />
-              <p className="text-sm text-primary">We'll notify you when your campaign is ready!
-              </p>
+              <p className="text-sm text-primary">We'll notify you when your campaign is ready!</p>
             </div>
           )}
 

@@ -276,14 +276,14 @@ serve(async (req) => {
     });
     logContextValidation(contextGuard, "CampaignGeneration");
 
-    // 3. Planning - BATCH SIZE = 5 (reduced from 10 to avoid timeout)
+    // 3. Planning - BATCH SIZE = 2 (reduced to avoid edge function timeout)
     const totalVideos = campaign.campaign_type === "image" ? 0 : (campaign.videos_per_month || 4);
     const totalImages = campaign.campaign_type === "video" ? 0 : (campaign.images_per_month || 12);
     const totalTarget = totalVideos + totalImages;
     
     const { count } = await supabase.from("scheduled_posts").select("*", { count: "exact", head: true }).eq("campaign_id", campaignId);
     const alreadyDone = count || 0;
-    const BATCH_SIZE = 5;
+    const BATCH_SIZE = 2;
     const toGen = Math.min(Math.max(0, totalTarget - alreadyDone), BATCH_SIZE);
 
     console.log(`[Campaign] Target: ${totalTarget}, Already done: ${alreadyDone}, Batch: ${toGen}`);
@@ -300,20 +300,44 @@ serve(async (req) => {
 
     for (let i = 0; i < toGen; i++) {
       const idx = alreadyDone + i;
-      const post = await generateSinglePost(
-        idx, campaign, project, contextGuard, effectiveFormat,
-        platforms, totalTarget, supabase, OPENROUTER_API_KEY
-      );
+      try {
+        const post = await generateSinglePost(
+          idx, campaign, project, contextGuard, effectiveFormat,
+          platforms, totalTarget, supabase, OPENROUTER_API_KEY
+        );
 
-      if (post) {
-        // Insert each post immediately so polling can see progress
-        const { error: insertError } = await supabase.from("scheduled_posts").insert(post);
-        if (insertError) {
-          console.error(`[Campaign] Insert error post ${idx + 1}:`, insertError);
+        if (post) {
+          // Insert each post immediately so polling can see progress
+          const { error: insertError } = await supabase.from("scheduled_posts").insert(post);
+          if (insertError) {
+            console.error(`[Campaign] Insert error post ${idx + 1}:`, insertError);
+          } else {
+            generated++;
+            console.log(`[Campaign] Post ${idx + 1} saved (${generated}/${toGen})`);
+          }
         } else {
-          generated++;
-          console.log(`[Campaign] Post ${idx + 1} saved (${generated}/${toGen})`);
+          // Post generation failed (AI parsing, etc.) — insert error placeholder to avoid blocking chain
+          console.warn(`[Campaign] Post ${idx + 1} failed, inserting error placeholder`);
+          const scheduledDate = new Date();
+          scheduledDate.setDate(scheduledDate.getDate() + Math.floor(idx * (30 / totalTarget)) + 1);
+          scheduledDate.setHours(campaign.posting_hour || 10, Math.floor(Math.random() * 60));
+          await supabase.from("scheduled_posts").insert({
+            user_id: campaign.user_id,
+            project_id: campaign.project_id,
+            campaign_id: campaign.id,
+            content_type: "image",
+            scheduled_for: scheduledDate.toISOString(),
+            ai_prompt: "Generation failed — retry later",
+            text_content: "",
+            media_url: null,
+            status: "error",
+            platforms: platforms || ["instagram"],
+          });
+          generated++; // Count toward batch to prevent infinite loops
         }
+      } catch (postError) {
+        console.error(`[Campaign] Post ${idx + 1} exception:`, postError);
+        generated++; // Always advance to prevent stuck loops
       }
     }
 
@@ -326,15 +350,14 @@ serve(async (req) => {
 
     console.log(`[Campaign] Batch done: ${generated} posts. Total: ${newTotal}/${totalTarget}`);
 
-    // 6. Self-reinvoke if more posts remain
+    // 6. Self-reinvoke if more posts remain — use waitUntil to survive shutdown
     const remaining = totalTarget - newTotal;
     if (remaining > 0) {
-      console.log(`[Campaign] ${remaining} posts remaining, self-reinvoking...`);
+      console.log(`[Campaign] ${remaining} posts remaining, self-reinvoking via waitUntil...`);
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       
-      // Fire-and-forget: don't await
-      fetch(`${supabaseUrl}/functions/v1/generate-campaign-content`, {
+      const reinvokePromise = fetch(`${supabaseUrl}/functions/v1/generate-campaign-content`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${serviceRoleKey}`,
@@ -342,6 +365,11 @@ serve(async (req) => {
         },
         body: JSON.stringify({ campaignId, platforms, productDescription }),
       }).catch(err => console.error("[Campaign] Self-reinvoke error:", err));
+
+      // Use EdgeRuntime.waitUntil so the fetch fires even during shutdown
+      if (typeof (globalThis as any).EdgeRuntime !== "undefined" && (globalThis as any).EdgeRuntime.waitUntil) {
+        (globalThis as any).EdgeRuntime.waitUntil(reinvokePromise);
+      }
     }
 
     return new Response(JSON.stringify({ 
