@@ -6,6 +6,11 @@ import {
   type MarketingContext,
   type GenerationGuardInput 
 } from "../_shared/generation-context-guard.ts";
+import {
+  createKieTask,
+  checkKieTaskStatus,
+  KIE_MODEL_NAMES,
+} from "../_shared/kie-api-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,11 +53,26 @@ const BANNED_CLICHES = ["laptop in café", "person smiling at phone", "man in su
 // IMAGE GENERATION
 // ============================================================
 
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  return btoa(binary);
+}
+
 async function generateAndUploadImage(prompt: string, format: string, supabase: any): Promise<string | null> {
   const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
-  const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
   
   try {
+    // Map format to aspect ratio for KIE
+    let aspectRatio = "1:1";
+    if (format === "reel" || format === "story") aspectRatio = "9:16";
+    else if (format === "landscape") aspectRatio = "16:9";
+
     let size = "1024x1024";
     if (format === "reel" || format === "story") size = "768x1344";
     else if (format === "landscape") size = "1344x768";
@@ -62,6 +82,7 @@ async function generateAndUploadImage(prompt: string, format: string, supabase: 
 
     let imageBase64: string | null = null;
 
+    // Stage 1: CometAPI (if available)
     if (COMETAPI_API_KEY) {
       const response = await fetch("https://api.cometapi.com/v1/images/generations", {
         method: "POST",
@@ -77,23 +98,82 @@ async function generateAndUploadImage(prompt: string, format: string, supabase: 
       }
     }
 
-    if (!imageBase64 && OPENROUTER_API_KEY) {
-      console.log("[Image Gen] Falling back to OpenRouter...");
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "google/gemini-3-pro-image-preview",
-          messages: [{ role: "user", content: enhancedPrompt }],
-          modalities: ["image"],
-        }),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-        if (imageData) {
-          imageBase64 = imageData.replace(/^data:image\/\w+;base64,/, "");
-          console.log("[Image Gen] OpenRouter fallback success");
+    // Stage 2: KIE API - qwen-zimage (cheapest model, 0.8 credits)
+    if (!imageBase64) {
+      console.log("[Image Gen] Falling back to KIE qwen-zimage...");
+      try {
+        const sizeMap: Record<string, string> = {
+          "1:1": "square_hd",
+          "16:9": "landscape_16_9",
+          "9:16": "portrait_16_9",
+          "4:3": "landscape_4_3",
+          "3:4": "portrait_4_3",
+        };
+        const taskResult = await createKieTask("qwen/text-to-image", {
+          prompt: enhancedPrompt.slice(0, 2950),
+          image_size: sizeMap[aspectRatio] || "square_hd",
+        });
+
+        if (taskResult.success && taskResult.taskId) {
+          // Poll for result (max 30s)
+          let attempts = 0;
+          while (attempts < 30) {
+            await new Promise(r => setTimeout(r, attempts < 10 ? 1000 : 2000));
+            const status = await checkKieTaskStatus(taskResult.taskId);
+            
+            if (status.status === "completed") {
+              const imageUrl = status.resultUrl || status.resultUrls?.[0];
+              if (imageUrl) {
+                const imgResponse = await fetch(imageUrl);
+                if (imgResponse.ok) {
+                  const imgBlob = await imgResponse.blob();
+                  const imgArrayBuffer = await imgBlob.arrayBuffer();
+                  imageBase64 = arrayBufferToBase64(imgArrayBuffer);
+                  console.log("[Image Gen] KIE qwen-zimage success");
+                }
+              }
+              break;
+            }
+            if (status.status === "failed") {
+              console.warn("[Image Gen] KIE qwen-zimage failed:", status.error);
+              break;
+            }
+            attempts++;
+          }
+        }
+      } catch (kieErr) {
+        console.warn("[Image Gen] KIE fallback error:", kieErr);
+      }
+    }
+
+    // Stage 3: Nano Banana (Lovable AI) as last resort
+    if (!imageBase64) {
+      console.log("[Image Gen] Falling back to Nano Banana...");
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      if (LOVABLE_API_KEY) {
+        try {
+          const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash-image",
+              messages: [{ role: "user", content: enhancedPrompt }],
+              modalities: ["image", "text"],
+            }),
+          });
+          if (response.ok) {
+            const data = await response.json();
+            const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+            if (imageData) {
+              imageBase64 = imageData.replace(/^data:image\/\w+;base64,/, "");
+              console.log("[Image Gen] Nano Banana fallback success");
+            }
+          }
+        } catch (nbErr) {
+          console.warn("[Image Gen] Nano Banana fallback error:", nbErr);
         }
       }
     }
