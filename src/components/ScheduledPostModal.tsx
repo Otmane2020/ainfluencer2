@@ -1097,11 +1097,11 @@ export const ScheduledPostModal = ({
                     )}
                   </div>
                 ) : (
-                  <div className="aspect-square max-h-64 sm:max-h-80">
+                  <div className="max-h-80 flex items-center justify-center">
                     <img
                       src={localMediaUrl || post.media_url || post.thumbnail_url || undefined}
                       alt="Post media"
-                      className="h-full w-full object-cover"
+                      className="max-h-80 w-auto max-w-full object-contain rounded-lg"
                     />
                   </div>
                 )}
