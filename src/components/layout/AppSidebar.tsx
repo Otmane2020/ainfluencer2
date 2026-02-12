@@ -45,6 +45,7 @@ const mainNavItems = [
 const contentNavItems = [
   { title: "AI Video", url: "/videos", icon: Video },
   { title: "AI Image", url: "/images", icon: Image },
+  { title: "Smart AI Image", url: "/smart-image", icon: Sparkles, label: "NEW" },
   { title: "Product Shots", url: "/product-shots", icon: Camera, label: "AI Smart" },
   { title: "Posts", url: "/posts", icon: ImageIcon },
 ];

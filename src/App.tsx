@@ -15,6 +15,7 @@ import CalendarPage from "./pages/CalendarPage";
 import Videos from "./pages/Videos";
 // AI Video page removed - consolidated into Videos page
 import Images from "./pages/Images";
+import SmartImagePage from "./pages/SmartImagePage";
 import Posts from "./pages/Posts";
 import Settings from "./pages/Settings";
 import Integrations from "./pages/Integrations";
@@ -98,6 +99,7 @@ const App = () => (
             <Route path="/videos" element={<Videos />} />
             {/* AI Video route removed - consolidated into /videos */}
             <Route path="/images" element={<Images />} />
+            <Route path="/smart-image" element={<SmartImagePage />} />
             <Route path="/product-shots" element={<ProductShotsPage />} />
             <Route path="/posts" element={<Posts />} />
             
