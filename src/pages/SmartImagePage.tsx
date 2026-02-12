@@ -34,6 +34,7 @@ const SmartImagePage = () => {
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [results, setResults] = useState<Record<string, GenerationResult>>({});
   const [isRunning, setIsRunning] = useState(false);
+  const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
   const [aspectRatio, setAspectRatio] = useState("1:1");
   const { toast } = useToast();
 
@@ -74,6 +75,46 @@ const SmartImagePage = () => {
         .filter(m => m.costLevel === "ultra-low" || m.costLevel === "low")
         .map(m => m.id)
     );
+  };
+
+  const generateSmartPrompt = async () => {
+    if (selectedProject === "none") return;
+    const project = projects.find(p => p.id === selectedProject);
+    if (!project) return;
+
+    setIsGeneratingPrompt(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("suggest-content", {
+        body: {
+          projectId: selectedProject,
+          type: "image-prompt",
+          context: project.ai_context_summary || project.name,
+        },
+      });
+
+      if (error) throw error;
+
+      const suggestion = data?.suggestion || data?.prompt || data?.text;
+      if (suggestion) {
+        setPrompt(suggestion);
+        toast({ title: "Prompt generated!", description: "AI created a prompt from your project" });
+      } else {
+        // Fallback: build a basic prompt from project context
+        const ctx = project.marketing_context;
+        const products = ctx?.products || ctx?.services || [];
+        const productList = Array.isArray(products) ? products.slice(0, 3).join(", ") : "";
+        const fallbackPrompt = `Professional advertising photo for ${project.name}${productList ? ` showcasing ${productList}` : ""}. High-end commercial photography, dramatic lighting, premium brand aesthetic.`;
+        setPrompt(fallbackPrompt);
+        toast({ title: "Prompt generated!", description: "Created from project context" });
+      }
+    } catch (err) {
+      // Fallback on error
+      const fallbackPrompt = `Professional advertising photo for ${project.name}. High-end commercial photography, dramatic lighting, premium brand aesthetic.`;
+      setPrompt(fallbackPrompt);
+      toast({ title: "Prompt generated!", description: "Created from project name" });
+    } finally {
+      setIsGeneratingPrompt(false);
+    }
   };
 
   const generateForModel = async (modelId: string, fullPrompt: string) => {
@@ -225,12 +266,33 @@ const SmartImagePage = () => {
             </div>
 
             {/* Prompt */}
-            <Textarea
-              placeholder="Describe the image you want to generate across all models..."
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              className="min-h-[80px] resize-none"
-            />
+            <div className="relative">
+              <Textarea
+                placeholder="Describe the image you want to generate across all models..."
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                className="min-h-[80px] resize-none pr-12"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-2 top-2 h-8 w-8 text-primary hover:bg-primary/10"
+                disabled={selectedProject === "none" || isGeneratingPrompt}
+                onClick={generateSmartPrompt}
+                title="Auto-generate prompt from project"
+              >
+                {isGeneratingPrompt ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            {selectedProject === "none" && (
+              <p className="text-xs text-muted-foreground -mt-2">
+                Select a project above to enable AI prompt generation ✨
+              </p>
+            )}
 
             {/* Model Selection */}
             <div>
