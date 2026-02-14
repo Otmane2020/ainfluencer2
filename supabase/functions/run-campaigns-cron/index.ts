@@ -143,6 +143,8 @@ interface ProjectContext {
   ai_context_summary: string | null;
   scraped_markdown: string | null;
   avatar_url: string | null;
+  meta_page_id?: string | null;
+  meta_instagram_id?: string | null;
 }
 
 interface ScheduledPost {
@@ -718,7 +720,7 @@ Deno.serve(async (req) => {
     // Build query for due posts - fetch FULL project context for generation
     let postsQuery = supabase
       .from("scheduled_posts")
-      .select("*, projects(id, name, detected_language, description, logo_url, url, theme_color, marketing_context, ai_context_summary, scraped_markdown, avatar_url)")
+      .select("*, projects(id, name, detected_language, description, logo_url, url, theme_color, marketing_context, ai_context_summary, scraped_markdown, avatar_url, meta_page_id, meta_instagram_id)")
       .in("status", ["scheduled", "draft"])
       .order("scheduled_for", { ascending: true })
       .limit(20);
@@ -774,6 +776,8 @@ Deno.serve(async (req) => {
         ai_context_summary: post.projects?.ai_context_summary || null,
         scraped_markdown: post.projects?.scraped_markdown || null,
         avatar_url: post.projects?.avatar_url || null,
+        meta_page_id: post.projects?.meta_page_id || null,
+        meta_instagram_id: post.projects?.meta_instagram_id || null,
       };
       
       console.log(`[cron] Processing post ${post.id} (${post.content_type}) - project: ${projectContext.name} | language: ${projectContext.detected_language}`);
@@ -885,6 +889,41 @@ Deno.serve(async (req) => {
           error_message: "Meta token expired - reconnect required",
         }).eq("id", post.id);
         continue;
+      }
+
+      // ============================================================
+      // PROJECT-SPECIFIC META OVERRIDE
+      // Override global connection with per-project page/IG IDs
+      // ============================================================
+      const projectMetaPageId = projectContext.meta_page_id;
+      const projectMetaInstagramId = projectContext.meta_instagram_id;
+
+      if (projectMetaPageId && projectMetaPageId !== metaConnection.page_id) {
+        console.log(`[cron] Overriding page_id: ${metaConnection.page_id} → ${projectMetaPageId} (project: ${projectContext.name})`);
+        metaConnection.page_id = projectMetaPageId;
+
+        // Fetch the correct page access token for the target page
+        try {
+          const pageTokenRes = await fetch(
+            `https://graph.facebook.com/v18.0/${projectMetaPageId}?fields=access_token&access_token=${metaConnection.access_token}`
+          );
+          if (pageTokenRes.ok) {
+            const pageTokenData = await pageTokenRes.json();
+            if (pageTokenData.access_token) {
+              metaConnection.page_access_token = pageTokenData.access_token;
+              console.log(`[cron] ✅ Fetched page access token for ${projectMetaPageId}`);
+            }
+          } else {
+            console.error(`[cron] Failed to fetch page token for ${projectMetaPageId}: ${pageTokenRes.status}`);
+          }
+        } catch (tokenErr) {
+          console.error(`[cron] Error fetching page token:`, tokenErr);
+        }
+      }
+
+      if (projectMetaInstagramId && projectMetaInstagramId !== metaConnection.instagram_id) {
+        console.log(`[cron] Overriding instagram_id: ${metaConnection.instagram_id} → ${projectMetaInstagramId} (project: ${projectContext.name})`);
+        metaConnection.instagram_id = projectMetaInstagramId;
       }
 
       const platforms = post.platforms || ["instagram", "facebook"];
