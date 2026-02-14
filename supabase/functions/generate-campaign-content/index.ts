@@ -272,10 +272,8 @@ OUTPUT: Return ONLY valid JSON:
     return null;
   }
 
-  let mediaUrl = null;
-  if (!isVideo) {
-    mediaUrl = await generateAndUploadImage(parsed.aiPrompt, effectiveFormat, supabase);
-  }
+  // Media will be generated just-in-time by the cron job at publish time
+  const mediaUrl = null;
 
   const scheduledDate = new Date();
   scheduledDate.setDate(scheduledDate.getDate() + Math.floor(idx * (30 / totalTarget)) + 1);
