@@ -75,6 +75,7 @@ export interface MediaItem {
   platforms?: string[];
   textContent?: string;
   model?: string;
+  externalPostId?: string;
 }
 
 interface MediaCardProps {
