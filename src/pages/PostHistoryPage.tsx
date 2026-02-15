@@ -327,21 +327,31 @@ const PostHistoryPage = () => {
                   <div className="flex items-center gap-2 flex-wrap">
                     {selectedItem.platforms?.map(platform => {
                       const postUrl = getPlatformPostUrl(platform, selectedItem.externalPostId);
-                      const badge = (
+                      if (postUrl) {
+                        return (
+                          <a
+                            key={platform}
+                            href={postUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 text-white border-0 capitalize text-xs px-2.5 py-0.5 rounded-full font-semibold cursor-pointer hover:opacity-80 transition-opacity no-underline"
+                            style={{ backgroundColor: PLATFORM_COLORS[platform.toLowerCase()] || "#888" }}
+                          >
+                            {platform}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        );
+                      }
+                      return (
                         <Badge
                           key={platform}
-                          className={`text-white border-0 capitalize text-xs ${postUrl ? "cursor-pointer hover:opacity-80" : ""}`}
+                          className="text-white border-0 capitalize text-xs"
                           style={{ backgroundColor: PLATFORM_COLORS[platform.toLowerCase()] || "#888" }}
                         >
                           {platform}
-                          {postUrl && <ExternalLink className="h-3 w-3 ml-1" />}
                         </Badge>
                       );
-                      return postUrl ? (
-                        <a key={platform} href={postUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
-                          {badge}
-                        </a>
-                      ) : badge;
                     })}
                     {selectedItem.projectName && (
                       <Badge variant="outline" className="text-xs">{selectedItem.projectName}</Badge>
