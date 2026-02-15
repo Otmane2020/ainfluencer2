@@ -245,6 +245,9 @@ const CampaignsPage = () => {
                           <div>
                             <CardTitle className="text-base">{campaign.name}</CardTitle>
                             <p className="text-xs text-muted-foreground">{typeConfig.label}</p>
+                            <p className="text-[10px] text-muted-foreground/70">
+                              {new Date(campaign.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} at {new Date(campaign.created_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                            </p>
                           </div>
                         </div>
                         <DropdownMenu>
