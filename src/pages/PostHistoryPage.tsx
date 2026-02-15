@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { RefreshCw, Loader2, LayoutGrid, Video, Image, Trash2, Eye, Pencil, X } from "lucide-react";
+import { RefreshCw, Loader2, LayoutGrid, Video, Image, Trash2, Eye, Pencil, X, ExternalLink } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -32,6 +32,16 @@ const PLATFORM_COLORS: Record<string, string> = {
   tiktok: "#000000",
   linkedin: "#0A66C2",
   youtube: "#FF0000",
+};
+const getPlatformPostUrl = (platform: string, externalPostId?: string): string | null => {
+  if (!externalPostId) return null;
+  const p = platform.toLowerCase();
+  if (p === "facebook") return `https://www.facebook.com/photo/?fbid=${externalPostId}`;
+  if (p === "instagram") return `https://www.instagram.com/p/${externalPostId}`;
+  if (p === "youtube") return `https://www.youtube.com/watch?v=${externalPostId}`;
+  if (p === "tiktok") return `https://www.tiktok.com/@user/video/${externalPostId}`;
+  if (p === "linkedin") return `https://www.linkedin.com/feed/update/${externalPostId}`;
+  return null;
 };
 
 const PostHistoryPage = () => {
@@ -78,7 +88,7 @@ const PostHistoryPage = () => {
     try {
       let query = supabase
         .from("scheduled_posts")
-        .select("id, content_type, text_content, media_url, thumbnail_url, ai_prompt, status, created_at, platforms, campaign_id, project_id, campaigns(name), projects(name)")
+        .select("id, content_type, text_content, media_url, thumbnail_url, ai_prompt, status, created_at, platforms, campaign_id, project_id, external_post_id, campaigns(name), projects(name)")
         .eq("status", "published")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
@@ -109,6 +119,7 @@ const PostHistoryPage = () => {
           textContent: item.text_content || item.ai_prompt || "",
           script: item.ai_prompt || undefined,
           aspectRatio: item.content_type === "video" ? "vertical" as const : "square" as const,
+          externalPostId: item.external_post_id || undefined,
         }));
 
       setItems(mapped);
@@ -314,15 +325,24 @@ const PostHistoryPage = () => {
                 {/* Platforms & project */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 flex-wrap">
-                    {selectedItem.platforms?.map(platform => (
-                      <Badge
-                        key={platform}
-                        className="text-white border-0 capitalize text-xs"
-                        style={{ backgroundColor: PLATFORM_COLORS[platform.toLowerCase()] || "#888" }}
-                      >
-                        {platform}
-                      </Badge>
-                    ))}
+                    {selectedItem.platforms?.map(platform => {
+                      const postUrl = getPlatformPostUrl(platform, selectedItem.externalPostId);
+                      const badge = (
+                        <Badge
+                          key={platform}
+                          className={`text-white border-0 capitalize text-xs ${postUrl ? "cursor-pointer hover:opacity-80" : ""}`}
+                          style={{ backgroundColor: PLATFORM_COLORS[platform.toLowerCase()] || "#888" }}
+                        >
+                          {platform}
+                          {postUrl && <ExternalLink className="h-3 w-3 ml-1" />}
+                        </Badge>
+                      );
+                      return postUrl ? (
+                        <a key={platform} href={postUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+                          {badge}
+                        </a>
+                      ) : badge;
+                    })}
                     {selectedItem.projectName && (
                       <Badge variant="outline" className="text-xs">{selectedItem.projectName}</Badge>
                     )}
