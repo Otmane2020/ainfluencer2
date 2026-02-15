@@ -100,9 +100,8 @@ const platforms: SocialPlatform[] = [
     name: "LinkedIn",
     icon: Linkedin,
     gradient: "from-[#0A66C2] to-[#004182]",
-    // LinkedIn blocks direct media (mp4/image) URLs in many environments.
-    // Use the feed composer (no URL param) + copy/download flow.
-    shareUrl: () => `https://www.linkedin.com/feed/?shareActive=true`,
+    // Use the official LinkedIn sharing endpoint which reliably opens the share dialog.
+    shareUrl: (text) => `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent("https://ainfluencer2.lovable.app")}&summary=${encodeURIComponent(text)}`,
   },
   {
     id: "tiktok",
