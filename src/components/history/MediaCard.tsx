@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Video, Play, Download, Trash2, Loader2, Image as ImageIcon, ExternalLink } from "lucide-react";
+import { Video, Play, Download, Trash2, Loader2, Image as ImageIcon, ExternalLink, Sparkles, Zap, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useRef, useEffect } from "react";
 
@@ -24,6 +24,37 @@ const PlatformDot = ({ platform }: { platform: string }) => {
   );
 };
 
+const MODEL_CONFIG: Record<string, { label: string; icon: typeof Sparkles; color: string }> = {
+  "sora": { label: "Sora", icon: Sparkles, color: "bg-purple-500/80" },
+  "kling": { label: "Kling", icon: Zap, color: "bg-blue-500/80" },
+  "flux": { label: "FLUX", icon: Zap, color: "bg-violet-500/80" },
+  "gemini": { label: "Gemini", icon: Bot, color: "bg-amber-500/80" },
+  "gpt": { label: "GPT", icon: Bot, color: "bg-emerald-500/80" },
+  "comet": { label: "Comet", icon: Sparkles, color: "bg-cyan-500/80" },
+  "qwen": { label: "Qwen", icon: Sparkles, color: "bg-sky-500/80" },
+  "nano": { label: "NB", icon: Sparkles, color: "bg-yellow-500/80" },
+  "d-id": { label: "D-ID", icon: Sparkles, color: "bg-orange-500/80" },
+};
+
+const getModelConfig = (model: string) => {
+  const lower = model.toLowerCase();
+  for (const [key, config] of Object.entries(MODEL_CONFIG)) {
+    if (lower.includes(key)) return config;
+  }
+  return { label: model.split("/").pop()?.split("-")[0] || model, icon: Sparkles, color: "bg-muted/80" };
+};
+
+const ModelBadge = ({ model }: { model: string }) => {
+  const config = getModelConfig(model);
+  const Icon = config.icon;
+  return (
+    <div className={`absolute top-2 left-2 ${config.color} text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full flex items-center gap-1 pointer-events-none backdrop-blur-sm`}>
+      <Icon className="h-2.5 w-2.5" />
+      {config.label}
+    </div>
+  );
+};
+
 export interface MediaItem {
   id: string;
   type: "video" | "image";
@@ -43,6 +74,7 @@ export interface MediaItem {
   aspectRatio?: "vertical" | "square" | "horizontal";
   platforms?: string[];
   textContent?: string;
+  model?: string;
 }
 
 interface MediaCardProps {
@@ -171,6 +203,11 @@ export const MediaCard = ({
           </div>
         )}
       </div>
+
+      {/* Model badge */}
+      {item.model && !isHovered && (
+        <ModelBadge model={item.model} />
+      )}
 
       {/* Platform icons overlay */}
       {item.platforms && item.platforms.length > 0 && !isHovered && (

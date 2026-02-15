@@ -219,11 +219,32 @@ const HistoryPage = () => {
           status: video.status,
           duration: video.duration,
           script: video.script,
-          campaignName: undefined, // Could be enhanced later
+          campaignName: undefined,
           aspectRatio: "vertical",
+          model: video.voice && video.voice !== "Unknown" ? video.voice : undefined,
         });
       }
       
+      // Fetch image generations from DB (for model info)
+      const { data: imageGenerations } = await supabase
+        .from("generations")
+        .select("id, media_url, model, created_at, prompt, project_id, campaign_id, thumbnail_url")
+        .eq("type", "image")
+        .eq("user_id", user.id)
+        .in("status", ["completed", "ready"])
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      // Build a model lookup by media_url
+      const modelByUrl = new Map<string, string>();
+      if (imageGenerations) {
+        for (const gen of imageGenerations) {
+          if (gen.media_url && gen.model) {
+            modelByUrl.set(gen.media_url, gen.model);
+          }
+        }
+      }
+
       // Fetch images from scheduled_posts
       const { data: scheduledPosts } = await supabase
         .from("scheduled_posts")
@@ -240,7 +261,6 @@ const HistoryPage = () => {
 
       if (scheduledPosts) {
         for (const post of scheduledPosts) {
-          // Only include posts with actual media_url
           if (!post.media_url) continue;
           
           media.push({
@@ -256,7 +276,30 @@ const HistoryPage = () => {
             campaignName: (post.campaigns as any)?.name,
             script: post.ai_prompt || undefined,
             aspectRatio: "square",
+            model: modelByUrl.get(post.media_url) || undefined,
           });
+        }
+      }
+
+      // Also add standalone image generations not in scheduled_posts
+      if (imageGenerations) {
+        const existingUrls = new Set(media.map(m => m.url));
+        for (const gen of imageGenerations) {
+          if (!gen.media_url || existingUrls.has(gen.media_url)) continue;
+          media.push({
+            id: gen.id,
+            type: "image",
+            title: `Image ${new Date(gen.created_at).toLocaleDateString()}`,
+            url: gen.media_url,
+            thumbnailUrl: gen.thumbnail_url || undefined,
+            createdAt: new Date(gen.created_at),
+            status: "generated",
+            projectId: gen.project_id || undefined,
+            campaignId: gen.campaign_id || undefined,
+            aspectRatio: "square",
+            model: gen.model || undefined,
+          });
+          existingUrls.add(gen.media_url);
         }
       }
 
