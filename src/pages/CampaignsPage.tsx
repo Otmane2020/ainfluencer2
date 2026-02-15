@@ -258,7 +258,7 @@ const CampaignsPage = () => {
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); /* Edit */ }}>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleViewDetail(campaign); }}>
                               <Edit className="h-4 w-4 mr-2" />
                               Edit
                             </DropdownMenuItem>
