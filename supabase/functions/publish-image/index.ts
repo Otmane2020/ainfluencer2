@@ -14,8 +14,8 @@ const corsHeaders = {
 interface PublishRequest {
   imageUrl: string;
   caption: string;
-  platforms: ("instagram" | "facebook")[];
-  publishType: "image" | "reel"; // image = photo post, reel = slideshow/image reel
+  platforms: ("instagram" | "facebook" | "linkedin")[];
+  publishType: "image" | "reel";
 }
 
 interface PublishResult {
@@ -234,6 +234,68 @@ async function publishReelToFacebook(
 }
 
 // ============================================================
+// LINKEDIN IMAGE POST
+// ============================================================
+async function publishImageToLinkedIn(
+  imageUrl: string,
+  caption: string,
+  linkedinConnection: any
+): Promise<PublishResult> {
+  if (!linkedinConnection?.access_token || !linkedinConnection?.linkedin_id) {
+    return { platform: "linkedin", success: false, error: "LinkedIn not connected" };
+  }
+
+  try {
+    const author = `urn:li:person:${linkedinConnection.linkedin_id}`;
+
+    const postBody: any = {
+      author,
+      commentary: caption,
+      visibility: "PUBLIC",
+      distribution: {
+        feedDistribution: "MAIN_FEED",
+        targetEntities: [],
+        thirdPartyDistributionChannels: [],
+      },
+      lifecycleState: "PUBLISHED",
+      content: {
+        article: {
+          source: imageUrl,
+          title: caption.slice(0, 100) || "Shared image",
+          description: caption.slice(0, 200) || "",
+        },
+      },
+    };
+
+    console.log(`[LI-IMAGE] Publishing to ${linkedinConnection.display_name}...`);
+
+    const response = await fetch("https://api.linkedin.com/rest/posts", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${linkedinConnection.access_token}`,
+        "Content-Type": "application/json",
+        "LinkedIn-Version": "202401",
+        "X-Restli-Protocol-Version": "2.0.0",
+      },
+      body: JSON.stringify(postBody),
+    });
+
+    if (response.status === 201) {
+      const postId = response.headers.get("x-restli-id") || undefined;
+      console.log(`[LI-IMAGE] ✅ Published successfully! Post ID: ${postId || "N/A"}`);
+      return { platform: "linkedin", success: true, postId };
+    }
+
+    const errorText = await response.text();
+    console.error(`[LI-IMAGE] Publish failed (${response.status}):`, errorText.slice(0, 300));
+    return { platform: "linkedin", success: false, error: `LinkedIn API error (${response.status}): ${errorText.slice(0, 150)}` };
+  } catch (error) {
+    console.error("[LI-IMAGE] Exception:", error);
+    return { platform: "linkedin", success: false, error: String(error) };
+  }
+}
+
+// ============================================================
 // MAIN HANDLER
 // ============================================================
 serve(async (req) => {
@@ -256,7 +318,7 @@ serve(async (req) => {
       );
     }
 
-    const body: PublishRequest = await req.json();
+    const body: PublishRequest & { projectId?: string } = await req.json();
     const { imageUrl, caption, platforms, publishType } = body;
 
     if (!imageUrl) {
@@ -268,29 +330,23 @@ serve(async (req) => {
 
     console.log(`[PUBLISH-IMAGE] User: ${email}, Type: ${publishType}, Platforms: ${platforms.join(", ")}`);
 
-    // Get user's Meta connection
-    const { data: metaConnection, error: metaError } = await supabase
-      .from("meta_connections")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle();
+    // Fetch connections in parallel
+    const [metaResult, linkedinResult] = await Promise.all([
+      supabase.from("meta_connections").select("*").eq("user_id", userId).maybeSingle(),
+      supabase.from("linkedin_connections").select("*").eq("user_id", userId).maybeSingle(),
+    ]);
 
-    if (metaError || !metaConnection) {
-      return new Response(
-        JSON.stringify({ 
-          error: "Meta account not connected", 
-          details: "Please connect your Facebook/Instagram account in Integrations" 
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const metaConnection = metaResult.data;
+    const linkedinConnection = linkedinResult.data;
 
     const results: PublishResult[] = [];
 
     for (const platform of platforms) {
       let result: PublishResult;
 
-      if (publishType === "reel") {
+      if (platform === "linkedin") {
+        result = await publishImageToLinkedIn(imageUrl, caption || "", linkedinConnection);
+      } else if (publishType === "reel") {
         if (platform === "instagram") {
           result = await publishReelToInstagram(imageUrl, caption || "", metaConnection);
         } else {

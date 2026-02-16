@@ -22,7 +22,7 @@ const VALID_PUBLISH_PRODUCTS = [
 interface PublishRequest {
   videoUrl: string;
   caption: string;
-  platforms: ("instagram" | "facebook" | "youtube" | "tiktok")[];
+  platforms: ("instagram" | "facebook" | "youtube" | "tiktok" | "linkedin")[];
   thumbnailUrl?: string;
   projectId?: string; // Optional project ID to associate the post with
 }
@@ -578,6 +578,72 @@ async function publishToTikTok(
 }
 
 // ============================================================
+// LINKEDIN
+// ============================================================
+async function publishToLinkedIn(
+  videoUrl: string,
+  caption: string,
+  linkedinConnection: any
+): Promise<PublishResult> {
+  if (!linkedinConnection?.access_token || !linkedinConnection?.linkedin_id) {
+    return { platform: "linkedin", success: false, error: "LinkedIn not connected. Please connect in Settings → Integrations." };
+  }
+
+  try {
+    const author = `urn:li:person:${linkedinConnection.linkedin_id}`;
+
+    const postBody: any = {
+      author,
+      commentary: caption,
+      visibility: "PUBLIC",
+      distribution: {
+        feedDistribution: "MAIN_FEED",
+        targetEntities: [],
+        thirdPartyDistributionChannels: [],
+      },
+      lifecycleState: "PUBLISHED",
+    };
+
+    // Share video as article link
+    if (videoUrl) {
+      postBody.content = {
+        article: {
+          source: videoUrl,
+          title: caption.slice(0, 100) || "Shared video",
+          description: caption.slice(0, 200) || "",
+        },
+      };
+    }
+
+    console.log(`[LI] Publishing to ${linkedinConnection.display_name}...`);
+
+    const response = await fetch("https://api.linkedin.com/rest/posts", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${linkedinConnection.access_token}`,
+        "Content-Type": "application/json",
+        "LinkedIn-Version": "202401",
+        "X-Restli-Protocol-Version": "2.0.0",
+      },
+      body: JSON.stringify(postBody),
+    });
+
+    if (response.status === 201) {
+      const postId = response.headers.get("x-restli-id") || undefined;
+      console.log(`[LI] ✅ Published successfully! Post ID: ${postId || "N/A"}`);
+      return { platform: "linkedin", success: true, postId };
+    }
+
+    const errorText = await response.text();
+    console.error(`[LI] Publish failed (${response.status}):`, errorText.slice(0, 300));
+    return { platform: "linkedin", success: false, error: `LinkedIn API error (${response.status}): ${errorText.slice(0, 150)}` };
+  } catch (error) {
+    console.error("[LI] Exception:", error);
+    return { platform: "linkedin", success: false, error: String(error) };
+  }
+}
+
+// ============================================================
 // MAIN HANDLER
 // ============================================================
 serve(async (req) => {
@@ -634,15 +700,17 @@ serve(async (req) => {
     console.log("Platforms:", platforms.join(", "));
 
     // Fetch user's platform connections in parallel
-    const [metaResult, youtubeResult, tiktokResult] = await Promise.all([
+    const [metaResult, youtubeResult, tiktokResult, linkedinResult] = await Promise.all([
       supabase.from("meta_connections").select("*").eq("user_id", userId).maybeSingle(),
       supabase.from("youtube_connections").select("*").eq("user_id", userId).maybeSingle(),
       supabase.from("tiktok_connections").select("*").eq("user_id", userId).maybeSingle(),
+      supabase.from("linkedin_connections").select("*").eq("user_id", userId).maybeSingle(),
     ]);
 
     const metaConnection = metaResult.data;
     const youtubeConnection = youtubeResult.data;
     const tiktokConnection = tiktokResult.data;
+    const linkedinConnection = linkedinResult.data;
 
     const results: PublishResult[] = [];
 
@@ -660,6 +728,9 @@ serve(async (req) => {
     }
     if (platforms.includes("tiktok")) {
       publishPromises.push(publishToTikTok(videoUrl, caption, tiktokConnection));
+    }
+    if (platforms.includes("linkedin")) {
+      publishPromises.push(publishToLinkedIn(videoUrl, caption, linkedinConnection));
     }
 
     const publishResults = await Promise.all(publishPromises);
