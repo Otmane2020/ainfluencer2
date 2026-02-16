@@ -57,6 +57,7 @@ const campaignTypeConfig = {
   video: { icon: Video, label: "Video Campaign", gradient: "from-violet-500 to-purple-600" },
   image: { icon: ImageIcon, label: "Image Campaign", gradient: "from-cyan-500 to-blue-600" },
   mixed: { icon: Layers, label: "Mixed Campaign", gradient: "from-pink-500 to-rose-600" },
+  linkedin_story: { icon: Layers, label: "LinkedIn Story", gradient: "from-blue-600 to-blue-800" },
 };
 
 const statusConfig = {
@@ -280,6 +281,23 @@ const CampaignsPage = () => {
                     <CardContent className="space-y-4">
                       {/* Stats */}
                       <div className="grid grid-cols-3 gap-2 text-center">
+                        {campaign.campaign_type === "linkedin_story" ? (
+                          <>
+                            <div className="rounded-lg bg-muted/50 p-2">
+                              <p className="text-lg font-bold">{campaign.posts_per_week || 2}</p>
+                              <p className="text-[10px] text-muted-foreground">Posts/wk</p>
+                            </div>
+                            <div className="rounded-lg bg-muted/50 p-2">
+                              <p className="text-lg font-bold">{(campaign.posts_per_week || 2) * 4}</p>
+                              <p className="text-[10px] text-muted-foreground">Total/mo</p>
+                            </div>
+                            <div className="rounded-lg bg-muted/50 p-2">
+                              <p className="text-lg font-bold">Tue/Fri</p>
+                              <p className="text-[10px] text-muted-foreground">Schedule</p>
+                            </div>
+                          </>
+                        ) : (
+                          <>
                         {campaign.campaign_type !== "image" && (
                           <div className="rounded-lg bg-muted/50 p-2">
                             <p className="text-lg font-bold">{campaign.videos_per_month || 0}</p>
@@ -296,6 +314,8 @@ const CampaignsPage = () => {
                           <p className="text-lg font-bold">{campaign.posts_per_week || 0}</p>
                           <p className="text-[10px] text-muted-foreground">Posts/wk</p>
                         </div>
+                          </>
+                        )}
                       </div>
 
                       {/* Progress */}
