@@ -683,6 +683,74 @@ async function publishToInstagram(
 }
 
 // ============================================================
+// PUBLISH TO LINKEDIN
+// ============================================================
+
+async function publishToLinkedIn(
+  post: ScheduledPost,
+  linkedinConnection: any
+): Promise<{ success: boolean; postId?: string; error?: string }> {
+  if (!linkedinConnection.access_token || !linkedinConnection.linkedin_id) {
+    return { success: false, error: "No LinkedIn access token or profile ID" };
+  }
+
+  try {
+    const author = `urn:li:person:${linkedinConnection.linkedin_id}`;
+    const caption = post.text_content || "";
+
+    // Build the post body
+    const postBody: any = {
+      author,
+      commentary: caption,
+      visibility: "PUBLIC",
+      distribution: {
+        feedDistribution: "MAIN_FEED",
+        targetEntities: [],
+        thirdPartyDistributionChannels: [],
+      },
+      lifecycleState: "PUBLISHED",
+    };
+
+    // If media URL exists, share as an article (external link)
+    if (post.media_url) {
+      postBody.content = {
+        article: {
+          source: post.media_url,
+          title: caption.slice(0, 100) || "Shared content",
+          description: caption.slice(0, 200) || "",
+        },
+      };
+    }
+
+    console.log(`[LinkedIn] Publishing to ${linkedinConnection.display_name} (${linkedinConnection.linkedin_id})`);
+
+    const response = await fetch("https://api.linkedin.com/rest/posts", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${linkedinConnection.access_token}`,
+        "Content-Type": "application/json",
+        "LinkedIn-Version": "202401",
+        "X-Restli-Protocol-Version": "2.0.0",
+      },
+      body: JSON.stringify(postBody),
+    });
+
+    if (response.status === 201) {
+      const postId = response.headers.get("x-restli-id") || undefined;
+      console.log(`[LinkedIn] ✅ Published successfully! Post ID: ${postId || "N/A"}`);
+      return { success: true, postId };
+    }
+
+    const errorText = await response.text();
+    console.error(`[LinkedIn] Publish failed (${response.status}):`, errorText.slice(0, 300));
+    return { success: false, error: `LinkedIn API error (${response.status}): ${errorText.slice(0, 150)}` };
+  } catch (error) {
+    console.error("[LinkedIn] Exception:", error);
+    return { success: false, error: String(error) };
+  }
+}
+
+// ============================================================
 // MAIN CRON HANDLER
 // ============================================================
 
@@ -868,13 +936,36 @@ Deno.serve(async (req) => {
       }
 
       // STEP 2: Publish to platforms
-      const { data: metaConnection } = await supabase
-        .from("meta_connections")
-        .select("*")
-        .eq("user_id", post.user_id)
-        .single();
+      const platforms = post.platforms || ["instagram", "facebook"];
+      
+      // Fetch Meta connection only if needed
+      let metaConnection: any = null;
+      const needsMeta = platforms.includes("facebook") || platforms.includes("instagram");
+      
+      if (needsMeta) {
+        const { data } = await supabase
+          .from("meta_connections")
+          .select("*")
+          .eq("user_id", post.user_id)
+          .single();
+        metaConnection = data;
+      }
 
-      if (!metaConnection) {
+      // Fetch LinkedIn connection only if needed
+      let linkedinConnection: any = null;
+      const needsLinkedIn = platforms.includes("linkedin");
+      
+      if (needsLinkedIn) {
+        const { data } = await supabase
+          .from("linkedin_connections")
+          .select("*")
+          .eq("user_id", post.user_id)
+          .single();
+        linkedinConnection = data;
+      }
+
+      // Check if we have at least one valid connection
+      if (needsMeta && !metaConnection && !needsLinkedIn) {
         console.log(`[cron] No Meta connection for user ${post.user_id}`);
         await supabase.from("scheduled_posts").update({
           error_message: "No Meta connection - manual publish required",
@@ -882,11 +973,20 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Check token expiry
-      if (new Date(metaConnection.expires_at) < now) {
+      if (needsMeta && metaConnection && new Date(metaConnection.expires_at) < now) {
         console.log(`[cron] Meta token expired for user ${post.user_id}`);
+        metaConnection = null; // Don't block LinkedIn from publishing
+      }
+
+      if (needsLinkedIn && linkedinConnection && new Date(linkedinConnection.expires_at) < now) {
+        console.log(`[cron] LinkedIn token expired for user ${post.user_id}`);
+        linkedinConnection = null;
+      }
+
+      // If no connections at all are valid, skip
+      if (!metaConnection && !linkedinConnection) {
         await supabase.from("scheduled_posts").update({
-          error_message: "Meta token expired - reconnect required",
+          error_message: "No valid social connections - tokens expired or missing",
         }).eq("id", post.id);
         continue;
       }
@@ -895,48 +995,48 @@ Deno.serve(async (req) => {
       // PROJECT-SPECIFIC META OVERRIDE
       // Override global connection with per-project page/IG IDs
       // ============================================================
-      const projectMetaPageId = projectContext.meta_page_id;
-      const projectMetaInstagramId = projectContext.meta_instagram_id;
+      if (metaConnection) {
+        const projectMetaPageId = projectContext.meta_page_id;
+        const projectMetaInstagramId = projectContext.meta_instagram_id;
 
-      if (projectMetaPageId && projectMetaPageId !== metaConnection.page_id) {
-        console.log(`[cron] Overriding page_id: ${metaConnection.page_id} → ${projectMetaPageId} (project: ${projectContext.name})`);
-        metaConnection.page_id = projectMetaPageId;
+        if (projectMetaPageId && projectMetaPageId !== metaConnection.page_id) {
+          console.log(`[cron] Overriding page_id: ${metaConnection.page_id} → ${projectMetaPageId} (project: ${projectContext.name})`);
+          metaConnection.page_id = projectMetaPageId;
 
-        // Fetch the correct page access token for the target page
-        try {
-          const pageTokenRes = await fetch(
-            `https://graph.facebook.com/v18.0/${projectMetaPageId}?fields=access_token&access_token=${metaConnection.access_token}`
-          );
-          if (pageTokenRes.ok) {
-            const pageTokenData = await pageTokenRes.json();
-            if (pageTokenData.access_token) {
-              metaConnection.page_access_token = pageTokenData.access_token;
-              console.log(`[cron] ✅ Fetched page access token for ${projectMetaPageId}`);
+          try {
+            const pageTokenRes = await fetch(
+              `https://graph.facebook.com/v18.0/${projectMetaPageId}?fields=access_token&access_token=${metaConnection.access_token}`
+            );
+            if (pageTokenRes.ok) {
+              const pageTokenData = await pageTokenRes.json();
+              if (pageTokenData.access_token) {
+                metaConnection.page_access_token = pageTokenData.access_token;
+                console.log(`[cron] ✅ Fetched page access token for ${projectMetaPageId}`);
+              }
+            } else {
+              console.error(`[cron] Failed to fetch page token for ${projectMetaPageId}: ${pageTokenRes.status}`);
             }
-          } else {
-            console.error(`[cron] Failed to fetch page token for ${projectMetaPageId}: ${pageTokenRes.status}`);
+          } catch (tokenErr) {
+            console.error(`[cron] Error fetching page token:`, tokenErr);
           }
-        } catch (tokenErr) {
-          console.error(`[cron] Error fetching page token:`, tokenErr);
+        }
+
+        if (projectMetaInstagramId && projectMetaInstagramId !== metaConnection.instagram_id) {
+          console.log(`[cron] Overriding instagram_id: ${metaConnection.instagram_id} → ${projectMetaInstagramId} (project: ${projectContext.name})`);
+          metaConnection.instagram_id = projectMetaInstagramId;
         }
       }
 
-      if (projectMetaInstagramId && projectMetaInstagramId !== metaConnection.instagram_id) {
-        console.log(`[cron] Overriding instagram_id: ${metaConnection.instagram_id} → ${projectMetaInstagramId} (project: ${projectContext.name})`);
-        metaConnection.instagram_id = projectMetaInstagramId;
-      }
-
-      const platforms = post.platforms || ["instagram", "facebook"];
       const errors: string[] = [];
       const publishResults: { platform: string; success: boolean; postId?: string }[] = [];
 
       for (const platform of platforms) {
         // ============================================================
-        // RATE LIMIT: 1.5s delay between Meta API calls
+        // RATE LIMIT: 1.5s delay between API calls
         // ============================================================
         await new Promise(resolve => setTimeout(resolve, 1500));
 
-        if (platform === "facebook") {
+        if (platform === "facebook" && metaConnection) {
           const result = await publishToFacebook(post, metaConnection);
           publishResults.push({ platform: "facebook", success: result.success });
           if (!result.success) {
@@ -947,7 +1047,7 @@ Deno.serve(async (req) => {
           }
         }
 
-        if (platform === "instagram") {
+        if (platform === "instagram" && metaConnection) {
           const result = await publishToInstagram(post, metaConnection);
           publishResults.push({ platform: "instagram", success: result.success });
           if (!result.success) {
@@ -955,6 +1055,23 @@ Deno.serve(async (req) => {
             console.log(`[cron] Instagram publish failed: ${result.error}`);
           } else {
             console.log(`[cron] Published to Instagram successfully`);
+          }
+        }
+
+        if (platform === "linkedin") {
+          if (linkedinConnection) {
+            const result = await publishToLinkedIn(post, linkedinConnection);
+            publishResults.push({ platform: "linkedin", success: result.success, postId: result.postId });
+            if (!result.success) {
+              errors.push(`LI: ${result.error}`);
+              console.log(`[cron] LinkedIn publish failed: ${result.error}`);
+            } else {
+              console.log(`[cron] Published to LinkedIn successfully`);
+            }
+          } else {
+            errors.push("LI: No LinkedIn connection");
+            publishResults.push({ platform: "linkedin", success: false });
+            console.log(`[cron] No LinkedIn connection for user ${post.user_id}`);
           }
         }
       }

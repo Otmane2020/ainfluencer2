@@ -100,8 +100,7 @@ const platforms: SocialPlatform[] = [
     name: "LinkedIn",
     icon: Linkedin,
     gradient: "from-[#0A66C2] to-[#004182]",
-    // Use the official LinkedIn sharing endpoint which reliably opens the share dialog.
-    shareUrl: (text) => `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent("https://ainfluencer2.lovable.app")}&summary=${encodeURIComponent(text)}`,
+    directPost: true,
   },
   {
     id: "tiktok",
