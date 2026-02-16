@@ -81,6 +81,7 @@ const CAMPAIGN_TYPES = [
   { id: "video", label: "Video Campaign", icon: Video, description: "Generate AI videos and reels", gradient: "from-violet-500 to-purple-600" },
   { id: "image", label: "Image Campaign", icon: ImageIcon, description: "Generate promotional images and reels", gradient: "from-cyan-500 to-blue-600" },
   { id: "mixed", label: "Mixed Campaign", icon: Layers, description: "Combine videos and images", gradient: "from-pink-500 to-rose-600" },
+  { id: "linkedin_story", label: "LinkedIn Storytelling", icon: Linkedin, description: "Narrative stories to showcase your brand on LinkedIn (2x/week)", gradient: "from-blue-600 to-blue-800" },
 ];
 
 const FORMATS = [
@@ -144,7 +145,7 @@ export const CampaignWizardModal = ({
   const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Form state
-  const [campaignType, setCampaignType] = useState<"video" | "image" | "mixed">("mixed");
+  const [campaignType, setCampaignType] = useState<"video" | "image" | "mixed" | "linkedin_story">("mixed");
   const [name, setName] = useState("");
   const [projectId, setProjectId] = useState("");
   const [videosPerMonth, setVideosPerMonth] = useState(4);
@@ -394,7 +395,9 @@ export const CampaignWizardModal = ({
     const campaignName = name || `${campaignType.charAt(0).toUpperCase() + campaignType.slice(1)} Campaign`;
 
     // Calculate target for polling
-    const targetTotal = (campaignType === "video" ? 0 : imagesPerMonth) + (campaignType === "image" ? 0 : videosPerMonth);
+    const targetTotal = campaignType === "linkedin_story" 
+      ? postsPerWeek * 4  // 4 weeks of LinkedIn posts
+      : (campaignType === "video" ? 0 : imagesPerMonth) + (campaignType === "image" ? 0 : videosPerMonth);
 
     try {
       // Create the campaign
@@ -406,8 +409,8 @@ export const CampaignWizardModal = ({
           project_id: projectId,
           name: campaignName,
           campaign_type: campaignType,
-          videos_per_month: videosPerMonth,
-          images_per_month: imagesPerMonth,
+          videos_per_month: campaignType === "linkedin_story" ? 0 : videosPerMonth,
+          images_per_month: campaignType === "linkedin_story" ? 0 : imagesPerMonth,
           posts_per_week: postsPerWeek,
           format,
           tone,
@@ -603,7 +606,19 @@ export const CampaignWizardModal = ({
                   return (
                     <button
                       key={type.id}
-                      onClick={() => setCampaignType(type.id as "video" | "image" | "mixed")}
+                      onClick={() => {
+                        const newType = type.id as "video" | "image" | "mixed" | "linkedin_story";
+                        setCampaignType(newType);
+                        // Auto-configure for LinkedIn Story
+                        if (newType === "linkedin_story") {
+                          setPlatforms({ facebook: false, instagram: false, youtube: false, linkedin: true, tiktok: false });
+                          setPostsPerWeek(2);
+                          setTone("professional");
+                          setFormat("reel"); // DB constraint requires valid format
+                          setImagesPerMonth(0);
+                          setVideosPerMonth(0);
+                        }
+                      }}
                       className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left ${
                         campaignType === type.id
                           ? "border-primary bg-primary/5"
@@ -771,6 +786,44 @@ export const CampaignWizardModal = ({
               exit={{ opacity: 0, x: -20 }}
               className="space-y-6"
             >
+              {campaignType === "linkedin_story" ? (
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-lg p-2 bg-gradient-to-br from-blue-600 to-blue-800 text-white">
+                        <Linkedin className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="font-medium">LinkedIn Storytelling</p>
+                        <p className="text-xs text-muted-foreground">Narrative posts to present your brand — published every Tuesday & Friday</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label>Posts per week</Label>
+                      <span className="text-xl font-bold text-primary">{postsPerWeek}</span>
+                    </div>
+                    <Slider
+                      value={[postsPerWeek]}
+                      onValueChange={([v]) => setPostsPerWeek(v)}
+                      min={1}
+                      max={5}
+                      step={1}
+                      className="py-2"
+                    />
+                    <p className="text-xs text-muted-foreground">Recommended: 2 posts/week (Tuesday & Friday) for optimal LinkedIn engagement</p>
+                  </div>
+
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <p className="text-sm text-muted-foreground">
+                      Each post will be a compelling story about your business — challenges, solutions, insights — designed to build authority and trust on LinkedIn.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+              <>
               {(campaignType === "video" || campaignType === "mixed") && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
@@ -893,6 +946,8 @@ export const CampaignWizardModal = ({
                   {clipmotion && " • ClipMotion style enabled"}
                 </p>
               </div>
+              </>
+              )}
             </motion.div>
           )}
 

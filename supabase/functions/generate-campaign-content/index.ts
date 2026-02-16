@@ -209,6 +209,115 @@ function safeJsonParse(text: string) {
 // GENERATE A SINGLE POST (extracted for clarity)
 // ============================================================
 
+const LINKEDIN_STORY_ANGLES = [
+  "A founder discovers a hidden problem in their industry and realizes the current tools are outdated",
+  "A customer's unexpected feedback reveals a much bigger opportunity than initially thought",
+  "A painful failure that taught a critical business lesson — and led to a breakthrough",
+  "Why the 'obvious' solution in this market actually makes things worse for most businesses",
+  "How a small change in approach delivered 10x better results than the industry standard",
+  "The moment a business leader realized their competitors were already ahead — and what they did next",
+  "A behind-the-scenes look at how the product/service was built to solve a real frustration",
+  "The counterintuitive strategy that's working right now while everyone else follows the crowd",
+  "A conversation with a skeptic that ended with them becoming the biggest advocate",
+  "What most people get wrong about this industry — and the data that proves it",
+  "The 3 signals that show your business is falling behind without you even noticing",
+  "How AI is changing the rules — and why early movers are winning big",
+];
+
+async function generateLinkedInStoryPost(
+  idx: number,
+  campaign: any,
+  project: any,
+  contextGuard: any,
+  totalTarget: number,
+  supabase: any,
+  OPENROUTER_API_KEY: string,
+): Promise<any | null> {
+  const lang = project.detected_language || "en";
+  const storyAngle = LINKEDIN_STORY_ANGLES[idx % LINKEDIN_STORY_ANGLES.length];
+
+  console.log(`[Campaign] LinkedIn Story #${idx + 1}: Angle: ${storyAngle.slice(0, 50)}...`);
+
+  const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-3-flash-preview",
+      messages: [{
+        role: "system",
+        content: `You are a LinkedIn storytelling expert for ${project.name}.
+
+${contextGuard.enhancedPrompt}
+
+TASK: Write a compelling LinkedIn storytelling post.
+
+STORY ANGLE: ${storyAngle}
+
+STORYTELLING RULES:
+- Write in FIRST PERSON as if the founder/team is telling the story
+- Start with a HOOK — a surprising statement, a question, or a scene-setting moment
+- Use SHORT paragraphs (1-3 lines max) for LinkedIn readability
+- Include a TURNING POINT — the moment of realization or discovery
+- End with an INSIGHT or lesson that resonates with the reader
+- Add a subtle but clear CALL TO ACTION (visit website, try the product, comment)
+- Include 3-5 relevant hashtags at the end
+- The story must relate to the REAL products/services of ${project.name}
+- Language: ${lang}
+- Length: 800-1500 characters (optimal LinkedIn length)
+- DO NOT use generic corporate speak — be authentic, human, vulnerable
+- This is post #${idx + 1} in the series — make each story UNIQUE
+
+${campaign.ai_context ? `BUSINESS CONTEXT: The business offers: ${campaign.ai_context}` : ""}
+${project.url ? `WEBSITE: ${project.url}` : ""}
+
+OUTPUT: Return ONLY valid JSON:
+{
+  "textContent": "the complete LinkedIn story post with line breaks, hashtags, and CTA"
+}`
+      }],
+      temperature: 0.95,
+    }),
+  });
+
+  const aiData = await aiResponse.json();
+  const parsed = safeJsonParse(aiData.choices?.[0]?.message?.content);
+
+  if (!parsed?.textContent) {
+    console.warn(`[Campaign] LinkedIn Story #${idx + 1}: AI parsing failed`);
+    return null;
+  }
+
+  // Schedule on Tuesdays (2) and Fridays (5)
+  const publishDays = [2, 5]; // Tuesday, Friday
+  const scheduledDate = new Date();
+  // Find the next valid publish day
+  let daysAdded = 0;
+  let postsScheduled = 0;
+  while (postsScheduled <= idx) {
+    daysAdded++;
+    const candidate = new Date(scheduledDate);
+    candidate.setDate(candidate.getDate() + daysAdded);
+    if (publishDays.includes(candidate.getDay())) {
+      postsScheduled++;
+    }
+  }
+  scheduledDate.setDate(scheduledDate.getDate() + daysAdded);
+  scheduledDate.setHours(campaign.posting_hour || 10, Math.floor(Math.random() * 30));
+
+  return {
+    user_id: campaign.user_id,
+    project_id: campaign.project_id,
+    campaign_id: campaign.id,
+    content_type: "text",
+    scheduled_for: scheduledDate.toISOString(),
+    ai_prompt: storyAngle,
+    text_content: parsed.textContent,
+    media_url: null,
+    status: "scheduled",
+    platforms: ["linkedin"],
+  };
+}
+
 async function generateSinglePost(
   idx: number,
   campaign: any,
@@ -220,6 +329,11 @@ async function generateSinglePost(
   supabase: any,
   OPENROUTER_API_KEY: string,
 ): Promise<any | null> {
+  // Route to LinkedIn storytelling generator
+  if (campaign.campaign_type === "linkedin_story") {
+    return generateLinkedInStoryPost(idx, campaign, project, contextGuard, totalTarget, supabase, OPENROUTER_API_KEY);
+  }
+
   const lang = project.detected_language || "en";
   const scene = VISUAL_SCENES[idx % VISUAL_SCENES.length];
   const angle = MARKETING_ANGLES[idx % MARKETING_ANGLES.length];
@@ -355,9 +469,14 @@ serve(async (req) => {
     logContextValidation(contextGuard, "CampaignGeneration");
 
     // 3. Planning - BATCH SIZE = 2 (reduced to avoid edge function timeout)
-    const totalVideos = campaign.campaign_type === "image" ? 0 : (campaign.videos_per_month || 4);
-    const totalImages = campaign.campaign_type === "video" ? 0 : (campaign.images_per_month || 12);
-    const totalTarget = totalVideos + totalImages;
+    let totalTarget: number;
+    if (campaign.campaign_type === "linkedin_story") {
+      totalTarget = (campaign.posts_per_week || 2) * 4; // 4 weeks
+    } else {
+      const totalVideos = campaign.campaign_type === "image" ? 0 : (campaign.videos_per_month || 4);
+      const totalImages = campaign.campaign_type === "video" ? 0 : (campaign.images_per_month || 12);
+      totalTarget = totalVideos + totalImages;
+    }
     
     const { count } = await supabase.from("scheduled_posts").select("*", { count: "exact", head: true }).eq("campaign_id", campaignId);
     const alreadyDone = count || 0;
