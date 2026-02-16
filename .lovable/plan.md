@@ -1,72 +1,63 @@
 
 
-## Fix: Lazy Media Generation for Campaign Posts
+## Fix LinkedIn Auto-Publishing in Campaign Posts
 
 ### Problem
-When a campaign is created, the system immediately generates all 30 posts **with images** upfront (in batches of 2, self-reinvoking until all 30 are done). This is:
-- Expensive (generates 30 images at once, consuming credits)
-- Slow (the chain of self-reinvocations takes a long time)
-- Wasteful (images are generated weeks before they're needed)
 
-### New Behavior
-1. **At campaign creation**: Plan all 30 post slots (schedule dates, AI prompts, captions) but **skip image generation**. Posts are saved with `media_url = null` and `status = "scheduled"`.
-2. **At publish time (cron job)**: When a post is due, the cron job generates the image/media **just before publishing**. This is the "just-in-time" approach.
+The automated campaign publishing system (`run-campaigns-cron`) only supports **Facebook** and **Instagram**. When a post has `linkedin` in its `platforms` array, the cron simply **skips it** -- there is no `publishToLinkedIn` function and no `if (platform === "linkedin")` block in the publishing loop (lines 933-960).
 
-### Changes
+Additionally, the manual share flow in `SocialShareModal` uses a web share-offsite URL which only opens a LinkedIn browser window for the user to copy/paste -- it does not actually post via API.
 
-**File 1: `supabase/functions/generate-campaign-content/index.ts`**
-- Remove the call to `generateAndUploadImage()` inside `generateSinglePost()`
-- Posts are created with `media_url: null` (text content + AI prompt only)
-- Remove the image generation helper functions (or keep them for reuse by cron)
-- This makes campaign creation **much faster** (AI text only, no image gen)
-- The self-reinvoke chain still works but completes in seconds instead of minutes
+### Root Cause
 
-**File 2: `supabase/functions/run-campaigns-cron/index.ts`**
-- Before publishing a post that has `media_url = null`, generate the image using the post's `ai_prompt`
-- Reuse the same image generation logic (CometAPI / KIE / Nano Banana fallback chain)
-- Update the post's `media_url` in the database before publishing
-- If image generation fails, mark the post as `error` and skip publishing
+1. **No LinkedIn API publishing function** exists in the cron edge function
+2. The LinkedIn connection stores an `access_token` with the `w_member_social` scope (which allows posting), but it is never used for automated posting
+3. The cron only fetches `meta_connections` and never fetches `linkedin_connections`
+
+### Plan
+
+#### 1. Add LinkedIn API Publishing to `run-campaigns-cron/index.ts`
+
+- Add a `publishToLinkedIn` function that:
+  - Fetches the user's `linkedin_connections` record to get the `access_token` and `linkedin_id`
+  - Uses the LinkedIn `ugcPosts` or `posts` API (v2) to create a post on the user's personal profile
+  - Supports text-only posts and posts with media (image URL or video URL)
+  - Returns `{ success, postId?, error? }` consistent with other platform publishers
+
+- Add LinkedIn handling in the main publishing loop (around line 933):
+  - Fetch `linkedin_connections` alongside `meta_connections`
+  - Add `if (platform === "linkedin")` block calling the new function
+  - Store `external_post_id` from LinkedIn response for direct linking
+
+#### 2. Add LinkedIn Direct Post in `SocialShareModal.tsx`
+
+- Add `linkedin` to the `directPost` platforms list
+- When user clicks LinkedIn with media, call the edge function for server-side posting instead of opening a browser window
+
+#### 3. LinkedIn Posts API Implementation Details
+
+The function will use LinkedIn's Community Management API:
+- Endpoint: `POST https://api.linkedin.com/rest/posts`
+- Headers: `LinkedIn-Version: 202401`, `Authorization: Bearer {token}`
+- Body format for text + media posts using `urn:li:person:{linkedinId}` as author
+- For images: register upload, upload binary, then create post with image asset
+- For simple text + link posts: use `article` share type with URL
 
 ### Technical Details
 
-In `generate-campaign-content/index.ts`:
-```text
-// BEFORE: generates image immediately
-let mediaUrl = null;
-if (!isVideo) {
-  mediaUrl = await generateAndUploadImage(parsed.aiPrompt, effectiveFormat, supabase);
-}
+**New function in `run-campaigns-cron/index.ts`:**
 
-// AFTER: skip image, just save the prompt
-let mediaUrl = null;
-// Image will be generated just-in-time by the cron job
+```text
+publishToLinkedIn(post, linkedinConnection) 
+  -> Fetch linkedin_connections for user
+  -> If image/video: Use articles share (link to media URL)
+  -> POST to LinkedIn REST API
+  -> Return result with postId
 ```
 
-In `run-campaigns-cron/index.ts` (before publishing):
-```text
-// If post has no media yet, generate it now (just-in-time)
-if (!post.media_url && post.content_type === "image") {
-  const format = post.format || "reel";
-  const mediaUrl = await generateAndUploadImage(post.ai_prompt, format, supabase);
-  if (mediaUrl) {
-    await supabase.from("scheduled_posts")
-      .update({ media_url: mediaUrl })
-      .eq("id", post.id);
-    post.media_url = mediaUrl;
-  } else {
-    // Skip this post, mark as error
-    continue;
-  }
-}
-```
+**Modified files:**
+- `supabase/functions/run-campaigns-cron/index.ts` -- Add `publishToLinkedIn` + LinkedIn block in loop + fetch linkedin_connections
+- `src/components/SocialShareModal.tsx` -- Enable LinkedIn as direct post platform via edge function
 
-### Benefits
-- Campaign creation becomes near-instant (text-only AI calls)
-- Credits are spent only when posts are actually due
-- Calendar still shows all 30 planned posts with their captions
-- Images are fresh and generated right before publishing
-
-### Files Modified
-1. `supabase/functions/generate-campaign-content/index.ts` -- remove image generation at creation time
-2. `supabase/functions/run-campaigns-cron/index.ts` -- add just-in-time image generation before publishing
+**No database changes needed** -- the `linkedin_connections` table already has `access_token` and `linkedin_id`.
 
