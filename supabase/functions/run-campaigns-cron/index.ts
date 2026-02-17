@@ -844,11 +844,15 @@ Deno.serve(async (req) => {
     // Parse request body for optional params
     let campaignId: string | null = null;
     let forceRun = false;
+    let publishPostId: string | null = null;
+    let platformFilter: string | null = null;
     
     try {
       const body = await req.json();
       campaignId = body.campaignId || null;
       forceRun = body.forceRun === true;
+      publishPostId = body.publishPostId || null;
+      platformFilter = body.platformFilter || null;
     } catch {
       // No body or invalid JSON - that's fine for cron calls
     }
@@ -866,29 +870,33 @@ Deno.serve(async (req) => {
     let postsQuery = supabase
       .from("scheduled_posts")
       .select("*, projects(id, name, detected_language, description, logo_url, url, theme_color, marketing_context, ai_context_summary, scraped_markdown, avatar_url, meta_page_id, meta_instagram_id)")
-      .in("status", ["scheduled", "draft"])
       .order("scheduled_for", { ascending: true })
       .limit(20);
 
-    // If forceRun with campaignId, get ONLY TODAY's posts for that campaign
-    if (forceRun && campaignId) {
-      postsQuery = postsQuery.eq("campaign_id", campaignId);
-      
-      // Get today's date boundaries in UTC
-      const startOfToday = new Date();
-      startOfToday.setUTCHours(0, 0, 0, 0);
-      const endOfToday = new Date();
-      endOfToday.setUTCHours(23, 59, 59, 999);
-      
-      // Only process posts scheduled for today (not the whole month)
-      postsQuery = postsQuery
-        .gte("scheduled_for", startOfToday.toISOString())
-        .lte("scheduled_for", endOfToday.toISOString());
-      
-      console.log(`[cron] ForceRun: filtering posts between ${startOfToday.toISOString()} and ${endOfToday.toISOString()}`);
+    // Single post publish mode (from "Publish Now" button)
+    if (publishPostId) {
+      postsQuery = postsQuery.eq("id", publishPostId);
+      console.log(`[cron] Single post publish: ${publishPostId}, platform: ${platformFilter}`);
     } else {
-      // Normal cron: only get posts that are due
-      postsQuery = postsQuery.lte("scheduled_for", now.toISOString());
+      postsQuery = postsQuery.in("status", ["scheduled", "draft"]);
+      
+      // If forceRun with campaignId, get ONLY TODAY's posts for that campaign
+      if (forceRun && campaignId) {
+        postsQuery = postsQuery.eq("campaign_id", campaignId);
+        
+        const startOfToday = new Date();
+        startOfToday.setUTCHours(0, 0, 0, 0);
+        const endOfToday = new Date();
+        endOfToday.setUTCHours(23, 59, 59, 999);
+        
+        postsQuery = postsQuery
+          .gte("scheduled_for", startOfToday.toISOString())
+          .lte("scheduled_for", endOfToday.toISOString());
+        
+        console.log(`[cron] ForceRun: filtering posts between ${startOfToday.toISOString()} and ${endOfToday.toISOString()}`);
+      } else {
+        postsQuery = postsQuery.lte("scheduled_for", now.toISOString());
+      }
     }
 
     const { data: duePosts, error: postsError } = await postsQuery as { 
@@ -1014,7 +1022,13 @@ Deno.serve(async (req) => {
       }
 
       // STEP 2: Publish to platforms
-      const platforms = post.platforms || ["instagram", "facebook"];
+      let platforms = post.platforms || ["instagram", "facebook"];
+      
+      // If platformFilter is set (single-post publish mode), only publish to that platform
+      if (publishPostId && platformFilter) {
+        platforms = platforms.filter((p: string) => p === platformFilter);
+        console.log(`[cron] Platform filter applied: ${platformFilter} (from ${post.platforms?.join(",")})`);
+      }
       
       // Fetch Meta connection only if needed
       let metaConnection: any = null;
@@ -1195,7 +1209,23 @@ Deno.serve(async (req) => {
         .filter(r => r.success)
         .map(r => r.platform);
 
-      // Update post status
+      // In single-post mode, don't update DB status (caller handles it)
+      if (publishPostId) {
+        const linkedinResult = publishResults.find(r => r.platform === "linkedin");
+        console.log(`[cron] Single post publish done. Results: ${JSON.stringify(publishResults)}`);
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            linkedinSuccess: linkedinResult?.success ?? false,
+            linkedinError: errors.find(e => e.startsWith("LI:")) || null,
+            succeededPlatforms,
+            errors,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Update post status (normal cron mode)
       if (errors.length === 0) {
         await supabase.from("scheduled_posts").update({
           status: "published",

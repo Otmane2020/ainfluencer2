@@ -202,10 +202,13 @@ const CalendarPage = () => {
   };
 
   const handlePublishNow = async (post: ScheduledPost) => {
-    // 1. Check Meta connection for Facebook/Instagram
     const platforms = post.platforms || [];
     const metaPlatforms = platforms.filter(p => p === "facebook" || p === "instagram");
+    const hasLinkedin = platforms.includes("linkedin");
+    const hasYoutube = platforms.includes("youtube");
+    const hasTiktok = platforms.includes("tiktok");
     
+    // 1. Check Meta connection for Facebook/Instagram
     if (metaPlatforms.length > 0 && !isConnected) {
       toast({
         title: "Not connected to Meta",
@@ -235,7 +238,7 @@ const CalendarPage = () => {
       return;
     }
 
-    // 4. Post to each selected Meta platform
+    // 4. Post to each selected Meta platform (client-side)
     const results: { platform: string; success: boolean; error?: string }[] = [];
     
     for (const platform of metaPlatforms) {
@@ -250,23 +253,48 @@ const CalendarPage = () => {
       }
     }
 
-    // 4. Update database based on results
-    const metaResults = results.filter(r => r.platform === "facebook" || r.platform === "instagram");
-    const allMetaSuccess = metaResults.length === 0 || metaResults.every(r => r.success);
-    const someSuccess = results.some(r => r.success);
+    // 5. Publish to LinkedIn via server-side edge function
+    if (hasLinkedin) {
+      try {
+        const { data, error } = await supabase.functions.invoke("run-campaigns-cron", {
+          body: {
+            publishPostId: post.id,
+            platformFilter: "linkedin",
+          },
+        });
+        if (error) throw error;
+        const linkedinSuccess = data?.linkedinSuccess !== false;
+        results.push({ platform: "linkedin", success: linkedinSuccess, error: data?.linkedinError });
+      } catch (err) {
+        console.error("LinkedIn publish error:", err);
+        results.push({ platform: "linkedin", success: false, error: err instanceof Error ? err.message : "LinkedIn publish failed" });
+      }
+    }
+
+    // 6. Update database based on results
+    const successPlatforms = results.filter(r => r.success).map(r => r.platform);
+    const failedPlatforms = results.filter(r => !r.success).map(r => r.platform);
+    const allSuccess = failedPlatforms.length === 0;
+    const someSuccess = successPlatforms.length > 0;
     
-    const newStatus = allMetaSuccess ? "published" : (someSuccess ? "scheduled" : "failed");
-    const errorMessage = !allMetaSuccess 
-      ? `Failed: ${results.filter(r => !r.success).map(r => r.platform).join(", ")}`
+    const newStatus = allSuccess ? "published" : (someSuccess ? "published" : "failed");
+    const errorMessage = failedPlatforms.length > 0
+      ? `Failed: ${failedPlatforms.join(", ")}`
       : null;
+
+    // Update with actually successful platforms
+    const updateData: Record<string, unknown> = { 
+      status: newStatus,
+      published_at: someSuccess ? new Date().toISOString() : null,
+      error_message: errorMessage,
+    };
+    if (successPlatforms.length > 0) {
+      updateData.platforms = successPlatforms;
+    }
 
     const { error } = await supabase
       .from("scheduled_posts")
-      .update({ 
-        status: newStatus,
-        published_at: allMetaSuccess ? new Date().toISOString() : null,
-        error_message: errorMessage,
-      })
+      .update(updateData)
       .eq("id", post.id);
 
     if (error) {
@@ -278,23 +306,22 @@ const CalendarPage = () => {
       return;
     }
 
-    // 5. Show feedback and throw if failed (so modal catches it)
-    if (allMetaSuccess && metaResults.length > 0) {
+    // 7. Show feedback
+    if (allSuccess && results.length > 0) {
       toast({
-        title: "Published!",
-        description: `Posted to ${metaResults.map(r => r.platform).join(" & ")}`,
+        title: "Published! 🚀",
+        description: `Posted to ${successPlatforms.join(" & ")}`,
       });
     } else if (someSuccess) {
       toast({
         title: "Partial success",
-        description: `Some platforms failed: ${errorMessage}`,
+        description: `Posted to ${successPlatforms.join(", ")}. ${errorMessage}`,
         variant: "destructive",
       });
-      throw new Error(errorMessage || "Some platforms failed");
-    } else if (metaResults.length === 0) {
+    } else if (results.length === 0) {
+      // No platforms to publish to - just mark as published
       toast({
-        title: "Post scheduled ✓",
-        description: "No Meta platforms selected",
+        title: "Post marked as published ✓",
       });
     } else {
       toast({
