@@ -290,21 +290,12 @@ OUTPUT: Return ONLY valid JSON:
     return null;
   }
 
-  // Schedule on Tuesdays (2) and Fridays (5)
-  const publishDays = [2, 5]; // Tuesday, Friday
+  // Distribute posts evenly across 30 days based on totalTarget
   const scheduledDate = new Date();
-  // Find the next valid publish day
-  let daysAdded = 0;
-  let postsScheduled = 0;
-  while (postsScheduled <= idx) {
-    daysAdded++;
-    const candidate = new Date(scheduledDate);
-    candidate.setDate(candidate.getDate() + daysAdded);
-    if (publishDays.includes(candidate.getDay())) {
-      postsScheduled++;
-    }
-  }
-  scheduledDate.setDate(scheduledDate.getDate() + daysAdded);
+  const daysSpan = 30;
+  const gap = Math.max(1, Math.floor(daysSpan / totalTarget)); // e.g. 30/30=1 day gap, 30/8=3 day gap
+  const dayOffset = 1 + idx * gap; // start tomorrow, then every `gap` days
+  scheduledDate.setDate(scheduledDate.getDate() + dayOffset);
   scheduledDate.setHours(campaign.posting_hour || 10, Math.floor(Math.random() * 30));
 
   // Generate a professional LinkedIn image prompt for visual impact
