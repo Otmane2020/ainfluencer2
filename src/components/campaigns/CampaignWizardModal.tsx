@@ -396,7 +396,7 @@ export const CampaignWizardModal = ({
 
     // Calculate target for polling
     const targetTotal = campaignType === "linkedin_story" 
-      ? postsPerWeek * 4  // 4 weeks of LinkedIn posts
+      ? imagesPerMonth
       : (campaignType === "video" ? 0 : imagesPerMonth) + (campaignType === "image" ? 0 : videosPerMonth);
 
     try {
@@ -410,8 +410,8 @@ export const CampaignWizardModal = ({
           name: campaignName,
           campaign_type: campaignType,
           videos_per_month: campaignType === "linkedin_story" ? 0 : videosPerMonth,
-          images_per_month: campaignType === "linkedin_story" ? 0 : imagesPerMonth,
-          posts_per_week: postsPerWeek,
+          images_per_month: imagesPerMonth,
+          posts_per_week: campaignType === "linkedin_story" ? Math.ceil(imagesPerMonth / 4) : postsPerWeek,
           format,
           tone,
           subject,
@@ -612,10 +612,9 @@ export const CampaignWizardModal = ({
                         // Auto-configure for LinkedIn Story
                         if (newType === "linkedin_story") {
                           setPlatforms({ facebook: false, instagram: false, youtube: false, linkedin: true, tiktok: false });
-                          setPostsPerWeek(2);
+                          setImagesPerMonth(8);
                           setTone("professional");
-                          setFormat("reel"); // DB constraint requires valid format
-                          setImagesPerMonth(0);
+                          setFormat("reel");
                           setVideosPerMonth(0);
                         }
                       }}
@@ -795,30 +794,33 @@ export const CampaignWizardModal = ({
                       </div>
                       <div>
                         <p className="font-medium">LinkedIn Storytelling</p>
-                        <p className="text-xs text-muted-foreground">Narrative posts to present your brand — published every Tuesday & Friday</p>
+                        <p className="text-xs text-muted-foreground">Narrative posts with professional images to showcase your brand</p>
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label>Posts per week</Label>
-                      <span className="text-xl font-bold text-primary">{postsPerWeek}</span>
+                      <div className="flex items-center gap-2">
+                        <ImageIcon className="h-4 w-4 text-blue-500" />
+                        <Label>Posts per month</Label>
+                      </div>
+                      <span className="text-xl font-bold text-primary">{imagesPerMonth}</span>
                     </div>
                     <Slider
-                      value={[postsPerWeek]}
-                      onValueChange={([v]) => setPostsPerWeek(v)}
+                      value={[imagesPerMonth]}
+                      onValueChange={([v]) => setImagesPerMonth(v)}
                       min={1}
-                      max={5}
+                      max={30}
                       step={1}
                       className="py-2"
                     />
-                    <p className="text-xs text-muted-foreground">Recommended: 2 posts/week (Tuesday & Friday) for optimal LinkedIn engagement</p>
+                    <p className="text-xs text-muted-foreground">Recommended: 8-12 posts/month for optimal LinkedIn engagement</p>
                   </div>
 
                   <div className="rounded-lg bg-muted/50 p-3">
                     <p className="text-sm text-muted-foreground">
-                      Each post will be a compelling story about your business — challenges, solutions, insights — designed to build authority and trust on LinkedIn.
+                      Each post will be a compelling story with a professional image — challenges, solutions, insights — designed to build authority and trust on LinkedIn.
                     </p>
                   </div>
                 </div>

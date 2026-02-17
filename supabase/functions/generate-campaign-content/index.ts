@@ -524,7 +524,7 @@ serve(async (req) => {
     // 3. Planning - BATCH SIZE = 2 (reduced to avoid edge function timeout)
     let totalTarget: number;
     if (campaign.campaign_type === "linkedin_story") {
-      totalTarget = (campaign.posts_per_week || 2) * 4; // 4 weeks
+      totalTarget = campaign.images_per_month || (campaign.posts_per_week || 2) * 4;
     } else {
       const totalVideos = campaign.campaign_type === "image" ? 0 : (campaign.videos_per_month || 4);
       const totalImages = campaign.campaign_type === "video" ? 0 : (campaign.images_per_month || 12);
