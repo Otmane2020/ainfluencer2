@@ -178,6 +178,32 @@ async function generateImage(
   const config = IMAGE_QUALITY_CONFIG[quality as keyof typeof IMAGE_QUALITY_CONFIG] || IMAGE_QUALITY_CONFIG.pro;
 
   try {
+    // Detect if the prompt is a generic story angle (not a proper image prompt)
+    // and enhance it with product-specific visual instructions
+    let imagePrompt = prompt;
+    const isGenericAngle = prompt.length < 200 && !prompt.toLowerCase().includes("image") && !prompt.toLowerCase().includes("visual") && !prompt.toLowerCase().includes("photo");
+    
+    if (isGenericAngle && project.description) {
+      // Build a proper image prompt from the story angle + brand context
+      const brandDesc = project.description || project.name;
+      const brandColor = project.theme_color || "#2563EB";
+      const marketingCtx = project.marketing_context as any;
+      const products = marketingCtx?.products?.map((p: any) => p.name || p.title)?.join(", ") || "";
+      
+      imagePrompt = `Professional LinkedIn editorial image for "${project.name}" — a SaaS platform: ${brandDesc}.
+Theme: ${prompt}.
+Style: Clean, modern corporate design like Harvard Business Review or Forbes cover art.
+Color palette: Use ${brandColor} as dominant brand color with complementary tones.
+Content: Show a stylized digital dashboard, analytics interface, or abstract tech visualization representing the product's value.
+${products ? `Products/Services: ${products}` : ""}
+Typography: Include the brand name "${project.name}" in bold modern sans-serif.
+Format: 1:1 square, professional quality.
+IMPORTANT: Do NOT literally interpret the brand name as a physical object. This is a TECH/SaaS brand.
+BANNED: generic stars, lightbulbs, puzzle pieces, handshakes, stock photo vibes.`;
+      
+      console.log(`[generateImage] Enhanced generic angle to proper image prompt (${imagePrompt.length} chars)`);
+    }
+
     // Use shared context guard for consistent brand injection
     const contextGuard = validateAndBuildContext({
       projectName: project.name,
@@ -190,7 +216,7 @@ async function generateImage(
       marketingContext: project.marketing_context,
       aiContextSummary: project.ai_context_summary || undefined,
       scrapedMarkdown: project.scraped_markdown || undefined,
-      generationPrompt: `${prompt}. Ultra high resolution, professional quality, 1:1 square format.`,
+      generationPrompt: `${imagePrompt}. Ultra high resolution, professional quality, 1:1 square format.`,
       generationType: "image",
     });
 
