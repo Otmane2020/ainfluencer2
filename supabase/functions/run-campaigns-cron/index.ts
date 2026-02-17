@@ -184,22 +184,25 @@ async function generateImage(
     const isGenericAngle = prompt.length < 200 && !prompt.toLowerCase().includes("image") && !prompt.toLowerCase().includes("visual") && !prompt.toLowerCase().includes("photo");
     
     if (isGenericAngle && project.description) {
-      // Build a proper image prompt from the story angle + brand context
       const brandDesc = project.description || project.name;
       const brandColor = project.theme_color || "#2563EB";
-      const marketingCtx = project.marketing_context as any;
-      const products = marketingCtx?.products?.map((p: any) => p.name || p.title)?.join(", ") || "";
+      const lang = project.detected_language || "en";
+      const langMap: Record<string, string> = { fr: "French", en: "English", es: "Spanish", de: "German", it: "Italian", pt: "Portuguese" };
+      const langName = langMap[lang] || "English";
       
-      imagePrompt = `Professional LinkedIn editorial image for "${project.name}" — a SaaS platform: ${brandDesc}.
-Theme: ${prompt}.
-Style: Clean, modern corporate design like Harvard Business Review or Forbes cover art.
-Color palette: Use ${brandColor} as dominant brand color with complementary tones.
-Content: Show a stylized digital dashboard, analytics interface, or abstract tech visualization representing the product's value.
-${products ? `Products/Services: ${products}` : ""}
-Typography: Include the brand name "${project.name}" in bold modern sans-serif.
-Format: 1:1 square, professional quality.
-IMPORTANT: Do NOT literally interpret the brand name as a physical object. This is a TECH/SaaS brand.
-BANNED: generic stars, lightbulbs, puzzle pieces, handshakes, stock photo vibes.`;
+      imagePrompt = `Professional LinkedIn editorial image for a SaaS/tech brand: ${brandDesc}.
+Visual concept: ${prompt}.
+Style: Cinematic, clean, modern — like a top-tier tech company ad (Apple, Stripe, Notion aesthetic).
+Color palette: ${brandColor} as dominant brand color.
+Content: 100% VISUAL — show abstract tech visualization, stylized UI mockups, or product-in-context scene. NO dashboards with fake data.
+MINIMAL TEXT ONLY: If any text appears, it must be maximum 3-5 words in ${langName}, large bold sans-serif. Example: a short tagline or the brand name "${project.name}".
+Format: 1:1 square, ultra high resolution.
+CRITICAL RULES:
+- Do NOT literally interpret the brand name as a physical object
+- Do NOT add long paragraphs or sentences on the image
+- Do NOT use English text if the language is ${langName}
+- Keep the image 90% visual, 10% text maximum
+BANNED: generic clip-art, stars, lightbulbs, puzzle pieces, handshakes, stock photo vibes, walls of text.`;
       
       console.log(`[generateImage] Enhanced generic angle to proper image prompt (${imagePrompt.length} chars)`);
     }
