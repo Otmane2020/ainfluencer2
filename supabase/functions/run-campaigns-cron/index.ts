@@ -768,6 +768,66 @@ async function publishToLinkedIn(
 }
 
 // ============================================================
+// TIKTOK AUTO-PUBLISH (video only — TikTok API requires video)
+// ============================================================
+async function publishToTikTok(
+  post: ScheduledPost,
+  tiktokConnection: any,
+): Promise<{ success: boolean; postId?: string; error?: string }> {
+  if (!tiktokConnection?.access_token || !tiktokConnection?.open_id) {
+    return { success: false, error: "No TikTok access token or open_id" };
+  }
+
+  // TikTok only supports video posts
+  if (!post.media_url) {
+    return { success: false, error: "TikTok requires a video — no media URL" };
+  }
+
+  try {
+    const accessToken = tiktokConnection.access_token;
+    console.log(`[TikTok] Initializing upload for post ${post.id}...`);
+
+    const initRes = await fetch(
+      "https://open.tiktokapis.com/v2/post/publish/video/init/",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          post_info: {
+            title: (post.text_content || "").slice(0, 150),
+            privacy_level: "PUBLIC_TO_EVERYONE",
+            disable_duet: false,
+            disable_stitch: false,
+            disable_comment: false,
+          },
+          source_info: {
+            source: "PULL_FROM_URL",
+            video_url: post.media_url,
+          },
+        }),
+      }
+    );
+
+    const initData = await initRes.json();
+
+    if (initData.error?.code) {
+      console.error("[TikTok] Error:", initData.error);
+      return { success: false, error: initData.error.message || "TikTok API error" };
+    }
+
+    const publishId = initData.data?.publish_id;
+    console.log(`[TikTok] ✅ Upload initiated: ${publishId}`);
+    return { success: true, postId: publishId };
+  } catch (error) {
+    console.error("[TikTok] Exception:", error);
+    return { success: false, error: String(error) };
+  }
+}
+
+// ============================================================
 // MAIN CRON HANDLER
 // ============================================================
 
@@ -981,8 +1041,22 @@ Deno.serve(async (req) => {
         linkedinConnection = data;
       }
 
+      // Fetch TikTok connection only if needed (scoped per project)
+      let tiktokConnection: any = null;
+      const needsTikTok = platforms.includes("tiktok");
+      
+      if (needsTikTok) {
+        const { data } = await supabase
+          .from("tiktok_connections")
+          .select("*")
+          .eq("user_id", post.user_id)
+          .eq("project_id", post.project_id)
+          .single();
+        tiktokConnection = data;
+      }
+
       // Check if we have at least one valid connection
-      if (needsMeta && !metaConnection && !needsLinkedIn) {
+      if (needsMeta && !metaConnection && !needsLinkedIn && !needsTikTok) {
         console.log(`[cron] No Meta connection for user ${post.user_id}`);
         await supabase.from("scheduled_posts").update({
           error_message: "No Meta connection - manual publish required",
@@ -992,7 +1066,7 @@ Deno.serve(async (req) => {
 
       if (needsMeta && metaConnection && new Date(metaConnection.expires_at) < now) {
         console.log(`[cron] Meta token expired for user ${post.user_id}`);
-        metaConnection = null; // Don't block LinkedIn from publishing
+        metaConnection = null;
       }
 
       if (needsLinkedIn && linkedinConnection && new Date(linkedinConnection.expires_at) < now) {
@@ -1000,8 +1074,13 @@ Deno.serve(async (req) => {
         linkedinConnection = null;
       }
 
+      if (needsTikTok && tiktokConnection && new Date(tiktokConnection.expires_at) < now) {
+        console.log(`[cron] TikTok token expired for user ${post.user_id}`);
+        tiktokConnection = null;
+      }
+
       // If no connections at all are valid, skip
-      if (!metaConnection && !linkedinConnection) {
+      if (!metaConnection && !linkedinConnection && !tiktokConnection) {
         await supabase.from("scheduled_posts").update({
           error_message: "No valid social connections - tokens expired or missing",
         }).eq("id", post.id);
@@ -1089,6 +1168,23 @@ Deno.serve(async (req) => {
             errors.push("LI: No LinkedIn connection");
             publishResults.push({ platform: "linkedin", success: false });
             console.log(`[cron] No LinkedIn connection for user ${post.user_id}`);
+          }
+        }
+
+        if (platform === "tiktok") {
+          if (tiktokConnection) {
+            const result = await publishToTikTok(post, tiktokConnection);
+            publishResults.push({ platform: "tiktok", success: result.success, postId: result.postId });
+            if (!result.success) {
+              errors.push(`TT: ${result.error}`);
+              console.log(`[cron] TikTok publish failed: ${result.error}`);
+            } else {
+              console.log(`[cron] Published to TikTok successfully`);
+            }
+          } else {
+            errors.push("TT: No TikTok connection for this project");
+            publishResults.push({ platform: "tiktok", success: false });
+            console.log(`[cron] No TikTok connection for user ${post.user_id} / project ${post.project_id}`);
           }
         }
       }
