@@ -42,6 +42,8 @@ export interface MarketingContext {
   };
 }
 
+export type ImageStyle = "ad" | "product" | "social" | "hero" | "ui" | "editorial";
+
 export interface GenerationGuardInput {
   projectId?: string;
   projectName?: string;
@@ -58,6 +60,8 @@ export interface GenerationGuardInput {
   generationPrompt: string;
   // Type of generation
   generationType: "image" | "video" | "script" | "social_post";
+  // Image style (auto-detected if not set)
+  imageStyle?: ImageStyle;
   // Brand overlay options
   includeLogo?: boolean;
   includeUrl?: boolean;
@@ -320,41 +324,83 @@ export function validateAndBuildContext(input: GenerationGuardInput): GuardedCon
 
   // Add type-specific enhancements
   if (input.generationType === "image") {
-    // === MANDATORY VISUAL BRANDING RULES ===
-    enhancedPromptParts.push("");
-    enhancedPromptParts.push("=== MANDATORY VISUAL BRANDING RULES ===");
+    // Auto-detect image style from prompt if not explicitly set
+    const style = input.imageStyle || detectImageStyle(input.generationPrompt, input.projectDescription);
     
-    // Color enforcement - DOMINANT
-    if (mc?.visual_identity?.primary_color) {
-      const colorDesc = getColorDescription(mc.visual_identity.primary_color);
-      enhancedPromptParts.push(`DOMINANT COLOR (CRITICAL): The primary brand color ${colorDesc} (${mc.visual_identity.primary_color}) MUST be prominently visible in the image - use it for backgrounds, key objects, accents, clothing, or UI elements. The image should "feel" this color.`);
+    // === ADVERTISING STYLE BLOCK ===
+    enhancedPromptParts.push("");
+    enhancedPromptParts.push(`=== VISUAL STYLE: ${style.toUpperCase()} ===`);
+    
+    // Style-specific scene instructions
+    const styleBlocks: Record<ImageStyle, string[]> = {
+      ad: [
+        "Modern SaaS marketing advertisement visual.",
+        "iPhone/laptop mockup showing an app interface, clean UI, startup landing page style.",
+        "Soft studio lighting, depth of field, premium Apple-like product photography aesthetic.",
+        "Perfect for Facebook/Google/LinkedIn Ads.",
+        "Minimalist composition with one clear focal point.",
+      ],
+      product: [
+        "Premium product photography on clean background.",
+        "Studio lighting with soft shadows, commercial catalog quality.",
+        "Product centered, hero composition.",
+      ],
+      social: [
+        "Eye-catching social media visual.",
+        "Bold colors, dynamic composition, scroll-stopping design.",
+        "Optimized for mobile feed viewing.",
+      ],
+      hero: [
+        "Wide cinematic hero banner image.",
+        "Dramatic lighting, expansive composition.",
+        "Premium website hero section quality.",
+      ],
+      ui: [
+        "Clean UI/UX mockup showcase.",
+        "Device mockup (iPhone/MacBook) with app interface visible on screen.",
+        "Soft natural lighting, depth of field, clean desk environment.",
+        "Startup tech company aesthetic.",
+      ],
+      editorial: [
+        "Professional editorial/Forbes-style business image.",
+        "Modern office environment, data visualization, or abstract tech concept.",
+        "Premium corporate photography, LinkedIn-ready.",
+        "Clean and authoritative visual storytelling.",
+      ],
+    };
+    
+    (styleBlocks[style] || styleBlocks.ad).forEach(line => enhancedPromptParts.push(line));
+    
+    // Color enforcement
+    const brandColor = mc?.visual_identity?.primary_color || input.themeColor;
+    if (brandColor) {
+      const colorDesc = getColorDescription(brandColor);
+      enhancedPromptParts.push(`BRAND COLOR: ${colorDesc} (${brandColor}) as dominant accent — use for UI elements, backgrounds, or key visual accents.`);
     }
     if (mc?.visual_identity?.secondary_colors?.length) {
-      enhancedPromptParts.push(`ACCENT COLORS: Use these as secondary/complementary colors: ${mc.visual_identity.secondary_colors.join(", ")}`);
-    }
-    if (input.themeColor && !mc?.visual_identity?.primary_color) {
-      const themeColorDesc = getColorDescription(input.themeColor);
-      enhancedPromptParts.push(`BRAND COLOR (CRITICAL): The theme color ${themeColorDesc} (${input.themeColor}) MUST be prominently visible in backgrounds, accents, or key elements.`);
+      enhancedPromptParts.push(`ACCENT COLORS: ${mc.visual_identity.secondary_colors.join(", ")}`);
     }
     
     // Text/Logo placement enforcement
     if (input.includeLogo || input.includeUrl || input.includeText) {
       enhancedPromptParts.push("");
-      enhancedPromptParts.push("TEXT/LOGO PLACEMENT (CRITICAL):");
-      enhancedPromptParts.push("- Reserve the bottom 20% of the image for text and logo overlay");
-      enhancedPromptParts.push("- Keep the bottom-right corner UNCLUTTERED with simple background (solid or gradient)");
-      enhancedPromptParts.push("- Do NOT place important subjects in the bottom 20% of the image");
+      enhancedPromptParts.push("OVERLAY ZONE: Reserve bottom 20% for post-production text/logo overlay. Keep it uncluttered.");
     }
     
+    // === TYPOGRAPHY RULES ===
     enhancedPromptParts.push("");
-    enhancedPromptParts.push("IMAGE REQUIREMENTS:");
-    enhancedPromptParts.push("- Ultra high resolution, professional advertising photography quality");
-    enhancedPromptParts.push("- Must reflect the brand's visual style, mood, and COLOR PALETTE");
-    enhancedPromptParts.push("- Showcase actual products/services prominently when relevant");
-    enhancedPromptParts.push(`- Any text in image MUST be in ${langName}, LARGE, BOLD, READABLE`);
-    enhancedPromptParts.push("- Typography: Modern bold sans-serif, high contrast with shadow or outline for visibility");
-    enhancedPromptParts.push("- Text placement: Mobile-safe zones (not in top 10% or extreme edges)");
-    enhancedPromptParts.push("- Text SIZE: Minimum 8% of image height for readability");
+    enhancedPromptParts.push("=== TYPOGRAPHY RULES ===");
+    enhancedPromptParts.push(`TEXT: Allow clean marketing typography when relevant — short slogans, CTAs, or brand name.`);
+    enhancedPromptParts.push(`- Maximum 3-5 impactful words if text is included.`);
+    enhancedPromptParts.push(`- ALL text MUST be in ${langName}. NO English if ${langName} is not English.`);
+    enhancedPromptParts.push(`- Typography: Large bold modern sans-serif, high contrast, readable on mobile.`);
+    enhancedPromptParts.push(`- Image must be 90% visual, 10% text maximum.`);
+    
+    enhancedPromptParts.push("");
+    enhancedPromptParts.push("IMAGE QUALITY:");
+    enhancedPromptParts.push("- Ultra high resolution, professional quality");
+    enhancedPromptParts.push("- Must reflect the brand's color palette and visual identity");
+    enhancedPromptParts.push("- BANNED: generic clip-art, stock photo clichés, walls of text, literal brand name interpretation");
   } else if (input.generationType === "video") {
     enhancedPromptParts.push("");
     enhancedPromptParts.push("VIDEO REQUIREMENTS:");
@@ -391,6 +437,29 @@ export function validateAndBuildContext(input: GenerationGuardInput): GuardedCon
     brandContext,
     warnings,
   };
+}
+
+/**
+ * Auto-detect the image style from prompt content and project description
+ */
+function detectImageStyle(prompt: string, description?: string | null): ImageStyle {
+  const text = `${prompt} ${description || ""}`.toLowerCase();
+  
+  // SaaS / tech / app → ad or ui style
+  if (/saas|app|dashboard|software|platform|interface|startup/.test(text)) {
+    if (/mockup|iphone|device|screen|ui|ux/.test(text)) return "ui";
+    return "ad";
+  }
+  // E-commerce / product
+  if (/product|shop|ecommerce|e-commerce|catalog|boutique|store/.test(text)) return "product";
+  // LinkedIn / editorial
+  if (/linkedin|editorial|authority|thought.?leader|forbes|professional/.test(text)) return "editorial";
+  // Hero / banner
+  if (/hero|banner|landing|homepage|header/.test(text)) return "hero";
+  // Social media
+  if (/social|instagram|facebook|tiktok|reel|story/.test(text)) return "social";
+  // Default to ad for best quality
+  return "ad";
 }
 
 /**
