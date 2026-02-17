@@ -268,7 +268,10 @@ STORYTELLING RULES:
 - This is post #${idx + 1} in the series — make each story UNIQUE
 
 ${campaign.ai_context ? `BUSINESS CONTEXT: The business offers: ${campaign.ai_context}` : ""}
-${project.url ? `WEBSITE: ${project.url}` : ""}
+${project.url ? `WEBSITE: ${project.url} — always include this link in the CTA` : ""}
+${project.linkedin_page_url ? `LINKEDIN PAGE: ${project.linkedin_page_url} — mention or tag this page when relevant` : ""}
+${project.logo_url ? `BRAND LOGO: ${project.logo_url}` : ""}
+
 
 OUTPUT: Return ONLY valid JSON:
 {
