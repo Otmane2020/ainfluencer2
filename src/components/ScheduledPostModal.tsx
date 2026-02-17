@@ -441,28 +441,22 @@ export const ScheduledPostModal = ({
   const handlePublishNow = async () => {
     if (!onPublishNow) return;
     
-    // Check if we need media first (Instagram requires it)
-    const needsMedia = selectedPlatforms.includes("instagram") && !post.media_url && !localMediaUrl;
+    const mediaMissing = !post.media_url && !localMediaUrl;
     
     // For video content without media, generate first
-    if (post.content_type === "video" && !post.media_url && !localMediaUrl) {
+    if (post.content_type === "video" && mediaMissing) {
       await handleGenerateAndPublish();
       return;
     }
     
-    // For image content without media, generate first before publishing
-    if (post.content_type === "image" && needsMedia) {
+    // For image content without media, always generate first before publishing
+    if (post.content_type === "image" && mediaMissing) {
       setIsPublishing(true);
       setPublishingStatus("Generating image first...");
       
       try {
-        // Generate image first
         await handleGenerate();
-        
-        // Wait a moment for state to update
         await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Now the media should be ready, proceed with publish
         setPublishingStatus("Publishing to platforms...");
       } catch (error) {
         console.error("Failed to generate image before publish:", error);
