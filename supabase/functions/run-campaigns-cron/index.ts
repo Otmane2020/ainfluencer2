@@ -962,6 +962,7 @@ Deno.serve(async (req) => {
       }
 
       // STEP 1: Generate media if missing (using quality tiers)
+      // LinkedIn posts also get images for professional visual impact
       if (!post.media_url && post.ai_prompt) {
         // Check if this is an "Image as Reel" post:
         // - content_type is "video" 

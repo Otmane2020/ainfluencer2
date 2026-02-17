@@ -307,13 +307,63 @@ OUTPUT: Return ONLY valid JSON:
   scheduledDate.setDate(scheduledDate.getDate() + daysAdded);
   scheduledDate.setHours(campaign.posting_hour || 10, Math.floor(Math.random() * 30));
 
+  // Generate a professional LinkedIn image prompt for visual impact
+  const imagePromptResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-3-flash-preview",
+      messages: [{
+        role: "system",
+        content: `You are a LinkedIn visual content expert. Create a professional, eye-catching image prompt for a LinkedIn post.
+
+BRAND: ${project.name}
+${project.url ? `WEBSITE: ${project.url}` : ""}
+${project.logo_url ? `LOGO: ${project.logo_url}` : ""}
+${project.theme_color ? `BRAND COLOR: ${project.theme_color}` : ""}
+${project.description ? `DESCRIPTION: ${project.description}` : ""}
+
+STORY CONTEXT: ${storyAngle}
+POST CONTENT PREVIEW: ${parsed.textContent.slice(0, 300)}
+
+CREATE a detailed image prompt that:
+- Is PROFESSIONAL and CORPORATE-quality (LinkedIn aesthetic)
+- Uses clean, modern design with the brand's color palette (${project.theme_color || "#2563EB"})
+- Features a compelling visual that supports the story's message
+- Includes bold, readable typography with a key quote or stat from the post
+- Has a polished, editorial feel — think Harvard Business Review or Forbes
+- Square 1:1 format optimized for LinkedIn feed
+- NO generic stock photo vibes — make it UNIQUE and BRANDED
+- Reserve bottom 15% for brand logo placement
+- Use professional lighting, subtle gradients, and premium textures
+- Include the brand name "${project.name}" prominently
+
+BANNED: generic office photos, handshake images, lightbulb ideas, puzzle pieces
+
+OUTPUT: Return ONLY the image prompt as plain text, no JSON, no quotes.`
+      }],
+      temperature: 0.85,
+    }),
+  });
+
+  let linkedInImagePrompt: string | null = null;
+  try {
+    const imgPromptData = await imagePromptResponse.json();
+    linkedInImagePrompt = imgPromptData.choices?.[0]?.message?.content?.trim() || null;
+    if (linkedInImagePrompt) {
+      console.log(`[Campaign] LinkedIn Story #${idx + 1}: Image prompt generated (${linkedInImagePrompt.length} chars)`);
+    }
+  } catch {
+    console.warn(`[Campaign] LinkedIn Story #${idx + 1}: Image prompt generation failed`);
+  }
+
   return {
     user_id: campaign.user_id,
     project_id: campaign.project_id,
     campaign_id: campaign.id,
-    content_type: "text",
+    content_type: "image",
     scheduled_for: scheduledDate.toISOString(),
-    ai_prompt: storyAngle,
+    ai_prompt: linkedInImagePrompt || storyAngle,
     text_content: parsed.textContent,
     media_url: null,
     status: "scheduled",
