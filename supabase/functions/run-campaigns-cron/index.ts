@@ -178,8 +178,7 @@ async function generateImage(
   const config = IMAGE_QUALITY_CONFIG[quality as keyof typeof IMAGE_QUALITY_CONFIG] || IMAGE_QUALITY_CONFIG.pro;
 
   try {
-    // Detect if the prompt is a generic story angle (not a proper image prompt)
-    // and enhance it with product-specific visual instructions
+    // Build a proper advertising-grade image prompt
     let imagePrompt = prompt;
     const isGenericAngle = prompt.length < 200 && !prompt.toLowerCase().includes("image") && !prompt.toLowerCase().includes("visual") && !prompt.toLowerCase().includes("photo");
     
@@ -190,21 +189,34 @@ async function generateImage(
       const langMap: Record<string, string> = { fr: "French", en: "English", es: "Spanish", de: "German", it: "Italian", pt: "Portuguese" };
       const langName = langMap[lang] || "English";
       
-      imagePrompt = `Professional LinkedIn editorial image for a SaaS/tech brand: ${brandDesc}.
+      imagePrompt = `Create a premium advertisement visual for "${project.name}".
+
+=== SCENE ===
+${brandDesc}
 Visual concept: ${prompt}.
-Style: Cinematic, clean, modern — like a top-tier tech company ad (Apple, Stripe, Notion aesthetic).
-Color palette: ${brandColor} as dominant brand color.
-Content: 100% VISUAL — show abstract tech visualization, stylized UI mockups, or product-in-context scene. NO dashboards with fake data.
-MINIMAL TEXT ONLY: If any text appears, it must be maximum 3-5 words in ${langName}, large bold sans-serif. Example: a short tagline or the brand name "${project.name}".
-Format: 1:1 square, ultra high resolution.
-CRITICAL RULES:
-- Do NOT literally interpret the brand name as a physical object
-- Do NOT add long paragraphs or sentences on the image
-- Do NOT use English text if the language is ${langName}
-- Keep the image 90% visual, 10% text maximum
-BANNED: generic clip-art, stars, lightbulbs, puzzle pieces, handshakes, stock photo vibes, walls of text.`;
+iPhone or laptop mockup showing a modern app interface on a clean desk.
+Soft natural studio lighting, depth of field, Apple-style product photography.
+Minimalist composition, one clear focal point.
+
+=== STYLE ===
+Modern SaaS marketing ad — like Apple, Stripe, or Notion campaigns.
+Color palette: ${brandColor} as dominant brand accent.
+Professional, premium, startup aesthetic.
+Perfect for LinkedIn / Facebook Ads.
+
+=== TEXT ===
+Allow clean marketing typography: a short slogan or CTA (3-5 words max) in ${langName}.
+Large bold modern sans-serif, high contrast, mobile-readable.
+Image must be 90% visual, 10% text maximum.
+
+=== FORMAT ===
+1:1 square, ultra high resolution.
+
+=== BANNED ===
+Generic clip-art, literal brand name interpretation (no stars for "Star", no bananas for "Banana"), stock photo clichés, walls of text, paragraphs on image, fake dashboard data.
+${lang !== "en" ? `Do NOT use English text — all text must be in ${langName}.` : ""}`;
       
-      console.log(`[generateImage] Enhanced generic angle to proper image prompt (${imagePrompt.length} chars)`);
+      console.log(`[generateImage] Enhanced generic angle to ad-style prompt (${imagePrompt.length} chars)`);
     }
 
     // Use shared context guard for consistent brand injection
