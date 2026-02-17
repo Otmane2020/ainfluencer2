@@ -50,7 +50,7 @@ interface Campaign {
   posting_hour: number | null;
   posting_minute?: number | null;
   timezone: string | null;
-  projects?: { name: string; theme_color: string } | null;
+  projects?: { name: string; theme_color: string; logo_url: string | null } | null;
 }
 
 const campaignTypeConfig = {
@@ -87,7 +87,7 @@ const CampaignsPage = () => {
     setIsLoading(true);
     const { data, error } = await supabase
       .from("campaigns")
-      .select("*, projects(name, theme_color)")
+      .select("*, projects(name, theme_color, logo_url)")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -240,14 +240,27 @@ const CampaignsPage = () => {
                     <CardHeader className="pb-2">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3">
-                          <div className={`rounded-lg p-2 bg-gradient-to-br ${typeConfig.gradient} text-white`}>
-                            <TypeIcon className="h-5 w-5" />
-                          </div>
+                          {campaign.projects?.logo_url ? (
+                            <img
+                              src={campaign.projects.logo_url}
+                              alt={campaign.projects.name}
+                              className="h-10 w-10 rounded-lg object-cover border border-border"
+                            />
+                          ) : (
+                            <div className={`rounded-lg p-2 bg-gradient-to-br ${typeConfig.gradient} text-white`}>
+                              <TypeIcon className="h-5 w-5" />
+                            </div>
+                          )}
                           <div>
                             <CardTitle className="text-base">{campaign.name}</CardTitle>
-                            <p className="text-xs text-muted-foreground">{typeConfig.label}</p>
+                            <div className="flex items-center gap-1.5">
+                              {campaign.projects && (
+                                <span className="text-xs font-medium text-primary">{campaign.projects.name}</span>
+                              )}
+                              <span className="text-[10px] text-muted-foreground">• {typeConfig.label}</span>
+                            </div>
                             <p className="text-[10px] text-muted-foreground/70">
-                              {new Date(campaign.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} at {new Date(campaign.created_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                              {new Date(campaign.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                             </p>
                           </div>
                         </div>
