@@ -884,11 +884,15 @@ Deno.serve(async (req) => {
     promptParts.push(`=== GENERATION REQUEST ===
 ${prompt}`);
 
-    // 3. VISUAL QUALITY (concise, no anatomy bias)
-    promptParts.push(`=== VISUAL STYLE ===
+    // 3. AD STYLE + VISUAL QUALITY
+    promptParts.push(`=== ADVERTISING STYLE ===
+Modern SaaS marketing visual. iPhone mockup, clean UI, startup landing page style.
+Soft studio lighting, depth of field, premium Apple-like aesthetic.
+Perfect for Facebook/Google/LinkedIn Ads.
 STYLE: Ultra-premium commercial photography. Product-focused.
 QUALITY: Cinematic lighting, professional color grading, sharp details.
-FOCUS: Showcase the product/service prominently. The product is the hero of the image.`);
+FOCUS: Showcase the product/service prominently. The product is the hero of the image.
+BANNED: generic stock photo, clipart, blurry background, low quality, stars as lightbulbs`);
 
     // 4. Only add anatomy rules if prompt explicitly mentions people/humans
     const mentionsPeople = /\b(person|people|human|man|woman|model|customer|user|client|portrait)\b/i.test(prompt);
@@ -901,8 +905,8 @@ FOCUS: Showcase the product/service prominently. The product is the hero of the 
       promptParts.push(`LANGUAGE: ${langConfig.fullName} — ${langConfig.instruction}`);
     }
 
-    // 6. Constraints
-    promptParts.push(`⛔ NO text, words, letters, or typography in the image.`);
+    // 6. Typography rules — allow minimal marketing text
+    promptParts.push(`TEXT: Allow clean marketing typography when relevant — maximum 3-5 impactful words (slogan, CTA, stat). 90% visual / 10% text. NO paragraphs, NO long sentences, NO random labels.`);
     
     if (primaryColor) {
       promptParts.push(`BRAND COLOR: ${primaryColor} — integrate through lighting and environment.`);
