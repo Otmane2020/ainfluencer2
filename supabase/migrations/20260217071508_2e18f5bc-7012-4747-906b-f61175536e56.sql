@@ -1,0 +1,1 @@
+ALTER TABLE public.projects ADD COLUMN linkedin_page_url text DEFAULT NULL;

@@ -98,6 +98,7 @@ interface Project {
   meta_page_id: string | null;
   meta_instagram_id: string | null;
   meta_instagram_username: string | null;
+  linkedin_page_url: string | null;
   created_at: string;
 }
 
@@ -191,6 +192,7 @@ const ProjectDetail = () => {
   const [editTiktok, setEditTiktok] = useState(false);
   const [editYoutube, setEditYoutube] = useState(false);
   const [editLanguage, setEditLanguage] = useState("en");
+  const [editLinkedinPageUrl, setEditLinkedinPageUrl] = useState("");
   const [selectedPublishMode, setSelectedPublishMode] = useState<"auto" | "manual">("manual");
 
   const themeColors = [
@@ -219,6 +221,7 @@ const ProjectDetail = () => {
       setEditTiktok(project.tiktok_enabled);
       setEditYoutube(project.youtube_enabled);
       setEditLanguage(project.detected_language || "en");
+      setEditLinkedinPageUrl(project.linkedin_page_url || "");
       // Load per-project page selection
       setSelectedPageId(project.meta_page_id || null);
     }
@@ -403,6 +406,7 @@ const ProjectDetail = () => {
           tiktok_enabled: editTiktok,
           youtube_enabled: editYoutube,
           detected_language: editLanguage,
+          linkedin_page_url: editLinkedinPageUrl || null,
         })
         .eq("id", project.id);
 
@@ -1015,6 +1019,22 @@ const ProjectDetail = () => {
                       <Link2 className="h-3 w-3" />
                       Connect in Integrations
                     </Link>
+                  )}
+                  
+                  {/* LinkedIn Page URL */}
+                  {linkedinConnection && editLinkedin && (
+                    <div className="pl-10 space-y-2">
+                      <Label className="text-xs font-medium">LinkedIn Page/Profile URL</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Used to tag your page in posts and include links
+                      </p>
+                      <Input
+                        value={editLinkedinPageUrl}
+                        onChange={(e) => setEditLinkedinPageUrl(e.target.value)}
+                        placeholder="https://linkedin.com/company/your-company"
+                        className="h-9 text-sm"
+                      />
+                    </div>
                   )}
                 </div>
 

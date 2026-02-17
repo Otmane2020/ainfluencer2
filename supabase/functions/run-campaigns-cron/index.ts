@@ -688,7 +688,8 @@ async function publishToInstagram(
 
 async function publishToLinkedIn(
   post: ScheduledPost,
-  linkedinConnection: any
+  linkedinConnection: any,
+  project?: any,
 ): Promise<{ success: boolean; postId?: string; error?: string }> {
   if (!linkedinConnection.access_token || !linkedinConnection.linkedin_id) {
     return { success: false, error: "No LinkedIn access token or profile ID" };
@@ -696,7 +697,12 @@ async function publishToLinkedIn(
 
   try {
     const author = `urn:li:person:${linkedinConnection.linkedin_id}`;
-    const caption = post.text_content || "";
+    let caption = post.text_content || "";
+
+    // Append website URL if available and not already in caption
+    if (project?.url && !caption.includes(project.url)) {
+      caption += `\n\n🔗 ${project.url}`;
+    }
 
     // Build the post body
     const postBody: any = {
@@ -711,13 +717,24 @@ async function publishToLinkedIn(
       lifecycleState: "PUBLISHED",
     };
 
-    // If media URL exists, share as an article (external link)
+    // If media URL exists, share as an article with website link
     if (post.media_url) {
       postBody.content = {
         article: {
           source: post.media_url,
-          title: caption.slice(0, 100) || "Shared content",
-          description: caption.slice(0, 200) || "",
+          title: project?.name || caption.slice(0, 100) || "Shared content",
+          description: project?.description || caption.slice(0, 200) || "",
+          thumbnail: post.thumbnail_url || project?.logo_url || undefined,
+        },
+      };
+    } else if (project?.url) {
+      // Text-only post with website link as article
+      postBody.content = {
+        article: {
+          source: project.url,
+          title: project.name || "Visit our website",
+          description: project.description || "",
+          thumbnail: project.logo_url || undefined,
         },
       };
     }
@@ -1060,7 +1077,7 @@ Deno.serve(async (req) => {
 
         if (platform === "linkedin") {
           if (linkedinConnection) {
-            const result = await publishToLinkedIn(post, linkedinConnection);
+            const result = await publishToLinkedIn(post, linkedinConnection, projectContext);
             publishResults.push({ platform: "linkedin", success: result.success, postId: result.postId });
             if (!result.success) {
               errors.push(`LI: ${result.error}`);
