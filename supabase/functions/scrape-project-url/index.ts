@@ -400,6 +400,46 @@ Deno.serve(async (req) => {
       }
     }
 
+    // AI fallback: generate description if still too short
+    if (enrichedDescription.length < 50 && lovableApiKey && markdown.length > 100) {
+      console.log('[SCRAPE] Description too short, generating with AI...');
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 6000);
+
+        const aiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${lovableApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash-lite',
+            messages: [{
+              role: 'user',
+              content: `Write a concise 1-2 sentence business description for "${brandName}" based on this website content. Return ONLY the description, no quotes or formatting:\n\n${markdown.substring(0, 2000)}`
+            }],
+            temperature: 0.3,
+            max_tokens: 150,
+          }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeout);
+
+        if (aiRes.ok) {
+          const aiData = await aiRes.json();
+          const generated = aiData.choices?.[0]?.message?.content?.replace(/^["']|["']$/g, '').trim();
+          if (generated && generated.length > 20) {
+            enrichedDescription = generated;
+            console.log('[SCRAPE] AI-generated description:', enrichedDescription.substring(0, 80));
+          }
+        }
+      } catch (descErr) {
+        console.warn('[SCRAPE] AI description generation failed:', descErr);
+      }
+    }
+
     // ============= STEP 2: Extract Keywords FIRST (needed for competitor detection) =============
     const midStart = Math.max(0, Math.floor(markdown.length / 2) - 1500);
     const midEnd = Math.min(markdown.length, midStart + 3000);
@@ -518,9 +558,30 @@ Deno.serve(async (req) => {
     console.log('[SCRAPE] Generated', qaSeo.length, 'Q&A items');
     console.log('[SCRAPE] Final time:', Date.now() - startTime, 'ms');
 
+    // Extract logo and colors from branding/metadata
+    const logo = metadata.ogImage || '';
+    const colors = {
+      primary: '',
+      secondary: '',
+      accent: '',
+    };
+
+    // Try to extract services from content
+    const services: string[] = [];
+
     return new Response(
       JSON.stringify({
         success: true,
+        // Flat response for frontend compatibility
+        title: brandName,
+        description: enrichedDescription,
+        logo,
+        colors,
+        detectedLanguage: language,
+        markdown: markdown.substring(0, 5000),
+        branding: {},
+        services,
+        // Nested data for backward compat
         data: {
           brandName,
           description: enrichedDescription,
