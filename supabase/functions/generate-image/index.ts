@@ -574,9 +574,8 @@ async function generateWithGeminiDirect(
   try {
     // Try multiple Gemini model names in order of preference
     const GEMINI_MODELS = [
-      "gemini-2.0-flash-exp",
-      "gemini-2.0-flash",
-      "gemini-1.5-flash",
+      "gemini-2.0-flash-exp-image-generation",
+      "gemini-2.0-flash-preview-image-generation",
     ];
 
     for (const geminiModel of GEMINI_MODELS) {
@@ -1082,50 +1081,34 @@ BANNED: generic stock photo, clipart, blurry background, low quality, stars as l
         }
       }
 
-      // Step 4: Try Kling via KIE API
-      if (!imageData) {
-        const KLING_API_KEY = Deno.env.get("KLING_API_KEY");
-        if (KLING_API_KEY) {
-          console.log(`[Fallback] Step 4: Trying Kling text-to-image...`);
-          const klingResult = await generateWithKieApi(
-            finalPrompt,
-            "kling-image",
-            "kling/text-to-image",
-            undefined,
-            effectiveAspect
-          );
-          if (klingResult.imageData) {
-            console.log(`[Fallback] ✓ Kling succeeded`);
-            imageData = klingResult.imageData;
-            error = undefined;
-            provider = "kling-fallback";
-          } else {
-            console.error(`[Fallback] ✗ Kling failed: ${klingResult.error}`);
-          }
-        }
-      }
+      // Step 4: Try Replicate FLUX Schnell (fast, reliable) — moved up since Kling has no image model in KIE
 
-      // Step 5: Try Replicate FLUX Schnell (fast, reliable)
+      // Step 4 (was 5): Try Replicate FLUX Schnell (fast, reliable)
       if (!imageData) {
         const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
         if (REPLICATE_API_KEY) {
           console.log(`[Fallback] Step 5: Trying Replicate FLUX Schnell...`);
           try {
-            const repRes = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${REPLICATE_API_KEY}`,
-                "Content-Type": "application/json",
-                Prefer: "wait",
+          // IMPORTANT: FLUX Schnell can't handle long prompts with brand context
+          // Use ONLY the user's original prompt to avoid rendering logos/brand text
+          const simplifiedPrompt = `${prompt}. Professional commercial photography, cinematic lighting, sharp details. Do NOT include any text, letters, or logos in the image.`;
+          console.log(`[Fallback] Using simplified prompt (${simplifiedPrompt.length} chars) instead of full prompt (${finalPrompt.length} chars)`);
+          
+          const repRes = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${REPLICATE_API_KEY}`,
+              "Content-Type": "application/json",
+              Prefer: "wait",
+            },
+            body: JSON.stringify({
+              input: {
+                prompt: simplifiedPrompt.slice(0, 1500),
+                aspect_ratio: effectiveAspect,
+                output_format: "png",
               },
-              body: JSON.stringify({
-                input: {
-                  prompt: finalPrompt.slice(0, 2000),
-                  aspect_ratio: effectiveAspect,
-                  output_format: "png",
-                },
-              }),
-            });
+            }),
+          });
             if (repRes.ok) {
               const repData = await repRes.json();
               const outputUrl = Array.isArray(repData.output) ? repData.output[0] : repData.output;
