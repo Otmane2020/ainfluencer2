@@ -29,23 +29,47 @@ const Auth = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    let isMounted = true;
+
+    const checkAndRedirect = async (userId: string) => {
+      // Check subscription before redirecting to avoid flash on /choose-plan
+      try {
+        const { data } = await supabase
+          .from("subscriptions")
+          .select("status, stripe_customer_id")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (!isMounted) return;
+
+        if (data?.status === "active") {
+          navigate("/dashboard", { replace: true });
+        } else {
+          navigate("/choose-plan", { replace: true });
+        }
+      } catch {
+        if (isMounted) navigate("/choose-plan", { replace: true });
+      }
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (session?.user) {
-          // New signups and returning users go to choose-plan
-          // If they already have a subscription, that page auto-redirects to dashboard
-          navigate("/choose-plan");
+          setTimeout(() => checkAndRedirect(session.user.id), 0);
         }
       }
     );
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        navigate("/choose-plan");
+        checkAndRedirect(session.user.id);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   const validateForm = () => {
