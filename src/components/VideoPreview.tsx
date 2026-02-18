@@ -46,9 +46,9 @@ export const VideoPreview = ({ segments, avatarUrl, onMerge, onDeleteSegment }: 
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
             <Play className="h-8 w-8 text-muted-foreground" />
           </div>
-          <p className="text-muted-foreground">Aucune vidéo générée</p>
+          <p className="text-muted-foreground">No video generated</p>
           <p className="text-sm text-muted-foreground">
-            Créez des segments vidéo pour les voir ici
+            Create video segments to see them here
           </p>
         </div>
       </motion.div>
