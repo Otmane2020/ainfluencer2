@@ -1019,11 +1019,34 @@ BANNED: generic stock photo, clipart, blurry background, low quality, stars as l
         }
       }
 
-      // Step 4: Try Replicate FLUX Schnell (fast, reliable)
+      // Step 4: Try Kling via KIE API
+      if (!imageData) {
+        const KLING_API_KEY = Deno.env.get("KLING_API_KEY");
+        if (KLING_API_KEY) {
+          console.log(`[Fallback] Step 4: Trying Kling text-to-image...`);
+          const klingResult = await generateWithKieApi(
+            finalPrompt,
+            "kling-image",
+            "kling/text-to-image",
+            undefined,
+            effectiveAspect
+          );
+          if (klingResult.imageData) {
+            console.log(`[Fallback] ✓ Kling succeeded`);
+            imageData = klingResult.imageData;
+            error = undefined;
+            provider = "kling-fallback";
+          } else {
+            console.error(`[Fallback] ✗ Kling failed: ${klingResult.error}`);
+          }
+        }
+      }
+
+      // Step 5: Try Replicate FLUX Schnell (fast, reliable)
       if (!imageData) {
         const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
         if (REPLICATE_API_KEY) {
-          console.log(`[Fallback] Step 4: Trying Replicate FLUX Schnell...`);
+          console.log(`[Fallback] Step 5: Trying Replicate FLUX Schnell...`);
           try {
             const repRes = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions", {
               method: "POST",
@@ -1064,9 +1087,9 @@ BANNED: generic stock photo, clipart, blurry background, low quality, stars as l
         }
       }
 
-      // Step 5: Try OpenRouter as absolute last resort
+      // Step 6: Try OpenRouter as absolute last resort
       if (!imageData) {
-        console.log(`[Fallback] Step 5: Trying OpenRouter...`);
+        console.log(`[Fallback] Step 6: Trying OpenRouter...`);
         const orResult = await generateWithOpenRouter(finalPrompt);
         if (orResult.imageData) {
           console.log(`[Fallback] ✓ OpenRouter succeeded`);
