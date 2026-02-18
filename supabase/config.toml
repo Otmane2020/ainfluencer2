@@ -151,3 +151,6 @@ verify_jwt = false
 
 [functions.kie-video]
 verify_jwt = false
+
+[functions.internal-scraper]
+verify_jwt = false
