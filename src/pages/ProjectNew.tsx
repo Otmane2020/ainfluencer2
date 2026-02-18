@@ -265,7 +265,7 @@ const ProjectNew = () => {
         setFormData(prev => ({
           ...prev,
           name: projectName,
-          description: projectDescription,
+          description: projectDescription || "",
         }));
         
         // Use REAL logo from website
