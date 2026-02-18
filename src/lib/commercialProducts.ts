@@ -36,7 +36,7 @@ export const QUALITY_TIERS: Record<QualityTier, QualityTierConfig> = {
     gradient: "from-slate-500 to-zinc-600",
     costs: {
       image: 1,
-      video: 5,
+      video: 4,
     },
     models: {
       image: "nano-banana",
@@ -50,8 +50,8 @@ export const QUALITY_TIERS: Record<QualityTier, QualityTierConfig> = {
     icon: "✨",
     gradient: "from-blue-500 to-indigo-600",
     costs: {
-      image: 3,
-      video: 10,
+      image: 1,
+      video: 4,
     },
     models: {
       image: "gpt-image",
@@ -65,8 +65,8 @@ export const QUALITY_TIERS: Record<QualityTier, QualityTierConfig> = {
     icon: "🎬",
     gradient: "from-amber-500 to-orange-600",
     costs: {
-      image: 5,
-      video: 10,
+      image: 1,
+      video: 4,
     },
     models: {
       image: "gpt-image",
@@ -89,27 +89,25 @@ export const getModelForQuality = (contentType: ContentType, quality: QualityTie
 
 // Legacy CREDIT_COSTS for backwards compatibility
 export const CREDIT_COSTS: Record<string, number> = {
-  // Standard tier
+  // All tiers: 1 credit per image, 4 credits per video
   "standard-image": 1,
-  "standard-video": 5,
-  // Pro tier
-  "pro-image": 3,
-  "pro-video": 10,
-  // Cinema tier
-  "cinema-image": 5,
-  "cinema-video": 20,
+  "standard-video": 4,
+  "pro-image": 1,
+  "pro-video": 4,
+  "cinema-image": 1,
+  "cinema-video": 4,
   // Legacy mappings
   "smart-image": 1,
-  "high-image": 3,
-  "studio-image": 5,
-  "smart-video": 5,
-  "high-video": 10,
-  "cinema-video-legacy": 20,
+  "high-image": 1,
+  "studio-image": 1,
+  "smart-video": 4,
+  "high-video": 4,
+  "cinema-video-legacy": 4,
   "ai-image-smart": 1,
   "ai-image-standard": 1,
-  "ai-image-pro": 3,
-  "ai-image-studio": 5,
-  "ai-cinema": 20,
+  "ai-image-pro": 1,
+  "ai-image-studio": 1,
+  "ai-cinema": 4,
   "ai-influencer-standard": 39,
   "ai-influencer-pro": 69,
 };
@@ -124,6 +122,8 @@ export interface PricingPlan {
   price: number;
   priceUnit: string;
   description: string;
+  credits: number;
+  creditValue: number; // USD value per credit
   features: string[];
   limits: {
     projects: number;
@@ -133,6 +133,8 @@ export interface PricingPlan {
   badge?: string;
 }
 
+export const CREDIT_UNIT_PRICE = 0.65; // $0.65 per credit
+
 export const PRICING_PLANS: PricingPlan[] = [
   {
     id: "starter",
@@ -140,11 +142,14 @@ export const PRICING_PLANS: PricingPlan[] = [
     price: 19,
     priceUnit: "/month",
     description: "Perfect for creators getting started",
+    credits: 30,
+    creditValue: CREDIT_UNIT_PRICE,
     features: [
+      "30 credits included",
+      "1 credit per image · 4 per video",
       "3 projects",
       "1 campaign",
       "AutoPost scheduling",
-      "All quality tiers",
       "Email support",
     ],
     limits: {
@@ -158,17 +163,20 @@ export const PRICING_PLANS: PricingPlan[] = [
     price: 49,
     priceUnit: "/month",
     description: "For brands and serious creators",
+    credits: 80,
+    creditValue: CREDIT_UNIT_PRICE,
     features: [
+      "80 credits included",
+      "1 credit per image · 4 per video",
       "10 projects",
       "Unlimited campaigns",
       "AutoPost scheduling",
-      "All quality tiers",
       "Priority support",
       "Analytics dashboard",
     ],
     limits: {
       projects: 10,
-      campaigns: -1, // Unlimited
+      campaigns: -1,
     },
     popular: true,
     badge: "POPULAR",
@@ -179,17 +187,20 @@ export const PRICING_PLANS: PricingPlan[] = [
     price: 99,
     priceUnit: "/month",
     description: "For agencies and power users",
+    credits: 200,
+    creditValue: CREDIT_UNIT_PRICE,
     features: [
+      "200 credits included",
+      "1 credit per image · 4 per video",
       "Unlimited projects",
       "Unlimited campaigns",
       "AutoPost scheduling",
-      "All quality tiers",
       "Priority queue",
       "API access",
       "Dedicated support",
     ],
     limits: {
-      projects: -1, // Unlimited
+      projects: -1,
       campaigns: -1,
     },
     badge: "PRO",
