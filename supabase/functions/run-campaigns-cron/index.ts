@@ -1315,24 +1315,100 @@ Deno.serve(async (req) => {
           if (tiktokConnection) {
             // TikTok ONLY supports video — auto-convert image posts to video
             let tiktokPost = { ...post };
-            if (post.content_type === "image" && post.media_url && !post.media_url.includes(".mp4")) {
-              console.log(`[cron] TikTok: image post detected — converting to video via ClipMotion...`);
-              try {
-                const clipPrompt = `${post.text_content || post.ai_prompt || "Dynamic social media content"} Vertical 9:16 portrait format, eye-catching motion, professional quality.`;
-                const videoUrl = await generateVideo(clipPrompt, supabase, projectContext, "standard");
-                if (videoUrl) {
-                  console.log(`[cron] TikTok: image→video conversion successful: ${videoUrl.slice(0, 60)}...`);
-                  tiktokPost.media_url = videoUrl;
-                  tiktokPost.content_type = "video";
-                } else {
-                  console.log(`[cron] TikTok: image→video conversion failed, skipping TikTok`);
-                  errors.push("TT: Failed to convert image to video for TikTok");
+            if (post.content_type === "image") {
+              // If we have an image URL, convert image→video via KIE Kling
+              // If no media at all, generate image first then convert
+              let sourceImageUrl = post.media_url;
+              
+              if (!sourceImageUrl && post.ai_prompt) {
+                console.log(`[cron] TikTok: no media — generating image first...`);
+                sourceImageUrl = await generateImage(post.ai_prompt, supabase, projectContext, imageQuality);
+                if (sourceImageUrl) {
+                  await supabase.from("scheduled_posts").update({ media_url: sourceImageUrl }).eq("id", post.id);
+                  post.media_url = sourceImageUrl;
+                  totalGenerated++;
+                }
+              }
+
+              if (sourceImageUrl) {
+                console.log(`[cron] TikTok: converting image→video via KIE Kling...`);
+                try {
+                  const KIE_API_KEY = Deno.env.get("KIE_API_KEY");
+                  if (KIE_API_KEY) {
+                    // Use KIE Kling image-to-video (faster than Sora)
+                    const taskRes = await fetch("https://api.kie.ai/v1/jobs/createTask", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", Authorization: `Bearer ${KIE_API_KEY}` },
+                      body: JSON.stringify({
+                        modelName: "kling/image-to-video",
+                        input: {
+                          prompt: (post.text_content || post.ai_prompt || "Smooth cinematic motion").slice(0, 500),
+                          image_url: sourceImageUrl,
+                          duration: "5",
+                          aspect_ratio: "9:16",
+                        },
+                      }),
+                    });
+
+                    if (taskRes.ok) {
+                      const taskData = await taskRes.json();
+                      const taskId = taskData.data?.taskId || taskData.taskId;
+                      
+                      if (taskId) {
+                        // Poll for completion (max 90s — Kling is usually 30-60s)
+                        for (let attempt = 0; attempt < 18; attempt++) {
+                          await new Promise(r => setTimeout(r, 5000));
+                          const statusRes = await fetch(`https://api.kie.ai/v1/jobs/recordInfo?taskId=${taskId}`, {
+                            headers: { Authorization: `Bearer ${KIE_API_KEY}` },
+                          });
+                          if (statusRes.ok) {
+                            const statusData = await statusRes.json();
+                            const status = statusData.data?.status || statusData.status;
+                            if (status === "completed" || status === "done" || status === "SUCCESS") {
+                              const videoUrl = statusData.data?.output?.video_url || statusData.data?.resultUrl || 
+                                statusData.data?.works?.[0]?.resource?.resource;
+                              if (videoUrl) {
+                                // Upload to storage
+                                const vidRes = await fetch(videoUrl);
+                                if (vidRes.ok) {
+                                  const vidBuf = new Uint8Array(await vidRes.arrayBuffer());
+                                  const vidPath = `videos/tiktok-kling-${Date.now()}.mp4`;
+                                  const { error: upErr } = await supabase.storage.from("media").upload(vidPath, vidBuf, { contentType: "video/mp4" });
+                                  if (!upErr) {
+                                    const { data: pubUrl } = supabase.storage.from("media").getPublicUrl(vidPath);
+                                    tiktokPost.media_url = pubUrl.publicUrl;
+                                    tiktokPost.content_type = "video";
+                                    console.log(`[cron] TikTok: image→video via Kling ✅`);
+                                  }
+                                }
+                                break;
+                              }
+                            } else if (status === "failed" || status === "FAILED") {
+                              console.error(`[cron] TikTok Kling task failed`);
+                              break;
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                  
+                  // If Kling didn't work, skip TikTok for this post
+                  if (tiktokPost.content_type !== "video") {
+                    console.log(`[cron] TikTok: image→video conversion failed, skipping`);
+                    errors.push("TT: Failed to convert image to video for TikTok");
+                    publishResults.push({ platform: "tiktok", success: false });
+                    continue;
+                  }
+                } catch (convErr) {
+                  console.error(`[cron] TikTok image→video error:`, convErr);
+                  errors.push(`TT: Image conversion error: ${String(convErr)}`);
                   publishResults.push({ platform: "tiktok", success: false });
                   continue;
                 }
-              } catch (convErr) {
-                console.error(`[cron] TikTok image→video error:`, convErr);
-                errors.push(`TT: Image conversion error: ${String(convErr)}`);
+              } else {
+                console.log(`[cron] TikTok: no image available, skipping`);
+                errors.push("TT: No image to convert to video");
                 publishResults.push({ platform: "tiktok", success: false });
                 continue;
               }
