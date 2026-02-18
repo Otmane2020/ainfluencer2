@@ -295,16 +295,23 @@ const LandingPage = () => {
         </div>
         <div className="flex gap-4 animate-marquee hover:[animation-play-state:paused]">
           {[
+            { img: "/showcase/kling-fashion.png", label: "Kling Fashion", type: "video", gradient: "from-pink-400/70", badge: "Kling" },
             { img: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=500&fit=crop", label: "AI Portrait", type: "image", gradient: "from-pink-500/60" },
+            { img: "/showcase/kling-jewelry.png", label: "Kling Portrait", type: "video", gradient: "from-amber-600/70", badge: "Kling" },
             { img: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=400&h=500&fit=crop", label: "Motion Video", type: "video", gradient: "from-violet-500/60" },
+            { img: "/showcase/kling-cinematic.png", label: "Kling Cinema", type: "video", gradient: "from-red-600/70", badge: "Kling" },
             { img: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=500&fit=crop", label: "Product Shot", type: "image", gradient: "from-amber-500/60" },
             { img: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=500&fit=crop", label: "Cinematic AI", type: "video", gradient: "from-blue-500/60" },
             { img: "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=400&h=500&fit=crop", label: "Abstract FX", type: "image", gradient: "from-emerald-500/60" },
             { img: "https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?w=400&h=500&fit=crop", label: "Reels Ready", type: "video", gradient: "from-rose-500/60" },
             { img: "https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=400&h=500&fit=crop", label: "AI Art", type: "image", gradient: "from-indigo-500/60" },
             { img: "https://images.unsplash.com/photo-1535223289827-42f1e9919769?w=400&h=500&fit=crop", label: "Tech Demo", type: "video", gradient: "from-cyan-500/60" },
+            // Duplicate for seamless loop
+            { img: "/showcase/kling-fashion.png", label: "Kling Fashion", type: "video", gradient: "from-pink-400/70", badge: "Kling" },
             { img: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=500&fit=crop", label: "AI Portrait", type: "image", gradient: "from-pink-500/60" },
+            { img: "/showcase/kling-jewelry.png", label: "Kling Portrait", type: "video", gradient: "from-amber-600/70", badge: "Kling" },
             { img: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=400&h=500&fit=crop", label: "Motion Video", type: "video", gradient: "from-violet-500/60" },
+            { img: "/showcase/kling-cinematic.png", label: "Kling Cinema", type: "video", gradient: "from-red-600/70", badge: "Kling" },
             { img: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=500&fit=crop", label: "Product Shot", type: "image", gradient: "from-amber-500/60" },
             { img: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=500&fit=crop", label: "Cinematic AI", type: "video", gradient: "from-blue-500/60" },
             { img: "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=400&h=500&fit=crop", label: "Abstract FX", type: "image", gradient: "from-emerald-500/60" },
@@ -328,6 +335,13 @@ const LandingPage = () => {
                 loading="lazy"
               />
               <div className={`absolute inset-0 bg-gradient-to-t ${item.gradient} to-transparent`} />
+              {"badge" in item && item.badge && (
+                <div className="absolute top-2 left-2">
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-blue-500/90 text-white backdrop-blur-sm">
+                    {item.badge}
+                  </span>
+                </div>
+              )}
               <div className="absolute bottom-0 left-0 right-0 p-3">
                 <div className="flex items-center gap-1.5 mb-1">
                   {item.type === "video" ? (
