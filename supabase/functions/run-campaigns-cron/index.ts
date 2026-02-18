@@ -1313,7 +1313,31 @@ Deno.serve(async (req) => {
 
         if (platform === "tiktok") {
           if (tiktokConnection) {
-            const result = await publishToTikTok(post, tiktokConnection);
+            // TikTok ONLY supports video — auto-convert image posts to video
+            let tiktokPost = { ...post };
+            if (post.content_type === "image" && post.media_url && !post.media_url.includes(".mp4")) {
+              console.log(`[cron] TikTok: image post detected — converting to video via ClipMotion...`);
+              try {
+                const clipPrompt = `${post.text_content || post.ai_prompt || "Dynamic social media content"} Vertical 9:16 portrait format, eye-catching motion, professional quality.`;
+                const videoUrl = await generateVideo(clipPrompt, supabase, projectContext, "standard");
+                if (videoUrl) {
+                  console.log(`[cron] TikTok: image→video conversion successful: ${videoUrl.slice(0, 60)}...`);
+                  tiktokPost.media_url = videoUrl;
+                  tiktokPost.content_type = "video";
+                } else {
+                  console.log(`[cron] TikTok: image→video conversion failed, skipping TikTok`);
+                  errors.push("TT: Failed to convert image to video for TikTok");
+                  publishResults.push({ platform: "tiktok", success: false });
+                  continue;
+                }
+              } catch (convErr) {
+                console.error(`[cron] TikTok image→video error:`, convErr);
+                errors.push(`TT: Image conversion error: ${String(convErr)}`);
+                publishResults.push({ platform: "tiktok", success: false });
+                continue;
+              }
+            }
+            const result = await publishToTikTok(tiktokPost, tiktokConnection);
             publishResults.push({ platform: "tiktok", success: result.success, postId: result.postId });
             if (!result.success) {
               errors.push(`TT: ${result.error}`);
