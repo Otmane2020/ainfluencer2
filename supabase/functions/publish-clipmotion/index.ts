@@ -580,10 +580,72 @@ async function publishToTikTok(
 // ============================================================
 // LINKEDIN
 // ============================================================
+// Upload image to LinkedIn and return the image URN
+async function uploadImageToLinkedInCM(
+  imageUrl: string,
+  accessToken: string,
+  author: string,
+): Promise<string | null> {
+  try {
+    console.log("[LI] Downloading image/thumbnail for LinkedIn upload...");
+    const imgRes = await fetch(imageUrl);
+    if (!imgRes.ok) return null;
+    const imageBytes = new Uint8Array(await imgRes.arrayBuffer());
+    console.log(`[LI] Image: ${imageBytes.length} bytes`);
+
+    const initRes = await fetch(
+      "https://api.linkedin.com/rest/images?action=initializeUpload",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          "LinkedIn-Version": "202602",
+          "X-Restli-Protocol-Version": "2.0.0",
+        },
+        body: JSON.stringify({
+          initializeUploadRequest: { owner: author },
+        }),
+      }
+    );
+
+    if (!initRes.ok) {
+      console.error("[LI] initializeUpload failed:", initRes.status);
+      return null;
+    }
+
+    const initData = await initRes.json();
+    const uploadUrl = initData.value?.uploadUrl;
+    const imageUrn = initData.value?.image;
+    if (!uploadUrl || !imageUrn) return null;
+
+    const uploadRes = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/octet-stream",
+      },
+      body: imageBytes,
+    });
+
+    if (!uploadRes.ok) {
+      console.error("[LI] Binary upload failed:", uploadRes.status);
+      return null;
+    }
+
+    console.log("[LI] ✅ Image uploaded:", imageUrn);
+    return imageUrn;
+  } catch (error) {
+    console.error("[LI] Image upload exception:", error);
+    return null;
+  }
+}
+
 async function publishToLinkedIn(
   videoUrl: string,
   caption: string,
-  linkedinConnection: any
+  linkedinConnection: any,
+  thumbnailUrl?: string,
 ): Promise<PublishResult> {
   if (!linkedinConnection?.access_token || !linkedinConnection?.linkedin_id) {
     return { platform: "linkedin", success: false, error: "LinkedIn not connected. Please connect in Settings → Integrations." };
@@ -604,9 +666,21 @@ async function publishToLinkedIn(
       lifecycleState: "PUBLISHED",
     };
 
-    // LinkedIn article.source expects a website URL, not a media/storage URL
-    // Post as text-only commentary for maximum compatibility
-    // The caption already contains the marketing message
+    // Try to upload thumbnail as image attachment (videos can't be uploaded via Images API)
+    const thumbToUpload = thumbnailUrl || videoUrl;
+    if (thumbToUpload && !thumbToUpload.startsWith("data:")) {
+      const imageUrn = await uploadImageToLinkedInCM(
+        thumbToUpload,
+        linkedinConnection.access_token,
+        author,
+      );
+      if (imageUrn) {
+        postBody.content = {
+          media: { id: imageUrn },
+        };
+        console.log("[LI] Thumbnail image attached to post");
+      }
+    }
 
     console.log(`[LI] Publishing to ${linkedinConnection.display_name}...`);
 

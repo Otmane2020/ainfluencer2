@@ -236,10 +236,103 @@ async function publishReelToFacebook(
 // ============================================================
 // LINKEDIN IMAGE POST
 // ============================================================
+// Upload image to LinkedIn and return the image URN
+async function uploadImageToLinkedInDirect(
+  imageUrl: string,
+  accessToken: string,
+  author: string,
+  supabase: any,
+  userId: string,
+): Promise<string | null> {
+  try {
+    let imageBytes: Uint8Array;
+
+    // Handle base64 data URIs by uploading to storage first
+    if (imageUrl.startsWith("data:")) {
+      console.log("[LI-IMAGE] Converting base64 to public URL via storage...");
+      const base64Data = imageUrl.split(",")[1];
+      const binaryStr = atob(base64Data);
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+      imageBytes = bytes;
+    } else {
+      console.log("[LI-IMAGE] Downloading image for upload...");
+      const imgRes = await fetch(imageUrl);
+      if (!imgRes.ok) {
+        console.error("[LI-IMAGE] Failed to download image:", imgRes.status);
+        return null;
+      }
+      imageBytes = new Uint8Array(await imgRes.arrayBuffer());
+    }
+
+    console.log(`[LI-IMAGE] Image ready: ${imageBytes.length} bytes`);
+
+    // Initialize upload
+    const initRes = await fetch(
+      "https://api.linkedin.com/rest/images?action=initializeUpload",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          "LinkedIn-Version": "202602",
+          "X-Restli-Protocol-Version": "2.0.0",
+        },
+        body: JSON.stringify({
+          initializeUploadRequest: { owner: author },
+        }),
+      }
+    );
+
+    if (!initRes.ok) {
+      const errText = await initRes.text();
+      console.error("[LI-IMAGE] initializeUpload failed:", initRes.status, errText.slice(0, 200));
+      return null;
+    }
+
+    const initData = await initRes.json();
+    const uploadUrl = initData.value?.uploadUrl;
+    const imageUrn = initData.value?.image;
+
+    if (!uploadUrl || !imageUrn) {
+      console.error("[LI-IMAGE] Missing uploadUrl or image URN");
+      return null;
+    }
+
+    console.log("[LI-IMAGE] Upload URL obtained, uploading binary...");
+
+    // Upload binary
+    const uploadRes = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/octet-stream",
+      },
+      body: imageBytes,
+    });
+
+    if (!uploadRes.ok) {
+      const errText = await uploadRes.text();
+      console.error("[LI-IMAGE] Binary upload failed:", uploadRes.status, errText.slice(0, 200));
+      return null;
+    }
+
+    console.log("[LI-IMAGE] ✅ Image uploaded:", imageUrn);
+    return imageUrn;
+  } catch (error) {
+    console.error("[LI-IMAGE] Image upload exception:", error);
+    return null;
+  }
+}
+
 async function publishImageToLinkedIn(
   imageUrl: string,
   caption: string,
-  linkedinConnection: any
+  linkedinConnection: any,
+  supabase: any,
+  userId: string,
 ): Promise<PublishResult> {
   if (!linkedinConnection?.access_token || !linkedinConnection?.linkedin_id) {
     return { platform: "linkedin", success: false, error: "LinkedIn not connected" };
@@ -248,9 +341,6 @@ async function publishImageToLinkedIn(
   try {
     const author = `urn:li:person:${linkedinConnection.linkedin_id}`;
 
-    // LinkedIn article.source expects a website URL, not an image/media URL
-    // LinkedIn article.thumbnail requires a URN (urn:li:image:...), not a URL
-    // Post as text-only commentary for maximum compatibility
     const postBody: any = {
       author,
       commentary: caption || "Check out this image!",
@@ -262,6 +352,25 @@ async function publishImageToLinkedIn(
       },
       lifecycleState: "PUBLISHED",
     };
+
+    // Upload image to LinkedIn and attach
+    if (imageUrl) {
+      const imageUrn = await uploadImageToLinkedInDirect(
+        imageUrl,
+        linkedinConnection.access_token,
+        author,
+        supabase,
+        userId,
+      );
+      if (imageUrn) {
+        postBody.content = {
+          media: { id: imageUrn },
+        };
+        console.log("[LI-IMAGE] Image attached to post");
+      } else {
+        console.warn("[LI-IMAGE] Image upload failed, posting text-only");
+      }
+    }
 
     console.log(`[LI-IMAGE] Publishing to ${linkedinConnection.display_name}...`);
 
@@ -341,7 +450,7 @@ serve(async (req) => {
       let result: PublishResult;
 
       if (platform === "linkedin") {
-        result = await publishImageToLinkedIn(imageUrl, caption || "", linkedinConnection);
+        result = await publishImageToLinkedIn(imageUrl, caption || "", linkedinConnection, supabase, userId);
       } else if (publishType === "reel") {
         if (platform === "instagram") {
           result = await publishReelToInstagram(imageUrl, caption || "", metaConnection);
