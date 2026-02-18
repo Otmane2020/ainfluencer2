@@ -274,7 +274,7 @@ async function publishImageToLinkedIn(
       headers: {
         "Authorization": `Bearer ${linkedinConnection.access_token}`,
         "Content-Type": "application/json",
-        "LinkedIn-Version": "202502",
+        "LinkedIn-Version": "202602",
         "X-Restli-Protocol-Version": "2.0.0",
       },
       body: JSON.stringify(postBody),
