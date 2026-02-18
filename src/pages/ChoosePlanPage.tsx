@@ -39,7 +39,16 @@ const ChoosePlanPage = () => {
     navigate("/auth");
   };
 
-  if (isLoading || !user) return null;
+  if (isLoading || !user) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-10 w-10 rounded-xl overflow-hidden animate-pulse">
+          <img src="/logo.png" alt="ClipMotion" className="h-full w-full object-contain" />
+        </div>
+        <p className="text-sm text-muted-foreground">Loading your plan…</p>
+      </div>
+    </div>
+  );
 
   return (
     <>
