@@ -52,6 +52,7 @@ import TikTokVideosWithAIPage from "./pages/blog/TikTokVideosWithAIPage";
 import InstagramReelsAIPage from "./pages/blog/InstagramReelsAIPage";
 import AIVideoForEcommercePage from "./pages/blog/AIVideoForEcommercePage";
 import TikTokCallbackPage from "./pages/TikTokCallbackPage";
+import ChoosePlanPage from "./pages/ChoosePlanPage";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -87,6 +88,7 @@ const App = () => (
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/nanobananavideo" element={<NanoBananaVideoPage />} />
           <Route path="/api/tiktok/callback" element={<TikTokCallbackPage />} />
+          <Route path="/choose-plan" element={<ChoosePlanPage />} />
           <Route path="/auth" element={<Auth />} />
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />

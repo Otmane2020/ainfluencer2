@@ -32,14 +32,16 @@ const Auth = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (session?.user) {
-          navigate("/dashboard");
+          // New signups and returning users go to choose-plan
+          // If they already have a subscription, that page auto-redirects to dashboard
+          navigate("/choose-plan");
         }
       }
     );
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        navigate("/dashboard");
+        navigate("/choose-plan");
       }
     });
 
