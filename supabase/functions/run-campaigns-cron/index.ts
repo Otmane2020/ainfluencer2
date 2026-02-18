@@ -160,8 +160,143 @@ interface ScheduledPost {
 }
 
 // ============================================================
-// IMAGE GENERATION (via OpenRouter API - Quality Tiers)
+// IMAGE GENERATION – Multi-provider fallback chain
+// Lovable AI → OpenAI DALL-E → Gemini Direct → KIE → Replicate FLUX
 // ============================================================
+
+async function uploadBase64ToStorage(base64: string, supabase: any): Promise<string | null> {
+  const clean = base64.replace(/^data:image\/\w+;base64,/, "");
+  const bytes = Uint8Array.from(atob(clean), (c) => c.charCodeAt(0));
+  const path = `images/${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
+  const { error } = await supabase.storage.from("media").upload(path, bytes, { contentType: "image/png", upsert: true });
+  if (error) {
+    console.error("[upload] error:", error);
+    return null;
+  }
+  const { data } = supabase.storage.from("media").getPublicUrl(path);
+  return data.publicUrl;
+}
+
+async function uploadUrlToStorage(url: string, supabase: any): Promise<string | null> {
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) return url; // fallback to original URL
+    const buf = new Uint8Array(await resp.arrayBuffer());
+    const ext = url.includes(".webp") ? "webp" : "png";
+    const path = `images/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await supabase.storage.from("media").upload(path, buf, { contentType: `image/${ext}`, upsert: true });
+    if (error) return url;
+    const { data } = supabase.storage.from("media").getPublicUrl(path);
+    return data.publicUrl;
+  } catch { return url; }
+}
+
+async function tryLovableAI(prompt: string, model: string): Promise<string | null> {
+  const key = Deno.env.get("LOVABLE_API_KEY");
+  if (!key) return null;
+  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], modalities: ["image", "text"] }),
+  });
+  if (!resp.ok) { console.error(`[Lovable] ${resp.status}`); return null; }
+  const data = await resp.json();
+  return data.choices?.[0]?.message?.images?.[0]?.image_url?.url || null;
+}
+
+async function tryOpenAIDalle(prompt: string): Promise<string | null> {
+  const key = Deno.env.get("OPENAI_API_KEY");
+  if (!key) return null;
+  const resp = await fetch("https://api.openai.com/v1/images/generations", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "dall-e-3", prompt: prompt.slice(0, 4000), n: 1, size: "1024x1024", quality: "hd" }),
+  });
+  if (!resp.ok) { console.error(`[DALL-E] ${resp.status}`); return null; }
+  const data = await resp.json();
+  return data.data?.[0]?.url || null;
+}
+
+async function tryGeminiDirect(prompt: string): Promise<string | null> {
+  const key = Deno.env.get("GEMINI_API_KEY");
+  if (!key) return null;
+  const models = ["gemini-2.0-flash-exp"];
+  for (const model of models) {
+    try {
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
+        }),
+      });
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      const parts = data.candidates?.[0]?.content?.parts || [];
+      for (const part of parts) {
+        if (part.inlineData?.mimeType?.startsWith("image/")) {
+          return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        }
+      }
+    } catch { continue; }
+  }
+  return null;
+}
+
+async function tryKIE(prompt: string): Promise<string | null> {
+  const key = Deno.env.get("KIE_API_KEY");
+  if (!key) return null;
+  const resp = await fetch("https://api.klingai.com/v1/images/generations", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "kling-v1", prompt: prompt.slice(0, 2500), n: 1, aspect_ratio: "1:1" }),
+  });
+  if (!resp.ok) { console.error(`[KIE] ${resp.status}`); return null; }
+  const data = await resp.json();
+  const taskId = data.data?.task_id;
+  if (!taskId) return null;
+  // Poll up to 2 min
+  for (let i = 0; i < 24; i++) {
+    await new Promise(r => setTimeout(r, 5000));
+    const sr = await fetch(`https://api.klingai.com/v1/images/generations/${taskId}`, {
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    if (!sr.ok) continue;
+    const sd = await sr.json();
+    if (sd.data?.task_status === "succeed") {
+      return sd.data?.task_result?.images?.[0]?.url || null;
+    }
+    if (sd.data?.task_status === "failed") return null;
+  }
+  return null;
+}
+
+async function tryReplicateFlux(prompt: string): Promise<string | null> {
+  const key = Deno.env.get("REPLICATE_API_KEY");
+  if (!key) return null;
+  const resp = await fetch("https://api.replicate.com/v1/predictions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      version: "5a43415e8f84b1e2f48b42a1e3a869e3c1c4b966f0aaa877c80bfaca5e0471bf",
+      input: { prompt: prompt.slice(0, 2000), aspect_ratio: "1:1", output_format: "png" },
+    }),
+  });
+  if (!resp.ok) { console.error(`[Replicate] ${resp.status}`); return null; }
+  const pred = await resp.json();
+  const getUrl = pred.urls?.get;
+  if (!getUrl) return null;
+  for (let i = 0; i < 60; i++) {
+    await new Promise(r => setTimeout(r, 3000));
+    const sr = await fetch(getUrl, { headers: { Authorization: `Bearer ${key}` } });
+    if (!sr.ok) continue;
+    const sd = await sr.json();
+    if (sd.status === "succeeded") return sd.output?.[0] || null;
+    if (sd.status === "failed") return null;
+  }
+  return null;
+}
 
 async function generateImage(
   prompt: string, 
@@ -169,136 +304,93 @@ async function generateImage(
   project: ProjectContext,
   quality: string = "pro"
 ): Promise<string | null> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) {
-    console.error("[generateImage] LOVABLE_API_KEY not configured");
-    return null;
-  }
-
   const config = IMAGE_QUALITY_CONFIG[quality as keyof typeof IMAGE_QUALITY_CONFIG] || IMAGE_QUALITY_CONFIG.pro;
 
-  try {
-    // Build a proper advertising-grade image prompt
-    let imagePrompt = prompt;
-    const isGenericAngle = prompt.length < 200 && !prompt.toLowerCase().includes("image") && !prompt.toLowerCase().includes("visual") && !prompt.toLowerCase().includes("photo");
+  // Build advertising-grade prompt
+  let imagePrompt = prompt;
+  const isGenericAngle = prompt.length < 200 && !prompt.toLowerCase().includes("image") && !prompt.toLowerCase().includes("visual") && !prompt.toLowerCase().includes("photo");
+  
+  if (isGenericAngle && project.description) {
+    const brandDesc = project.description || project.name;
+    const brandColor = project.theme_color || "#2563EB";
+    const lang = project.detected_language || "en";
+    const langMap: Record<string, string> = { fr: "French", en: "English", es: "Spanish", de: "German", it: "Italian", pt: "Portuguese" };
+    const langName = langMap[lang] || "English";
     
-    if (isGenericAngle && project.description) {
-      const brandDesc = project.description || project.name;
-      const brandColor = project.theme_color || "#2563EB";
-      const lang = project.detected_language || "en";
-      const langMap: Record<string, string> = { fr: "French", en: "English", es: "Spanish", de: "German", it: "Italian", pt: "Portuguese" };
-      const langName = langMap[lang] || "English";
-      
-      imagePrompt = `Create a premium advertisement visual for "${project.name}".
-
+    imagePrompt = `Create a premium advertisement visual for "${project.name}".
 === SCENE ===
 ${brandDesc}
 Visual concept: ${prompt}.
 iPhone or laptop mockup showing a modern app interface on a clean desk.
 Soft natural studio lighting, depth of field, Apple-style product photography.
 Minimalist composition, one clear focal point.
-
 === STYLE ===
 Modern SaaS marketing ad — like Apple, Stripe, or Notion campaigns.
 Color palette: ${brandColor} as dominant brand accent.
-Professional, premium, startup aesthetic.
-Perfect for LinkedIn / Facebook Ads.
-
+Professional, premium, startup aesthetic. Perfect for LinkedIn / Facebook Ads.
 === TEXT ===
 Allow clean marketing typography: a short slogan or CTA (3-5 words max) in ${langName}.
 Large bold modern sans-serif, high contrast, mobile-readable.
 Image must be 90% visual, 10% text maximum.
-
 === FORMAT ===
 1:1 square, ultra high resolution.
-
 === BANNED ===
-Generic clip-art, literal brand name interpretation (no stars for "Star", no bananas for "Banana"), stock photo clichés, walls of text, paragraphs on image, fake dashboard data.
+Generic clip-art, stock photo clichés, walls of text, fake dashboard data.
 ${lang !== "en" ? `Do NOT use English text — all text must be in ${langName}.` : ""}`;
-      
-      console.log(`[generateImage] Enhanced generic angle to ad-style prompt (${imagePrompt.length} chars)`);
-    }
-
-    // Use shared context guard for consistent brand injection
-    const contextGuard = validateAndBuildContext({
-      projectName: project.name,
-      projectDescription: project.description || undefined,
-      projectUrl: project.url || undefined,
-      logoUrl: project.logo_url || undefined,
-      avatarUrl: project.avatar_url || undefined,
-      themeColor: project.theme_color || undefined,
-      detectedLanguage: project.detected_language || "en",
-      marketingContext: project.marketing_context,
-      aiContextSummary: project.ai_context_summary || undefined,
-      scrapedMarkdown: project.scraped_markdown || undefined,
-      generationPrompt: `${imagePrompt}. Ultra high resolution, professional quality, 1:1 square format.`,
-      generationType: "image",
-    });
-
-    logContextValidation(contextGuard, "CRON-IMAGE");
-    
-    console.log(`[generateImage] Using ${quality} quality (${config.model}) via Lovable AI Gateway | Context Score: ${contextGuard.contextScore}`);
-
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: config.model,
-        messages: [{ role: "user", content: contextGuard.enhancedPrompt }],
-        modalities: ["image", "text"],
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[generateImage] Lovable AI Gateway error:", response.status, errorText.slice(0, 200));
-      return null;
-    }
-
-    const data = await response.json();
-    const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-
-    if (!imageData) {
-      console.error("[generateImage] No image in response");
-      return null;
-    }
-
-    // Upload base64 to storage - CRITICAL: Meta APIs don't accept base64/data URIs
-    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
-    const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
-    const fileName = `images/${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("media")
-      .upload(fileName, imageBytes, { contentType: "image/png", upsert: true });
-
-    if (uploadError) {
-      console.error("[generateImage] Upload error:", uploadError);
-      const retryFileName = `images/retry-${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
-      const { error: retryError } = await supabase.storage
-        .from("media")
-        .upload(retryFileName, imageBytes, { contentType: "image/png", upsert: true });
-      
-      if (retryError) {
-        console.error("[generateImage] Retry upload also failed:", retryError);
-        return null;
-      }
-      
-      const { data: retryUrlData } = supabase.storage.from("media").getPublicUrl(retryFileName);
-      console.log(`[generateImage] ✅ ${quality} image uploaded (retry)`);
-      return retryUrlData.publicUrl;
-    }
-
-    const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(fileName);
-    console.log(`[generateImage] ✅ ${quality} image uploaded`);
-    return publicUrlData.publicUrl;
-  } catch (error) {
-    console.error("[generateImage] Error:", error);
-    return null;
   }
+
+  // Shared context guard
+  const contextGuard = validateAndBuildContext({
+    projectName: project.name,
+    projectDescription: project.description || undefined,
+    projectUrl: project.url || undefined,
+    logoUrl: project.logo_url || undefined,
+    avatarUrl: project.avatar_url || undefined,
+    themeColor: project.theme_color || undefined,
+    detectedLanguage: project.detected_language || "en",
+    marketingContext: project.marketing_context,
+    aiContextSummary: project.ai_context_summary || undefined,
+    scrapedMarkdown: project.scraped_markdown || undefined,
+    generationPrompt: `${imagePrompt}. Ultra high resolution, professional quality, 1:1 square format.`,
+    generationType: "image",
+  });
+  logContextValidation(contextGuard, "CRON-IMAGE");
+  const finalPrompt = contextGuard.enhancedPrompt;
+
+  // ── Fallback chain ──
+  const providers = [
+    { name: "Lovable AI", fn: () => tryLovableAI(finalPrompt, config.model) },
+    { name: "OpenAI DALL-E", fn: () => tryOpenAIDalle(finalPrompt) },
+    { name: "Gemini Direct", fn: () => tryGeminiDirect(finalPrompt) },
+    { name: "KIE Kling", fn: () => tryKIE(finalPrompt) },
+    { name: "Replicate FLUX", fn: () => tryReplicateFlux(finalPrompt) },
+  ];
+
+  for (const provider of providers) {
+    try {
+      console.log(`[generateImage] Trying ${provider.name}...`);
+      const result = await provider.fn();
+      if (!result) continue;
+
+      // Upload to storage
+      let publicUrl: string | null;
+      if (result.startsWith("data:")) {
+        publicUrl = await uploadBase64ToStorage(result, supabase);
+      } else {
+        publicUrl = await uploadUrlToStorage(result, supabase);
+      }
+
+      if (publicUrl) {
+        console.log(`[generateImage] ✅ Success via ${provider.name}`);
+        return publicUrl;
+      }
+    } catch (err) {
+      console.error(`[generateImage] ${provider.name} failed:`, err);
+    }
+  }
+
+  console.error("[generateImage] All providers exhausted");
+  return null;
 }
 
 // ============================================================
