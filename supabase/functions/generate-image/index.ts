@@ -572,86 +572,100 @@ async function generateWithGeminiDirect(
   }
 
   try {
-    console.log("[GeminiDirect] Generating image with Imagen 3 (direct API)");
+    console.log("[GeminiDirect] Generating image with gemini-2.5-flash-preview-native-audio-dialog (direct API)");
 
-    // Use Imagen 3 - Google's dedicated image generation model
+    const parts: any[] = [{ text: prompt }];
+    if (sourceImage && sourceImage.startsWith("data:")) {
+      const match = sourceImage.match(/^data:([^;]+);base64,(.+)$/);
+      if (match) {
+        parts.push({ inline_data: { mime_type: match[1], data: match[2] } });
+      }
+    }
+
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-native-audio-dialog:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          instances: [{ prompt }],
-          parameters: {
-            sampleCount: 1,
-            aspectRatio: "1:1",
-          },
+          contents: [{ parts }],
+          generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
         }),
       }
     );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[GeminiDirect] Imagen error ${response.status}:`, errorText.slice(0, 300));
-      
-      // Fallback: try gemini-2.0-flash-exp which supports image generation experimentally
-      console.log("[GeminiDirect] Trying gemini-2.0-flash-exp as sub-fallback...");
-      
-      const parts: any[] = [{ text: prompt }];
-      if (sourceImage && sourceImage.startsWith("data:")) {
-        const match = sourceImage.match(/^data:([^;]+);base64,(.+)$/);
-        if (match) {
-          parts.push({ inline_data: { mime_type: match[1], data: match[2] } });
-        }
-      }
-
-      const expResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts }],
-            generationConfig: { responseModalities: ["IMAGE"] },
-          }),
-        }
-      );
-
-      if (!expResponse.ok) {
-        const expError = await expResponse.text();
-        console.error(`[GeminiDirect] Exp model also failed ${expResponse.status}:`, expError.slice(0, 300));
-        return { imageData: null, error: `Gemini direct error: ${response.status} / ${expResponse.status}` };
-      }
-
-      const expData = await expResponse.json();
-      const expParts = expData.candidates?.[0]?.content?.parts;
-      if (expParts) {
-        for (const part of expParts) {
-          if (part.inlineData || part.inline_data) {
-            const inlineData = part.inlineData || part.inline_data;
-            const mimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
-            const imageData = `data:${mimeType};base64,${inlineData.data}`;
-            console.log("[GeminiDirect] ✓ Image generated with gemini-2.0-flash-exp");
-            return { imageData };
-          }
-        }
-      }
-      return { imageData: null, error: "No image data in Gemini exp response" };
+      console.error(`[GeminiDirect] Error ${response.status}:`, errorText.slice(0, 300));
+      return { imageData: null, error: `Gemini direct error: ${response.status}` };
     }
 
-    // Imagen 3 returns predictions with bytesBase64Encoded
     const data = await response.json();
-    const predictions = data.predictions;
-    if (predictions?.[0]?.bytesBase64Encoded) {
-      const imageData = `data:image/png;base64,${predictions[0].bytesBase64Encoded}`;
-      console.log("[GeminiDirect] ✓ Image generated with Imagen 3");
-      return { imageData };
+    const candidateParts = data.candidates?.[0]?.content?.parts;
+    if (candidateParts) {
+      for (const part of candidateParts) {
+        if (part.inlineData || part.inline_data) {
+          const inlineData = part.inlineData || part.inline_data;
+          const mimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
+          const imageData = `data:${mimeType};base64,${inlineData.data}`;
+          console.log("[GeminiDirect] ✓ Image generated successfully");
+          return { imageData };
+        }
+      }
     }
 
-    console.error("[GeminiDirect] No predictions in Imagen response");
-    return { imageData: null, error: "No image in Imagen response" };
+    return { imageData: null, error: "No image data in Gemini response" };
   } catch (error) {
     console.error("[GeminiDirect] Exception:", error);
+    return { imageData: null, error: String(error) };
+  }
+}
+
+// ============================================================
+// OPENROUTER FALLBACK (uses OPENROUTER_API_KEY)
+// ============================================================
+
+async function generateWithOpenRouter(
+  prompt: string,
+): Promise<{ imageData: string | null; error?: string }> {
+  const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+  if (!OPENROUTER_API_KEY) {
+    return { imageData: null, error: "OPENROUTER_API_KEY not configured" };
+  }
+
+  try {
+    console.log("[OpenRouter] Generating image with gemini-2.5-flash-image");
+
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image",
+        messages: [{ role: "user", content: prompt }],
+        modalities: ["image", "text"],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[OpenRouter] Error ${response.status}:`, errorText.slice(0, 200));
+      return { imageData: null, error: `OpenRouter error: ${response.status}` };
+    }
+
+    const data = await response.json();
+    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+
+    if (imageUrl) {
+      console.log("[OpenRouter] ✓ Image generated successfully");
+      return { imageData: imageUrl };
+    }
+
+    return { imageData: null, error: "No image in OpenRouter response" };
+  } catch (error) {
+    console.error("[OpenRouter] Exception:", error);
     return { imageData: null, error: String(error) };
   }
 }
