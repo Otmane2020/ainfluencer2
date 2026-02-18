@@ -95,7 +95,7 @@ const ChoosePlanPage = () => {
                 Choose Your Plan
               </h1>
               <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-                Each plan includes credits for AI generation. 1 credit = $0.65 · 1 image = 1 credit · 1 video = 4 credits.
+                Unlock AI-powered images, videos & social posts with credits included in every plan.
               </p>
             </div>
 
