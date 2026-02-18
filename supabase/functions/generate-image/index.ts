@@ -572,49 +572,63 @@ async function generateWithGeminiDirect(
   }
 
   try {
-    console.log("[GeminiDirect] Generating image with gemini-2.5-flash-preview-native-audio-dialog (direct API)");
+    // Try multiple Gemini model names in order of preference
+    const GEMINI_MODELS = [
+      "gemini-2.0-flash-exp",
+      "gemini-2.0-flash",
+      "gemini-1.5-flash",
+    ];
 
-    const parts: any[] = [{ text: prompt }];
-    if (sourceImage && sourceImage.startsWith("data:")) {
-      const match = sourceImage.match(/^data:([^;]+);base64,(.+)$/);
-      if (match) {
-        parts.push({ inline_data: { mime_type: match[1], data: match[2] } });
-      }
-    }
+    for (const geminiModel of GEMINI_MODELS) {
+      console.log(`[GeminiDirect] Trying model: ${geminiModel}`);
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-native-audio-dialog:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts }],
-          generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[GeminiDirect] Error ${response.status}:`, errorText.slice(0, 300));
-      return { imageData: null, error: `Gemini direct error: ${response.status}` };
-    }
-
-    const data = await response.json();
-    const candidateParts = data.candidates?.[0]?.content?.parts;
-    if (candidateParts) {
-      for (const part of candidateParts) {
-        if (part.inlineData || part.inline_data) {
-          const inlineData = part.inlineData || part.inline_data;
-          const mimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
-          const imageData = `data:${mimeType};base64,${inlineData.data}`;
-          console.log("[GeminiDirect] ✓ Image generated successfully");
-          return { imageData };
+      const parts: any[] = [{ text: prompt }];
+      if (sourceImage && sourceImage.startsWith("data:")) {
+        const match = sourceImage.match(/^data:([^;]+);base64,(.+)$/);
+        if (match) {
+          parts.push({ inline_data: { mime_type: match[1], data: match[2] } });
         }
       }
+
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts }],
+              generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.warn(`[GeminiDirect] ${geminiModel} → ${response.status}: ${errorText.slice(0, 150)}`);
+          continue; // try next model
+        }
+
+        const data = await response.json();
+        const candidateParts = data.candidates?.[0]?.content?.parts;
+        if (candidateParts) {
+          for (const part of candidateParts) {
+            if (part.inlineData || part.inline_data) {
+              const inlineData = part.inlineData || part.inline_data;
+              const mimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
+              const imageData = `data:${mimeType};base64,${inlineData.data}`;
+              console.log(`[GeminiDirect] ✓ Image generated with ${geminiModel}`);
+              return { imageData };
+            }
+          }
+        }
+        console.warn(`[GeminiDirect] ${geminiModel} returned no image data`);
+      } catch (err) {
+        console.warn(`[GeminiDirect] ${geminiModel} exception:`, String(err));
+      }
     }
 
-    return { imageData: null, error: "No image data in Gemini response" };
+    return { imageData: null, error: "All Gemini direct models failed" };
   } catch (error) {
     console.error("[GeminiDirect] Exception:", error);
     return { imageData: null, error: String(error) };
@@ -1005,9 +1019,54 @@ BANNED: generic stock photo, clipart, blurry background, low quality, stars as l
         }
       }
 
-      // Step 4: Try OpenRouter as absolute last resort
+      // Step 4: Try Replicate FLUX Schnell (fast, reliable)
       if (!imageData) {
-        console.log(`[Fallback] Step 4: Trying OpenRouter...`);
+        const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
+        if (REPLICATE_API_KEY) {
+          console.log(`[Fallback] Step 4: Trying Replicate FLUX Schnell...`);
+          try {
+            const repRes = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${REPLICATE_API_KEY}`,
+                "Content-Type": "application/json",
+                Prefer: "wait",
+              },
+              body: JSON.stringify({
+                input: {
+                  prompt: finalPrompt.slice(0, 2000),
+                  aspect_ratio: effectiveAspect,
+                  output_format: "png",
+                },
+              }),
+            });
+            if (repRes.ok) {
+              const repData = await repRes.json();
+              const outputUrl = Array.isArray(repData.output) ? repData.output[0] : repData.output;
+              if (outputUrl) {
+                const imgRes = await fetch(outputUrl);
+                if (imgRes.ok) {
+                  const imgBlob = await imgRes.blob();
+                  const imgBuf = await imgBlob.arrayBuffer();
+                  const imgB64 = arrayBufferToBase64(imgBuf);
+                  imageData = `data:image/png;base64,${imgB64}`;
+                  error = undefined;
+                  provider = "replicate-flux-fallback";
+                  console.log(`[Fallback] ✓ Replicate FLUX Schnell succeeded`);
+                }
+              }
+            } else {
+              console.error(`[Fallback] ✗ Replicate failed: ${repRes.status}`);
+            }
+          } catch (repErr) {
+            console.error(`[Fallback] ✗ Replicate exception:`, String(repErr));
+          }
+        }
+      }
+
+      // Step 5: Try OpenRouter as absolute last resort
+      if (!imageData) {
+        console.log(`[Fallback] Step 5: Trying OpenRouter...`);
         const orResult = await generateWithOpenRouter(finalPrompt);
         if (orResult.imageData) {
           console.log(`[Fallback] ✓ OpenRouter succeeded`);
