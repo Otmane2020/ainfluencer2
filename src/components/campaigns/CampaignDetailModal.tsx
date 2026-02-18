@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -113,6 +114,7 @@ export const CampaignDetailModal = ({
   onClose,
   onUpdate
 }: CampaignDetailModalProps) => {
+  const navigate = useNavigate();
   const {
     toast
   } = useToast();
@@ -340,6 +342,18 @@ export const CampaignDetailModal = ({
               </div>
             </div>
             <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onClose();
+                  navigate(`/calendar?campaign=${campaign.id}&project=${campaign.project_id}`);
+                }}
+                className="gap-2"
+              >
+                <Calendar className="h-4 w-4" />
+                Calendar
+              </Button>
               <Button variant="default" size="sm" onClick={handleLaunchNow} disabled={isLaunching} className="gap-2 bg-gradient-to-r from-primary to-primary/80">
                 {isLaunching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
                 Launch Now

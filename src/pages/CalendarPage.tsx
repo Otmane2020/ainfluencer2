@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -107,12 +108,13 @@ const CalendarPage = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { isConnected, shareToMeta, connection } = useMetaOAuth();
+  const [searchParams] = useSearchParams();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [viewStartDate] = useState(new Date()); // Always start from today
   const [projects, setProjects] = useState<Project[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [selectedProject, setSelectedProject] = useState<string>("all");
-  const [selectedCampaign, setSelectedCampaign] = useState<string>("all");
+  const [selectedProject, setSelectedProject] = useState<string>(searchParams.get("project") || "all");
+  const [selectedCampaign, setSelectedCampaign] = useState<string>(searchParams.get("campaign") || "all");
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<ScheduledPost | null>(null);
