@@ -61,7 +61,7 @@ export const PricingPacks = ({
   const [loadingPlanId, setLoadingPlanId] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState({ hours: 2, minutes: 47, seconds: 33 });
 
-  const effectiveCurrentPlanId = currentPlanId || subscription.planId;
+  const effectiveCurrentPlanId = subscription.isSubscribed ? (currentPlanId || subscription.planId) : null;
 
   // Flash sale countdown timer
   useEffect(() => {
