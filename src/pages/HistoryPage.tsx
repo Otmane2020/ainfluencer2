@@ -663,6 +663,7 @@ const HistoryPage = () => {
         campaignId={selectedImage?.campaignId}
         campaignName={selectedImage?.campaignName}
         isProductShot={selectedImage?.isProductShot}
+        model={selectedImage?.model}
         onDelete={() => {
           if (selectedImage) {
             handleDelete(selectedImage.id, "image");
