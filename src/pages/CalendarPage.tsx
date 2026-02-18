@@ -131,8 +131,13 @@ const CalendarPage = () => {
     fetchPosts();
   }, [selectedProject, selectedCampaign, currentMonth]);
 
-  // Reset campaign when project changes
+  // Reset campaign when project changes (but not on initial load from URL params)
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   useEffect(() => {
+    if (isInitialLoad) {
+      setIsInitialLoad(false);
+      return;
+    }
     setSelectedCampaign("all");
   }, [selectedProject]);
 
