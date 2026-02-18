@@ -209,19 +209,44 @@ function safeJsonParse(text: string) {
 // GENERATE A SINGLE POST (extracted for clarity)
 // ============================================================
 
+// Each angle is a UNIQUE fictional scenario seed — forces completely different stories
 const LINKEDIN_STORY_ANGLES = [
-  "A founder discovers a hidden problem in their industry and realizes the current tools are outdated",
-  "A customer's unexpected feedback reveals a much bigger opportunity than initially thought",
-  "A painful failure that taught a critical business lesson — and led to a breakthrough",
-  "Why the 'obvious' solution in this market actually makes things worse for most businesses",
-  "How a small change in approach delivered 10x better results than the industry standard",
-  "The moment a business leader realized their competitors were already ahead — and what they did next",
-  "A behind-the-scenes look at how the product/service was built to solve a real frustration",
-  "The counterintuitive strategy that's working right now while everyone else follows the crowd",
-  "A conversation with a skeptic that ended with them becoming the biggest advocate",
-  "What most people get wrong about this industry — and the data that proves it",
-  "The 3 signals that show your business is falling behind without you even noticing",
-  "How AI is changing the rules — and why early movers are winning big",
+  { character: "a frustrated bakery owner at 3am", scene: "discovers her Google reviews are being answered by AI while she sleeps", emotion: "relief mixed with disbelief" },
+  { character: "a skeptical franchise director in a boardroom", scene: "watches his 47 locations go from invisible to top-3 on Maps in 6 weeks", emotion: "shock turning into excitement" },
+  { character: "a teenager helping her dad's plumbing business", scene: "sets up the automation on a Saturday and gets him 12 new leads by Monday", emotion: "pride and family connection" },
+  { character: "a competitor's employee scrolling LinkedIn at night", scene: "notices a rival brand dominating every local search and wonders how", emotion: "jealousy and curiosity" },
+  { character: "a burnt-out marketing agency founder", scene: "loses a client who found a tool doing in 5 minutes what took the agency 5 days", emotion: "wake-up call and reinvention" },
+  { character: "a restaurant owner checking TripAdvisor on the metro", scene: "sees a perfectly personalized reply to a brutal 1-star review he never wrote", emotion: "surprise and gratitude" },
+  { character: "a dentist who hates social media", scene: "gets a call from a new patient who found them via a ChatGPT recommendation", emotion: "confusion then fascination" },
+  { character: "a real estate agent at an open house", scene: "overhears visitors say they found the listing through an AI answer, not Google", emotion: "paradigm shift moment" },
+  { character: "a hotel manager during peak season", scene: "realizes 80% of negative reviews were auto-handled while she focused on guests", emotion: "empowerment and freedom" },
+  { character: "a startup founder pitching to investors", scene: "shows how local businesses using AI visibility outgrow traditional SEO by 4x", emotion: "conviction and vision" },
+  { character: "a retired teacher opening a bookshop", scene: "goes from zero online presence to being recommended by Perplexity in her city", emotion: "wonder and new beginnings" },
+  { character: "a food truck owner stuck in rain", scene: "checks his phone to see his posts auto-published across 4 platforms while he waited", emotion: "amusement and practical magic" },
+  { character: "a gym owner after losing members to a flashy new competitor", scene: "fights back with AI-generated content that tells his authentic story", emotion: "resilience and comeback" },
+  { character: "a florist preparing for Valentine's Day chaos", scene: "discovers her AI-optimized Google profile already filled her order book", emotion: "pleasant overwhelm" },
+  { character: "a taxi driver who became a business coach", scene: "explains to clients why their online reputation is their real storefront now", emotion: "street-smart wisdom" },
+  { character: "a 60-year-old mechanic who barely uses a smartphone", scene: "his daughter shows him he's now the #1 recommended mechanic on ChatGPT in his area", emotion: "emotional pride and generational bridge" },
+  { character: "a marketing intern on her first day", scene: "automates what her predecessor spent 3 hours daily doing manually", emotion: "imposter syndrome turning into confidence" },
+  { character: "a couple opening a B&B in the countryside", scene: "wakes up to 5 booking requests after their AI profile went live overnight", emotion: "dream-coming-true joy" },
+  { character: "a chain restaurant CEO reviewing quarterly numbers", scene: "notices the one franchise using AI visibility outperforms all 30 others combined", emotion: "data-driven revelation" },
+  { character: "a wedding photographer scrolling through AI search results", scene: "finds herself recommended as 'best local photographer' by an AI she never contacted", emotion: "surreal validation" },
+  { character: "a barber who only speaks to clients face-to-face", scene: "gets a 5-star review response so perfect a client thinks he wrote it himself", emotion: "authentic connection through technology" },
+  { character: "a dog groomer in a small town", scene: "beats the big chain store on every local AI search despite having no marketing budget", emotion: "David vs Goliath triumph" },
+  { character: "a pharmacy owner worried about Amazon competition", scene: "realizes local AI visibility is the one advantage big tech can't copy", emotion: "strategic hope" },
+  { character: "a yoga studio owner after a failed Instagram campaign", scene: "switches to AI-powered local presence and fills every class within a week", emotion: "frustration to flow" },
+];
+
+// Narrative structures to combine with angles for maximum diversity
+const NARRATIVE_STRUCTURES = [
+  "COLD OPEN: Start mid-action in a vivid scene, then zoom out to explain context",
+  "THE QUESTION: Open with a provocative question the reader can't ignore, then answer it through the story",
+  "CONFESSION: Start with 'I'll be honest...' or 'I almost didn't share this...' — vulnerability-first",
+  "TIMESTAMP: Start with an exact moment ('It was 11:47pm on a Tuesday when...') for cinematic immersion",
+  "DIALOGUE: Open with a direct quote from a real conversation that changed everything",
+  "THE LIST TWIST: Start with what seems like a listicle, then pivot into an emotional story",
+  "CONTRAST: 'Before vs After' — paint two vivid pictures separated by the turning point",
+  "THE OUTSIDER: Tell the story from an unexpected observer's perspective",
 ];
 
 async function generateLinkedInStoryPost(
@@ -234,9 +259,13 @@ async function generateLinkedInStoryPost(
   OPENROUTER_API_KEY: string,
 ): Promise<any | null> {
   const lang = project.detected_language || "en";
-  const storyAngle = LINKEDIN_STORY_ANGLES[idx % LINKEDIN_STORY_ANGLES.length];
+  const angle = LINKEDIN_STORY_ANGLES[idx % LINKEDIN_STORY_ANGLES.length];
+  const narrative = NARRATIVE_STRUCTURES[idx % NARRATIVE_STRUCTURES.length];
+  
+  // Add randomness to avoid identical runs
+  const randomSeed = Math.random().toString(36).slice(2, 8);
 
-  console.log(`[Campaign] LinkedIn Story #${idx + 1}: Angle: ${storyAngle.slice(0, 50)}...`);
+  console.log(`[Campaign] LinkedIn Story #${idx + 1}: Character: ${angle.character.slice(0, 40)}... | Structure: ${narrative.slice(0, 30)}...`);
 
   const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -245,40 +274,54 @@ async function generateLinkedInStoryPost(
       model: "google/gemini-3-flash-preview",
       messages: [{
         role: "system",
-        content: `You are a LinkedIn storytelling expert for ${project.name}.
+        content: `You are a LinkedIn storytelling genius for ${project.name}.
 
 ${contextGuard.enhancedPrompt}
 
-TASK: Write a compelling LinkedIn storytelling post.
+TASK: INVENT a completely original, fictional but realistic LinkedIn story.
 
-STORY ANGLE: ${storyAngle}
+═══ CHARACTER & SCENE (your creative seed) ═══
+CHARACTER: ${angle.character}
+SCENE: ${angle.scene}
+CORE EMOTION: ${angle.emotion}
+NARRATIVE STRUCTURE: ${narrative}
+UNIQUE SEED: ${randomSeed}
 
-STORYTELLING RULES:
-- Write in FIRST PERSON as if the founder/team is telling the story
-- Start with a HOOK — a surprising statement, a question, or a scene-setting moment
-- Use SHORT paragraphs (1-3 lines max) for LinkedIn readability
-- Include a TURNING POINT — the moment of realization or discovery
-- End with an INSIGHT or lesson that resonates with the reader
-- Add a subtle but clear CALL TO ACTION (visit website, try the product, comment)
-- Include 3-5 relevant hashtags at the end
-- The story must relate to the REAL products/services of ${project.name}
+═══ CREATIVE MANDATE ═══
+You MUST invent a SPECIFIC, VIVID story — NOT a generic business lesson.
+- Give the character a FIRST NAME and a SPECIFIC detail (age, city, habit, quirk)
+- Describe at least ONE physical detail of the scene (weather, object, sound, smell)
+- Include ONE line of DIRECT DIALOGUE that only this character would say
+- The product/service of ${project.name} must appear NATURALLY within the story — never forced
+- The story must feel like something that ACTUALLY HAPPENED, even though you're inventing it
+
+═══ BANNED PATTERNS (instant reject if used) ═══
+❌ "In today's fast-paced world..."
+❌ "Innovation is key..."
+❌ "Let me tell you about..."
+❌ "Our revolutionary solution..."
+❌ Generic lessons without specific characters
+❌ Corporate jargon: "leverage", "synergy", "game-changer", "disruptive"
+❌ Repeating the same story structure as other posts
+
+═══ FORMAT RULES ═══
+- First person OR third person — match the narrative structure
+- SHORT paragraphs (1-3 lines) for LinkedIn mobile readability
+- 800-1500 characters total
+- End with a human CTA (not salesy)
+- 3-5 hashtags at the very end
 - Language: ${lang}
-- Length: 800-1500 characters (optimal LinkedIn length)
-- DO NOT use generic corporate speak — be authentic, human, vulnerable
-- This is post #${idx + 1} in the series — make each story UNIQUE
 
-${campaign.ai_context ? `BUSINESS CONTEXT: The business offers: ${campaign.ai_context}` : ""}
-${project.url ? `WEBSITE: ${project.url} — always include this link in the CTA` : ""}
-${project.linkedin_page_url ? `LINKEDIN PAGE: ${project.linkedin_page_url} — mention or tag this page when relevant` : ""}
-${project.logo_url ? `BRAND LOGO: ${project.logo_url}` : ""}
-
+${campaign.ai_context ? `BUSINESS CONTEXT: ${campaign.ai_context}` : ""}
+${project.url ? `WEBSITE: ${project.url} — weave this link naturally into the CTA` : ""}
+${project.linkedin_page_url ? `LINKEDIN PAGE: ${project.linkedin_page_url} — reference when relevant` : ""}
 
 OUTPUT: Return ONLY valid JSON:
 {
-  "textContent": "the complete LinkedIn story post with line breaks, hashtags, and CTA"
+  "textContent": "the complete LinkedIn story post"
 }`
       }],
-      temperature: 0.95,
+      temperature: 0.98,
     }),
   });
 
