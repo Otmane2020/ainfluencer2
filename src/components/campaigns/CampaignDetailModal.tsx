@@ -341,7 +341,7 @@ export const CampaignDetailModal = ({
     platformsState.tiktok !== (campaign.tiktok_enabled ?? false) ||
     platformsState.youtube !== (campaign.youtube_enabled ?? false);
   return <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <div className="flex items-center gap-4">
             <div className={`rounded-xl p-3 bg-gradient-to-br ${typeConfig.gradient} text-white`}>
@@ -410,8 +410,8 @@ export const CampaignDetailModal = ({
           </div>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 mt-4">
-          <div className="space-y-4">
+        <ScrollArea className="flex-1 mt-4 min-h-0">
+          <div className="space-y-4 pb-6">
             {/* Stats Cards */}
             <div className="grid grid-cols-3 gap-3">
               <div className="rounded-xl bg-muted/50 p-4 text-center">
