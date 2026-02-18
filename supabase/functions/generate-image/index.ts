@@ -636,51 +636,114 @@ async function generateWithGeminiDirect(
 }
 
 // ============================================================
-// OPENROUTER FALLBACK (uses OPENROUTER_API_KEY)
+// TEXT OVERLAY — 2-step: prepare text, then composite onto image
+// Uses AI to render properly spelled, styled marketing text
 // ============================================================
 
-async function generateWithOpenRouter(
-  prompt: string,
-): Promise<{ imageData: string | null; error?: string }> {
-  const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-  if (!OPENROUTER_API_KEY) {
-    return { imageData: null, error: "OPENROUTER_API_KEY not configured" };
+async function overlayTextOnImage(
+  baseImageData: string,
+  textContent: string,
+  language: string,
+  brandName?: string,
+  primaryColor?: string,
+): Promise<string> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY || !textContent || textContent.trim().length === 0) {
+    return baseImageData;
   }
 
   try {
-    console.log("[OpenRouter] Generating image with gemini-2.5-flash-image");
+    console.log(`[TextOverlay] Adding text: "${textContent.slice(0, 60)}..." in ${language}`);
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const langName = LANGUAGE_CONFIG[language]?.fullName || "English";
+
+    // Step 1: Ask AI to prepare the exact text with correct spelling
+    const textPrepPrompt = `You are a multilingual copywriter and proofreader.
+Given the following marketing text, return ONLY the corrected, polished version.
+Fix ALL spelling/grammar/accent errors. Keep it SHORT (3-7 words max).
+Language: ${langName}
+Brand: ${brandName || "N/A"}
+
+Input text: "${textContent}"
+
+Reply with ONLY the corrected text, nothing else.`;
+
+    const textPrepRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [{ role: "user", content: textPrepPrompt }],
+      }),
+    });
+
+    let correctedText = textContent;
+    if (textPrepRes.ok) {
+      const textPrepData = await textPrepRes.json();
+      const aiText = textPrepData.choices?.[0]?.message?.content?.trim();
+      if (aiText && aiText.length > 0 && aiText.length < 100) {
+        correctedText = aiText.replace(/^["']|["']$/g, ""); // strip quotes
+        console.log(`[TextOverlay] Corrected text: "${correctedText}"`);
+      }
+    }
+
+    // Step 2: Composite the corrected text onto the image with premium styling
+    const colorHint = primaryColor ? `Use brand color ${primaryColor} for accents or text glow.` : "";
+    const compositePrompt = `Take this image and add the following marketing text as a premium typographic overlay.
+
+TEXT TO ADD (exact spelling, do NOT change): "${correctedText}"
+
+RULES:
+- Place text in the lower third of the image (bottom 25%)
+- Use a bold, modern sans-serif font (like Montserrat or Helvetica Black)
+- Add a subtle dark gradient behind the text for readability
+- Text should be large, impactful, and perfectly legible
+- Apply a slight 3D emboss/shadow effect for premium "bell" look
+- ${colorHint}
+- Text must be EXACTLY as provided — no additions, no modifications, no extra words
+- Do NOT add any other text, watermarks, or labels
+- Preserve the rest of the image EXACTLY as-is`;
+
+    const compositeRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash-image",
-        messages: [{ role: "user", content: prompt }],
+        messages: [{
+          role: "user",
+          content: [
+            { type: "text", text: compositePrompt },
+            { type: "image_url", image_url: { url: baseImageData } },
+          ],
+        }],
         modalities: ["image", "text"],
       }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[OpenRouter] Error ${response.status}:`, errorText.slice(0, 200));
-      return { imageData: null, error: `OpenRouter error: ${response.status}` };
+    if (!compositeRes.ok) {
+      console.error(`[TextOverlay] Composite failed: ${compositeRes.status}`);
+      return baseImageData;
     }
 
-    const data = await response.json();
-    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    const compositeData = await compositeRes.json();
+    const resultImage = compositeData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
-    if (imageUrl) {
-      console.log("[OpenRouter] ✓ Image generated successfully");
-      return { imageData: imageUrl };
+    if (resultImage) {
+      console.log(`[TextOverlay] ✓ Text overlay applied successfully`);
+      return resultImage;
     }
 
-    return { imageData: null, error: "No image in OpenRouter response" };
-  } catch (error) {
-    console.error("[OpenRouter] Exception:", error);
-    return { imageData: null, error: String(error) };
+    console.warn("[TextOverlay] No image returned from composite step");
+    return baseImageData;
+  } catch (err) {
+    console.error("[TextOverlay] Exception:", err);
+    return baseImageData;
   }
 }
 
@@ -934,7 +997,7 @@ BANNED: generic stock photo, clipart, blurry background, low quality, stars as l
     }
 
     // 6. Typography rules — allow minimal marketing text
-    promptParts.push(`TEXT: Allow clean marketing typography when relevant — maximum 3-5 impactful words (slogan, CTA, stat). 90% visual / 10% text. NO paragraphs, NO long sentences, NO random labels.`);
+    promptParts.push(`TEXT: Do NOT render any text, words, letters, numbers, or typography on the image. The image must be 100% visual with ZERO text. Text will be added in post-production.`);
     
     if (primaryColor) {
       promptParts.push(`BRAND COLOR: ${primaryColor} — integrate through lighting and environment.`);
@@ -1087,19 +1150,7 @@ BANNED: generic stock photo, clipart, blurry background, low quality, stars as l
         }
       }
 
-      // Step 6: Try OpenRouter as absolute last resort
-      if (!imageData) {
-        console.log(`[Fallback] Step 6: Trying OpenRouter...`);
-        const orResult = await generateWithOpenRouter(finalPrompt);
-        if (orResult.imageData) {
-          console.log(`[Fallback] ✓ OpenRouter succeeded`);
-          imageData = orResult.imageData;
-          error = undefined;
-          provider = "openrouter-fallback";
-        } else {
-          console.error(`[Fallback] ✗ OpenRouter failed: ${orResult.error}`);
-        }
-      }
+      // OpenRouter excluded from image generation pipeline
     }
 
     if (!imageData) {
@@ -1136,8 +1187,21 @@ BANNED: generic stock photo, clipart, blurry background, low quality, stars as l
       );
     }
 
-    // Apply logo overlay if requested
+    // Apply text overlay if requested (2-step: spell-check → composite)
     let finalImageData = imageData;
+    if (includeText && overlayText) {
+      console.log("[Main] Applying 2-step text overlay...");
+      const primaryColor = marketingContext?.visual_identity?.primary_color || guardInput.themeColor;
+      finalImageData = await overlayTextOnImage(
+        finalImageData,
+        overlayText,
+        outputLanguage,
+        brandName,
+        primaryColor
+      );
+    }
+
+    // Apply logo overlay if requested
     if (includeLogo && logoUrl) {
       console.log("[Main] Applying logo overlay...");
       finalImageData = await overlayLogoOnImage(finalImageData, logoUrl, "bottom-right");
