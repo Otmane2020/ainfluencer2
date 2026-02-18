@@ -53,6 +53,7 @@ import InstagramReelsAIPage from "./pages/blog/InstagramReelsAIPage";
 import AIVideoForEcommercePage from "./pages/blog/AIVideoForEcommercePage";
 import TikTokCallbackPage from "./pages/TikTokCallbackPage";
 import ChoosePlanPage from "./pages/ChoosePlanPage";
+import { SubscriptionProvider } from "./contexts/SubscriptionContext";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -61,6 +62,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+      <SubscriptionProvider>
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/features" element={<FeaturesPage />} />
@@ -112,6 +114,7 @@ const App = () => (
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
+      </SubscriptionProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

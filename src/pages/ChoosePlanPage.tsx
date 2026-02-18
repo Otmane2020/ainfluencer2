@@ -11,7 +11,7 @@ import { SEOHead } from "@/components/seo/SEOHead";
 
 const ChoosePlanPage = () => {
   const navigate = useNavigate();
-  const { isSubscribed, isLoading, checkSubscription } = useSubscription();
+  const { isSubscribed, isLoading } = useSubscription();
   const { user, signOut, isLoading: isAuthLoading } = useAuth();
   const [forceShow, setForceShow] = useState(false);
 
@@ -26,14 +26,6 @@ const ChoosePlanPage = () => {
       navigate("/dashboard", { replace: true });
     }
   }, [isLoading, isSubscribed, navigate]);
-
-  useEffect(() => {
-    if (!user) return;
-    const interval = setInterval(() => {
-      checkSubscription();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [user, checkSubscription]);
 
   useEffect(() => {
     if (!isAuthLoading && !user) {
@@ -103,7 +95,6 @@ const ChoosePlanPage = () => {
           </motion.div>
         </main>
 
-        {/* Social proof toast notifications */}
         <SocialProofToast initialDelay={4000} interval={12000} />
       </div>
     </>
