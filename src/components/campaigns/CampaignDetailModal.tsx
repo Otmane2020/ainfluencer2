@@ -143,6 +143,15 @@ export const CampaignDetailModal = ({
   const [postingHour, setPostingHour] = useState(campaign?.posting_hour ?? 10);
   const [postingMinute, setPostingMinute] = useState(campaign?.posting_minute ?? 0);
   const [timezone, setTimezone] = useState(campaign?.timezone || "Europe/Paris");
+  
+  // Platform toggles
+  const [platformsState, setPlatformsState] = useState({
+    instagram: campaign?.instagram_enabled ?? true,
+    facebook: campaign?.facebook_enabled ?? true,
+    linkedin: campaign?.linkedin_enabled ?? false,
+    tiktok: campaign?.tiktok_enabled ?? false,
+    youtube: campaign?.youtube_enabled ?? false,
+  });
 
   // Sync local state with campaign prop
   useEffect(() => {
@@ -153,6 +162,13 @@ export const CampaignDetailModal = ({
       setTimezone(campaign.timezone || "Europe/Paris");
       setNewName(campaign.name);
       setIsRenaming(false);
+      setPlatformsState({
+        instagram: campaign.instagram_enabled ?? true,
+        facebook: campaign.facebook_enabled ?? true,
+        linkedin: campaign.linkedin_enabled ?? false,
+        tiktok: campaign.tiktok_enabled ?? false,
+        youtube: campaign.youtube_enabled ?? false,
+      });
     }
   }, [campaign]);
   useEffect(() => {
@@ -260,7 +276,12 @@ export const CampaignDetailModal = ({
     const { error } = await supabase.from("campaigns").update({
       posting_hour: postingHour,
       posting_minute: postingMinute,
-      timezone
+      timezone,
+      instagram_enabled: platformsState.instagram,
+      facebook_enabled: platformsState.facebook,
+      linkedin_enabled: platformsState.linkedin,
+      tiktok_enabled: platformsState.tiktok,
+      youtube_enabled: platformsState.youtube,
     }).eq("id", campaign.id);
 
     if (error) {
@@ -313,7 +334,12 @@ export const CampaignDetailModal = ({
   const TypeIcon = typeConfig.icon;
 
   // Check if settings have changed
-  const settingsChanged = postingHour !== (campaign.posting_hour ?? 10) || postingMinute !== (campaign.posting_minute ?? 0) || timezone !== (campaign.timezone || "Europe/Paris");
+  const settingsChanged = postingHour !== (campaign.posting_hour ?? 10) || postingMinute !== (campaign.posting_minute ?? 0) || timezone !== (campaign.timezone || "Europe/Paris") ||
+    platformsState.instagram !== (campaign.instagram_enabled ?? true) ||
+    platformsState.facebook !== (campaign.facebook_enabled ?? true) ||
+    platformsState.linkedin !== (campaign.linkedin_enabled ?? false) ||
+    platformsState.tiktok !== (campaign.tiktok_enabled ?? false) ||
+    platformsState.youtube !== (campaign.youtube_enabled ?? false);
   return <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
         <DialogHeader>
@@ -347,11 +373,11 @@ export const CampaignDetailModal = ({
                 <span className="text-sm text-muted-foreground">{typeConfig.label}</span>
               </div>
               <div className="flex items-center gap-1.5 mt-1">
-                {campaign.instagram_enabled && <FaInstagram className="h-3.5 w-3.5 text-pink-500" />}
-                {campaign.facebook_enabled && <FaFacebookF className="h-3.5 w-3.5 text-blue-500" />}
-                {campaign.linkedin_enabled && <FaLinkedinIn className="h-3.5 w-3.5 text-blue-600" />}
-                {campaign.tiktok_enabled && <FaTiktok className="h-3.5 w-3.5 text-foreground" />}
-                {campaign.youtube_enabled && <FaYoutube className="h-3.5 w-3.5 text-red-500" />}
+                {platformsState.instagram && <FaInstagram className="h-3.5 w-3.5 text-pink-500" />}
+                {platformsState.facebook && <FaFacebookF className="h-3.5 w-3.5 text-blue-500" />}
+                {platformsState.linkedin && <FaLinkedinIn className="h-3.5 w-3.5 text-blue-600" />}
+                {platformsState.tiktok && <FaTiktok className="h-3.5 w-3.5 text-foreground" />}
+                {platformsState.youtube && <FaYoutube className="h-3.5 w-3.5 text-red-500" />}
               </div>
             </div>
             <div className="flex gap-2">
@@ -429,6 +455,36 @@ export const CampaignDetailModal = ({
                   <p className="text-sm text-muted-foreground">Subject:</p>
                   <p className="text-sm">{campaign.subject}</p>
                 </div>}
+            </div>
+
+            {/* Platform Selection */}
+            <div className="rounded-xl border border-border p-4 space-y-3">
+              <h4 className="font-medium flex items-center gap-2">
+                <Share2 className="h-4 w-4 text-primary" />
+                Target Platforms
+              </h4>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {[
+                  { key: "instagram" as const, label: "Instagram", icon: <FaInstagram className="h-4 w-4" />, color: "text-pink-500" },
+                  { key: "facebook" as const, label: "Facebook", icon: <FaFacebookF className="h-4 w-4" />, color: "text-blue-500" },
+                  { key: "linkedin" as const, label: "LinkedIn", icon: <FaLinkedinIn className="h-4 w-4" />, color: "text-blue-600" },
+                  { key: "tiktok" as const, label: "TikTok", icon: <FaTiktok className="h-4 w-4" />, color: "text-foreground" },
+                  { key: "youtube" as const, label: "YouTube", icon: <FaYoutube className="h-4 w-4" />, color: "text-red-500" },
+                ].map((platform) => (
+                  <button
+                    key={platform.key}
+                    onClick={() => setPlatformsState(prev => ({ ...prev, [platform.key]: !prev[platform.key] }))}
+                    className={`flex items-center gap-2 p-2.5 rounded-lg border transition-all text-sm ${
+                      platformsState[platform.key]
+                        ? "border-primary bg-primary/5 font-medium"
+                        : "border-border opacity-50 hover:opacity-75"
+                    }`}
+                  >
+                    <span className={platform.color}>{platform.icon}</span>
+                    {platform.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Posting Schedule Settings */}
