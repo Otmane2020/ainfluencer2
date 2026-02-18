@@ -169,9 +169,9 @@ async function generateImage(
   project: ProjectContext,
   quality: string = "pro"
 ): Promise<string | null> {
-  const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-  if (!OPENROUTER_API_KEY) {
-    console.error("[generateImage] OPENROUTER_API_KEY not configured");
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) {
+    console.error("[generateImage] LOVABLE_API_KEY not configured");
     return null;
   }
 
@@ -237,12 +237,12 @@ ${lang !== "en" ? `Do NOT use English text — all text must be in ${langName}.`
 
     logContextValidation(contextGuard, "CRON-IMAGE");
     
-    console.log(`[generateImage] Using ${quality} quality (${config.model}) via OpenRouter API | Context Score: ${contextGuard.contextScore}`);
+    console.log(`[generateImage] Using ${quality} quality (${config.model}) via Lovable AI Gateway | Context Score: ${contextGuard.contextScore}`);
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -254,7 +254,7 @@ ${lang !== "en" ? `Do NOT use English text — all text must be in ${langName}.`
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("[generateImage] OpenRouter API error:", response.status, errorText.slice(0, 200));
+      console.error("[generateImage] Lovable AI Gateway error:", response.status, errorText.slice(0, 200));
       return null;
     }
 
@@ -277,8 +277,6 @@ ${lang !== "en" ? `Do NOT use English text — all text must be in ${langName}.`
 
     if (uploadError) {
       console.error("[generateImage] Upload error:", uploadError);
-      // CRITICAL: Do NOT return base64 - Meta APIs require public URLs
-      // Try a second upload with different filename
       const retryFileName = `images/retry-${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
       const { error: retryError } = await supabase.storage
         .from("media")
@@ -286,7 +284,7 @@ ${lang !== "en" ? `Do NOT use English text — all text must be in ${langName}.`
       
       if (retryError) {
         console.error("[generateImage] Retry upload also failed:", retryError);
-        return null; // Return null instead of base64 - will prevent publishing with invalid URL
+        return null;
       }
       
       const { data: retryUrlData } = supabase.storage.from("media").getPublicUrl(retryFileName);
