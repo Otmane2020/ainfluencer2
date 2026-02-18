@@ -6,9 +6,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PaywallModal } from "@/components/PaywallModal";
+import { Progress } from "@/components/ui/progress";
 import {
   Plus,
   Video,
@@ -21,6 +22,8 @@ import {
   Trash2,
   Eye,
   Wand2,
+  Calendar,
+  TrendingUp,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -54,17 +57,17 @@ interface Campaign {
 }
 
 const campaignTypeConfig = {
-  video: { icon: Video, label: "Video Campaign", gradient: "from-violet-500 to-purple-600" },
-  image: { icon: ImageIcon, label: "Image Campaign", gradient: "from-cyan-500 to-blue-600" },
-  mixed: { icon: Layers, label: "Mixed Campaign", gradient: "from-pink-500 to-rose-600" },
-  linkedin_story: { icon: Layers, label: "LinkedIn Story", gradient: "from-blue-600 to-blue-800" },
+  video: { icon: Video, label: "Video", gradient: "from-violet-500 to-purple-600", bg: "bg-violet-500/10 text-violet-400" },
+  image: { icon: ImageIcon, label: "Image", gradient: "from-cyan-500 to-blue-600", bg: "bg-cyan-500/10 text-cyan-400" },
+  mixed: { icon: Layers, label: "Mixed", gradient: "from-pink-500 to-rose-600", bg: "bg-pink-500/10 text-pink-400" },
+  linkedin_story: { icon: Layers, label: "LinkedIn", gradient: "from-blue-600 to-blue-800", bg: "bg-blue-500/10 text-blue-400" },
 };
 
 const statusConfig = {
-  draft: { label: "Draft", color: "bg-muted text-muted-foreground" },
-  active: { label: "Active", color: "bg-green-500/20 text-green-600" },
-  paused: { label: "Paused", color: "bg-amber-500/20 text-amber-600" },
-  completed: { label: "Completed", color: "bg-blue-500/20 text-blue-600" },
+  draft: { label: "Draft", dot: "bg-muted-foreground" },
+  active: { label: "Active", dot: "bg-green-500" },
+  paused: { label: "Paused", dot: "bg-amber-500" },
+  completed: { label: "Completed", dot: "bg-blue-500" },
 };
 
 const CampaignsPage = () => {
@@ -107,7 +110,6 @@ const CampaignsPage = () => {
   };
 
   const handleToggleStatus = async (campaign: Campaign) => {
-    // Check subscription when starting a campaign
     if (campaign.status !== "active" && !subscription.isSubscribed) {
       setShowPaywall(true);
       return;
@@ -133,29 +135,22 @@ const CampaignsPage = () => {
   };
 
   const handleDelete = async (campaignId: string) => {
-    // 1. Detach published posts from campaign (preserve history)
     const { error: detachError } = await supabase
       .from("scheduled_posts")
       .update({ campaign_id: null })
       .eq("campaign_id", campaignId)
       .eq("status", "published");
 
-    if (detachError) {
-      console.error("Error detaching published posts:", detachError);
-    }
+    if (detachError) console.error("Error detaching published posts:", detachError);
 
-    // 2. Delete only non-published posts (draft/scheduled)
     const { error: deletePostsError } = await supabase
       .from("scheduled_posts")
       .delete()
       .eq("campaign_id", campaignId)
       .neq("status", "published");
 
-    if (deletePostsError) {
-      console.error("Error deleting scheduled posts:", deletePostsError);
-    }
+    if (deletePostsError) console.error("Error deleting scheduled posts:", deletePostsError);
 
-    // 3. Delete the campaign itself
     const { error } = await supabase
       .from("campaigns")
       .delete()
@@ -166,16 +161,24 @@ const CampaignsPage = () => {
       return;
     }
 
-    toast({ 
-      title: "Campaign deleted", 
-      description: "Published posts have been preserved in history" 
-    });
+    toast({ title: "Campaign deleted", description: "Published posts have been preserved in history" });
     fetchCampaigns();
   };
 
   const handleViewDetail = (campaign: Campaign) => {
     setSelectedCampaign(campaign);
     setShowDetail(true);
+  };
+
+  const getContentCount = (c: Campaign) => {
+    if (c.campaign_type === "video") return `${c.videos_per_month || 0} videos/mo`;
+    if (c.campaign_type === "image") return `${c.images_per_month || 0} images/mo`;
+    return `${c.videos_per_month || 0}v + ${c.images_per_month || 0}i /mo`;
+  };
+
+  const getProgressPercent = (c: Campaign) => {
+    const total = (c.campaign_type === "video" ? c.videos_per_month : c.images_per_month) || 30;
+    return Math.min(((c.total_generated || 0) / total) * 100, 100);
   };
 
   return (
@@ -185,20 +188,45 @@ const CampaignsPage = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-2xl font-bold">Campaigns</h1>
-            <p className="text-sm text-muted-foreground">Automated content generation campaigns</p>
+            <p className="text-sm text-muted-foreground">Automated content generation</p>
           </div>
-          <Button onClick={handleNewCampaign} className="gap-2">
+          <Button onClick={handleNewCampaign} className="gap-2 gradient-primary">
             <Plus className="h-4 w-4" />
-            New Campaign
+            <span className="hidden sm:inline">New Campaign</span>
+            <span className="sm:hidden">New</span>
           </Button>
         </div>
 
-        {/* Campaigns Grid */}
+        {/* Summary Stats */}
+        {campaigns.length > 0 && (
+          <div className="grid grid-cols-3 gap-3">
+            <Card className="bg-card/50">
+              <CardContent className="p-3 text-center">
+                <p className="text-2xl font-bold">{campaigns.length}</p>
+                <p className="text-xs text-muted-foreground">Total</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/50">
+              <CardContent className="p-3 text-center">
+                <p className="text-2xl font-bold text-green-500">{campaigns.filter(c => c.status === "active").length}</p>
+                <p className="text-xs text-muted-foreground">Active</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/50">
+              <CardContent className="p-3 text-center">
+                <p className="text-2xl font-bold">{campaigns.reduce((s, c) => s + (c.total_generated || 0), 0)}</p>
+                <p className="text-xs text-muted-foreground">Generated</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Campaign List */}
         {isLoading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-3">
             {[1, 2, 3].map((i) => (
               <Card key={i} className="animate-pulse">
-                <CardContent className="h-48" />
+                <CardContent className="h-20" />
               </Card>
             ))}
           </div>
@@ -212,160 +240,115 @@ const CampaignsPage = () => {
               <p className="text-muted-foreground text-sm max-w-sm mb-4">
                 Create your first campaign to start generating content automatically
               </p>
-              <Button onClick={handleNewCampaign} className="gap-2">
+              <Button onClick={handleNewCampaign} className="gap-2 gradient-primary">
                 <Plus className="h-4 w-4" />
                 Create Campaign
               </Button>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-2">
             {campaigns.map((campaign, index) => {
               const typeConfig = campaignTypeConfig[campaign.campaign_type as keyof typeof campaignTypeConfig] || campaignTypeConfig.mixed;
               const status = statusConfig[campaign.status as keyof typeof statusConfig] || statusConfig.draft;
               const TypeIcon = typeConfig.icon;
+              const progress = getProgressPercent(campaign);
 
               return (
                 <motion.div
                   key={campaign.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
                 >
-                  <Card className="group relative overflow-hidden hover:border-primary/50 transition-colors cursor-pointer"
-                        onClick={() => handleViewDetail(campaign)}>
-                    {/* Header with gradient */}
-                    <div className={`h-2 bg-gradient-to-r ${typeConfig.gradient}`} />
-                    
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
+                  <Card
+                    className="group hover:border-primary/40 transition-all cursor-pointer overflow-hidden"
+                    onClick={() => handleViewDetail(campaign)}
+                  >
+                    <CardContent className="p-0">
+                      <div className="flex items-center gap-3 p-3 sm:p-4">
+                        {/* Left: Icon/Logo */}
+                        <div className="shrink-0">
                           {campaign.projects?.logo_url ? (
                             <img
                               src={campaign.projects.logo_url}
                               alt={campaign.projects.name}
-                              className="h-10 w-10 rounded-lg object-cover border border-border"
+                              className="h-11 w-11 rounded-xl object-cover border border-border"
                             />
                           ) : (
-                            <div className={`rounded-lg p-2 bg-gradient-to-br ${typeConfig.gradient} text-white`}>
+                            <div className={`rounded-xl p-2.5 bg-gradient-to-br ${typeConfig.gradient} text-white`}>
                               <TypeIcon className="h-5 w-5" />
                             </div>
                           )}
-                          <div>
-                            <CardTitle className="text-base">{campaign.name}</CardTitle>
-                            <div className="flex items-center gap-1.5">
-                              {campaign.projects && (
-                                <span className="text-xs font-medium text-primary">{campaign.projects.name}</span>
-                              )}
-                              <span className="text-[10px] text-muted-foreground">• {typeConfig.label}</span>
+                        </div>
+
+                        {/* Center: Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <h3 className="font-semibold text-sm truncate">{campaign.name}</h3>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <span className={`h-2 w-2 rounded-full ${status.dot}`} />
+                              <span className="text-[11px] text-muted-foreground hidden sm:inline">{status.label}</span>
                             </div>
-                            <p className="text-[10px] text-muted-foreground/70">
-                              {new Date(campaign.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                            </p>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            {campaign.projects && (
+                              <span className="text-primary font-medium truncate max-w-[100px]">{campaign.projects.name}</span>
+                            )}
+                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${typeConfig.bg} border-0`}>
+                              {typeConfig.label}
+                            </Badge>
+                            <span className="hidden sm:inline">{getContentCount(campaign)}</span>
+                          </div>
+
+                          {/* Progress bar */}
+                          <div className="mt-2 flex items-center gap-2">
+                            <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                              <div
+                                className={`h-full bg-gradient-to-r ${typeConfig.gradient} transition-all duration-500`}
+                                style={{ width: `${progress}%` }}
+                              />
+                            </div>
+                            <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">
+                              {campaign.total_generated || 0}/{campaign.total_published || 0}
+                            </span>
                           </div>
                         </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="bg-card">
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleViewDetail(campaign); }}>
-                              <Eye className="h-4 w-4 mr-2" />
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleViewDetail(campaign); }}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={(e) => { e.stopPropagation(); handleDelete(campaign.id); }}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </CardHeader>
 
-                    <CardContent className="space-y-4">
-                      {/* Stats */}
-                      <div className="grid grid-cols-3 gap-2 text-center">
-                        {campaign.campaign_type === "linkedin_story" ? (
-                          <>
-                            <div className="rounded-lg bg-muted/50 p-2">
-                              <p className="text-lg font-bold">{campaign.posts_per_week || 2}</p>
-                              <p className="text-[10px] text-muted-foreground">Posts/wk</p>
-                            </div>
-                            <div className="rounded-lg bg-muted/50 p-2">
-                              <p className="text-lg font-bold">{(campaign.posts_per_week || 2) * 4}</p>
-                              <p className="text-[10px] text-muted-foreground">Total/mo</p>
-                            </div>
-                            <div className="rounded-lg bg-muted/50 p-2">
-                              <p className="text-lg font-bold">Tue/Fri</p>
-                              <p className="text-[10px] text-muted-foreground">Schedule</p>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                        {campaign.campaign_type !== "image" && (
-                          <div className="rounded-lg bg-muted/50 p-2">
-                            <p className="text-lg font-bold">{campaign.videos_per_month || 0}</p>
-                            <p className="text-[10px] text-muted-foreground">Videos/mo</p>
-                          </div>
-                        )}
-                        {campaign.campaign_type !== "video" && (
-                          <div className="rounded-lg bg-muted/50 p-2">
-                            <p className="text-lg font-bold">{campaign.images_per_month || 0}</p>
-                            <p className="text-[10px] text-muted-foreground">Images/mo</p>
-                          </div>
-                        )}
-                        <div className="rounded-lg bg-muted/50 p-2">
-                          <p className="text-lg font-bold">{campaign.posts_per_week || 0}</p>
-                          <p className="text-[10px] text-muted-foreground">Posts/wk</p>
+                        {/* Right: Actions */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            variant={campaign.status === "active" ? "outline" : "default"}
+                            size="sm"
+                            className={`h-8 gap-1 text-xs ${campaign.status !== "active" ? "gradient-primary" : ""}`}
+                            onClick={(e) => { e.stopPropagation(); handleToggleStatus(campaign); }}
+                          >
+                            {campaign.status === "active" ? (
+                              <><Pause className="h-3 w-3" /><span className="hidden sm:inline">Pause</span></>
+                            ) : (
+                              <><Play className="h-3 w-3" /><span className="hidden sm:inline">Start</span></>
+                            )}
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-card">
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleViewDetail(campaign); }}>
+                                <Eye className="h-4 w-4 mr-2" /> Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => { e.stopPropagation(); handleDelete(campaign.id); }}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
-                          </>
-                        )}
-                      </div>
-
-                      {/* Progress */}
-                      <div>
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="text-muted-foreground">Generated</span>
-                          <span>{campaign.total_generated || 0} / {campaign.total_published || 0} published</span>
-                        </div>
-                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                          <div 
-                            className={`h-full bg-gradient-to-r ${typeConfig.gradient} transition-all`}
-                            style={{ width: `${Math.min(((campaign.total_generated || 0) / 30) * 100, 100)}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Footer */}
-                      <div className="flex items-center justify-between pt-2 border-t border-border">
-                        <Badge className={status.color}>{status.label}</Badge>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 gap-1"
-                          onClick={(e) => { e.stopPropagation(); handleToggleStatus(campaign); }}
-                        >
-                          {campaign.status === "active" ? (
-                            <>
-                              <Pause className="h-3 w-3" />
-                              Pause
-                            </>
-                          ) : (
-                            <>
-                              <Play className="h-3 w-3" />
-                              Start
-                            </>
-                          )}
-                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -375,29 +358,20 @@ const CampaignsPage = () => {
           </div>
         )}
 
-        {/* Wizard Modal */}
         <CampaignWizardModal
           isOpen={showWizard}
           onClose={() => setShowWizard(false)}
-          onSuccess={() => {
-            setShowWizard(false);
-            fetchCampaigns();
-          }}
+          onSuccess={() => { setShowWizard(false); fetchCampaigns(); }}
         />
 
-        {/* Detail Modal */}
         <CampaignDetailModal
           campaign={selectedCampaign}
           isOpen={showDetail}
-          onClose={() => {
-            setShowDetail(false);
-            setSelectedCampaign(null);
-          }}
+          onClose={() => { setShowDetail(false); setSelectedCampaign(null); }}
           onUpdate={fetchCampaigns}
         />
       </div>
 
-      {/* Paywall Modal */}
       <PaywallModal
         open={showPaywall}
         onOpenChange={setShowPaywall}
