@@ -54,6 +54,7 @@ import AIVideoForEcommercePage from "./pages/blog/AIVideoForEcommercePage";
 import TikTokCallbackPage from "./pages/TikTokCallbackPage";
 import ChoosePlanPage from "./pages/ChoosePlanPage";
 import { SubscriptionProvider } from "./contexts/SubscriptionContext";
+
 const queryClient = new QueryClient();
 
 const App = () => (
