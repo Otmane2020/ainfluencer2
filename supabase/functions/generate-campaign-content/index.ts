@@ -210,32 +210,7 @@ function safeJsonParse(text: string) {
 // ============================================================
 
 // Each angle is a UNIQUE fictional scenario seed — forces completely different stories
-const LINKEDIN_STORY_ANGLES = [
-  { character: "a frustrated bakery owner at 3am", scene: "discovers her Google reviews are being answered by AI while she sleeps", emotion: "relief mixed with disbelief" },
-  { character: "a skeptical franchise director in a boardroom", scene: "watches his 47 locations go from invisible to top-3 on Maps in 6 weeks", emotion: "shock turning into excitement" },
-  { character: "a teenager helping her dad's plumbing business", scene: "sets up the automation on a Saturday and gets him 12 new leads by Monday", emotion: "pride and family connection" },
-  { character: "a competitor's employee scrolling LinkedIn at night", scene: "notices a rival brand dominating every local search and wonders how", emotion: "jealousy and curiosity" },
-  { character: "a burnt-out marketing agency founder", scene: "loses a client who found a tool doing in 5 minutes what took the agency 5 days", emotion: "wake-up call and reinvention" },
-  { character: "a restaurant owner checking TripAdvisor on the metro", scene: "sees a perfectly personalized reply to a brutal 1-star review he never wrote", emotion: "surprise and gratitude" },
-  { character: "a dentist who hates social media", scene: "gets a call from a new patient who found them via a ChatGPT recommendation", emotion: "confusion then fascination" },
-  { character: "a real estate agent at an open house", scene: "overhears visitors say they found the listing through an AI answer, not Google", emotion: "paradigm shift moment" },
-  { character: "a hotel manager during peak season", scene: "realizes 80% of negative reviews were auto-handled while she focused on guests", emotion: "empowerment and freedom" },
-  { character: "a startup founder pitching to investors", scene: "shows how local businesses using AI visibility outgrow traditional SEO by 4x", emotion: "conviction and vision" },
-  { character: "a retired teacher opening a bookshop", scene: "goes from zero online presence to being recommended by Perplexity in her city", emotion: "wonder and new beginnings" },
-  { character: "a food truck owner stuck in rain", scene: "checks his phone to see his posts auto-published across 4 platforms while he waited", emotion: "amusement and practical magic" },
-  { character: "a gym owner after losing members to a flashy new competitor", scene: "fights back with AI-generated content that tells his authentic story", emotion: "resilience and comeback" },
-  { character: "a florist preparing for Valentine's Day chaos", scene: "discovers her AI-optimized Google profile already filled her order book", emotion: "pleasant overwhelm" },
-  { character: "a taxi driver who became a business coach", scene: "explains to clients why their online reputation is their real storefront now", emotion: "street-smart wisdom" },
-  { character: "a 60-year-old mechanic who barely uses a smartphone", scene: "his daughter shows him he's now the #1 recommended mechanic on ChatGPT in his area", emotion: "emotional pride and generational bridge" },
-  { character: "a marketing intern on her first day", scene: "automates what her predecessor spent 3 hours daily doing manually", emotion: "imposter syndrome turning into confidence" },
-  { character: "a couple opening a B&B in the countryside", scene: "wakes up to 5 booking requests after their AI profile went live overnight", emotion: "dream-coming-true joy" },
-  { character: "a chain restaurant CEO reviewing quarterly numbers", scene: "notices the one franchise using AI visibility outperforms all 30 others combined", emotion: "data-driven revelation" },
-  { character: "a wedding photographer scrolling through AI search results", scene: "finds herself recommended as 'best local photographer' by an AI she never contacted", emotion: "surreal validation" },
-  { character: "a barber who only speaks to clients face-to-face", scene: "gets a 5-star review response so perfect a client thinks he wrote it himself", emotion: "authentic connection through technology" },
-  { character: "a dog groomer in a small town", scene: "beats the big chain store on every local AI search despite having no marketing budget", emotion: "David vs Goliath triumph" },
-  { character: "a pharmacy owner worried about Amazon competition", scene: "realizes local AI visibility is the one advantage big tech can't copy", emotion: "strategic hope" },
-  { character: "a yoga studio owner after a failed Instagram campaign", scene: "switches to AI-powered local presence and fills every class within a week", emotion: "frustration to flow" },
-];
+// Story angles are now dynamically generated per-project via buildProjectStoryAngles()
 
 // Narrative structures to combine with angles for maximum diversity
 const NARRATIVE_STRUCTURES = [
@@ -249,6 +224,63 @@ const NARRATIVE_STRUCTURES = [
   "THE OUTSIDER: Tell the story from an unexpected observer's perspective",
 ];
 
+// Build dynamic story angles from project context
+function buildProjectStoryAngles(project: any, campaign: any): Array<{ character: string; scene: string; emotion: string }> {
+  const mc = project.marketing_context || {};
+  const services = mc.services || mc.products || [];
+  const usp = mc.usp || mc.unique_selling_point || project.description || "";
+  const audience = mc.target_audience || mc.audience || "";
+  const brandName = project.name || "the brand";
+  const industry = mc.industry || mc.sector || "";
+
+  // Character archetypes that adapt to ANY business
+  const CUSTOMER_ARCHETYPES = [
+    "a first-time customer who was skeptical",
+    "a loyal client who almost left for a competitor",
+    "an employee who discovered the product by accident",
+    "a business owner in the same industry struggling with the old way",
+    "a parent who needed a solution fast",
+    "a freelancer trying to scale without a team",
+    "a retiree discovering technology for the first time",
+    "a student with zero budget finding a workaround",
+    "a manager explaining the ROI to a skeptical CEO",
+    "a competitor's client who switched after a bad experience",
+    "a partner/supplier who saw the impact firsthand",
+    "a journalist investigating trends in the sector",
+    "an influencer who tested it live on camera",
+    "a night-owl entrepreneur working from a kitchen table",
+    "a team lead onboarding new hires with the tool",
+    "a customer support agent who became the biggest advocate",
+  ];
+
+  // Scene templates that reference the project's actual services
+  const serviceList = services.length > 0 ? services : [brandName + "'s solution"];
+  const scenes: Array<{ character: string; scene: string; emotion: string }> = [];
+
+  const SCENE_TEMPLATES = [
+    (svc: string) => ({ scene: `tries ${svc} for the first time and gets unexpected results within hours`, emotion: "surprise turning into excitement" }),
+    (svc: string) => ({ scene: `compares ${svc} with what they used before and realizes the gap`, emotion: "regret for not switching sooner" }),
+    (svc: string) => ({ scene: `gets a message from a friend asking 'how did you do that?' after using ${svc}`, emotion: "pride and social validation" }),
+    (svc: string) => ({ scene: `almost gives up on their goal, then discovers ${svc} changes everything`, emotion: "hope after despair" }),
+    (svc: string) => ({ scene: `overhears someone recommending ${svc} to a stranger, and they're already a user`, emotion: "warm recognition" }),
+    (svc: string) => ({ scene: `runs the numbers after 3 months of using ${svc} and can't believe the difference`, emotion: "data-driven revelation" }),
+    (svc: string) => ({ scene: `explains ${svc} to their grandmother and she immediately gets it`, emotion: "simplicity is genius" }),
+    (svc: string) => ({ scene: `wakes up to find ${svc} handled everything while they slept`, emotion: "freedom and trust" }),
+  ];
+
+  for (let i = 0; i < CUSTOMER_ARCHETYPES.length; i++) {
+    const svc = serviceList[i % serviceList.length];
+    const tmpl = SCENE_TEMPLATES[i % SCENE_TEMPLATES.length](typeof svc === "string" ? svc : svc.name || brandName);
+    scenes.push({
+      character: CUSTOMER_ARCHETYPES[i],
+      scene: tmpl.scene,
+      emotion: tmpl.emotion,
+    });
+  }
+
+  return scenes;
+}
+
 async function generateLinkedInStoryPost(
   idx: number,
   campaign: any,
@@ -259,11 +291,15 @@ async function generateLinkedInStoryPost(
   OPENROUTER_API_KEY: string,
 ): Promise<any | null> {
   const lang = project.detected_language || "en";
-  const angle = LINKEDIN_STORY_ANGLES[idx % LINKEDIN_STORY_ANGLES.length];
+  const angles = buildProjectStoryAngles(project, campaign);
+  const angle = angles[idx % angles.length];
   const narrative = NARRATIVE_STRUCTURES[idx % NARRATIVE_STRUCTURES.length];
   
-  // Add randomness to avoid identical runs
   const randomSeed = Math.random().toString(36).slice(2, 8);
+  const mc = project.marketing_context || {};
+  const services = (mc.services || mc.products || []).map((s: any) => typeof s === "string" ? s : s.name).filter(Boolean);
+  const usp = mc.usp || mc.unique_selling_point || project.description || "";
+  const audience = mc.target_audience || mc.audience || "";
 
   console.log(`[Campaign] LinkedIn Story #${idx + 1}: Character: ${angle.character.slice(0, 40)}... | Structure: ${narrative.slice(0, 30)}...`);
 
@@ -274,47 +310,51 @@ async function generateLinkedInStoryPost(
       model: "google/gemini-3-flash-preview",
       messages: [{
         role: "system",
-        content: `You are a LinkedIn storytelling genius for ${project.name}.
+        content: `You are a LinkedIn storytelling genius for "${project.name}".
 
 ${contextGuard.enhancedPrompt}
 
-TASK: INVENT a completely original, fictional but realistic LinkedIn story.
+═══ BRAND CONTEXT (CRITICAL — the story MUST revolve around THIS brand) ═══
+BRAND NAME: ${project.name}
+DESCRIPTION: ${project.description || "N/A"}
+SERVICES/PRODUCTS: ${services.length > 0 ? services.join(", ") : "See description"}
+UNIQUE SELLING POINT: ${usp}
+TARGET AUDIENCE: ${audience}
+${campaign.ai_context ? `CAMPAIGN BRIEF: ${campaign.ai_context}` : ""}
+${project.url ? `WEBSITE: ${project.url}` : ""}
 
-═══ CHARACTER & SCENE (your creative seed) ═══
-CHARACTER: ${angle.character}
-SCENE: ${angle.scene}
+═══ STORY SEED (adapt to the brand above!) ═══
+CHARACTER TYPE: ${angle.character}
+SCENE IDEA: ${angle.scene}
 CORE EMOTION: ${angle.emotion}
 NARRATIVE STRUCTURE: ${narrative}
 UNIQUE SEED: ${randomSeed}
 
 ═══ CREATIVE MANDATE ═══
-You MUST invent a SPECIFIC, VIVID story — NOT a generic business lesson.
-- Give the character a FIRST NAME and a SPECIFIC detail (age, city, habit, quirk)
-- Describe at least ONE physical detail of the scene (weather, object, sound, smell)
-- Include ONE line of DIRECT DIALOGUE that only this character would say
-- The product/service of ${project.name} must appear NATURALLY within the story — never forced
-- The story must feel like something that ACTUALLY HAPPENED, even though you're inventing it
+INVENT a SPECIFIC story about a real-feeling person interacting with "${project.name}".
+- The character MUST be a plausible customer/user of ${project.name}'s actual services
+- The story MUST reference at least one REAL service/product of ${project.name}: ${services.length > 0 ? services.join(", ") : project.description || project.name}
+- Give the character a FIRST NAME, a city, and ONE personal quirk
+- Include ONE physical detail of the scene (weather, object, sound)
+- Include ONE line of DIRECT DIALOGUE
+- The brand appears NATURALLY — the character discovers/uses/benefits from it
+- The story must feel like it ACTUALLY HAPPENED to a real person
 
-═══ BANNED PATTERNS (instant reject if used) ═══
-❌ "In today's fast-paced world..."
-❌ "Innovation is key..."
-❌ "Let me tell you about..."
-❌ "Our revolutionary solution..."
-❌ Generic lessons without specific characters
-❌ Corporate jargon: "leverage", "synergy", "game-changer", "disruptive"
-❌ Repeating the same story structure as other posts
+═══ ABSOLUTELY BANNED ═══
+❌ Generic stories not related to ${project.name}'s actual business
+❌ "In today's fast-paced world...", "Innovation is key..."
+❌ Corporate jargon: "leverage", "synergy", "game-changer"
+❌ Talking about a product/service that ${project.name} does NOT offer
+❌ Cookie-cutter motivational posts with no specific character
 
-═══ FORMAT RULES ═══
-- First person OR third person — match the narrative structure
-- SHORT paragraphs (1-3 lines) for LinkedIn mobile readability
-- 800-1500 characters total
-- End with a human CTA (not salesy)
-- 3-5 hashtags at the very end
+═══ FORMAT ═══
+- SHORT paragraphs (1-3 lines) for mobile
+- 800-1500 characters
+- Human CTA at end (not salesy)
+- 3-5 hashtags
 - Language: ${lang}
-
-${campaign.ai_context ? `BUSINESS CONTEXT: ${campaign.ai_context}` : ""}
-${project.url ? `WEBSITE: ${project.url} — weave this link naturally into the CTA` : ""}
-${project.linkedin_page_url ? `LINKEDIN PAGE: ${project.linkedin_page_url} — reference when relevant` : ""}
+${project.url ? `- Weave ${project.url} naturally into the CTA` : ""}
+${project.linkedin_page_url ? `- Reference ${project.linkedin_page_url} when relevant` : ""}
 
 OUTPUT: Return ONLY valid JSON:
 {
