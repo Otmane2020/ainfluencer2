@@ -283,6 +283,69 @@ const LandingPage = () => {
         </div>
       </section>
 
+      {/* AI Showcase Gallery */}
+      <section className="py-12 md:py-16 overflow-hidden bg-muted/20">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-display text-xl md:text-2xl font-bold">AI Generations</h3>
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-primary border border-primary/20 rounded-full px-3 py-1">
+              <Zap className="h-3.5 w-3.5" /> Live Examples
+            </span>
+          </div>
+        </div>
+        <div className="flex gap-4 animate-marquee hover:[animation-play-state:paused]">
+          {[
+            { img: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=500&fit=crop", label: "AI Portrait", type: "image", gradient: "from-pink-500/60" },
+            { img: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=400&h=500&fit=crop", label: "Motion Video", type: "video", gradient: "from-violet-500/60" },
+            { img: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=500&fit=crop", label: "Product Shot", type: "image", gradient: "from-amber-500/60" },
+            { img: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=500&fit=crop", label: "Cinematic AI", type: "video", gradient: "from-blue-500/60" },
+            { img: "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=400&h=500&fit=crop", label: "Abstract FX", type: "image", gradient: "from-emerald-500/60" },
+            { img: "https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?w=400&h=500&fit=crop", label: "Reels Ready", type: "video", gradient: "from-rose-500/60" },
+            { img: "https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=400&h=500&fit=crop", label: "AI Art", type: "image", gradient: "from-indigo-500/60" },
+            { img: "https://images.unsplash.com/photo-1535223289827-42f1e9919769?w=400&h=500&fit=crop", label: "Tech Demo", type: "video", gradient: "from-cyan-500/60" },
+            { img: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=500&fit=crop", label: "AI Portrait", type: "image", gradient: "from-pink-500/60" },
+            { img: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=400&h=500&fit=crop", label: "Motion Video", type: "video", gradient: "from-violet-500/60" },
+            { img: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=500&fit=crop", label: "Product Shot", type: "image", gradient: "from-amber-500/60" },
+            { img: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=500&fit=crop", label: "Cinematic AI", type: "video", gradient: "from-blue-500/60" },
+            { img: "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=400&h=500&fit=crop", label: "Abstract FX", type: "image", gradient: "from-emerald-500/60" },
+            { img: "https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?w=400&h=500&fit=crop", label: "Reels Ready", type: "video", gradient: "from-rose-500/60" },
+            { img: "https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=400&h=500&fit=crop", label: "AI Art", type: "image", gradient: "from-indigo-500/60" },
+            { img: "https://images.unsplash.com/photo-1535223289827-42f1e9919769?w=400&h=500&fit=crop", label: "Tech Demo", type: "video", gradient: "from-cyan-500/60" },
+          ].map((item, index) => (
+            <motion.div
+              key={`showcase-${index}`}
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: Math.min(index * 0.05, 0.4) }}
+              className="flex-shrink-0 w-52 aspect-[3/4] rounded-2xl overflow-hidden relative cursor-pointer group"
+              onClick={() => navigate("/auth")}
+            >
+              <img
+                src={item.img}
+                alt={item.label}
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                loading="lazy"
+              />
+              <div className={`absolute inset-0 bg-gradient-to-t ${item.gradient} to-transparent`} />
+              <div className="absolute bottom-0 left-0 right-0 p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  {item.type === "video" ? (
+                    <Play className="h-3.5 w-3.5 text-white/90" />
+                  ) : (
+                    <Image className="h-3.5 w-3.5 text-white/90" />
+                  )}
+                  <span className="text-[10px] text-white/70 uppercase tracking-wider font-medium">
+                    {item.type}
+                  </span>
+                </div>
+                <p className="font-semibold text-white text-sm">{item.label}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
       {/* Trusted By Carousel */}
       <TrustedByCarousel />
 
