@@ -298,7 +298,7 @@ OUTPUT: Return ONLY valid JSON:
   scheduledDate.setDate(scheduledDate.getDate() + dayOffset);
   scheduledDate.setHours(campaign.posting_hour || 10, Math.floor(Math.random() * 30));
 
-  // Generate a professional LinkedIn image prompt for visual impact
+  // Generate a VISUAL-ONLY image prompt (no text/typography instructions)
   const imagePromptResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
@@ -306,32 +306,34 @@ OUTPUT: Return ONLY valid JSON:
       model: "google/gemini-3-flash-preview",
       messages: [{
         role: "system",
-        content: `You are a LinkedIn visual content expert. Create a professional, eye-catching image prompt for a LinkedIn post.
+        content: `You are a visual art director. Create a PURE VISUAL image prompt for AI image generation.
 
 BRAND: ${project.name}
-${project.url ? `WEBSITE: ${project.url}` : ""}
-${project.logo_url ? `LOGO: ${project.logo_url}` : ""}
 ${project.theme_color ? `BRAND COLOR: ${project.theme_color}` : ""}
-${project.description ? `DESCRIPTION: ${project.description}` : ""}
+${project.description ? `BUSINESS: ${project.description}` : ""}
 
 STORY CONTEXT: ${storyAngle}
-POST CONTENT PREVIEW: ${parsed.textContent.slice(0, 300)}
 
-CREATE a detailed image prompt that:
-- Is PROFESSIONAL and CORPORATE-quality (LinkedIn aesthetic)
-- Uses clean, modern design with the brand's color palette (${project.theme_color || "#2563EB"})
-- Features a compelling visual that supports the story's message
-- Includes bold, readable typography with a key quote or stat from the post
-- Has a polished, editorial feel — think Harvard Business Review or Forbes
-- Square 1:1 format optimized for LinkedIn feed
-- NO generic stock photo vibes — make it UNIQUE and BRANDED
-- Reserve bottom 15% for brand logo placement
-- Use professional lighting, subtle gradients, and premium textures
-- Include the brand name "${project.name}" prominently
+CREATE a detailed VISUAL-ONLY prompt that describes:
+- SUBJECT: What is physically shown (person, object, scene, product mockup)
+- SETTING: Environment, location, background details
+- LIGHTING: Type of light (studio, golden hour, neon, moody)
+- COMPOSITION: Camera angle, framing, depth of field
+- COLORS: Specific color palette using brand color ${project.theme_color || "#2563EB"}
+- MOOD: Emotional tone conveyed through visuals alone
+- STYLE: Photography style (editorial, cinematic, product shot, documentary)
 
-BANNED: generic office photos, handshake images, lightbulb ideas, puzzle pieces
+FORMAT: Square 1:1, professional LinkedIn-quality photography.
 
-OUTPUT: Return ONLY the image prompt as plain text, no JSON, no quotes.`
+CRITICAL RULES:
+- Describe ONLY what the camera sees — subjects, objects, light, colors, textures
+- NO text, NO typography, NO words, NO letters, NO brand names in the image
+- NO "bold headline", NO "quote overlay", NO "text reads..."
+- Think like a photographer describing a shot, not a graphic designer
+- The image must work WITHOUT any text overlay
+- Avoid: generic stock photos, handshakes, lightbulbs, puzzle pieces, clipart
+
+OUTPUT: Return ONLY the visual description as plain text. No JSON, no quotes, no formatting.`
       }],
       temperature: 0.85,
     }),
@@ -342,7 +344,7 @@ OUTPUT: Return ONLY the image prompt as plain text, no JSON, no quotes.`
     const imgPromptData = await imagePromptResponse.json();
     linkedInImagePrompt = imgPromptData.choices?.[0]?.message?.content?.trim() || null;
     if (linkedInImagePrompt) {
-      console.log(`[Campaign] LinkedIn Story #${idx + 1}: Image prompt generated (${linkedInImagePrompt.length} chars)`);
+      console.log(`[Campaign] LinkedIn Story #${idx + 1}: Visual prompt generated (${linkedInImagePrompt.length} chars)`);
     }
   } catch {
     console.warn(`[Campaign] LinkedIn Story #${idx + 1}: Image prompt generation failed`);
@@ -412,9 +414,16 @@ DIVERSITY RULES:
 - Focus on REAL products/services from the brand context above
 - Match the brand's tone and target audience
 
+FOR aiPrompt (CRITICAL - VISUAL ONLY):
+- Describe ONLY what the camera physically sees: subjects, objects, lighting, colors, textures, composition
+- Think like a photographer describing a shot to a set designer
+- NO text, NO typography, NO words, NO letters, NO brand names rendered in the image
+- NO "headline says...", NO "text overlay reads...", NO "bold typography"
+- The image must work perfectly WITHOUT any text
+
 OUTPUT: Return ONLY valid JSON:
 {
-  "aiPrompt": "detailed visual description for AI image generation (include colors, composition, subjects, mood)",
+  "aiPrompt": "detailed VISUAL-ONLY description for AI image generation (subjects, lighting, colors, composition, mood - NO TEXT/TYPOGRAPHY)",
   "textContent": "engaging social media caption with hashtags (in ${lang})"
 }`
       }],
