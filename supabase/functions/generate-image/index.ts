@@ -985,7 +985,7 @@ BANNED: generic stock photo, clipart, blurry background, low quality, stars as l
         }
       }
 
-      // Step 3: Try KIE Qwen Z-Image as last resort
+      // Step 3: Try KIE Qwen Z-Image
       if (!imageData) {
         console.log(`[Fallback] Step 3: Trying KIE Qwen Z-Image...`);
         const qwenResult = await generateWithKieApi(
@@ -1002,6 +1002,20 @@ BANNED: generic stock photo, clipart, blurry background, low quality, stars as l
           provider = "kie-qwen-fallback";
         } else {
           console.error(`[Fallback] ✗ KIE Qwen failed: ${qwenResult.error}`);
+        }
+      }
+
+      // Step 4: Try OpenRouter as absolute last resort
+      if (!imageData) {
+        console.log(`[Fallback] Step 4: Trying OpenRouter...`);
+        const orResult = await generateWithOpenRouter(finalPrompt);
+        if (orResult.imageData) {
+          console.log(`[Fallback] ✓ OpenRouter succeeded`);
+          imageData = orResult.imageData;
+          error = undefined;
+          provider = "openrouter-fallback";
+        } else {
+          console.error(`[Fallback] ✗ OpenRouter failed: ${orResult.error}`);
         }
       }
     }
