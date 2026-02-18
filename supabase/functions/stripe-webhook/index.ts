@@ -7,20 +7,27 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature",
 };
 
-// Plan ID mappings from Stripe price IDs
-const PRICE_TO_PLAN: Record<string, string> = {
-  "price_1SugHFEfti9t9nN9b36Qye6L": "starter",
-  "price_1SugHGEfti9t9nN9luP2Qtj9": "pro",
-  "price_1SugHIEfti9t9nN9eJMHoewy": "business",
+// Product IDs for ClipMotion subscription plans
+const PRODUCT_TO_PLAN: Record<string, string> = {
+  "prod_TsTqynweuSksG3": "starter",
+  "prod_TsTqUdBfAHdNCi": "pro",
+  "prod_TsTqxdl9cpZNJg": "business",
 };
 
-// Credit pack mappings
+// Price IDs for ClipMotion subscription plans (must match create-checkout)
+const PRICE_TO_PLAN: Record<string, string> = {
+  "price_1SuiszEfti9t9nN9qEGnwrdT": "starter",
+  "price_1Suit0Efti9t9nN9jKws1R3q": "pro",
+  "price_1Suit1Efti9t9nN9F5g8iTGq": "business",
+};
+
+// Credit pack mappings (must match create-checkout)
 const PRICE_TO_CREDITS: Record<string, number> = {
-  "price_1SugHJEfti9t9nN9envQQFpb": 50,
-  "price_1SugHKEfti9t9nN99kdSOTBB": 100,
-  "price_1SugHMEfti9t9nN9bYQWaV7u": 250,
-  "price_1SugHNEfti9t9nN9Fqd8PlP6": 500,
-  "price_1SugHOEfti9t9nN99vbXioV6": 1000,
+  "price_1Suit2Efti9t9nN9idG07kAf": 50,
+  "price_1Suit3Efti9t9nN9vPGwwfWa": 100,
+  "price_1Suit5Efti9t9nN9cjaee5yZ": 250,
+  "price_1Suit5Efti9t9nN96jaDSp7j": 500,
+  "price_1Suit6Efti9t9nN9ynTRmA7o": 1000,
 };
 
 const logStep = (step: string, details?: unknown) => {
@@ -75,7 +82,23 @@ serve(async (req) => {
           const subscriptionId = session.subscription as string;
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
           const priceId = subscription.items.data[0].price.id;
-          const planId = PRICE_TO_PLAN[priceId] || "starter";
+          const productId = subscription.items.data[0].price.product as string;
+          
+          // Try product ID first, then price ID, fallback to starter
+          const planId = PRODUCT_TO_PLAN[productId] || PRICE_TO_PLAN[priceId] || "starter";
+          
+          // Safely handle period end date
+          let renewsAt: string | null = null;
+          try {
+            const periodEnd = subscription.current_period_end;
+            if (periodEnd && typeof periodEnd === 'number') {
+              renewsAt = new Date(periodEnd * 1000).toISOString();
+            } else if (periodEnd) {
+              renewsAt = String(periodEnd);
+            }
+          } catch (dateErr) {
+            logStep("Warning: could not parse period end date", { error: String(dateErr) });
+          }
 
           // Update or insert subscription
           const { error } = await supabase
@@ -87,11 +110,11 @@ serve(async (req) => {
               stripe_customer_id: customerId,
               stripe_subscription_id: subscriptionId,
               started_at: new Date().toISOString(),
-              renews_at: new Date(subscription.current_period_end * 1000).toISOString(),
+              renews_at: renewsAt,
             }, { onConflict: "user_id" });
 
           if (error) logStep("Error updating subscription", { error: error.message });
-          else logStep("Subscription activated", { planId, subscriptionId });
+          else logStep("Subscription activated", { planId, productId, priceId, subscriptionId, renewsAt });
 
         } else if (session.mode === "payment") {
           // Handle one-time credit purchase

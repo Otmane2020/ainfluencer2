@@ -116,8 +116,8 @@ serve(async (req) => {
         customer_email: customerId ? undefined : userEmail,
         line_items: [{ price: priceId, quantity: 1 }],
         mode: "subscription",
-        success_url: `${origin}/settings?payment=success&plan=${planId}`,
-        cancel_url: `${origin}/settings?payment=canceled`,
+        success_url: `${origin}/dashboard?payment=success&plan=${planId}`,
+        cancel_url: `${origin}/choose-plan?payment=canceled`,
         metadata: {
           user_id: userId,
           plan_id: planId,
