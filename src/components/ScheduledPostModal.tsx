@@ -216,6 +216,9 @@ export const ScheduledPostModal = ({
   // Track if this is an "Image as Reel" post (image campaign with video content_type)
   const [isImageAsReel, setIsImageAsReel] = useState(false);
   
+  // Campaign name for display
+  const [campaignName, setCampaignName] = useState<string | null>(null);
+  
   const { toast } = useToast();
   const isMobile = useIsMobile();
   
@@ -273,13 +276,14 @@ export const ScheduledPostModal = ({
       
       const { data: campaign } = await supabase
         .from("campaigns")
-        .select("campaign_type")
+        .select("campaign_type, name")
         .eq("id", post.campaign_id)
         .maybeSingle();
       
       // If campaign is "image" type but post content_type is "video", it's Image as Reel
       const isReel = campaign?.campaign_type === "image" && post.content_type === "video";
       setIsImageAsReel(isReel);
+      setCampaignName(campaign?.name || null);
     };
     checkImageAsReel();
   }, [post, selectedLanguage]);
@@ -1609,27 +1613,42 @@ export const ScheduledPostModal = ({
         <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/60">
           <DisplayIcon className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
         </div>
-        <div className="flex items-center flex-wrap gap-1.5 sm:gap-2">
-          {/* Content type label */}
-          <span className="font-display text-sm sm:text-base">{displayLabel}</span>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center flex-wrap gap-1.5 sm:gap-2">
+            {/* Content type label */}
+            <span className="font-display text-sm sm:text-base">{displayLabel}</span>
+            
+            {/* Image as Reel badge */}
+            {isImageAsReel && (
+              <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
+                Image as Reel
+              </Badge>
+            )}
+            
+            {/* Generated badge - shown when media exists */}
+            {isGenerated && !isPublished && (
+              <Badge className="text-[10px] sm:text-xs bg-emerald-500/20 text-emerald-600 border-emerald-500/30">
+                <Check className="h-2.5 w-2.5 mr-0.5" />
+                Generated
+              </Badge>
+            )}
+            
+            {/* Status badge */}
+            <Badge className={`text-[10px] sm:text-xs ${status.color}`}>{status.label}</Badge>
+          </div>
           
-          {/* Image as Reel badge */}
-          {isImageAsReel && (
-            <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
-              Image as Reel
-            </Badge>
-          )}
-          
-          {/* Generated badge - shown when media exists */}
-          {isGenerated && !isPublished && (
-            <Badge className="text-[10px] sm:text-xs bg-emerald-500/20 text-emerald-600 border-emerald-500/30">
-              <Check className="h-2.5 w-2.5 mr-0.5" />
-              Generated
-            </Badge>
-          )}
-          
-          {/* Status badge */}
-          <Badge className={`text-[10px] sm:text-xs ${status.color}`}>{status.label}</Badge>
+          {/* Project & Campaign names */}
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            {projectContext?.name && (
+              <span className="truncate max-w-[120px] sm:max-w-[160px]">{projectContext.name}</span>
+            )}
+            {projectContext?.name && campaignName && (
+              <span>·</span>
+            )}
+            {campaignName && (
+              <span className="truncate max-w-[120px] sm:max-w-[160px]">{campaignName}</span>
+            )}
+          </div>
         </div>
       </div>
     );
