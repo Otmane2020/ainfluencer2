@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Check, Award, Zap, Building2, Wand2, Image, Video, Loader2, Tag, Clock } from "lucide-react";
+import { Check, Award, Zap, Building2, Wand2, Image, Video, Loader2, Tag, Clock, Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { PRICING_PLANS, PricingPlan } from "@/lib/commercialProducts";
@@ -250,9 +250,22 @@ export const PricingPacks = ({
                 )}
               </div>
 
+            {/* Credits included badge */}
+              <div className="mb-4 flex items-center justify-center gap-2 rounded-xl bg-primary/5 border border-primary/10 px-4 py-3">
+                <Coins className="h-5 w-5 text-primary" />
+                <span className="text-lg font-bold text-primary">{plan.credits} credits</span>
+                <span className="text-xs text-muted-foreground">included</span>
+              </div>
+
+              <div className="mb-2 text-center text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1"><Image className="h-3 w-3" /> 1 credit/image</span>
+                <span className="mx-2">·</span>
+                <span className="inline-flex items-center gap-1"><Video className="h-3 w-3" /> 4 credits/video</span>
+              </div>
+
             {/* Features */}
             <div className="mb-6 flex-1 space-y-3">
-              {plan.features.map((feature) => (
+              {plan.features.filter(f => !f.includes('credit')).map((feature) => (
                 <div key={feature} className="flex items-start gap-3">
                   <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/20">
                     <Check className="h-3 w-3 text-primary" />
@@ -283,11 +296,6 @@ export const PricingPacks = ({
                 `Choose ${plan.name}`
               )}
             </Button>
-
-            {/* Credit info */}
-            <p className="mt-3 text-center text-xs text-muted-foreground">
-              + Pay per generation with credits
-            </p>
           </motion.div>
         );
       })}

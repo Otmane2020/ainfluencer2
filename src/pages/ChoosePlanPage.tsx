@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Sparkles, LogOut } from "lucide-react";
 import { PricingPacks } from "@/components/PricingPacks";
-import { CreditPacks } from "@/components/CreditPacks";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -14,14 +13,12 @@ const ChoosePlanPage = () => {
   const { isSubscribed, isLoading, checkSubscription } = useSubscription();
   const { user, signOut } = useAuth();
 
-  // If already subscribed, go to dashboard
   useEffect(() => {
     if (!isLoading && isSubscribed) {
       navigate("/dashboard", { replace: true });
     }
   }, [isLoading, isSubscribed, navigate]);
 
-  // Poll subscription status every 5s (in case user completed checkout in another tab)
   useEffect(() => {
     if (!user) return;
     const interval = setInterval(() => {
@@ -30,7 +27,6 @@ const ChoosePlanPage = () => {
     return () => clearInterval(interval);
   }, [user, checkSubscription]);
 
-  // If not logged in, redirect to auth
   useEffect(() => {
     if (!isLoading && !user) {
       navigate("/auth", { replace: true });
@@ -52,7 +48,6 @@ const ChoosePlanPage = () => {
         canonical="/choose-plan"
       />
       <div className="min-h-screen bg-background flex flex-col">
-        {/* Header */}
         <header className="border-b border-border px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl overflow-hidden">
@@ -66,14 +61,12 @@ const ChoosePlanPage = () => {
           </Button>
         </header>
 
-        {/* Main content */}
         <main className="flex-1 flex flex-col items-center justify-center px-4 py-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="w-full max-w-5xl space-y-8"
           >
-            {/* Hero */}
             <div className="text-center space-y-3">
               <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
                 <Sparkles className="h-4 w-4" />
@@ -83,18 +76,11 @@ const ChoosePlanPage = () => {
                 Choose Your Plan
               </h1>
               <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-                Pick a subscription to unlock AI Studio, campaigns, and automated posting.
-                Then fuel your creations with credit packs.
+                Each plan includes credits for AI generation. 1 credit = $0.65 · 1 image = 1 credit · 1 video = 4 credits.
               </p>
             </div>
 
-            {/* Plans */}
             <PricingPacks showFlashSale={true} />
-
-            {/* Credit Packs Section */}
-            <div className="pt-8 border-t border-border">
-              <CreditPacks />
-            </div>
           </motion.div>
         </main>
       </div>
