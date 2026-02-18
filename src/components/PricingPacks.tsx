@@ -261,9 +261,9 @@ export const PricingPacks = ({
               </div>
 
               <div className="mb-2 text-center text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1"><Image className="h-3 w-3" /> 1 credit/image</span>
-                <span className="mx-2">·</span>
-                <span className="inline-flex items-center gap-1"><Video className="h-3 w-3" /> 4 credits/video</span>
+                <span className="inline-flex items-center gap-1"><Image className="h-3 w-3" /> ≈ {plan.credits} images</span>
+                <span className="mx-2">or</span>
+                <span className="inline-flex items-center gap-1"><Video className="h-3 w-3" /> ≈ {Math.floor(plan.credits / 4)} videos</span>
               </div>
 
             {/* Features */}
