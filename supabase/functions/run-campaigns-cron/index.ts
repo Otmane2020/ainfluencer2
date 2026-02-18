@@ -758,18 +758,8 @@ async function publishToLinkedIn(
       lifecycleState: "PUBLISHED",
     };
 
-    // If project has a website URL, share as article with link
-    // Note: LinkedIn article.thumbnail requires a URN (urn:li:image:...), not a URL
-    // So we omit thumbnail and let LinkedIn auto-generate the preview from the source URL
-    if (project?.url) {
-      postBody.content = {
-        article: {
-          source: project.url,
-          title: project.name || "Visit our website",
-          description: project?.description || caption.slice(0, 200) || "",
-        },
-      };
-    }
+    // Pure text commentary — most reliable format across LinkedIn API versions
+    // The website URL is already appended to the caption above
 
     console.log(`[LinkedIn] Publishing to ${linkedinConnection.display_name} (${linkedinConnection.linkedin_id})`);
 
