@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Video, Image as ImageIcon, Layers, Play, Pause, Edit, Calendar, BarChart3, Clock, CheckCircle2, Loader2, Share2, Facebook, Link, ExternalLink, Copy, Rocket, Save } from "lucide-react";
+import { Video, Image as ImageIcon, Layers, Play, Pause, Edit, Calendar, BarChart3, Clock, CheckCircle2, Loader2, Share2, Facebook, Link, ExternalLink, Copy, Rocket, Save, Pencil, Check, X } from "lucide-react";
 import { SocialShareModal } from "@/components/SocialShareModal";
 interface Campaign {
   id: string;
@@ -128,6 +128,8 @@ export const CampaignDetailModal = ({
     open: false
   });
   const [localStatus, setLocalStatus] = useState(campaign?.status || "draft");
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [newName, setNewName] = useState(campaign?.name || "");
 
   // Editable settings
   const [postingHour, setPostingHour] = useState(campaign?.posting_hour ?? 10);
@@ -141,6 +143,8 @@ export const CampaignDetailModal = ({
       setPostingHour(campaign.posting_hour ?? 10);
       setPostingMinute(campaign.posting_minute ?? 0);
       setTimezone(campaign.timezone || "Europe/Paris");
+      setNewName(campaign.name);
+      setIsRenaming(false);
     }
   }, [campaign]);
   useEffect(() => {
@@ -228,6 +232,18 @@ export const CampaignDetailModal = ({
       setIsLaunching(false);
     }
   };
+  const handleRename = async () => {
+    if (!campaign || !newName.trim()) return;
+    const { error } = await supabase.from("campaigns").update({ name: newName.trim() }).eq("id", campaign.id);
+    if (error) {
+      toast({ title: "Error", description: "Unable to rename campaign", variant: "destructive" });
+    } else {
+      toast({ title: "Campaign renamed ✓" });
+      setIsRenaming(false);
+      onUpdate();
+    }
+  };
+
   const handleSaveSettings = async () => {
     if (!campaign) return;
     setIsSaving(true);
@@ -298,7 +314,26 @@ export const CampaignDetailModal = ({
               <TypeIcon className="h-6 w-6" />
             </div>
             <div className="flex-1">
-              <DialogTitle className="text-xl">{campaign.name}</DialogTitle>
+              {isRenaming ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleRename(); if (e.key === "Escape") { setIsRenaming(false); setNewName(campaign.name); } }}
+                    className="text-lg font-semibold h-9"
+                    autoFocus
+                  />
+                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={handleRename}><Check className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => { setIsRenaming(false); setNewName(campaign.name); }}><X className="h-4 w-4" /></Button>
+                </div>
+              ) : (
+                <DialogTitle className="text-xl flex items-center gap-2">
+                  {campaign.name}
+                  <button onClick={() => setIsRenaming(true)} className="text-muted-foreground hover:text-foreground transition-colors">
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                </DialogTitle>
+              )}
               <div className="flex items-center gap-2 mt-1">
                 <Badge className={status.color}>{status.label}</Badge>
                 <span className="text-sm text-muted-foreground">{typeConfig.label}</span>
