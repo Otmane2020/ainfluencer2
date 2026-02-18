@@ -50,6 +50,7 @@ import {
   Package,
   X,
   Plus,
+  ExternalLink,
 } from "lucide-react";
 import { CampaignProgressModal } from "./CampaignProgressModal";
 
@@ -132,7 +133,13 @@ export const CampaignWizardModal = ({
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
-  
+  const [connectedPlatforms, setConnectedPlatforms] = useState<Record<string, boolean>>({
+    facebook: false,
+    instagram: false,
+    youtube: false,
+    linkedin: false,
+    tiktok: false,
+  });
   // Progress modal state
   const [showProgress, setShowProgress] = useState(false);
   const [progressStatus, setProgressStatus] = useState<"creating" | "scheduling" | "completed" | "error">("creating");
@@ -184,6 +191,7 @@ export const CampaignWizardModal = ({
     if (isOpen) {
       fetchProjects();
       fetchCampaignCount();
+      fetchConnectedPlatforms();
       // Reset form
       setStep(1);
       setCampaignType("mixed");
@@ -228,6 +236,29 @@ export const CampaignWizardModal = ({
       if (data.length > 0 && !projectId) {
         setProjectId(data[0].id);
       }
+    }
+  };
+
+  const fetchConnectedPlatforms = async () => {
+    if (!user) return;
+    try {
+      const [metaRes, linkedinRes, tiktokRes, youtubeRes] = await Promise.all([
+        supabase.from("meta_connections").select("page_id, instagram_id").eq("user_id", user.id).limit(1),
+        supabase.from("linkedin_connections").select("id").eq("user_id", user.id).limit(1),
+        supabase.from("tiktok_connections").select("id").eq("user_id", user.id).limit(1),
+        supabase.from("youtube_connections").select("id").eq("user_id", user.id).limit(1),
+      ]);
+      
+      const meta = metaRes.data?.[0];
+      setConnectedPlatforms({
+        facebook: !!meta?.page_id,
+        instagram: !!meta?.instagram_id,
+        youtube: !!(youtubeRes.data && youtubeRes.data.length > 0),
+        linkedin: !!(linkedinRes.data && linkedinRes.data.length > 0),
+        tiktok: !!(tiktokRes.data && tiktokRes.data.length > 0),
+      });
+    } catch (err) {
+      console.error("Failed to fetch connected platforms:", err);
     }
   };
 
@@ -976,11 +1007,12 @@ export const CampaignWizardModal = ({
                 {PLATFORMS.map((platform) => {
                   const Icon = platform.icon;
                   const isEnabled = platforms[platform.id as keyof typeof platforms];
+                  const isConnected = connectedPlatforms[platform.id as keyof typeof connectedPlatforms];
                   return (
                     <div
                       key={platform.id}
                       className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
-                        isEnabled ? "border-primary bg-primary/5" : "border-border"
+                        isEnabled && isConnected ? "border-primary bg-primary/5" : isConnected ? "border-border" : "border-border opacity-70"
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -989,17 +1021,33 @@ export const CampaignWizardModal = ({
                         </div>
                         <div>
                           <p className="font-medium">{platform.label}</p>
-                          {(platform.id === "linkedin" || platform.id === "tiktok") && (
-                            <p className="text-xs text-muted-foreground">Manual share / download</p>
+                          {isConnected ? (
+                            <p className="text-xs text-green-500 flex items-center gap-1">
+                              <Check className="h-3 w-3" /> Connected
+                            </p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">Not connected</p>
                           )}
                         </div>
                       </div>
-                      <Switch
-                        checked={isEnabled}
-                        onCheckedChange={(checked) => 
-                          setPlatforms(prev => ({ ...prev, [platform.id]: checked }))
-                        }
-                      />
+                      {isConnected ? (
+                        <Switch
+                          checked={isEnabled}
+                          onCheckedChange={(checked) => 
+                            setPlatforms(prev => ({ ...prev, [platform.id]: checked }))
+                          }
+                        />
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs gap-1.5"
+                          onClick={() => window.open("/integrations", "_blank")}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Connect
+                        </Button>
+                      )}
                     </div>
                   );
                 })}
