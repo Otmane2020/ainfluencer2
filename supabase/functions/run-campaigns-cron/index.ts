@@ -734,15 +734,26 @@ async function uploadImageToLinkedIn(
   author: string,
 ): Promise<string | null> {
   try {
-    // Step 1: Download image as binary
-    console.log("[LinkedIn] Downloading image for upload...");
-    const imgRes = await fetch(imageUrl);
-    if (!imgRes.ok) {
-      console.error("[LinkedIn] Failed to download image:", imgRes.status);
-      return null;
+    // Step 1: Get image as binary (support both URL and base64)
+    let imageBytes: Uint8Array;
+    if (imageUrl.startsWith("data:")) {
+      console.log("[LinkedIn] Converting base64 image for upload...");
+      const base64Data = imageUrl.split(",")[1];
+      const binaryStr = atob(base64Data);
+      imageBytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) {
+        imageBytes[i] = binaryStr.charCodeAt(i);
+      }
+    } else {
+      console.log("[LinkedIn] Downloading image for upload...");
+      const imgRes = await fetch(imageUrl);
+      if (!imgRes.ok) {
+        console.error("[LinkedIn] Failed to download image:", imgRes.status);
+        return null;
+      }
+      imageBytes = new Uint8Array(await imgRes.arrayBuffer());
     }
-    const imageBytes = new Uint8Array(await imgRes.arrayBuffer());
-    console.log(`[LinkedIn] Image downloaded: ${imageBytes.length} bytes`);
+    console.log(`[LinkedIn] Image ready: ${imageBytes.length} bytes`);
 
     // Step 2: Initialize upload
     const initRes = await fetch(
@@ -834,7 +845,7 @@ async function publishToLinkedIn(
     };
 
     // If post has a media URL (image), upload it to LinkedIn and attach
-    if (post.media_url && !post.media_url.startsWith("data:")) {
+    if (post.media_url) {
       const imageUrn = await uploadImageToLinkedIn(
         post.media_url,
         linkedinConnection.access_token,
