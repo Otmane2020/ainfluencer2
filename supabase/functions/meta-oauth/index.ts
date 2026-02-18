@@ -503,6 +503,36 @@ serve(async (req) => {
         const body = await req.json();
         const { platform, content, videoUrl, imageUrl } = body;
 
+        // Convert base64 data URIs to public URLs via Supabase Storage
+        let resolvedImageUrl = imageUrl;
+        if (imageUrl && imageUrl.startsWith("data:")) {
+          console.log("[meta-oauth] Converting base64 image to public URL...");
+          try {
+            const base64Data = imageUrl.split(",")[1];
+            const mimeMatch = imageUrl.match(/data:([^;]+);/);
+            const mime = mimeMatch?.[1] || "image/png";
+            const ext = mime.split("/")[1] || "png";
+            const fileName = `share/${user.id}/${Date.now()}.${ext}`;
+            const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+            
+            const { error: uploadError } = await supabase.storage
+              .from("media")
+              .upload(fileName, bytes, { contentType: mime, upsert: true });
+            
+            if (uploadError) throw uploadError;
+            
+            const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(fileName);
+            resolvedImageUrl = publicUrlData.publicUrl;
+            console.log("[meta-oauth] Image uploaded, public URL:", resolvedImageUrl);
+          } catch (uploadErr) {
+            console.error("[meta-oauth] Base64 upload failed:", uploadErr);
+            return new Response(
+              JSON.stringify({ error: "Failed to process image for sharing" }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
+
         if (platform === "facebook") {
           if (!connection.page_id || !connection.page_access_token) {
             return new Response(
@@ -525,7 +555,22 @@ serve(async (req) => {
                 }),
               }
             );
+          } else if (resolvedImageUrl) {
+            // Use /photos endpoint for image posts (not /feed with link)
+            postResult = await fetch(
+              `https://graph.facebook.com/v19.0/${connection.page_id}/photos`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  url: resolvedImageUrl,
+                  caption: content,
+                  access_token: connection.page_access_token,
+                }),
+              }
+            );
           } else {
+            // Text-only post
             postResult = await fetch(
               `https://graph.facebook.com/v19.0/${connection.page_id}/feed`,
               {
@@ -533,7 +578,6 @@ serve(async (req) => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   message: content,
-                  link: imageUrl,
                   access_token: connection.page_access_token,
                 }),
               }
@@ -585,8 +629,8 @@ serve(async (req) => {
           if (videoUrl) {
             mediaParams.media_type = "REELS";
             mediaParams.video_url = videoUrl;
-          } else if (imageUrl) {
-            mediaParams.image_url = imageUrl;
+          } else if (resolvedImageUrl) {
+            mediaParams.image_url = resolvedImageUrl;
           }
 
           console.log(`[meta-oauth] Creating Instagram media container...`);
