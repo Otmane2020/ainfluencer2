@@ -204,7 +204,7 @@ const Index = () => {
             Hello, <span className="text-gradient">Creator</span>
           </h2>
           <p className="text-muted-foreground">
-            Prêt à créer du contenu viral aujourd'hui ?
+            Ready to create viral content today?
           </p>
         </motion.div>
 

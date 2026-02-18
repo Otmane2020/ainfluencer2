@@ -191,7 +191,7 @@ export const AvatarManager = ({ currentAvatar, onAvatarChange }: AvatarManagerPr
               className="flex-1"
             >
               <X className="mr-1 h-4 w-4" />
-              Annuler
+              Cancel
             </Button>
             <Button
               variant="gradient"
