@@ -25,6 +25,7 @@ const Auth = () => {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isAppleLoading, setIsAppleLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -32,7 +33,6 @@ const Auth = () => {
     let isMounted = true;
 
     const checkAndRedirect = async (userId: string) => {
-      // Check subscription before redirecting to avoid flash on /choose-plan
       try {
         const { data } = await supabase
           .from("subscriptions")
@@ -63,6 +63,8 @@ const Auth = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         checkAndRedirect(session.user.id);
+      } else {
+        if (isMounted) setIsCheckingSession(false);
       }
     });
 
@@ -71,6 +73,20 @@ const Auth = () => {
       subscription.unsubscribe();
     };
   }, [navigate]);
+
+  // Show loading screen while checking existing session to prevent flash
+  if (isCheckingSession) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 rounded-xl overflow-hidden animate-pulse">
+            <img src="/logo.png" alt="ClipMotion" className="h-full w-full object-contain" />
+          </div>
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        </div>
+      </div>
+    );
+  }
 
   const validateForm = () => {
     try {
