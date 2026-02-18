@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Sparkles, LogOut } from "lucide-react";
@@ -12,7 +12,14 @@ import { SEOHead } from "@/components/seo/SEOHead";
 const ChoosePlanPage = () => {
   const navigate = useNavigate();
   const { isSubscribed, isLoading, checkSubscription } = useSubscription();
-  const { user, signOut } = useAuth();
+  const { user, signOut, isLoading: isAuthLoading } = useAuth();
+  const [forceShow, setForceShow] = useState(false);
+
+  // Safety timeout: never show loading for more than 5 seconds
+  useEffect(() => {
+    const timeout = setTimeout(() => setForceShow(true), 5000);
+    return () => clearTimeout(timeout);
+  }, []);
 
   useEffect(() => {
     if (!isLoading && isSubscribed) {
@@ -29,17 +36,19 @@ const ChoosePlanPage = () => {
   }, [user, checkSubscription]);
 
   useEffect(() => {
-    if (!isLoading && !user) {
+    if (!isAuthLoading && !user) {
       navigate("/auth", { replace: true });
     }
-  }, [user, isLoading, navigate]);
+  }, [user, isAuthLoading, navigate]);
 
   const handleSignOut = async () => {
     await signOut();
     navigate("/auth");
   };
 
-  if (isLoading || !user) return (
+  const showLoading = !forceShow && (isAuthLoading || !user);
+  
+  if (showLoading) return (
     <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="flex flex-col items-center gap-3">
         <div className="h-10 w-10 rounded-xl overflow-hidden animate-pulse">
