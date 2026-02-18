@@ -604,16 +604,9 @@ async function publishToLinkedIn(
       lifecycleState: "PUBLISHED",
     };
 
-    // Share video as article link
-    if (videoUrl) {
-      postBody.content = {
-        article: {
-          source: videoUrl,
-          title: caption.slice(0, 100) || "Shared video",
-          description: caption.slice(0, 200) || "",
-        },
-      };
-    }
+    // LinkedIn article.source expects a website URL, not a media/storage URL
+    // Post as text-only commentary for maximum compatibility
+    // The caption already contains the marketing message
 
     console.log(`[LI] Publishing to ${linkedinConnection.display_name}...`);
 

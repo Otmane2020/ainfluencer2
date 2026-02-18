@@ -248,9 +248,12 @@ async function publishImageToLinkedIn(
   try {
     const author = `urn:li:person:${linkedinConnection.linkedin_id}`;
 
+    // LinkedIn article.source expects a website URL, not an image/media URL
+    // LinkedIn article.thumbnail requires a URN (urn:li:image:...), not a URL
+    // Post as text-only commentary for maximum compatibility
     const postBody: any = {
       author,
-      commentary: caption,
+      commentary: caption || "Check out this image!",
       visibility: "PUBLIC",
       distribution: {
         feedDistribution: "MAIN_FEED",
@@ -258,13 +261,6 @@ async function publishImageToLinkedIn(
         thirdPartyDistributionChannels: [],
       },
       lifecycleState: "PUBLISHED",
-      content: {
-        article: {
-          source: imageUrl,
-          title: caption.slice(0, 100) || "Shared image",
-          description: caption.slice(0, 200) || "",
-        },
-      },
     };
 
     console.log(`[LI-IMAGE] Publishing to ${linkedinConnection.display_name}...`);

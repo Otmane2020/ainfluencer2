@@ -758,24 +758,15 @@ async function publishToLinkedIn(
       lifecycleState: "PUBLISHED",
     };
 
-    // If media URL exists, share as an article with website link
-    if (post.media_url) {
-      postBody.content = {
-        article: {
-          source: post.media_url,
-          title: project?.name || caption.slice(0, 100) || "Shared content",
-          description: project?.description || caption.slice(0, 200) || "",
-          thumbnail: post.thumbnail_url || project?.logo_url || undefined,
-        },
-      };
-    } else if (project?.url) {
-      // Text-only post with website link as article
+    // If project has a website URL, share as article with link
+    // Note: LinkedIn article.thumbnail requires a URN (urn:li:image:...), not a URL
+    // So we omit thumbnail and let LinkedIn auto-generate the preview from the source URL
+    if (project?.url) {
       postBody.content = {
         article: {
           source: project.url,
           title: project.name || "Visit our website",
-          description: project.description || "",
-          thumbnail: project.logo_url || undefined,
+          description: project?.description || caption.slice(0, 200) || "",
         },
       };
     }
