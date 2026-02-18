@@ -117,9 +117,7 @@ export const InsufficientCreditsModal = ({
                     </div>
                     <div className="text-left">
                       <p className="font-bold text-lg">{recommendedPack.credits} Credits</p>
-                      {recommendedPack.bonus > 0 && (
-                        <p className="text-xs text-primary">+{recommendedPack.bonus}% bonus</p>
-                      )}
+                      <p className="text-xs text-muted-foreground">$1 per credit</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -139,7 +137,7 @@ export const InsufficientCreditsModal = ({
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground font-medium">Other options:</p>
             <div className="grid grid-cols-2 gap-2">
-              {CREDIT_PACKS.filter(p => p.id !== recommendedPack?.id).slice(0, 4).map((pack) => (
+              {CREDIT_PACKS.filter(p => p.id !== recommendedPack?.id).map((pack) => (
                 <button
                   key={pack.id}
                   onClick={() => handleBuyPack(pack)}
@@ -151,9 +149,15 @@ export const InsufficientCreditsModal = ({
                   )}
                 >
                   <div className="text-center">
-                    <p className="font-bold">{pack.credits}</p>
-                    <p className="text-xs text-muted-foreground">credits</p>
-                    <p className="text-sm font-semibold mt-1">${pack.price}</p>
+                    {loadingPackId === pack.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                    ) : (
+                      <>
+                        <p className="font-bold">{pack.credits}</p>
+                        <p className="text-xs text-muted-foreground">credits</p>
+                        <p className="text-sm font-semibold mt-1">${pack.price}</p>
+                      </>
+                    )}
                   </div>
                 </button>
               ))}
