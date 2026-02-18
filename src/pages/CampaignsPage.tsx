@@ -54,7 +54,12 @@ interface Campaign {
   posting_hour: number | null;
   posting_minute?: number | null;
   timezone: string | null;
-  projects?: { name: string; theme_color: string; logo_url: string | null; instagram_enabled: boolean | null; facebook_enabled: boolean | null; linkedin_enabled: boolean | null; tiktok_enabled: boolean | null; youtube_enabled: boolean | null } | null;
+  instagram_enabled: boolean | null;
+  facebook_enabled: boolean | null;
+  linkedin_enabled: boolean | null;
+  tiktok_enabled: boolean | null;
+  youtube_enabled: boolean | null;
+  projects?: { name: string; theme_color: string; logo_url: string | null } | null;
 }
 
 const campaignTypeConfig = {
@@ -91,7 +96,7 @@ const CampaignsPage = () => {
     setIsLoading(true);
     const { data, error } = await supabase
       .from("campaigns")
-      .select("*, projects(name, theme_color, logo_url, instagram_enabled, facebook_enabled, linkedin_enabled, tiktok_enabled, youtube_enabled)")
+      .select("*, projects(name, theme_color, logo_url)")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -304,15 +309,13 @@ const CampaignsPage = () => {
                           </div>
 
                           {/* Platform icons */}
-                          {campaign.projects && (
-                            <div className="flex items-center gap-1.5 mt-1">
-                              {campaign.projects.instagram_enabled && <FaInstagram className="h-3 w-3 text-pink-500" />}
-                              {campaign.projects.facebook_enabled && <FaFacebookF className="h-3 w-3 text-blue-500" />}
-                              {campaign.projects.linkedin_enabled && <FaLinkedinIn className="h-3 w-3 text-blue-600" />}
-                              {campaign.projects.tiktok_enabled && <FaTiktok className="h-3 w-3 text-foreground" />}
-                              {campaign.projects.youtube_enabled && <FaYoutube className="h-3 w-3 text-red-500" />}
-                            </div>
-                          )}
+                          <div className="flex items-center gap-1.5 mt-1">
+                            {campaign.instagram_enabled && <FaInstagram className="h-3 w-3 text-pink-500" />}
+                            {campaign.facebook_enabled && <FaFacebookF className="h-3 w-3 text-blue-500" />}
+                            {campaign.linkedin_enabled && <FaLinkedinIn className="h-3 w-3 text-blue-600" />}
+                            {campaign.tiktok_enabled && <FaTiktok className="h-3 w-3 text-foreground" />}
+                            {campaign.youtube_enabled && <FaYoutube className="h-3 w-3 text-red-500" />}
+                          </div>
 
                           {/* Progress bar */}
                           <div className="mt-2 flex items-center gap-2">

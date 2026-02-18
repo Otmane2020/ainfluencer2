@@ -23,6 +23,7 @@ export type Database = {
           created_at: string
           ends_at: string | null
           estimated_cost: number | null
+          facebook_enabled: boolean | null
           format: string | null
           id: string
           image_as_reel: boolean | null
@@ -33,6 +34,8 @@ export type Database = {
           include_logo: boolean | null
           include_text: boolean | null
           include_url: boolean | null
+          instagram_enabled: boolean | null
+          linkedin_enabled: boolean | null
           name: string
           overlay_text: string | null
           posting_hour: number | null
@@ -43,6 +46,7 @@ export type Database = {
           status: string
           style: string | null
           subject: string | null
+          tiktok_enabled: boolean | null
           timezone: string | null
           tone: string | null
           total_generated: number | null
@@ -52,6 +56,7 @@ export type Database = {
           video_quality: string | null
           videos_per_day: number | null
           videos_per_month: number | null
+          youtube_enabled: boolean | null
         }
         Insert: {
           ai_context?: string | null
@@ -61,6 +66,7 @@ export type Database = {
           created_at?: string
           ends_at?: string | null
           estimated_cost?: number | null
+          facebook_enabled?: boolean | null
           format?: string | null
           id?: string
           image_as_reel?: boolean | null
@@ -71,6 +77,8 @@ export type Database = {
           include_logo?: boolean | null
           include_text?: boolean | null
           include_url?: boolean | null
+          instagram_enabled?: boolean | null
+          linkedin_enabled?: boolean | null
           name: string
           overlay_text?: string | null
           posting_hour?: number | null
@@ -81,6 +89,7 @@ export type Database = {
           status?: string
           style?: string | null
           subject?: string | null
+          tiktok_enabled?: boolean | null
           timezone?: string | null
           tone?: string | null
           total_generated?: number | null
@@ -90,6 +99,7 @@ export type Database = {
           video_quality?: string | null
           videos_per_day?: number | null
           videos_per_month?: number | null
+          youtube_enabled?: boolean | null
         }
         Update: {
           ai_context?: string | null
@@ -99,6 +109,7 @@ export type Database = {
           created_at?: string
           ends_at?: string | null
           estimated_cost?: number | null
+          facebook_enabled?: boolean | null
           format?: string | null
           id?: string
           image_as_reel?: boolean | null
@@ -109,6 +120,8 @@ export type Database = {
           include_logo?: boolean | null
           include_text?: boolean | null
           include_url?: boolean | null
+          instagram_enabled?: boolean | null
+          linkedin_enabled?: boolean | null
           name?: string
           overlay_text?: string | null
           posting_hour?: number | null
@@ -119,6 +132,7 @@ export type Database = {
           status?: string
           style?: string | null
           subject?: string | null
+          tiktok_enabled?: boolean | null
           timezone?: string | null
           tone?: string | null
           total_generated?: number | null
@@ -128,6 +142,7 @@ export type Database = {
           video_quality?: string | null
           videos_per_day?: number | null
           videos_per_month?: number | null
+          youtube_enabled?: boolean | null
         }
         Relationships: [
           {
