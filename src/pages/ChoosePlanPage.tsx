@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Sparkles, LogOut } from "lucide-react";
 import { PricingPacks } from "@/components/PricingPacks";
+import { SocialProofToast } from "@/components/nudges/SocialProofToast";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -83,6 +84,9 @@ const ChoosePlanPage = () => {
             <PricingPacks showFlashSale={true} />
           </motion.div>
         </main>
+
+        {/* Social proof toast notifications */}
+        <SocialProofToast initialDelay={4000} interval={12000} />
       </div>
     </>
   );

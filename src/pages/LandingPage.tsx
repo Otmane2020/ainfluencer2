@@ -8,6 +8,7 @@ import { TrustedByCarousel } from "@/components/TrustedByCarousel";
 import { SocialPlatformIcons } from "@/components/SocialPlatformIcons";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { SocialProofToast } from "@/components/nudges/SocialProofToast";
 import { MobileLandingPage } from "@/components/landing/MobileLandingPage";
 
 import { MobileStickyCta } from "@/components/MobileStickyeCTA";
@@ -587,6 +588,9 @@ const LandingPage = () => {
 
       {/* Mobile Sticky CTA */}
       <MobileStickyCta showFlashSale={true} />
+
+      {/* Social proof nudge toasts */}
+      <SocialProofToast initialDelay={6000} interval={18000} />
     </div>
   );
 };
