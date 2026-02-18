@@ -28,16 +28,37 @@ import { useState } from "react";
 // AI Showcase gallery — stunning examples
 const aiShowcase = [
   {
+    img: "/showcase/kling-fashion.png",
+    label: "Kling Fashion",
+    type: "video" as const,
+    gradient: "from-pink-400/70",
+    badge: "Kling",
+  },
+  {
     img: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=500&fit=crop",
     label: "AI Portrait",
     type: "image" as const,
     gradient: "from-pink-500/60",
   },
   {
+    img: "/showcase/kling-jewelry.png",
+    label: "Kling Portrait",
+    type: "video" as const,
+    gradient: "from-amber-600/70",
+    badge: "Kling",
+  },
+  {
     img: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=400&h=500&fit=crop",
     label: "Motion Video",
     type: "video" as const,
     gradient: "from-violet-500/60",
+  },
+  {
+    img: "/showcase/kling-cinematic.png",
+    label: "Kling Cinema",
+    type: "video" as const,
+    gradient: "from-red-600/70",
+    badge: "Kling",
   },
   {
     img: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=500&fit=crop",
@@ -182,6 +203,13 @@ export function MobileLandingPage() {
                 loading="lazy"
               />
               <div className={`absolute inset-0 bg-gradient-to-t ${item.gradient} to-transparent`} />
+              {"badge" in item && item.badge && (
+                <div className="absolute top-1.5 left-1.5">
+                  <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/90 text-white">
+                    {item.badge}
+                  </span>
+                </div>
+              )}
               <div className="absolute bottom-0 left-0 right-0 p-2.5">
                 <div className="flex items-center gap-1 mb-0.5">
                   {item.type === "video" ? (
