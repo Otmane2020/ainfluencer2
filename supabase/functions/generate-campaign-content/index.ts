@@ -395,7 +395,7 @@ BRAND: ${project.name}
 ${project.theme_color ? `BRAND COLOR: ${project.theme_color}` : ""}
 ${project.description ? `BUSINESS: ${project.description}` : ""}
 
-STORY CONTEXT: ${storyAngle}
+STORY CONTEXT: Character: ${angle.character} | Scene: ${angle.scene} | Emotion: ${angle.emotion}
 
 CREATE a detailed VISUAL-ONLY prompt that describes:
 - SUBJECT: What is physically shown (person, object, scene, product mockup)
@@ -439,7 +439,7 @@ OUTPUT: Return ONLY the visual description as plain text. No JSON, no quotes, no
     campaign_id: campaign.id,
     content_type: "image",
     scheduled_for: scheduledDate.toISOString(),
-    ai_prompt: linkedInImagePrompt || storyAngle,
+    ai_prompt: linkedInImagePrompt || `${angle.character} — ${angle.scene}`,
     text_content: parsed.textContent,
     media_url: null,
     status: "scheduled",
