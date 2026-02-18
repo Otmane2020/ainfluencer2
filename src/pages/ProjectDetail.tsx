@@ -675,20 +675,20 @@ const ProjectDetail = () => {
 
       {/* Quick Edit Modal */}
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-        <DialogContent className={editTab === "context" ? "sm:max-w-2xl max-h-[90vh]" : "sm:max-w-lg"}>
-          <DialogHeader>
+        <DialogContent className={`max-h-[85vh] flex flex-col ${editTab === "context" ? "sm:max-w-2xl" : "sm:max-w-lg"}`}>
+          <DialogHeader className="shrink-0">
             <DialogTitle>Edit project</DialogTitle>
           </DialogHeader>
           
-          <Tabs value={editTab} onValueChange={setEditTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+          <Tabs value={editTab} onValueChange={setEditTab} className="w-full flex flex-col min-h-0 flex-1">
+            <TabsList className="grid w-full grid-cols-4 shrink-0">
               <TabsTrigger value="info">Info</TabsTrigger>
               <TabsTrigger value="branding">Style</TabsTrigger>
               <TabsTrigger value="context">Context</TabsTrigger>
               <TabsTrigger value="platforms">Platforms</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="info" className="space-y-4 mt-4">
+            <TabsContent value="info" className="space-y-4 mt-4 overflow-y-auto max-h-[60vh] pr-1">
               <div className="space-y-2">
                 <Label htmlFor="edit-name">Project name</Label>
                 <Input
@@ -737,7 +737,7 @@ const ProjectDetail = () => {
               </div>
             </TabsContent>
 
-            <TabsContent value="branding" className="space-y-4 mt-4">
+            <TabsContent value="branding" className="space-y-4 mt-4 overflow-y-auto max-h-[60vh] pr-1">
               <div className="space-y-2">
                 <Label>Theme Color</Label>
                 <div className="flex flex-wrap gap-2">
@@ -797,7 +797,7 @@ const ProjectDetail = () => {
               </div>
             </TabsContent>
 
-            <TabsContent value="context" className="mt-4">
+            <TabsContent value="context" className="mt-4 overflow-y-auto max-h-[60vh] pr-1">
               {project && (
                 <MarketingContextEditor
                   projectId={project.id}
@@ -818,7 +818,7 @@ const ProjectDetail = () => {
               )}
             </TabsContent>
 
-            <TabsContent value="platforms" className="space-y-4 mt-4">
+            <TabsContent value="platforms" className="space-y-4 mt-4 overflow-y-auto max-h-[60vh] pr-1">
               <div className="space-y-4">
                 {/* Facebook - Connected via Meta */}
                 <div className="rounded-lg border p-3 space-y-3">
