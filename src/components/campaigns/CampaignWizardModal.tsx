@@ -426,6 +426,11 @@ export const CampaignWizardModal = ({
           image_as_reel: imageAsReel,
           audio_category: audioCategory,
           clipmotion: clipmotion,
+          instagram_enabled: platforms.instagram,
+          facebook_enabled: platforms.facebook,
+          linkedin_enabled: platforms.linkedin,
+          tiktok_enabled: platforms.tiktok,
+          youtube_enabled: platforms.youtube,
         })
         .select()
         .single();

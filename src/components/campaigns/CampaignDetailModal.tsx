@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Video, Image as ImageIcon, Layers, Play, Pause, Edit, Calendar, BarChart3, Clock, CheckCircle2, Loader2, Share2, Facebook, Link, ExternalLink, Copy, Rocket, Save, Pencil, Check, X } from "lucide-react";
+import { FaInstagram, FaFacebookF, FaLinkedinIn, FaTiktok, FaYoutube } from "react-icons/fa";
 import { SocialShareModal } from "@/components/SocialShareModal";
 interface Campaign {
   id: string;
@@ -34,6 +35,11 @@ interface Campaign {
   posting_hour: number | null;
   posting_minute?: number | null;
   timezone: string | null;
+  instagram_enabled?: boolean | null;
+  facebook_enabled?: boolean | null;
+  linkedin_enabled?: boolean | null;
+  tiktok_enabled?: boolean | null;
+  youtube_enabled?: boolean | null;
   projects?: {
     name: string;
     theme_color: string;
@@ -339,6 +345,13 @@ export const CampaignDetailModal = ({
               <div className="flex items-center gap-2 mt-1">
                 <Badge className={status.color}>{status.label}</Badge>
                 <span className="text-sm text-muted-foreground">{typeConfig.label}</span>
+              </div>
+              <div className="flex items-center gap-1.5 mt-1">
+                {campaign.instagram_enabled && <FaInstagram className="h-3.5 w-3.5 text-pink-500" />}
+                {campaign.facebook_enabled && <FaFacebookF className="h-3.5 w-3.5 text-blue-500" />}
+                {campaign.linkedin_enabled && <FaLinkedinIn className="h-3.5 w-3.5 text-blue-600" />}
+                {campaign.tiktok_enabled && <FaTiktok className="h-3.5 w-3.5 text-foreground" />}
+                {campaign.youtube_enabled && <FaYoutube className="h-3.5 w-3.5 text-red-500" />}
               </div>
             </div>
             <div className="flex gap-2">
