@@ -47,6 +47,7 @@ interface ImageDetailModalProps {
   campaignId?: string;
   campaignName?: string;
   isProductShot?: boolean;
+  model?: string;
   onDelete?: () => void;
 }
 
@@ -104,6 +105,7 @@ export const ImageDetailModal = ({
   campaignId,
   campaignName,
   isProductShot,
+  model,
   onDelete,
 }: ImageDetailModalProps) => {
   const [caption, setCaption] = useState("");
@@ -429,6 +431,14 @@ export const ImageDetailModal = ({
                     <Badge variant="outline" className="text-xs truncate max-w-[140px]">{campaignName}</Badge>
                   )}
                 </div>
+
+                {/* Model used */}
+                {model && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span className="font-medium text-foreground">{model}</span>
+                  </div>
+                )}
 
                 {/* Action buttons bar */}
                 <div className="flex gap-2">
