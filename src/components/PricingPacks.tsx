@@ -3,6 +3,9 @@ import { Check, Award, Zap, Building2, Wand2, Image, Video, Loader2, Tag, Clock,
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { PRICING_PLANS, PricingPlan } from "@/lib/commercialProducts";
+import { PlanPopularityBadge } from "@/components/nudges/PlanPopularityBadge";
+import { AnchoringLabel } from "@/components/nudges/AnchoringLabel";
+import { LiveViewersCount } from "@/components/nudges/LiveViewersCount";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
@@ -296,6 +299,17 @@ export const PricingPacks = ({
                 `Choose ${plan.name}`
               )}
             </Button>
+
+              {/* Nudge: Anchoring per-credit value */}
+              <div className="mt-3">
+                <AnchoringLabel planId={plan.id} credits={plan.credits} price={plan.price} />
+              </div>
+
+              {/* Nudge: Social proof popularity */}
+              <PlanPopularityBadge planId={plan.id} />
+
+              {/* Nudge: Live viewers */}
+              <LiveViewersCount planId={plan.id} />
           </motion.div>
         );
       })}
