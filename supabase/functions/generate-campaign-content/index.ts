@@ -377,7 +377,7 @@ OUTPUT: Return ONLY valid JSON:
   const scheduledDate = new Date();
   const daysSpan = 30;
   const gap = Math.max(1, Math.floor(daysSpan / totalTarget)); // e.g. 30/30=1 day gap, 30/8=3 day gap
-  const dayOffset = 1 + idx * gap; // start tomorrow, then every `gap` days
+  const dayOffset = idx * gap; // start today, then every `gap` days
   scheduledDate.setDate(scheduledDate.getDate() + dayOffset);
   scheduledDate.setHours(campaign.posting_hour || 10, Math.floor(Math.random() * 30));
 
@@ -526,7 +526,7 @@ OUTPUT: Return ONLY valid JSON:
   const mediaUrl = null;
 
   const scheduledDate = new Date();
-  scheduledDate.setDate(scheduledDate.getDate() + Math.floor(idx * (30 / totalTarget)) + 1);
+  scheduledDate.setDate(scheduledDate.getDate() + Math.floor(idx * (30 / totalTarget)));
   scheduledDate.setHours(campaign.posting_hour || 10, Math.floor(Math.random() * 60));
 
   return {
