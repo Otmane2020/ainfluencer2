@@ -4,6 +4,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { MobileHeader } from "./MobileHeader";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
 import { Loader2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SupportWidget } from "@/components/SupportWidget";
@@ -11,6 +12,7 @@ import { PWAInstallBanner } from "@/components/PWAInstall";
 
 export function AppLayout() {
   const { user, isLoading } = useAuth();
+  const { isSubscribed, isLoading: subLoading } = useSubscription();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
@@ -20,7 +22,14 @@ export function AppLayout() {
     }
   }, [user, isLoading, navigate]);
 
-  if (isLoading) {
+  // Gate: unsubscribed users must pick a plan first
+  useEffect(() => {
+    if (!isLoading && !subLoading && user && !isSubscribed) {
+      navigate("/choose-plan", { replace: true });
+    }
+  }, [user, isLoading, subLoading, isSubscribed, navigate]);
+
+  if (isLoading || subLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -31,7 +40,7 @@ export function AppLayout() {
     );
   }
 
-  if (!user) {
+  if (!user || !isSubscribed) {
     return null;
   }
 
