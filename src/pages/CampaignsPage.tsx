@@ -308,13 +308,16 @@ const CampaignsPage = () => {
                             <span className="hidden sm:inline">{getContentCount(campaign)}</span>
                           </div>
 
-                          {/* Platform icons */}
+                          {/* Platform icons + posting time */}
                           <div className="flex items-center gap-1.5 mt-1">
                             {campaign.instagram_enabled && <FaInstagram className="h-3 w-3 text-pink-500" />}
                             {campaign.facebook_enabled && <FaFacebookF className="h-3 w-3 text-blue-500" />}
                             {campaign.linkedin_enabled && <FaLinkedinIn className="h-3 w-3 text-blue-600" />}
                             {campaign.tiktok_enabled && <FaTiktok className="h-3 w-3 text-foreground" />}
                             {campaign.youtube_enabled && <FaYoutube className="h-3 w-3 text-red-500" />}
+                            <span className="text-[10px] text-muted-foreground ml-1">
+                              🕐 {String(campaign.posting_hour ?? 10).padStart(2, '0')}:{String(campaign.posting_minute ?? 0).padStart(2, '0')}
+                            </span>
                           </div>
 
                           {/* Progress bar */}
