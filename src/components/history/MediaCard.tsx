@@ -195,11 +195,16 @@ export const MediaCard = ({
             loading="lazy"
           />
         ) : (
-          <div className="h-full w-full flex items-center justify-center bg-muted">
+          <div className="h-full w-full flex flex-col items-center justify-center bg-muted p-3 gap-2">
             {item.type === "video" ? (
-              <Video className="h-8 w-8 text-muted-foreground" />
+              <Video className="h-6 w-6 text-muted-foreground shrink-0" />
             ) : (
-              <ImageIcon className="h-8 w-8 text-muted-foreground" />
+              <ImageIcon className="h-6 w-6 text-muted-foreground shrink-0" />
+            )}
+            {item.textContent && (
+              <p className="text-[10px] text-muted-foreground text-center line-clamp-4 leading-tight">
+                {item.textContent.slice(0, 120)}
+              </p>
             )}
           </div>
         )}
