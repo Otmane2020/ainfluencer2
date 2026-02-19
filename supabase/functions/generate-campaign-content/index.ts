@@ -310,7 +310,7 @@ async function generateLinkedInStoryPost(
       model: "google/gemini-3-flash-preview",
       messages: [{
         role: "system",
-        content: `You are a LinkedIn storytelling genius for "${project.name}".
+      content: `You are a LinkedIn storytelling genius for "${project.name}".
 
 ${contextGuard.enhancedPrompt}
 
@@ -322,6 +322,15 @@ UNIQUE SELLING POINT: ${usp}
 TARGET AUDIENCE: ${audience}
 ${campaign.ai_context ? `CAMPAIGN BRIEF: ${campaign.ai_context}` : ""}
 ${project.url ? `WEBSITE: ${project.url}` : ""}
+
+═══ 🚨 BRAND IDENTITY FIREWALL (MOST CRITICAL RULE) 🚨 ═══
+You are writing EXCLUSIVELY about "${project.name}" — a brand that does: ${project.description || services.join(", ") || "see context above"}.
+⚠️ DO NOT confuse this brand with ANY other business, competitor, or similar product.
+⚠️ DO NOT invent features or services that are NOT explicitly listed in the brand context above.
+⚠️ If the brand does AI-optimized content/SEO, do NOT say it does review management, customer support, or chatbots.
+⚠️ If the brand does review management, do NOT say it does SEO content or article writing.
+⚠️ Every claim you make MUST be verifiable from the brand context provided above.
+⚠️ When in doubt, re-read the DESCRIPTION and SERVICES/PRODUCTS fields — they are the ONLY source of truth.
 
 ═══ STORY SEED (adapt to the brand above!) ═══
 CHARACTER TYPE: ${angle.character}
@@ -345,6 +354,7 @@ INVENT a SPECIFIC story about a real-feeling person interacting with "${project.
 ❌ "In today's fast-paced world...", "Innovation is key..."
 ❌ Corporate jargon: "leverage", "synergy", "game-changer"
 ❌ Talking about a product/service that ${project.name} does NOT offer
+❌ Inventing capabilities the brand doesn't have (check DESCRIPTION above!)
 ❌ Cookie-cutter motivational posts with no specific character
 
 ═══ FORMAT ═══
@@ -480,6 +490,13 @@ async function generateSinglePost(
         content: `You are a marketing expert for ${project.name}. 
 
 ${contextGuard.enhancedPrompt}
+
+═══ 🚨 BRAND IDENTITY FIREWALL (MOST CRITICAL RULE) 🚨 ═══
+You are writing EXCLUSIVELY about "${project.name}" — a brand that does: ${project.description || "see context above"}.
+⚠️ DO NOT confuse this brand with ANY other business, competitor, or similar product.
+⚠️ DO NOT invent features or services that are NOT explicitly listed in the brand context above.
+⚠️ Every claim in the caption MUST be verifiable from the brand context provided.
+⚠️ When in doubt, re-read the BRAND DESCRIPTION — it is the ONLY source of truth.
 
 CURRENT TASK: Create a ${isVideo ? "video script concept" : "static image prompt"} for social media.
 
