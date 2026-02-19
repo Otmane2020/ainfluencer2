@@ -86,9 +86,11 @@ const PostHistoryPage = () => {
     setIsLoading(true);
 
     try {
+      // Don't select media_url in list query - base64 data is too large (1-2MB each)
+      // Only load media_url on demand when user clicks a post
       let query = supabase
         .from("scheduled_posts")
-        .select("id, content_type, text_content, media_url, thumbnail_url, ai_prompt, status, created_at, platforms, campaign_id, project_id, external_post_id, campaigns(name), projects(name)")
+        .select("id, content_type, text_content, thumbnail_url, ai_prompt, status, created_at, platforms, campaign_id, project_id, external_post_id, campaigns(name), projects(name)")
         .eq("status", "published")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
@@ -102,12 +104,11 @@ const PostHistoryPage = () => {
       if (error) throw error;
 
       const mapped: MediaItem[] = (data || [])
-        .filter((item: any) => item.media_url)
         .map((item: any) => ({
           id: item.id,
           type: item.content_type === "video" ? "video" as const : "image" as const,
           title: (item.projects as any)?.name || "Post",
-          url: item.media_url,
+          url: undefined, // loaded on demand
           thumbnailUrl: item.thumbnail_url || undefined,
           createdAt: new Date(item.created_at),
           status: item.status || "published",
@@ -208,10 +209,25 @@ const PostHistoryPage = () => {
     toast({ title: "Refreshed", description: `Found ${items.length} posts` });
   };
 
-  const handleItemClick = (item: MediaItem) => {
+  const handleItemClick = async (item: MediaItem) => {
     setSelectedItem(item);
     setIsEditing(false);
     setEditText(item.textContent || "");
+
+    // Load media_url on demand (base64 data is too large for list queries)
+    if (!item.url) {
+      const { data } = await supabase
+        .from("scheduled_posts")
+        .select("media_url")
+        .eq("id", item.id)
+        .maybeSingle();
+      
+      if (data?.media_url) {
+        const updated = { ...item, url: data.media_url };
+        setSelectedItem(updated);
+        setItems(prev => prev.map(m => m.id === item.id ? updated : m));
+      }
+    }
   };
 
   const filteredItems = items.filter(item => {
