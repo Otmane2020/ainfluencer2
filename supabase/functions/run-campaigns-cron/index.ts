@@ -11,46 +11,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// ============================================================
-// UPLOAD BASE64 TO STORAGE (converts data: URIs to public URLs)
-// ============================================================
-async function uploadBase64ToStorage(
-  base64Data: string,
-  supabase: any
-): Promise<string | null> {
-  try {
-    const match = base64Data.match(/^data:([^;]+);base64,(.+)$/);
-    if (!match) return null;
-    const mimeType = match[1];
-    const raw = match[2];
-    const ext = mimeType.split("/")[1]?.replace("jpeg", "jpg") || "png";
-    const fileName = `cron-upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const filePath = `posts/${fileName}`;
-
-    // Decode base64 to Uint8Array
-    const binaryString = atob(raw);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-
-    const { error } = await supabase.storage
-      .from("media")
-      .upload(filePath, bytes, { contentType: mimeType, upsert: false });
-
-    if (error) {
-      console.error("[cron] Storage upload error:", error.message);
-      return null;
-    }
-
-    const { data: urlData } = supabase.storage.from("media").getPublicUrl(filePath);
-    return urlData?.publicUrl || null;
-  } catch (err) {
-    console.error("[cron] uploadBase64ToStorage error:", err);
-    return null;
-  }
-}
-
 // Valid plans for AutoPost access
 const AUTOPOST_VALID_PLANS = ["pro", "business"];
 const AUTOPOST_VALID_PRODUCTS = [
