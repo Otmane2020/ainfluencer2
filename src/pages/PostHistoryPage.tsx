@@ -93,7 +93,7 @@ const PostHistoryPage = () => {
         .select("id, content_type, text_content, thumbnail_url, ai_prompt, status, created_at, platforms, campaign_id, project_id, external_post_id, campaigns(name), projects(name)")
         .eq("status", "published")
         .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
+        .order("published_at", { ascending: false })
         .limit(200);
 
       if (selectedProject !== "all") {
