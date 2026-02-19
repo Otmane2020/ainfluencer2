@@ -98,10 +98,10 @@ serve(async (req) => {
       const language = project.detected_language || "en";
       const langPrompts = LANGUAGE_PROMPTS[language] || LANGUAGE_PROMPTS.en;
 
-      // Calculate the target date (30 days from now)
+      // Calculate the target date (30 days from now) — use UTC to avoid server-locale drift
       const targetDate = new Date();
-      targetDate.setDate(targetDate.getDate() + 30);
-      targetDate.setHours(10, 0, 0, 0); // Set to 10:00 AM
+      targetDate.setUTCDate(targetDate.getUTCDate() + 30);
+      targetDate.setUTCHours(10, 0, 0, 0); // 10:00 UTC as default
 
       // Check if a post already exists for this date and project
       const startOfTargetDay = new Date(targetDate);
