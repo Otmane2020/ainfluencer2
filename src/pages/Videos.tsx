@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { VideoGenerator, GenerationTask } from "@/components/VideoGenerator";
+import { AIVideoGenerator } from "@/components/AIVideoGenerator";
 import { VideoPreview } from "@/components/VideoPreview";
 import { GenerationTracker } from "@/components/GenerationTracker";
 import { PaywallModal } from "@/components/PaywallModal";
 import { useSubscription } from "@/hooks/useSubscription";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -15,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Video, Sparkles } from "lucide-react";
 
 interface VideoSegment {
   id: string;
@@ -123,33 +126,66 @@ const Videos = () => {
           </div>
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="grid grid-cols-1 gap-6 lg:grid-cols-3"
-        >
-          {/* Left Column - Video Generator */}
-          <div className="space-y-6 lg:col-span-2">
-            <VideoGenerator
-              onVideosGenerated={handleVideosGenerated}
-              onTasksUpdated={setGenerationTasks}
-              initialStartingFrameUrl={startingFrameUrl}
-              onBeforeGenerate={handleBeforeGenerate}
-            />
-            {generationTasks.length > 0 && (
-              <GenerationTracker tasks={generationTasks} />
-            )}
-          </div>
+        <Tabs defaultValue="ai-video" className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="ai-video" className="flex items-center gap-2">
+              <Video className="h-4 w-4" />
+              AI Video
+            </TabsTrigger>
+            <TabsTrigger value="remo-video" className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4" />
+              Remo Video
+            </TabsTrigger>
+          </TabsList>
 
-          {/* Right Column */}
-          <div className="space-y-6">
-            <VideoPreview
-              segments={videoSegments}
-              onMerge={handleMergeVideos}
-              onDeleteSegment={handleDeleteVideoSegment}
-            />
-          </div>
-        </motion.div>
+          {/* AI Video Tab */}
+          <TabsContent value="ai-video">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="grid grid-cols-1 gap-6 lg:grid-cols-3"
+            >
+              <div className="space-y-6 lg:col-span-2">
+                <VideoGenerator
+                  onVideosGenerated={handleVideosGenerated}
+                  onTasksUpdated={setGenerationTasks}
+                  initialStartingFrameUrl={startingFrameUrl}
+                  onBeforeGenerate={handleBeforeGenerate}
+                />
+                {generationTasks.length > 0 && (
+                  <GenerationTracker tasks={generationTasks} />
+                )}
+              </div>
+              <div className="space-y-6">
+                <VideoPreview
+                  segments={videoSegments}
+                  onMerge={handleMergeVideos}
+                  onDeleteSegment={handleDeleteVideoSegment}
+                />
+              </div>
+            </motion.div>
+          </TabsContent>
+
+          {/* Remo Video Tab */}
+          <TabsContent value="remo-video">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="grid grid-cols-1 gap-6 lg:grid-cols-3"
+            >
+              <div className="lg:col-span-2">
+                <AIVideoGenerator onBeforeGenerate={handleBeforeGenerate} />
+              </div>
+              <div className="space-y-6">
+                <VideoPreview
+                  segments={videoSegments}
+                  onMerge={handleMergeVideos}
+                  onDeleteSegment={handleDeleteVideoSegment}
+                />
+              </div>
+            </motion.div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Paywall Modal */}
