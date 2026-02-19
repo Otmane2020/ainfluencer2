@@ -410,7 +410,7 @@ export const CampaignDetailModal = ({
           </div>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 mt-4 min-h-0">
+        <div className="flex-1 mt-4 min-h-0 overflow-y-auto pr-2">
           <div className="space-y-4 pb-6">
             {/* Stats Cards */}
             <div className="grid grid-cols-3 gap-3">
@@ -550,7 +550,7 @@ export const CampaignDetailModal = ({
                 </Button>}
             </div>
           </div>
-        </ScrollArea>
+        </div>
       </DialogContent>
       
       {/* Share Modal */}
