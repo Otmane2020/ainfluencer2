@@ -161,7 +161,7 @@ interface ScheduledPost {
 
 // ============================================================
 // IMAGE GENERATION – Multi-provider fallback chain
-// Lovable AI → OpenAI DALL-E → Gemini Direct → KIE → Replicate FLUX
+// Lovable AI → OpenAI DALL-E → Gemini Direct → Kling Direct → Replicate FLUX
 // ============================================================
 
 async function uploadBase64ToStorage(base64: string, supabase: any): Promise<string | null> {
@@ -244,30 +244,53 @@ async function tryGeminiDirect(prompt: string): Promise<string | null> {
   return null;
 }
 
-async function tryKIE(prompt: string): Promise<string | null> {
-  const key = Deno.env.get("KIE_API_KEY");
-  if (!key) return null;
+// Kling JWT helper (same as generate-video-kling)
+function klingBase64Url(input: Uint8Array | string): string {
+  const bytes = typeof input === "string" ? new TextEncoder().encode(input) : input;
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+async function generateKlingJWT(accessKeyId: string, accessKeySecret: string): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  const header = klingBase64Url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const payload = klingBase64Url(JSON.stringify({ iss: accessKeyId, exp: now + 1800, nbf: now - 5 }));
+  const data = `${header}.${payload}`;
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(accessKeySecret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(data));
+  return `${data}.${klingBase64Url(new Uint8Array(signature))}`;
+}
+
+async function tryKlingDirect(prompt: string): Promise<string | null> {
+  const ak = Deno.env.get("KLING_API_KEY");
+  const sk = Deno.env.get("KLING_API_SECRET");
+  if (!ak || !sk) { console.log("[Kling] Missing KLING_API_KEY or KLING_API_SECRET"); return null; }
+  
+  const jwt = await generateKlingJWT(ak, sk);
   const resp = await fetch("https://api.klingai.com/v1/images/generations", {
     method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${jwt}`, "Content-Type": "application/json" },
     body: JSON.stringify({ model: "kling-v1", prompt: prompt.slice(0, 2500), n: 1, aspect_ratio: "1:1" }),
   });
-  if (!resp.ok) { console.error(`[KIE] ${resp.status}`); return null; }
+  if (!resp.ok) { console.error(`[Kling] ${resp.status} ${await resp.text().catch(() => "")}`); return null; }
   const data = await resp.json();
   const taskId = data.data?.task_id;
-  if (!taskId) return null;
+  if (!taskId) { console.error("[Kling] No task_id in response"); return null; }
+  console.log(`[Kling] Image task created: ${taskId}`);
+  
   // Poll up to 2 min
   for (let i = 0; i < 24; i++) {
     await new Promise(r => setTimeout(r, 5000));
+    const freshJwt = await generateKlingJWT(ak, sk);
     const sr = await fetch(`https://api.klingai.com/v1/images/generations/${taskId}`, {
-      headers: { Authorization: `Bearer ${key}` },
+      headers: { Authorization: `Bearer ${freshJwt}` },
     });
     if (!sr.ok) continue;
     const sd = await sr.json();
     if (sd.data?.task_status === "succeed") {
+      console.log("[Kling] Image generation succeeded ✅");
       return sd.data?.task_result?.images?.[0]?.url || null;
     }
-    if (sd.data?.task_status === "failed") return null;
+    if (sd.data?.task_status === "failed") { console.error("[Kling] Image generation failed"); return null; }
   }
   return null;
 }
@@ -362,7 +385,7 @@ ${lang !== "en" ? `Do NOT use English text — all text must be in ${langName}.`
     { name: "Lovable AI", fn: () => tryLovableAI(finalPrompt, config.model) },
     { name: "OpenAI DALL-E", fn: () => tryOpenAIDalle(finalPrompt) },
     { name: "Gemini Direct", fn: () => tryGeminiDirect(finalPrompt) },
-    { name: "KIE Kling", fn: () => tryKIE(finalPrompt) },
+    { name: "Kling Direct", fn: () => tryKlingDirect(finalPrompt) },
     { name: "Replicate FLUX", fn: () => tryReplicateFlux(finalPrompt) },
   ];
 
