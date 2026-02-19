@@ -11,6 +11,46 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ============================================================
+// UPLOAD BASE64 TO STORAGE (converts data: URIs to public URLs)
+// ============================================================
+async function uploadBase64ToStorage(
+  base64Data: string,
+  supabase: any
+): Promise<string | null> {
+  try {
+    const match = base64Data.match(/^data:([^;]+);base64,(.+)$/);
+    if (!match) return null;
+    const mimeType = match[1];
+    const raw = match[2];
+    const ext = mimeType.split("/")[1]?.replace("jpeg", "jpg") || "png";
+    const fileName = `cron-upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const filePath = `posts/${fileName}`;
+
+    // Decode base64 to Uint8Array
+    const binaryString = atob(raw);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    const { error } = await supabase.storage
+      .from("media")
+      .upload(filePath, bytes, { contentType: mimeType, upsert: false });
+
+    if (error) {
+      console.error("[cron] Storage upload error:", error.message);
+      return null;
+    }
+
+    const { data: urlData } = supabase.storage.from("media").getPublicUrl(filePath);
+    return urlData?.publicUrl || null;
+  } catch (err) {
+    console.error("[cron] uploadBase64ToStorage error:", err);
+    return null;
+  }
+}
+
 // Valid plans for AutoPost access
 const AUTOPOST_VALID_PLANS = ["pro", "business"];
 const AUTOPOST_VALID_PRODUCTS = [
@@ -598,7 +638,7 @@ async function generateReel(
 async function publishToFacebook(
   post: ScheduledPost,
   metaConnection: any
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; postId?: string }> {
   if (!metaConnection.page_access_token || !metaConnection.page_id) {
     return { success: false, error: "No page access" };
   }
@@ -642,7 +682,14 @@ async function publishToFacebook(
       return { success: false, error: errorData };
     }
 
-    return { success: true };
+    // Extract Facebook post ID from response
+    try {
+      const resData = await response.json();
+      const postId = resData.post_id || resData.id || null;
+      return { success: true, postId };
+    } catch {
+      return { success: true };
+    }
   } catch (error) {
     return { success: false, error: String(error) };
   }
@@ -1353,6 +1400,19 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Convert base64 media to public URL before publishing
+      if (post.media_url?.startsWith("data:")) {
+        console.log(`[cron] Converting base64 media to storage URL...`);
+        const publicUrl = await uploadBase64ToStorage(post.media_url, supabase);
+        if (publicUrl) {
+          await supabase.from("scheduled_posts").update({ media_url: publicUrl }).eq("id", post.id);
+          post.media_url = publicUrl;
+          console.log(`[cron] Base64 converted to: ${publicUrl.slice(0, 60)}...`);
+        } else {
+          console.error(`[cron] Failed to convert base64 media to storage URL`);
+        }
+      }
+
       const errors: string[] = [];
       const publishResults: { platform: string; success: boolean; postId?: string }[] = [];
 
@@ -1364,12 +1424,12 @@ Deno.serve(async (req) => {
 
         if (platform === "facebook" && metaConnection) {
           const result = await publishToFacebook(post, metaConnection);
-          publishResults.push({ platform: "facebook", success: result.success });
+          publishResults.push({ platform: "facebook", success: result.success, postId: result.postId });
           if (!result.success) {
             errors.push(`FB: ${result.error}`);
             console.log(`[cron] Facebook publish failed: ${result.error}`);
           } else {
-            console.log(`[cron] Published to Facebook successfully`);
+            console.log(`[cron] Published to Facebook successfully (postId: ${result.postId || "unknown"})`);
           }
         }
 
