@@ -21,6 +21,51 @@ const corsHeaders = {
 // CONTENT DIVERSITY SYSTEM
 // ============================================================
 
+/**
+ * Create a Date object with the correct UTC time for a given local hour/minute in a timezone.
+ * Edge functions run in UTC, so setHours(10) = 10:00 UTC, not 10:00 Paris.
+ * This function converts "10:00 Europe/Paris" → correct UTC ISO string.
+ */
+function buildScheduledDate(dayOffset: number, localHour: number, localMinute: number, timezone: string): string {
+  const base = new Date();
+  base.setUTCDate(base.getUTCDate() + dayOffset);
+  // Build a date string in the target timezone, then let the TZ offset do the work
+  // We construct "YYYY-MM-DD" from the offset date, then parse it in the target timezone
+  const year = base.getUTCFullYear();
+  const month = String(base.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(base.getUTCDate()).padStart(2, "0");
+  const hour = String(localHour).padStart(2, "0");
+  const minute = String(localMinute).padStart(2, "0");
+  
+  // Use Intl to get the UTC offset for the target timezone on that date
+  try {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      timeZoneName: "shortOffset",
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hour12: false,
+    });
+    // Get the offset by comparing a known date in both timezones
+    const testDate = new Date(`${year}-${month}-${day}T${hour}:${minute}:00Z`);
+    const parts = formatter.formatToParts(testDate);
+    const tzPart = parts.find(p => p.type === "timeZoneName")?.value || "+0";
+    // Parse offset like "GMT+2" or "GMT-5" or "GMT+5:30"
+    const offsetMatch = tzPart.match(/GMT([+-]?)(\d{1,2})(?::(\d{2}))?/);
+    let offsetMinutes = 0;
+    if (offsetMatch) {
+      const sign = offsetMatch[1] === "-" ? -1 : 1;
+      offsetMinutes = sign * (parseInt(offsetMatch[2]) * 60 + parseInt(offsetMatch[3] || "0"));
+    }
+    // Subtract offset to convert local time to UTC
+    const utcDate = new Date(`${year}-${month}-${day}T${hour}:${minute}:00Z`);
+    utcDate.setUTCMinutes(utcDate.getUTCMinutes() - offsetMinutes);
+    return utcDate.toISOString();
+  } catch {
+    // Fallback: assume UTC
+    return new Date(`${year}-${month}-${day}T${hour}:${minute}:00Z`).toISOString();
+  }
+}
+
 const VISUAL_SCENES = [
   { id: "neon_night", desc: "Neon-lit urban night scene, vibrant city lights, modern nightlife aesthetic" },
   { id: "golden_hour", desc: "Golden hour outdoor setting, warm sunlight, natural beauty, optimistic mood" },
@@ -391,12 +436,11 @@ OUTPUT: Return ONLY valid JSON:
   }
 
   // Distribute posts evenly across 30 days based on totalTarget
-  const scheduledDate = new Date();
   const daysSpan = 30;
-  const gap = Math.max(1, Math.floor(daysSpan / totalTarget)); // e.g. 30/30=1 day gap, 30/8=3 day gap
-  const dayOffset = idx * gap; // start today, then every `gap` days
-  scheduledDate.setDate(scheduledDate.getDate() + dayOffset);
-  scheduledDate.setHours(campaign.posting_hour || 10, Math.floor(Math.random() * 30));
+  const gap = Math.max(1, Math.floor(daysSpan / totalTarget));
+  const dayOffset = idx * gap;
+  const postMinute = campaign.posting_minute ?? Math.floor(Math.random() * 30);
+  const scheduledISO = buildScheduledDate(dayOffset, campaign.posting_hour || 10, postMinute, campaign.timezone || "Europe/Paris");
 
   // Generate a VISUAL-ONLY image prompt (no text/typography instructions)
   const imagePromptResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -455,7 +499,7 @@ OUTPUT: Return ONLY the visual description as plain text. No JSON, no quotes, no
     project_id: campaign.project_id,
     campaign_id: campaign.id,
     content_type: "image",
-    scheduled_for: scheduledDate.toISOString(),
+    scheduled_for: scheduledISO,
     ai_prompt: linkedInImagePrompt || `${angle.character} — ${angle.scene}`,
     text_content: parsed.textContent,
     media_url: null,
@@ -548,16 +592,16 @@ OUTPUT: Return ONLY valid JSON:
   // Media will be generated just-in-time by the cron job at publish time
   const mediaUrl = null;
 
-  const scheduledDate = new Date();
-  scheduledDate.setDate(scheduledDate.getDate() + Math.floor(idx * (30 / totalTarget)));
-  scheduledDate.setHours(campaign.posting_hour || 10, Math.floor(Math.random() * 60));
+  const dayOffset = Math.floor(idx * (30 / totalTarget));
+  const postMinute = campaign.posting_minute ?? Math.floor(Math.random() * 60);
+  const scheduledISO = buildScheduledDate(dayOffset, campaign.posting_hour || 10, postMinute, campaign.timezone || "Europe/Paris");
 
   return {
     user_id: campaign.user_id,
     project_id: campaign.project_id,
     campaign_id: campaign.id,
     content_type: isVideo ? "video" : "image",
-    scheduled_for: scheduledDate.toISOString(),
+    scheduled_for: scheduledISO,
     ai_prompt: parsed.aiPrompt,
     text_content: parsed.textContent || "",
     media_url: mediaUrl,
@@ -674,15 +718,15 @@ serve(async (req) => {
         } else {
           // Post generation failed (AI parsing, etc.) — insert error placeholder to avoid blocking chain
           console.warn(`[Campaign] Post ${idx + 1} failed, inserting error placeholder`);
-          const scheduledDate = new Date();
-          scheduledDate.setDate(scheduledDate.getDate() + Math.floor(idx * (30 / totalTarget)) + 1);
-          scheduledDate.setHours(campaign.posting_hour || 10, Math.floor(Math.random() * 60));
+          const errDayOffset = Math.floor(idx * (30 / totalTarget)) + 1;
+          const errMinute = campaign.posting_minute ?? Math.floor(Math.random() * 60);
+          const errScheduledISO = buildScheduledDate(errDayOffset, campaign.posting_hour || 10, errMinute, campaign.timezone || "Europe/Paris");
           await supabase.from("scheduled_posts").insert({
             user_id: campaign.user_id,
             project_id: campaign.project_id,
             campaign_id: campaign.id,
             content_type: "image",
-            scheduled_for: scheduledDate.toISOString(),
+            scheduled_for: errScheduledISO,
             ai_prompt: "Generation failed — retry later",
             text_content: "",
             media_url: null,
