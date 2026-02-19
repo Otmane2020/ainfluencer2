@@ -191,31 +191,45 @@ async function uploadUrlToStorage(url: string, supabase: any): Promise<string | 
   } catch { return url; }
 }
 
-async function tryLovableAI(prompt: string, model: string): Promise<string | null> {
+async function tryLovableAI(prompt: string, _model: string): Promise<string | null> {
   const key = Deno.env.get("LOVABLE_API_KEY");
   if (!key) return null;
   
-  // Use the dedicated image generation endpoint (not chat completions)
-  const resp = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+  // Try Gemini image generation via chat completions (primary)
+  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "dall-e-3", prompt: prompt.slice(0, 4000), n: 1, size: "1024x1024", quality: "hd" }),
+    body: JSON.stringify({ 
+      model: "google/gemini-3-pro-image-preview", 
+      messages: [{ role: "user", content: prompt.slice(0, 3000) }], 
+      modalities: ["image", "text"] 
+    }),
   });
-  if (!resp.ok) { console.error(`[Lovable] ${resp.status} ${await resp.text().catch(() => "")}`); return null; }
+  if (!resp.ok) { 
+    const errText = await resp.text().catch(() => "");
+    console.error(`[Lovable-Gemini3] ${resp.status} ${errText}`); 
+    // Try flash image as fallback
+    const resp2 = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        model: "google/gemini-2.5-flash-image", 
+        messages: [{ role: "user", content: prompt.slice(0, 3000) }], 
+        modalities: ["image", "text"] 
+      }),
+    });
+    if (!resp2.ok) { console.error(`[Lovable-Gemini2.5] ${resp2.status}`); return null; }
+    const data2 = await resp2.json();
+    const imgUrl2 = data2.choices?.[0]?.message?.images?.[0]?.image_url?.url 
+      || data2.choices?.[0]?.message?.content?.[0]?.image_url?.url;
+    if (imgUrl2) { console.log("[Lovable] ✅ Image generated via gemini-2.5-flash-image"); return imgUrl2; }
+    return null;
+  }
   const data = await resp.json();
-  const url = data.data?.[0]?.url;
-  if (url) { console.log("[Lovable] ✅ Image generated"); return url; }
-  
-  // Fallback: try chat completions with Gemini image model
-  console.log("[Lovable] No URL from images endpoint, trying chat completions...");
-  const resp2 = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "google/gemini-2.5-flash-image", messages: [{ role: "user", content: prompt.slice(0, 3000) }], modalities: ["image", "text"] }),
-  });
-  if (!resp2.ok) { console.error(`[Lovable-Gemini] ${resp2.status}`); return null; }
-  const data2 = await resp2.json();
-  return data2.choices?.[0]?.message?.images?.[0]?.image_url?.url || null;
+  const imgUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url 
+    || data.choices?.[0]?.message?.content?.[0]?.image_url?.url;
+  if (imgUrl) { console.log("[Lovable] ✅ Image generated via gemini-3-pro-image-preview"); return imgUrl; }
+  return null;
 }
 
 async function tryOpenAIDalle(prompt: string): Promise<string | null> {
