@@ -194,14 +194,28 @@ async function uploadUrlToStorage(url: string, supabase: any): Promise<string | 
 async function tryLovableAI(prompt: string, model: string): Promise<string | null> {
   const key = Deno.env.get("LOVABLE_API_KEY");
   if (!key) return null;
-  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  
+  // Use the dedicated image generation endpoint (not chat completions)
+  const resp = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], modalities: ["image", "text"] }),
+    body: JSON.stringify({ model: "dall-e-3", prompt: prompt.slice(0, 4000), n: 1, size: "1024x1024", quality: "hd" }),
   });
-  if (!resp.ok) { console.error(`[Lovable] ${resp.status}`); return null; }
+  if (!resp.ok) { console.error(`[Lovable] ${resp.status} ${await resp.text().catch(() => "")}`); return null; }
   const data = await resp.json();
-  return data.choices?.[0]?.message?.images?.[0]?.image_url?.url || null;
+  const url = data.data?.[0]?.url;
+  if (url) { console.log("[Lovable] ✅ Image generated"); return url; }
+  
+  // Fallback: try chat completions with Gemini image model
+  console.log("[Lovable] No URL from images endpoint, trying chat completions...");
+  const resp2 = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "google/gemini-2.5-flash-image", messages: [{ role: "user", content: prompt.slice(0, 3000) }], modalities: ["image", "text"] }),
+  });
+  if (!resp2.ok) { console.error(`[Lovable-Gemini] ${resp2.status}`); return null; }
+  const data2 = await resp2.json();
+  return data2.choices?.[0]?.message?.images?.[0]?.image_url?.url || null;
 }
 
 async function tryOpenAIDalle(prompt: string): Promise<string | null> {
