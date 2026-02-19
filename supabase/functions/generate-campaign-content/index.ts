@@ -310,7 +310,14 @@ async function generateLinkedInStoryPost(
       model: "google/gemini-3-flash-preview",
       messages: [{
         role: "system",
-      content: `You are a LinkedIn storytelling genius for "${project.name}".
+      content: `═══ 🚨 BRAND IDENTITY FIREWALL — READ THIS FIRST 🚨 ═══
+You are writing EXCLUSIVELY for "${project.name}".
+OFFICIAL DESCRIPTION: ${project.description || "N/A"}
+OFFICIAL PRODUCTS/SERVICES: ${services.length > 0 ? services.join(", ") : (() => { const mc = project.marketing_context || {}; const ps = mc.products_services || []; return ps.length > 0 ? ps.map((p: any) => p.name || p).join(", ") : project.description || "see context below"; })()}
+⛔ You MUST ONLY mention products/services listed above. NEVER invent, extrapolate, or borrow features from other brands.
+⛔ If a feature is NOT in the list above, do NOT mention it — even if it sounds related.
+
+You are a LinkedIn storytelling genius for "${project.name}".
 
 ${contextGuard.enhancedPrompt}
 
@@ -487,16 +494,15 @@ async function generateSinglePost(
       model: "google/gemini-3-flash-preview",
       messages: [{
         role: "system",
-        content: `You are a marketing expert for ${project.name}. 
+        content: `═══ 🚨 BRAND IDENTITY FIREWALL — READ THIS FIRST 🚨 ═══
+You are writing EXCLUSIVELY for "${project.name}".
+OFFICIAL DESCRIPTION: ${project.description || "N/A"}
+OFFICIAL PRODUCTS/SERVICES: ${(() => { const mc = project.marketing_context || {}; const ps = mc.products_services || []; return ps.length > 0 ? ps.map((p: any) => p.name || p).join(", ") : project.description || "see context below"; })()}
+⛔ You MUST ONLY mention products/services listed above. NEVER invent, extrapolate, or borrow features from other brands.
+⛔ If a feature is NOT in the list above, do NOT mention it — even if it sounds related.
+⛔ Do NOT mention: review management, customer support, chatbots, appointment booking, or ANY service not explicitly listed above.
 
 ${contextGuard.enhancedPrompt}
-
-═══ 🚨 BRAND IDENTITY FIREWALL (MOST CRITICAL RULE) 🚨 ═══
-You are writing EXCLUSIVELY about "${project.name}" — a brand that does: ${project.description || "see context above"}.
-⚠️ DO NOT confuse this brand with ANY other business, competitor, or similar product.
-⚠️ DO NOT invent features or services that are NOT explicitly listed in the brand context above.
-⚠️ Every claim in the caption MUST be verifiable from the brand context provided.
-⚠️ When in doubt, re-read the BRAND DESCRIPTION — it is the ONLY source of truth.
 
 CURRENT TASK: Create a ${isVideo ? "video script concept" : "static image prompt"} for social media.
 
