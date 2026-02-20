@@ -288,7 +288,14 @@ export const GenerationProgressModal = ({
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Overall progress</span>
-              
+              <motion.span
+                key={Math.round(displayProgress)}
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="font-semibold text-primary tabular-nums"
+              >
+                {Math.round(displayProgress)}%
+              </motion.span>
             </div>
             <div className="relative">
               <Progress value={displayProgress} className="h-3" />
