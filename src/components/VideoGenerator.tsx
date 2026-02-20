@@ -764,6 +764,11 @@ ${formattedHashtags}`;
         if (data?.code === "WORKER_NOT_CONFIGURED" || data?.code === "WORKER_PLACEHOLDER_URL") {
           throw new Error(data.error);
         }
+        if (data?.code === "WORKER_REJECTED" || data?.code === "WORKER_UNREACHABLE" || data?.code === "WORKER_UNHEALTHY") {
+          throw new Error(
+            "⚠️ Railway render service is offline or outdated. Please redeploy your Railway service from the Railway dashboard, then try again. Your credits have been refunded."
+          );
+        }
         if (!data?.success) throw new Error(data?.error || "Remotion render failed to start");
 
         const generationId = data.generationId;
