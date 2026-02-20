@@ -62,6 +62,25 @@ const Videos = () => {
       localStorage.setItem(CACHE_VERSION_KEY, CACHE_VERSION);
       console.log("[Videos] Full cache cleared — new version:", CACHE_VERSION);
     }
+
+    // On every mount: clear any "in_progress" or "queued" tasks that were
+    // left behind from a previous session (navigation away interrupts polling).
+    try {
+      const stored = localStorage.getItem("generation_tasks");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const cleaned = parsed.filter(
+          (t: { status: string }) => t.status === "completed" || t.status === "failed"
+        );
+        localStorage.setItem("generation_tasks", JSON.stringify(cleaned));
+      }
+    } catch {
+      // Ignore parse errors
+    }
+
+    // Also reset local preview state
+    setVideoSegments([]);
+    setGenerationTasks([]);
   }, []);
 
   useEffect(() => {
