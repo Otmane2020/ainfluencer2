@@ -80,7 +80,7 @@ export const ImagePreview = ({
             <ImageIcon className="h-5 w-5 text-secondary" />
           </div>
           <div>
-            <h3 className="font-semibold">Preview</h3>
+          <h3 className="font-semibold">Image Preview</h3>
             <p className="text-xs text-muted-foreground">
               Your generated images
             </p>
@@ -157,8 +157,9 @@ export const ImagePreview = ({
             >
               <div className="text-center p-4">
                 <ImageIcon className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  Your generated images will appear here
+                <p className="text-sm font-medium text-foreground">No image generated yet</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Generate an image to preview it here
                 </p>
               </div>
             </motion.div>
