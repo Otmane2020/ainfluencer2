@@ -184,77 +184,93 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fire-and-forget: call Railway worker asynchronously
-    console.log(`[RENDER-VIDEO] Calling worker async: ${RENDER_WORKER_URL}`);
+    // AWAIT the worker — fail fast so the generation doesn't stay stuck in "processing"
+    console.log(`[RENDER-VIDEO] Calling worker: ${RENDER_WORKER_URL}`);
 
-    // We do NOT await — just trigger
-    fetch(RENDER_WORKER_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${RENDER_WORKER_SECRET}`,
-      },
-      body: JSON.stringify({
-        imageUrl: finalImageUrl,
-        audioUrl: finalAudioUrl,
-        duration,
-        outputFormat: "mp4",
-        webhookUrl,
-        generationId,
-      }),
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          const errText = await res.text();
-          console.error(`[RENDER-VIDEO] Worker rejected: ${res.status} - ${errText}`);
-
-          // Update generation as failed and refund credits
-          if (generationId) {
-            await supabase.from("generations").update({
-              status: "failed",
-              error_message: `Worker rejected: ${res.status}`,
-              progress: 0,
-            }).eq("id", generationId);
-          }
-
-          if (userId) {
-            await supabase.rpc("add_credits", { p_user_id: userId, p_amount: creditCost });
-            await supabase.from("credit_transactions").insert({
-              user_id: userId,
-              amount: creditCost,
-              type: "refund",
-              description: "Refund: Remotion render worker rejected",
-            });
-          }
-        } else {
-          console.log(`[RENDER-VIDEO] Worker accepted job for generation ${generationId}`);
-          // Update progress to show worker accepted
-          if (generationId) {
-            await supabase.from("generations").update({ progress: 20 }).eq("id", generationId);
-          }
-        }
-      })
-      .catch(async (err) => {
-        console.error(`[RENDER-VIDEO] Worker fetch error:`, err.message);
-
-        if (generationId) {
-          await supabase.from("generations").update({
-            status: "failed",
-            error_message: `Worker unreachable: ${err.message}`,
-            progress: 0,
-          }).eq("id", generationId);
-        }
-
-        if (userId) {
-          await supabase.rpc("add_credits", { p_user_id: userId, p_amount: creditCost });
-          await supabase.from("credit_transactions").insert({
-            user_id: userId,
-            amount: creditCost,
-            type: "refund",
-            description: "Refund: Remotion render worker unreachable",
-          });
-        }
+    let workerRes: Response;
+    try {
+      workerRes = await fetch(RENDER_WORKER_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${RENDER_WORKER_SECRET}`,
+        },
+        body: JSON.stringify({
+          imageUrl: finalImageUrl,
+          audioUrl: finalAudioUrl,
+          duration,
+          outputFormat: "mp4",
+          webhookUrl,
+          generationId,
+        }),
       });
+    } catch (fetchErr) {
+      // Network-level failure (DNS, timeout, TLS, etc.)
+      const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+      console.error(`[RENDER-VIDEO] Worker fetch failed: ${msg}`);
+
+      if (generationId) {
+        await supabase.from("generations").update({
+          status: "failed",
+          error_message: `Worker unreachable: ${msg}`,
+          progress: 0,
+        }).eq("id", generationId);
+      }
+
+      if (userId) {
+        await supabase.rpc("add_credits", { p_user_id: userId, p_amount: creditCost });
+        await supabase.from("credit_transactions").insert({
+          user_id: userId,
+          amount: creditCost,
+          type: "refund",
+          description: "Refund: Remotion render worker unreachable",
+        });
+      }
+
+      return new Response(
+        JSON.stringify({ success: false, error: `Worker unreachable: ${msg}`, code: "WORKER_UNREACHABLE" }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const workerBody = await workerRes.text();
+    console.log(`[RENDER-VIDEO] Worker status: ${workerRes.status} — body: ${workerBody.slice(0, 300)}`);
+
+    if (!workerRes.ok) {
+      // Railway returned 4xx/5xx
+      if (generationId) {
+        await supabase.from("generations").update({
+          status: "failed",
+          error_message: `Worker rejected (${workerRes.status}): ${workerBody.slice(0, 200)}`,
+          progress: 0,
+        }).eq("id", generationId);
+      }
+
+      if (userId) {
+        await supabase.rpc("add_credits", { p_user_id: userId, p_amount: creditCost });
+        await supabase.from("credit_transactions").insert({
+          user_id: userId,
+          amount: creditCost,
+          type: "refund",
+          description: `Refund: Worker rejected (${workerRes.status})`,
+        });
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Worker rejected with status ${workerRes.status}`,
+          workerResponse: workerBody.slice(0, 300),
+          code: "WORKER_REJECTED",
+        }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Worker accepted (202) — update progress and return
+    if (generationId) {
+      await supabase.from("generations").update({ progress: 20 }).eq("id", generationId);
+    }
 
     // Return immediately — client will poll the generations table
     return new Response(
