@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 // Cache version — bump this to invalidate stale localStorage prefs
-const CACHE_VERSION = "v4-remotion";
+const CACHE_VERSION = "v5-remotion";
 const CACHE_VERSION_KEY = "video_generator_cache_version";
 
 interface VideoSegment {
@@ -53,9 +53,14 @@ const Videos = () => {
     const storedVersion = localStorage.getItem(CACHE_VERSION_KEY);
     if (storedVersion !== CACHE_VERSION) {
       // Remove all video generator prefs so stale model IDs don't break anything
-      localStorage.removeItem("video_generator_prefs");
+      const keysToClear = ["video_generator_prefs", "generation_tasks", "video_generator_cache_version"];
+      keysToClear.forEach(k => localStorage.removeItem(k));
+      // Also clear any key starting with "video_"
+      Object.keys(localStorage)
+        .filter(k => k.startsWith("video_") || k.startsWith("remotion_"))
+        .forEach(k => localStorage.removeItem(k));
       localStorage.setItem(CACHE_VERSION_KEY, CACHE_VERSION);
-      console.log("[Videos] Cache cleared — new version:", CACHE_VERSION);
+      console.log("[Videos] Full cache cleared — new version:", CACHE_VERSION);
     }
   }, []);
 
