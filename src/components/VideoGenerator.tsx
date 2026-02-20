@@ -230,9 +230,10 @@ export const VideoGenerator = ({
           setRemotionProgress(0);
           setRemotionLabel("");
           onGeneratingChange?.(false, 0);
+          const errMsg = typeof data?.error === "string" ? data.error : "The render worker reported an error";
           toast({
             title: "Remotion render failed",
-            description: data?.error || "The render worker reported an error",
+            description: errMsg,
             variant: "destructive",
           });
         }
