@@ -186,8 +186,10 @@ export const VideoGenerator = ({
         const dbProgress = data.progress || 0;
         setRemotionProgress(prev => {
           const next = dbProgress > prev ? dbProgress : Math.min(prev + 4, 92);
-          setRemotionLabel(`FFmpeg rendering... ${next}%`);
+          setRemotionLabel(`Rendering... ${next}%`);
           onGeneratingChange?.(true, next);
+          // Sync task progress so GenerationProgressModal shows the real value
+          setGenerationTasks(prev => prev.map(t => ({ ...t, progress: next, status: "in_progress" as const })));
           return next;
         });
       }
