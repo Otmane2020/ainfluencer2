@@ -16,8 +16,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const RENDER_WORKER_URL = Deno.env.get("RENDER_WORKER_URL") || "";
-    const RENDER_WORKER_SECRET = Deno.env.get("RENDER_WORKER_SECRET") || "";
+    let RENDER_WORKER_URL = Deno.env.get("RENDER_WORKER_URL") || "";
 
     const body = await req.json();
     const { generationId, jobId } = body;
@@ -29,7 +28,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch current generation to check it exists and get user info
+    // Fetch current generation
     const { data: gen, error: genErr } = await supabase
       .from("generations")
       .select("id, user_id, quality, status, progress")
@@ -43,14 +42,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    // If already completed or failed, return current state immediately
+    // Already done
     if (gen.status === "completed" || gen.status === "failed") {
       const { data: latest } = await supabase
         .from("generations")
         .select("status, progress, media_url, error_message")
         .eq("id", generationId)
         .single();
-
       return new Response(
         JSON.stringify({ status: latest?.status, progress: latest?.progress, mediaUrl: latest?.media_url }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -58,41 +56,39 @@ Deno.serve(async (req) => {
     }
 
     // Normalize base URL
-    let baseWorkerUrl = RENDER_WORKER_URL;
-    if (!baseWorkerUrl.startsWith("http")) baseWorkerUrl = `https://${baseWorkerUrl}`;
-    baseWorkerUrl = baseWorkerUrl.replace(/\/renders?\/?$/, "").replace(/\/$/, "");
+    if (!RENDER_WORKER_URL.startsWith("http")) RENDER_WORKER_URL = `https://${RENDER_WORKER_URL}`;
+    const baseWorkerUrl = RENDER_WORKER_URL.replace(/\/renders?\/?$/, "").replace(/\/$/, "");
 
-    // Poll Railway Remotion worker for job status
+    // Poll Remotion server for job status: GET /renders/:jobId
     let workerData: any = null;
     try {
       const workerRes = await fetch(`${baseWorkerUrl}/renders/${jobId}`, {
-        headers: { Authorization: `Bearer ${RENDER_WORKER_SECRET}` },
         signal: AbortSignal.timeout(10_000),
       });
 
       if (!workerRes.ok) {
         const txt = await workerRes.text();
-        console.error(`[POLL-RENDER-JOB] Worker ${workerRes.status}: ${txt.slice(0, 200)}`);
+        console.error(`[POLL] Worker ${workerRes.status}: ${txt.slice(0, 200)}`);
         return new Response(
-          JSON.stringify({ status: "processing", progress: gen.progress, error: `Worker ${workerRes.status}` }),
+          JSON.stringify({ status: "processing", progress: gen.progress }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
       workerData = await workerRes.json();
     } catch (fetchErr) {
-      console.error("[POLL-RENDER-JOB] Fetch error:", fetchErr);
+      console.error("[POLL] Fetch error:", fetchErr);
       return new Response(
         JSON.stringify({ status: "processing", progress: gen.progress }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`[POLL-RENDER-JOB] Job ${jobId} status: ${workerData.status}`);
+    console.log(`[POLL] Job ${jobId}: ${JSON.stringify(workerData).slice(0, 300)}`);
 
-    // Map Remotion job status → DB progress
     const remotionStatus: string = workerData.status || "unknown";
 
+    // ── QUEUED ──
     if (remotionStatus === "queued") {
       await supabase.from("generations").update({ progress: 25 }).eq("id", generationId);
       return new Response(
@@ -101,8 +97,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (remotionStatus === "rendering") {
-      // Increment progress from current value toward 85%
+    // ── IN-PROGRESS ──
+    if (remotionStatus === "in-progress" || remotionStatus === "rendering") {
       const currentProgress = gen.progress || 25;
       const nextProgress = Math.min(currentProgress + 8, 85);
       await supabase.from("generations").update({ progress: nextProgress }).eq("id", generationId);
@@ -112,52 +108,75 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ── DONE ──
     if (remotionStatus === "done") {
-      // Worker provides either a URL or base64
-      const videoUrl: string | undefined = workerData.url || workerData.outputFile;
-      const videoBase64: string | undefined = workerData.base64 || workerData.video?.base64;
+      // Remotion server serves the rendered video as a static file.
+      // The output path is typically at /renders/<jobId>/<filename>.mp4
+      // workerData should contain an outputFile or output property with the filename
+      const outputFile: string | undefined = workerData.outputFile || workerData.output;
+      
+      // Build the video URL from the Railway server
+      // The static files are served at /renders, so the video is at /renders/<output>
+      let videoSourceUrl: string | undefined;
+      if (outputFile) {
+        // outputFile could be a relative path like "renders/<jobId>/out.mp4" or just the filename
+        if (outputFile.startsWith("http")) {
+          videoSourceUrl = outputFile;
+        } else {
+          // Strip leading "renders/" if present since the static mount is at /renders
+          const cleanPath = outputFile.replace(/^renders\//, "");
+          videoSourceUrl = `${baseWorkerUrl}/renders/${cleanPath}`;
+        }
+      }
 
       let finalVideoUrl: string | undefined;
 
-      if (videoUrl) {
-        // Direct URL — download and re-upload to our storage for reliability
+      if (videoSourceUrl) {
+        // Download from Railway and re-upload to our storage
         try {
-          const videoRes = await fetch(videoUrl, { signal: AbortSignal.timeout(60_000) });
-          const videoBytes = new Uint8Array(await videoRes.arrayBuffer());
-          const videoPath = `videos/remotion-${Date.now()}-${Math.random().toString(36).slice(2)}.mp4`;
-          const { error: uploadErr } = await supabase.storage
-            .from("media")
-            .upload(videoPath, videoBytes, { contentType: "video/mp4", upsert: true });
-          if (!uploadErr) {
-            const { data: urlData } = supabase.storage.from("media").getPublicUrl(videoPath);
-            finalVideoUrl = urlData.publicUrl;
+          console.log(`[POLL] Downloading video from: ${videoSourceUrl}`);
+          const videoRes = await fetch(videoSourceUrl, { signal: AbortSignal.timeout(60_000) });
+          if (videoRes.ok) {
+            const videoBytes = new Uint8Array(await videoRes.arrayBuffer());
+            const videoPath = `videos/remotion-${Date.now()}-${Math.random().toString(36).slice(2)}.mp4`;
+            const { error: uploadErr } = await supabase.storage
+              .from("media")
+              .upload(videoPath, videoBytes, { contentType: "video/mp4", upsert: true });
+            if (!uploadErr) {
+              const { data: urlData } = supabase.storage.from("media").getPublicUrl(videoPath);
+              finalVideoUrl = urlData.publicUrl;
+            } else {
+              console.error("[POLL] Upload error:", uploadErr);
+              finalVideoUrl = videoSourceUrl; // Fallback to Railway URL
+            }
           } else {
-            // Fallback: use the direct URL
-            finalVideoUrl = videoUrl;
+            console.error(`[POLL] Download failed: ${videoRes.status}`);
           }
-        } catch {
-          finalVideoUrl = videoUrl;
-        }
-      } else if (videoBase64) {
-        const videoBytes = Uint8Array.from(atob(videoBase64), (c) => c.charCodeAt(0));
-        const videoPath = `videos/remotion-${Date.now()}-${Math.random().toString(36).slice(2)}.mp4`;
-        const { error: uploadErr } = await supabase.storage
-          .from("media")
-          .upload(videoPath, videoBytes, { contentType: "video/mp4", upsert: true });
-        if (!uploadErr) {
-          const { data: urlData } = supabase.storage.from("media").getPublicUrl(videoPath);
-          finalVideoUrl = urlData.publicUrl;
+        } catch (dlErr) {
+          console.error("[POLL] Download error:", dlErr);
+          finalVideoUrl = videoSourceUrl;
         }
       }
 
       if (!finalVideoUrl) {
-        // Mark as failed if we couldn't get a video URL
         await supabase.from("generations").update({
           status: "failed",
-          error_message: "Render done but no video URL available",
+          error_message: "Render done but no video file available",
           progress: 0,
           completed_at: new Date().toISOString(),
         }).eq("id", generationId);
+
+        // Refund
+        if (gen.user_id) {
+          const CREDIT_COSTS: Record<string, number> = { standard: 5, pro: 10, cinema: 20 };
+          const refundAmount = CREDIT_COSTS[gen.quality || "standard"] || 5;
+          await supabase.rpc("add_credits", { p_user_id: gen.user_id, p_amount: refundAmount });
+          await supabase.from("credit_transactions").insert({
+            user_id: gen.user_id, amount: refundAmount, type: "refund",
+            description: "Refund: Video file unavailable",
+          });
+        }
+
         return new Response(
           JSON.stringify({ status: "failed", progress: 0 }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -171,7 +190,7 @@ Deno.serve(async (req) => {
         completed_at: new Date().toISOString(),
       }).eq("id", generationId);
 
-      console.log(`[POLL-RENDER-JOB] ✓ Generation ${generationId} completed: ${finalVideoUrl}`);
+      console.log(`[POLL] ✓ Generation ${generationId} completed: ${finalVideoUrl}`);
 
       return new Response(
         JSON.stringify({ status: "completed", progress: 100, mediaUrl: finalVideoUrl }),
@@ -179,8 +198,8 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ── FAILED ──
     if (remotionStatus === "failed" || remotionStatus === "error") {
-      // Normalize error — Railway sometimes sends error: {} (empty object)
       const rawErr = workerData.error;
       const errMsg = typeof rawErr === "string" && rawErr
         ? rawErr
@@ -188,15 +207,13 @@ Deno.serve(async (req) => {
           ? workerData.message
           : "Remotion render failed";
 
-      // Refund credits
+      // Refund
       if (gen.user_id) {
         const CREDIT_COSTS: Record<string, number> = { standard: 5, pro: 10, cinema: 20 };
         const refundAmount = CREDIT_COSTS[gen.quality || "standard"] || 5;
         await supabase.rpc("add_credits", { p_user_id: gen.user_id, p_amount: refundAmount });
         await supabase.from("credit_transactions").insert({
-          user_id: gen.user_id,
-          amount: refundAmount,
-          type: "refund",
+          user_id: gen.user_id, amount: refundAmount, type: "refund",
           description: "Refund: Remotion render failed",
         });
       }
@@ -214,18 +231,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Unknown status — return current progress unchanged
+    // Unknown status
     return new Response(
       JSON.stringify({ status: "processing", progress: gen.progress }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (error) {
-    console.error("[POLL-RENDER-JOB] Unhandled error:", error);
+    console.error("[POLL] Unhandled error:", error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
-
