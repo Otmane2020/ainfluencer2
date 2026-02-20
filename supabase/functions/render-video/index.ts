@@ -60,7 +60,22 @@ Deno.serve(async (req) => {
     const CREDIT_COSTS: Record<string, number> = { standard: 5, pro: 10, cinema: 20 };
     const creditCost = CREDIT_COSTS[quality] || 5;
 
+    // Clean the title text: strip emojis, markdown, and limit to 120 chars
+    const rawText: string = props.text || "Video render";
+    const cleanText = rawText
+      .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{FE00}-\u{FEFF}]/gu, "")
+      .replace(/^━+$/gm, "")
+      .replace(/^[📍📊📜🎥🎬]+.*$/gm, "")
+      .replace(/^(Angle:|Engagement:|SCRIPT:|SCENE BREAKDOWN:|Visual:|Voiceover:)/gim, "")
+      .replace(/#\w+/g, "")
+      .replace(/\[[\d-]+s\]/g, "")
+      .replace(/\n{2,}/g, " ")
+      .replace(/\s{2,}/g, " ")
+      .trim()
+      .slice(0, 120);
+
     console.log(`[RENDER-VIDEO] User: ${userId || "anon"} | Quality: ${quality} | Duration: ${duration}s`);
+    console.log(`[RENDER-VIDEO] Clean title: "${cleanText}"`);
     console.log(`[RENDER-VIDEO] Worker endpoint: ${RENDER_ENDPOINT}`);
 
     // Validate required fields
@@ -103,7 +118,7 @@ Deno.serve(async (req) => {
       user_id: userId || "00000000-0000-0000-0000-000000000000",
       type: "video", status: "processing", progress: 10,
       quality, project_id: projectId || null,
-      prompt: props.text || "Video render",
+      prompt: cleanText || "Video render",
       model: "clipmotion-ffmpeg", provider: "railway", duration,
     }).select().single();
     const generationId = generationRecord?.id;
@@ -132,7 +147,7 @@ Deno.serve(async (req) => {
           Authorization: `Bearer ${RENDER_WORKER_SECRET}`,
         },
         body: JSON.stringify({
-          titleText: props.text || "Video render",
+          titleText: cleanText || "Video render",
           image: finalImageUrl,
           audioUrl: finalAudioUrl,
           duration,
