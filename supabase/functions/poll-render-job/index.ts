@@ -99,8 +99,10 @@ Deno.serve(async (req) => {
 
     // ── IN-PROGRESS ──
     if (remotionStatus === "in-progress" || remotionStatus === "rendering") {
-      const currentProgress = gen.progress || 25;
-      const nextProgress = Math.min(currentProgress + 8, 85);
+      // Remotion progress is a 0-1 fraction; map to 25-90 range
+      const remotionProgress = typeof workerData.progress === "number" ? workerData.progress : 0;
+      const mappedProgress = Math.round(25 + remotionProgress * 65); // 25 at 0%, 90 at 100%
+      const nextProgress = Math.max(gen.progress || 25, Math.min(mappedProgress, 90));
       await supabase.from("generations").update({ progress: nextProgress }).eq("id", generationId);
       return new Response(
         JSON.stringify({ status: "processing", progress: nextProgress }),
