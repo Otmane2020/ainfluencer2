@@ -13,30 +13,25 @@ Deno.serve(async (req) => {
 
   try {
     let RENDER_WORKER_URL = Deno.env.get("RENDER_WORKER_URL") || "";
-    const RENDER_WORKER_SECRET = Deno.env.get("RENDER_WORKER_SECRET") || "";
 
-    if (!RENDER_WORKER_URL || !RENDER_WORKER_SECRET) {
+    if (!RENDER_WORKER_URL) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Render worker not configured. Add RENDER_WORKER_URL and RENDER_WORKER_SECRET in secrets.",
+          error: "Render worker not configured. Add RENDER_WORKER_URL in secrets.",
           code: "WORKER_NOT_CONFIGURED",
         }),
         { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Normalize base URL — strip any trailing path (/renders, /render, etc.)
+    // Normalize base URL
     if (!RENDER_WORKER_URL.startsWith("http")) {
       RENDER_WORKER_URL = `https://${RENDER_WORKER_URL}`;
     }
     const baseWorkerUrl = RENDER_WORKER_URL
       .replace(/\/renders?\/?$/, "")
       .replace(/\/$/, "");
-
-    // Try both /render and /renders for Railway worker compatibility
-    const RENDER_ENDPOINT = `${baseWorkerUrl}/render`;
-    const RENDER_ENDPOINT_ALT = `${baseWorkerUrl}/renders`;
 
     // Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -53,7 +48,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { quality = "standard", projectId, imageUrl, audioUrl, props = {} } = body;
+    const { quality = "standard", projectId, props = {} } = body;
 
     const DURATION_BY_QUALITY: Record<string, number> = { standard: 10, pro: 15, cinema: 20 };
     const duration = props.duration || DURATION_BY_QUALITY[quality] || 10;
@@ -61,13 +56,11 @@ Deno.serve(async (req) => {
     const CREDIT_COSTS: Record<string, number> = { standard: 5, pro: 10, cinema: 20 };
     const creditCost = CREDIT_COSTS[quality] || 5;
 
-    // Clean the title text: strip emojis, markdown, and limit to 120 chars
+    // Clean the title text for Remotion composition
     const rawText: string = props.text || "Video render";
     const cleanText = rawText
       .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{FE00}-\u{FEFF}]/gu, "")
       .replace(/^━+$/gm, "")
-      .replace(/^[📍📊📜🎥🎬]+.*$/gm, "")
-      .replace(/^(Angle:|Engagement:|SCRIPT:|SCENE BREAKDOWN:|Visual:|Voiceover:)/gim, "")
       .replace(/#\w+/g, "")
       .replace(/\[[\d-]+s\]/g, "")
       .replace(/\n{2,}/g, " ")
@@ -76,19 +69,8 @@ Deno.serve(async (req) => {
       .slice(0, 120);
 
     console.log(`[RENDER-VIDEO] User: ${userId || "anon"} | Quality: ${quality} | Duration: ${duration}s`);
-    console.log(`[RENDER-VIDEO] Clean title: "${cleanText}"`);
-    console.log(`[RENDER-VIDEO] Worker endpoint: ${RENDER_ENDPOINT}`);
-
-    // Validate required fields
-    const finalAudioUrl = audioUrl || props.audioUrl;
-    const finalImageUrl = imageUrl || props.imageUrl || "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1080&q=80";
-
-    if (!finalAudioUrl) {
-      return new Response(
-        JSON.stringify({ success: false, error: "audioUrl is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    console.log(`[RENDER-VIDEO] Title text: "${cleanText}"`);
+    console.log(`[RENDER-VIDEO] Worker: ${baseWorkerUrl}`);
 
     // Deduct credits
     if (userId) {
@@ -114,58 +96,26 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Create generation record — status: processing
+    // Create generation record
     const { data: generationRecord } = await supabase.from("generations").insert({
       user_id: userId || "00000000-0000-0000-0000-000000000000",
       type: "video", status: "processing", progress: 10,
       quality, project_id: projectId || null,
       prompt: cleanText || "Video render",
-      model: "clipmotion-ffmpeg", provider: "railway", duration,
+      model: "remotion", provider: "railway", duration,
     }).select().single();
     const generationId = generationRecord?.id;
-    console.log(`[RENDER-VIDEO] Generation record created: ${generationId}`);
+    console.log(`[RENDER-VIDEO] Generation: ${generationId}`);
 
-    // Webhook URL — video-webhook edge function will receive the result
-    const webhookUrl = `${supabaseUrl}/functions/v1/video-webhook`;
-
-    // ── Optional health check (non-blocking) ──
-    try {
-      const hRes = await fetch(`${baseWorkerUrl}/health`, {
-        headers: { Authorization: `Bearer ${RENDER_WORKER_SECRET}` },
-        signal: AbortSignal.timeout(5_000),
-      });
-      console.log(`[RENDER-VIDEO] Health check: ${hRes.status}`);
-    } catch { /* ignore — health check is best-effort */ }
-
-    // ── POST to FFmpeg worker — try /render, fallback to /renders ──
+    // POST to Remotion server — /renders endpoint expects { titleText }
     let jobId: string | undefined;
-    const payload = JSON.stringify({
-      imageUrl: finalImageUrl,
-      audioUrl: finalAudioUrl,
-      duration,
-      outputFormat: "mp4",
-      webhookUrl,
-      generationId,
-    });
-    const fetchHeaders = {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${RENDER_WORKER_SECRET}`,
-    };
-
     try {
-      let workerRes = await fetch(RENDER_ENDPOINT, {
-        method: "POST", headers: fetchHeaders, body: payload,
+      const workerRes = await fetch(`${baseWorkerUrl}/renders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ titleText: cleanText }),
         signal: AbortSignal.timeout(15_000),
       });
-
-      // Fallback: if /render 404s, try /renders (old route)
-      if (workerRes.status === 404) {
-        console.log(`[RENDER-VIDEO] /render returned 404, trying /renders...`);
-        workerRes = await fetch(RENDER_ENDPOINT_ALT, {
-          method: "POST", headers: fetchHeaders, body: payload,
-          signal: AbortSignal.timeout(15_000),
-        });
-      }
 
       if (!workerRes.ok) {
         const errBody = await workerRes.text();
@@ -174,17 +124,17 @@ Deno.serve(async (req) => {
 
       const workerJson = await workerRes.json();
       jobId = workerJson.jobId;
-      console.log(`[RENDER-VIDEO] Job accepted by worker: ${jobId} (status: ${workerJson.status})`);
+      console.log(`[RENDER-VIDEO] Job accepted: ${jobId}`);
     } catch (fetchErr) {
       const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
       console.error(`[RENDER-VIDEO] Worker call failed: ${msg}`);
 
-      // Refund credits on failure
+      // Refund credits
       if (userId) {
         await supabase.rpc("add_credits", { p_user_id: userId, p_amount: creditCost });
         await supabase.from("credit_transactions").insert({
           user_id: userId, amount: creditCost, type: "refund",
-          description: `Refund: Worker unreachable`,
+          description: "Refund: Worker unreachable",
         });
       }
       if (generationId) {
@@ -198,7 +148,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Update progress to 20% and store jobId so poll-render-job can use it
+    // Store jobId and update progress
     if (generationId) {
       await supabase.from("generations").update({
         progress: 20,
@@ -206,8 +156,7 @@ Deno.serve(async (req) => {
       }).eq("id", generationId);
     }
 
-    // ── Return immediately — client will poll the generations table ──
-    // The video-webhook edge function will complete the record when Railway calls back
+    // Return immediately — client polls via poll-render-job
     return new Response(
       JSON.stringify({
         success: true,

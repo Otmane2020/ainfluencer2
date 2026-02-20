@@ -167,19 +167,19 @@ export const VideoGenerator = ({
     };
   }, []);
 
-  const startRemotionPolling = (generationId: string, _jobId?: string) => {
+  const startRemotionPolling = (generationId: string, jobId?: string) => {
     if (remotionPollingRef.current) clearInterval(remotionPollingRef.current);
     setRemotionProgress(20);
     setRemotionLabel("Rendering... 20%");
     onGeneratingChange?.(true, 20);
 
     const startedAt = Date.now();
-    const STALL_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
+    const STALL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes (Remotion renders can take a while)
 
-    // Poll the generations table every 4s — video-webhook updates it when Railway finishes
+    // Poll every 5s — calls poll-render-job edge function which checks Remotion server status
     remotionPollingRef.current = setInterval(async () => {
       try {
-        // Stall timeout — if stuck processing for 3 min, mark as failed
+        // Stall timeout
         if (Date.now() - startedAt > STALL_TIMEOUT_MS) {
           clearInterval(remotionPollingRef.current!);
           remotionPollingRef.current = null;
@@ -196,6 +196,14 @@ export const VideoGenerator = ({
           return;
         }
 
+        // Call poll-render-job to check Remotion server and update DB
+        if (jobId) {
+          await supabase.functions.invoke("poll-render-job", {
+            body: { generationId, jobId },
+          });
+        }
+
+        // Then read the updated DB record
         const { data: gen, error } = await supabase
           .from("generations")
           .select("status, progress, media_url, error_message")
@@ -208,16 +216,13 @@ export const VideoGenerator = ({
         }
 
         const status = gen?.status ?? "processing";
+        const dbProgress = gen?.progress ?? 20;
 
         if (status === "processing") {
-          // Animate progress smoothly while waiting for webhook — cap at 90%
-          setRemotionProgress(prev => {
-            const next = Math.min(prev + 3, 90);
-            onGeneratingChange?.(true, next);
-            setRemotionLabel(`Rendering... ${next}%`);
-            setGenerationTasks(prev2 => prev2.map(t => ({ ...t, progress: next, status: "in_progress" as const })));
-            return next;
-          });
+          setRemotionProgress(dbProgress);
+          setRemotionLabel(`Rendering... ${dbProgress}%`);
+          onGeneratingChange?.(true, dbProgress);
+          setGenerationTasks(prev2 => prev2.map(t => ({ ...t, progress: dbProgress, status: "in_progress" as const })));
         }
 
         if (status === "completed") {
