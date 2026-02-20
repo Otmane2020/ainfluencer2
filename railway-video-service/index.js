@@ -187,8 +187,8 @@ async function runRenderJob({ jobId, imageUrl, audioUrl, duration, outputFormat,
   }
 }
 
-// Main render endpoint — async fire-and-forget
-app.post("/render", authMiddleware, async (req, res) => {
+// Main render endpoint — async fire-and-forget (also accept /renders for compatibility)
+app.post(["/render", "/renders"], authMiddleware, async (req, res) => {
   const {
     imageUrl,
     audioUrl,
