@@ -180,7 +180,13 @@ Deno.serve(async (req) => {
     }
 
     if (remotionStatus === "failed" || remotionStatus === "error") {
-      const errMsg = workerData.error || workerData.message || "Remotion render failed";
+      // Normalize error — Railway sometimes sends error: {} (empty object)
+      const rawErr = workerData.error;
+      const errMsg = typeof rawErr === "string" && rawErr
+        ? rawErr
+        : typeof workerData.message === "string" && workerData.message
+          ? workerData.message
+          : "Remotion render failed";
 
       // Refund credits
       if (gen.user_id) {
