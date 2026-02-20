@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
+import { useTheme } from "@/hooks/useTheme";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +26,8 @@ import {
   TrendingDown,
   Clock,
   ChevronRight,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -40,6 +43,7 @@ import { format } from "date-fns";
 
 const Settings = () => {
   const { profile, signOut } = useAuth();
+  const { theme, setTheme } = useTheme();
   const { 
     currentPlan, 
     balance, 
@@ -270,6 +274,50 @@ const Settings = () => {
           <Button onClick={handleUpdateProfile} disabled={isLoading} className="w-full h-9">
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* Appearance */}
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            {theme === "dark" ? <Moon className="h-4 w-4 text-primary" /> : <Sun className="h-4 w-4 text-primary" />}
+            Appearance
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setTheme("dark")}
+              className={`flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-all ${
+                theme === "dark"
+                  ? "border-primary bg-primary/10"
+                  : "border-border bg-muted/30 hover:border-primary/50"
+              }`}
+            >
+              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                <Moon className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-xs font-medium">Dark</span>
+              {theme === "dark" && (
+                <Badge className="text-[10px] px-1.5 py-0 h-4 bg-primary/20 text-primary border-primary/30">Active</Badge>
+              )}
+            </button>
+            <button
+              onClick={() => setTheme("light")}
+              className={`flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-all ${
+                theme === "light"
+                  ? "border-primary bg-primary/10"
+                  : "border-border bg-muted/30 hover:border-primary/50"
+              }`}
+            >
+              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                <Sun className="h-4 w-4 text-secondary" />
+              </div>
+              <span className="text-xs font-medium">Light</span>
+              {theme === "light" && (
+                <Badge className="text-[10px] px-1.5 py-0 h-4 bg-primary/20 text-primary border-primary/30">Active</Badge>
+              )}
+            </button>
+          </div>
         </CardContent>
       </Card>
 
