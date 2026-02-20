@@ -155,7 +155,7 @@ export const VideoGenerator = ({
     toast
   } = useToast();
 
-  // Remotion polling ref
+  // FFmpeg webhook-based polling — watch the DB, Railway calls video-webhook which updates DB
   const remotionPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [remotionProgress, setRemotionProgress] = useState(0);
   const [remotionLabel, setRemotionLabel] = useState("");
@@ -167,32 +167,38 @@ export const VideoGenerator = ({
     };
   }, []);
 
-  const startRemotionPolling = (generationId: string, jobId?: string) => {
+  const startRemotionPolling = (generationId: string, _jobId?: string) => {
     if (remotionPollingRef.current) clearInterval(remotionPollingRef.current);
     setRemotionProgress(20);
     setRemotionLabel("Rendering... 20%");
     onGeneratingChange?.(true, 20);
 
+    // Poll the generations table every 4s — video-webhook updates it when Railway finishes
     remotionPollingRef.current = setInterval(async () => {
       try {
-        // Call the poll-render-job edge function which queries Railway and updates DB
-        const { data, error } = await supabase.functions.invoke("poll-render-job", {
-          body: { generationId, jobId },
-        });
+        const { data: gen, error } = await supabase
+          .from("generations")
+          .select("status, progress, media_url, error_message")
+          .eq("id", generationId)
+          .single();
 
         if (error) {
-          console.warn("[RemotionPolling] poll-render-job error:", error);
+          console.warn("[ClipMotionPolling] DB error:", error);
           return;
         }
 
-        const progress: number = data?.progress ?? 20;
-        const status: string = data?.status ?? "processing";
+        const status = gen?.status ?? "processing";
+        const dbProgress = gen?.progress ?? 20;
 
         if (status === "processing") {
-          setRemotionProgress(progress);
-          setRemotionLabel(`Rendering... ${progress}%`);
-          onGeneratingChange?.(true, progress);
-          setGenerationTasks(prev => prev.map(t => ({ ...t, progress, status: "in_progress" as const })));
+          // Animate progress smoothly while waiting for webhook — cap at 90%
+          setRemotionProgress(prev => {
+            const next = Math.min(prev + 3, 90);
+            onGeneratingChange?.(true, next);
+            setRemotionLabel(`Rendering... ${next}%`);
+            setGenerationTasks(prev2 => prev2.map(t => ({ ...t, progress: next, status: "in_progress" as const })));
+            return next;
+          });
         }
 
         if (status === "completed") {
@@ -203,7 +209,7 @@ export const VideoGenerator = ({
           setIsGenerating(false);
           setShowProgressModal(false);
           onGeneratingChange?.(false, 100);
-          const mediaUrl: string | undefined = data?.mediaUrl;
+          const mediaUrl: string | undefined = gen?.media_url ?? undefined;
           if (mediaUrl) {
             setRemotionVideoUrl(mediaUrl);
             const completedSegment = {
@@ -217,7 +223,7 @@ export const VideoGenerator = ({
             onVideosGenerated?.([completedSegment]);
             toast({
               title: "🎬 ClipMotion video ready!",
-              description: "Your Remotion video has been rendered successfully.",
+              description: "Your video has been rendered successfully.",
             });
           }
         }
@@ -230,17 +236,20 @@ export const VideoGenerator = ({
           setRemotionProgress(0);
           setRemotionLabel("");
           onGeneratingChange?.(false, 0);
-          const errMsg = typeof data?.error === "string" ? data.error : "The render worker reported an error";
+          const rawErr = gen?.error_message;
+          const errMsg = typeof rawErr === "string" && rawErr
+            ? rawErr
+            : "The render worker encountered an error. Please try again.";
           toast({
-            title: "Remotion render failed",
+            title: "Video render failed",
             description: errMsg,
             variant: "destructive",
           });
         }
       } catch (pollErr) {
-        console.warn("[RemotionPolling] Unexpected error:", pollErr);
+        console.warn("[ClipMotionPolling] Unexpected error:", pollErr);
       }
-    }, 3000);
+    }, 4000);
   };
 
   // Avatar state
