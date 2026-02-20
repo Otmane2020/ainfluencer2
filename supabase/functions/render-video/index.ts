@@ -34,8 +34,8 @@ Deno.serve(async (req) => {
       .replace(/\/renders?\/?$/, "")
       .replace(/\/$/, "");
 
-    // The FFmpeg worker exposes POST /render (not /renders)
-    const RENDER_ENDPOINT = `${baseWorkerUrl}/render`;
+    // Remotion worker exposes POST /renders
+    const RENDER_ENDPOINT = `${baseWorkerUrl}/renders`;
 
     // Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -132,10 +132,10 @@ Deno.serve(async (req) => {
           Authorization: `Bearer ${RENDER_WORKER_SECRET}`,
         },
         body: JSON.stringify({
-          imageUrl: finalImageUrl,
+          titleText: props.text || "Video render",
+          image: finalImageUrl,
           audioUrl: finalAudioUrl,
           duration,
-          outputFormat: "mp4",
           webhookUrl,
           generationId,
         }),
