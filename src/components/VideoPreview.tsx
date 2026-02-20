@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
-import { Play, Pause, Download, Merge, Trash2, GripVertical } from "lucide-react";
+import { Play, Pause, Download, Merge, Trash2, GripVertical, Video, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { Progress } from "@/components/ui/progress";
 
 interface VideoSegment {
   id: string;
@@ -17,11 +18,12 @@ interface VideoPreviewProps {
   avatarUrl?: string;
   onMerge: () => void;
   onDeleteSegment: (id: string) => void;
+  isGenerating?: boolean;
+  progress?: number;
 }
 
-export const VideoPreview = ({ segments, avatarUrl, onMerge, onDeleteSegment }: VideoPreviewProps) => {
+export const VideoPreview = ({ segments, avatarUrl, onMerge, onDeleteSegment, isGenerating = false, progress = 0 }: VideoPreviewProps) => {
   const [playingId, setPlayingId] = useState<string | null>(null);
-
 
   const readySegments = segments.filter((s) => s.status === "ready");
   const totalDuration = readySegments.reduce((acc, s) => acc + s.duration, 0);
@@ -33,6 +35,60 @@ export const VideoPreview = ({ segments, avatarUrl, onMerge, onDeleteSegment }: 
       setPlayingId(segmentId);
     }
   };
+
+  // Show generating placeholder
+  if (isGenerating) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="rounded-2xl bg-card p-6 shadow-card"
+      >
+        <h3 className="font-display text-lg font-semibold mb-4">Video Preview</h3>
+        <div className="flex flex-col items-center justify-center rounded-xl bg-muted overflow-hidden">
+          {/* Animated shimmer placeholder */}
+          <div className="relative w-full aspect-[9/16] max-h-[360px] flex flex-col items-center justify-center gap-4 bg-gradient-to-br from-muted to-muted/60">
+            {/* Pulsing video icon */}
+            <motion.div
+              animate={{ scale: [1, 1.15, 1], opacity: [0.5, 1, 0.5] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+              className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/15"
+            >
+              <Video className="h-8 w-8 text-primary" />
+            </motion.div>
+            <div className="text-center px-6">
+              <div className="flex items-center gap-2 justify-center mb-2">
+                <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                <p className="text-sm font-medium text-foreground">Rendering video…</p>
+              </div>
+              {progress > 0 && (
+                <p className="text-xs text-muted-foreground mb-3">{progress}% complete</p>
+              )}
+            </div>
+            {/* Shimmer bars */}
+            <div className="absolute bottom-0 left-0 right-0 p-4 space-y-2">
+              <motion.div
+                animate={{ opacity: [0.3, 0.7, 0.3] }}
+                transition={{ duration: 1.4, repeat: Infinity }}
+                className="h-2 rounded-full bg-muted-foreground/20 w-3/4 mx-auto"
+              />
+              <motion.div
+                animate={{ opacity: [0.3, 0.7, 0.3] }}
+                transition={{ duration: 1.4, repeat: Infinity, delay: 0.3 }}
+                className="h-2 rounded-full bg-muted-foreground/20 w-1/2 mx-auto"
+              />
+            </div>
+          </div>
+          {/* Progress bar */}
+          {progress > 0 && (
+            <div className="w-full px-4 py-3 bg-card border-t border-border">
+              <Progress value={progress} className="h-1.5" />
+            </div>
+          )}
+        </div>
+      </motion.div>
+    );
+  }
 
   if (readySegments.length === 0) {
     return (

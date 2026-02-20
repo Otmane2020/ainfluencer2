@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Download, Share2, Trash2, ImageIcon, ExternalLink } from "lucide-react";
+import { Download, Share2, Trash2, ImageIcon, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { SocialShareModal } from "@/components/SocialShareModal";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface GeneratedImage {
   id: string;
@@ -18,12 +19,14 @@ interface ImagePreviewProps {
   latestImage: GeneratedImage | null;
   recentImages: GeneratedImage[];
   onDelete: (id: string) => void;
+  isGenerating?: boolean;
 }
 
 export const ImagePreview = ({
   latestImage,
   recentImages,
   onDelete,
+  isGenerating = false,
 }: ImagePreviewProps) => {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null);
@@ -89,7 +92,44 @@ export const ImagePreview = ({
 
         {/* Latest Image Preview */}
         <AnimatePresence mode="wait">
-          {latestImage ? (
+          {isGenerating ? (
+            <motion.div
+              key="generating"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative overflow-hidden rounded-lg border border-border"
+            >
+              {/* Shimmer skeleton */}
+              <div className="relative aspect-square bg-muted overflow-hidden">
+                {/* Animated gradient sweep */}
+                <motion.div
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-muted-foreground/10 to-transparent"
+                  animate={{ x: ["-100%", "100%"] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                />
+                {/* Center icon + label */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                  <motion.div
+                    animate={{ scale: [1, 1.1, 1], opacity: [0.6, 1, 0.6] }}
+                    transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+                    className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10"
+                  >
+                    <ImageIcon className="h-7 w-7 text-primary" />
+                  </motion.div>
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                    <span className="text-xs font-medium text-foreground">Generating image…</span>
+                  </div>
+                  {/* Skeleton lines */}
+                  <div className="mt-2 space-y-2 w-32">
+                    <Skeleton className="h-2 w-full" />
+                    <Skeleton className="h-2 w-3/4 mx-auto" />
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ) : latestImage ? (
             <motion.div
               key={latestImage.id}
               initial={{ opacity: 0, scale: 0.95 }}

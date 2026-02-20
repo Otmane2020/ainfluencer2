@@ -65,9 +65,10 @@ interface VideoGeneratorProps {
   onVideosGenerated?: (videos: VideoSegment[]) => void;
   onTasksUpdated?: (tasks: GenerationTask[]) => void;
   initialStartingFrameUrl?: string;
-  defaultVideoMode?: string; // Kept for backwards compatibility but ignored
-  hideVideoModeSelector?: boolean; // Kept for backwards compatibility but ignored
+  defaultVideoMode?: string;
+  hideVideoModeSelector?: boolean;
   onBeforeGenerate?: () => boolean;
+  onGeneratingChange?: (isGenerating: boolean, progress: number) => void;
 }
 
 // Filter commercial products for video, avatar and image
@@ -115,7 +116,8 @@ export const VideoGenerator = ({
   initialStartingFrameUrl,
   defaultVideoMode,
   hideVideoModeSelector,
-  onBeforeGenerate
+  onBeforeGenerate,
+  onGeneratingChange
 }: VideoGeneratorProps) => {
   const storedPrefs = loadPrefs();
   const defaultProduct = VIDEO_AVATAR_IMAGE_PRODUCTS.find(p => p.id === storedPrefs.productId) || VIDEO_AVATAR_IMAGE_PRODUCTS.find(p => p.id === "ai-reel-pro") || VIDEO_AVATAR_IMAGE_PRODUCTS[0];
@@ -169,6 +171,7 @@ export const VideoGenerator = ({
     if (remotionPollingRef.current) clearInterval(remotionPollingRef.current);
     setRemotionProgress(20);
     setRemotionLabel("FFmpeg rendering... 20%");
+    onGeneratingChange?.(true, 20);
 
     remotionPollingRef.current = setInterval(async () => {
       const { data } = await supabase
@@ -180,11 +183,11 @@ export const VideoGenerator = ({
       if (!data) return;
 
       if (data.status === "processing") {
-        // Use the DB progress if available, otherwise increment smoothly
         const dbProgress = data.progress || 0;
         setRemotionProgress(prev => {
           const next = dbProgress > prev ? dbProgress : Math.min(prev + 4, 92);
           setRemotionLabel(`FFmpeg rendering... ${next}%`);
+          onGeneratingChange?.(true, next);
           return next;
         });
       }
@@ -196,9 +199,9 @@ export const VideoGenerator = ({
         setRemotionLabel("✅ Render complete! 100%");
         setIsGenerating(false);
         setShowProgressModal(false);
+        onGeneratingChange?.(false, 100);
         if (data.media_url) {
           setRemotionVideoUrl(data.media_url);
-          // Push the completed video into VideoPreview panel
           const completedSegment = {
             id: generationId,
             script: "ClipMotion Video",
@@ -222,6 +225,7 @@ export const VideoGenerator = ({
         setShowProgressModal(false);
         setRemotionProgress(0);
         setRemotionLabel("");
+        onGeneratingChange?.(false, 0);
         toast({
           title: "Remotion render failed",
           description: data.error_message || "The render worker reported an error",
