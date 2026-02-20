@@ -225,7 +225,7 @@ const HistoryPage = () => {
         });
       }
       
-      // Fetch image generations from DB (for model info)
+      // Fetch image generations from DB (for model info and prompt)
       const { data: imageGenerations } = await supabase
         .from("generations")
         .select("id, media_url, model, created_at, prompt, project_id, campaign_id, thumbnail_url")
@@ -235,12 +235,14 @@ const HistoryPage = () => {
         .order("created_at", { ascending: false })
         .limit(200);
 
-      // Build a model lookup by media_url
+      // Build model and prompt lookups by media_url
       const modelByUrl = new Map<string, string>();
+      const promptByUrl = new Map<string, string>();
       if (imageGenerations) {
         for (const gen of imageGenerations) {
-          if (gen.media_url && gen.model) {
-            modelByUrl.set(gen.media_url, gen.model);
+          if (gen.media_url) {
+            if (gen.model) modelByUrl.set(gen.media_url, gen.model);
+            if (gen.prompt) promptByUrl.set(gen.media_url, gen.prompt);
           }
         }
       }
@@ -274,7 +276,8 @@ const HistoryPage = () => {
             projectName: (post.projects as any)?.name,
             campaignId: post.campaign_id || undefined,
             campaignName: (post.campaigns as any)?.name,
-            script: post.ai_prompt || undefined,
+            // Use the real image generation prompt (from generations table), not the social post caption
+            script: promptByUrl.get(post.media_url) || post.ai_prompt || undefined,
             aspectRatio: "square",
             model: modelByUrl.get(post.media_url) || undefined,
           });
@@ -296,6 +299,7 @@ const HistoryPage = () => {
             status: "generated",
             projectId: gen.project_id || undefined,
             campaignId: gen.campaign_id || undefined,
+            script: gen.prompt || undefined,
             aspectRatio: "square",
             model: gen.model || undefined,
           });
