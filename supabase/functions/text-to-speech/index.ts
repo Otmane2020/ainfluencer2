@@ -91,6 +91,15 @@ async function generateWithElevenLabs(
     if (!response.ok) {
       const errorText = await response.text();
       console.error("[ElevenLabs] API error:", response.status, errorText);
+      
+      // Parse quota exceeded errors for clearer messaging
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData?.detail?.status === "quota_exceeded") {
+          return { audioBuffer: null, error: `ElevenLabs quota exceeded: ${errorData.detail.message}` };
+        }
+      } catch (_) { /* not JSON, use generic error */ }
+      
       return { audioBuffer: null, error: `ElevenLabs API error: ${response.status}` };
     }
 
