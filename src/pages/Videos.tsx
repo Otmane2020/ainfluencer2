@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 // Cache version — bump this to invalidate stale localStorage prefs
-const CACHE_VERSION = "v5-remotion";
+const CACHE_VERSION = "v6-remotion";
 const CACHE_VERSION_KEY = "video_generator_cache_version";
 
 interface VideoSegment {
