@@ -24,33 +24,48 @@ const PlatformDot = ({ platform }: { platform: string }) => {
   );
 };
 
-const MODEL_CONFIG: Record<string, { label: string; icon: typeof Sparkles; color: string }> = {
-  "sora": { label: "Sora", icon: Sparkles, color: "bg-purple-500/80" },
-  "kling": { label: "Kling", icon: Zap, color: "bg-blue-500/80" },
-  "flux": { label: "FLUX", icon: Zap, color: "bg-violet-500/80" },
-  "gemini": { label: "Gemini", icon: Bot, color: "bg-amber-500/80" },
-  "gpt": { label: "GPT", icon: Bot, color: "bg-emerald-500/80" },
-  "comet": { label: "Comet", icon: Sparkles, color: "bg-cyan-500/80" },
-  "qwen": { label: "Qwen", icon: Sparkles, color: "bg-sky-500/80" },
-  "nano": { label: "NB", icon: Sparkles, color: "bg-yellow-500/80" },
-  "d-id": { label: "D-ID", icon: Sparkles, color: "bg-orange-500/80" },
+interface ModelConfigEntry {
+  label: string;
+  api: string;
+  icon: typeof Sparkles;
+  color: string;
+}
+
+const MODEL_CONFIG: Record<string, ModelConfigEntry> = {
+  "sora":   { label: "Sora",    api: "OpenAI",    icon: Sparkles, color: "bg-purple-500/80" },
+  "kling":  { label: "Kling",   api: "KIE API",   icon: Zap,      color: "bg-blue-500/80" },
+  "wan":    { label: "Wan",     api: "KIE API",   icon: Zap,      color: "bg-indigo-500/80" },
+  "flux":   { label: "FLUX",    api: "Replicate", icon: Zap,      color: "bg-violet-500/80" },
+  "gemini": { label: "Gemini",  api: "Google",    icon: Bot,      color: "bg-amber-500/80" },
+  "gpt":    { label: "GPT",     api: "OpenAI",    icon: Bot,      color: "bg-emerald-500/80" },
+  "comet":  { label: "Comet",   api: "Comet API", icon: Sparkles, color: "bg-cyan-500/80" },
+  "qwen":   { label: "Qwen",    api: "KIE API",   icon: Sparkles, color: "bg-sky-500/80" },
+  "nano":   { label: "NB",      api: "Internal",  icon: Sparkles, color: "bg-yellow-500/80" },
+  "d-id":   { label: "D-ID",    api: "D-ID API",  icon: Sparkles, color: "bg-orange-500/80" },
+  "ideogram": { label: "Ideogram", api: "Ideogram", icon: Sparkles, color: "bg-pink-500/80" },
 };
 
-const getModelConfig = (model: string) => {
+/** Parse raw model string → display label + API name */
+export const getModelInfo = (model: string): { label: string; api: string; color: string; icon: typeof Sparkles } => {
   const lower = model.toLowerCase();
   for (const [key, config] of Object.entries(MODEL_CONFIG)) {
-    if (lower.includes(key)) return config;
+    if (lower.includes(key)) {
+      // Try to extract version from model id (e.g. "kling-2.6" → "Kling 2.6")
+      const versionMatch = model.match(/[\d]+\.[\d]+/);
+      const label = versionMatch ? `${config.label} ${versionMatch[0]}` : config.label;
+      return { label, api: config.api, color: config.color, icon: config.icon };
+    }
   }
-  return { label: model.split("/").pop()?.split("-")[0] || model, icon: Sparkles, color: "bg-muted/80" };
+  const fallbackLabel = model.split("/").pop()?.replace(/-/g, " ") || model;
+  return { label: fallbackLabel, api: "API", color: "bg-muted/80", icon: Sparkles };
 };
 
 const ModelBadge = ({ model }: { model: string }) => {
-  const config = getModelConfig(model);
-  const Icon = config.icon;
+  const { label, api, color, icon: Icon } = getModelInfo(model);
   return (
-    <div className={`absolute top-2 left-2 ${config.color} text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full flex items-center gap-1 pointer-events-none backdrop-blur-sm`}>
-      <Icon className="h-2.5 w-2.5" />
-      {config.label}
+    <div className={`absolute top-2 left-2 ${color} text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full flex items-center gap-1 pointer-events-none backdrop-blur-sm max-w-[90%]`}>
+      <Icon className="h-2.5 w-2.5 shrink-0" />
+      <span className="truncate">{api} · {label}</span>
     </div>
   );
 };

@@ -1,3 +1,4 @@
+import { getModelInfo } from "@/components/history/MediaCard";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -433,12 +434,17 @@ export const ImageDetailModal = ({
                 </div>
 
                 {/* Model used */}
-                {model && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    <span className="font-medium text-foreground">{model}</span>
-                  </div>
-                )}
+                {model && (() => {
+                  const { label, api, color, icon: Icon } = getModelInfo(model);
+                  return (
+                    <div className="flex items-center gap-2">
+                      <div className={`${color} text-white text-[10px] font-medium px-2 py-0.5 rounded-full flex items-center gap-1`}>
+                        <Icon className="h-3 w-3" />
+                        <span>{api} · {label}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Action buttons bar */}
                 <div className="flex gap-2">
