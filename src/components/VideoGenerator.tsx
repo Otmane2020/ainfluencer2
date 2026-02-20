@@ -198,6 +198,16 @@ export const VideoGenerator = ({
         setShowProgressModal(false);
         if (data.media_url) {
           setRemotionVideoUrl(data.media_url);
+          // Push the completed video into VideoPreview panel
+          const completedSegment = {
+            id: generationId,
+            script: "ClipMotion Video",
+            duration: 10,
+            status: "ready" as const,
+            videoUrl: data.media_url,
+          };
+          setSegments([completedSegment]);
+          onVideosGenerated?.([completedSegment]);
           toast({
             title: "🎬 ClipMotion video ready!",
             description: "Your Remotion video has been rendered successfully.",
