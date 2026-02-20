@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Play, Pause, Download, Merge, Trash2, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState, useRef } from "react";
+import { useState } from "react";
 
 interface VideoSegment {
   id: string;
@@ -21,8 +21,7 @@ interface VideoPreviewProps {
 
 export const VideoPreview = ({ segments, avatarUrl, onMerge, onDeleteSegment }: VideoPreviewProps) => {
   const [playingId, setPlayingId] = useState<string | null>(null);
-  const [currentTime, setCurrentTime] = useState(0);
-  const videoRef = useRef<HTMLVideoElement>(null);
+
 
   const readySegments = segments.filter((s) => s.status === "ready");
   const totalDuration = readySegments.reduce((acc, s) => acc + s.duration, 0);
@@ -56,6 +55,8 @@ export const VideoPreview = ({ segments, avatarUrl, onMerge, onDeleteSegment }: 
     );
   }
 
+  const activeVideoUrl = readySegments[0]?.videoUrl;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -64,23 +65,31 @@ export const VideoPreview = ({ segments, avatarUrl, onMerge, onDeleteSegment }: 
     >
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h3 className="font-display text-lg font-semibold">Aperçu vidéos</h3>
+          <h3 className="font-display text-lg font-semibold">Video Preview</h3>
           <p className="text-sm text-muted-foreground">
-            {readySegments.length} segment(s) • {totalDuration}s au total
+            {readySegments.length} segment(s) • {totalDuration}s total
           </p>
         </div>
         {readySegments.length > 1 && (
           <Button variant="gradient" size="sm" onClick={onMerge}>
             <Merge className="mr-1 h-4 w-4" />
-            Fusionner
+            Merge
           </Button>
         )}
       </div>
 
       {/* Main Preview */}
-      <div className="mb-4 aspect-[9/16] max-h-[400px] overflow-hidden rounded-xl bg-muted">
-        {avatarUrl ? (
-          <div className="relative h-full w-full">
+      <div className="mb-4 overflow-hidden rounded-xl bg-muted">
+        {activeVideoUrl ? (
+          <video
+            key={activeVideoUrl}
+            src={activeVideoUrl}
+            controls
+            playsInline
+            className="w-full max-h-[400px] object-contain bg-black"
+          />
+        ) : avatarUrl ? (
+          <div className="relative aspect-[9/16] max-h-[400px]">
             <img
               src={avatarUrl}
               alt="Avatar"
@@ -89,16 +98,13 @@ export const VideoPreview = ({ segments, avatarUrl, onMerge, onDeleteSegment }: 
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
             <div className="absolute bottom-4 left-4 right-4">
               <p className="line-clamp-3 text-sm text-primary-foreground">
-                {readySegments[0]?.script || "Aperçu de la vidéo..."}
+                {readySegments[0]?.script || "Video preview..."}
               </p>
             </div>
-            <button className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-16 w-16 items-center justify-center rounded-full bg-primary-foreground/20 backdrop-blur-sm transition-transform hover:scale-110">
-              <Play className="h-8 w-8 text-primary-foreground" />
-            </button>
           </div>
         ) : (
-          <div className="flex h-full items-center justify-center">
-            <p className="text-muted-foreground">Ajoutez un avatar pour l'aperçu</p>
+          <div className="flex aspect-[9/16] max-h-[300px] items-center justify-center">
+            <p className="text-muted-foreground text-sm">No video to preview</p>
           </div>
         )}
       </div>
@@ -134,9 +140,17 @@ export const VideoPreview = ({ segments, avatarUrl, onMerge, onDeleteSegment }: 
             </div>
 
             <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Download className="h-4 w-4" />
-              </Button>
+              {segment.videoUrl ? (
+                <a href={segment.videoUrl} download>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </a>
+              ) : (
+                <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
+                  <Download className="h-4 w-4" />
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
