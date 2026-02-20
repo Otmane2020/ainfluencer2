@@ -173,9 +173,29 @@ export const VideoGenerator = ({
     setRemotionLabel("Rendering... 20%");
     onGeneratingChange?.(true, 20);
 
+    const startedAt = Date.now();
+    const STALL_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
+
     // Poll the generations table every 4s — video-webhook updates it when Railway finishes
     remotionPollingRef.current = setInterval(async () => {
       try {
+        // Stall timeout — if stuck processing for 3 min, mark as failed
+        if (Date.now() - startedAt > STALL_TIMEOUT_MS) {
+          clearInterval(remotionPollingRef.current!);
+          remotionPollingRef.current = null;
+          setIsGenerating(false);
+          setShowProgressModal(false);
+          setRemotionProgress(0);
+          setRemotionLabel("");
+          onGeneratingChange?.(false, 0);
+          toast({
+            title: "Video render timed out",
+            description: "The render worker did not respond in time. Your credits have been preserved. Please try again.",
+            variant: "destructive",
+          });
+          return;
+        }
+
         const { data: gen, error } = await supabase
           .from("generations")
           .select("status, progress, media_url, error_message")
@@ -188,7 +208,6 @@ export const VideoGenerator = ({
         }
 
         const status = gen?.status ?? "processing";
-        const dbProgress = gen?.progress ?? 20;
 
         if (status === "processing") {
           // Animate progress smoothly while waiting for webhook — cap at 90%
