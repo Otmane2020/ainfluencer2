@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const RENDER_WORKER_URL = Deno.env.get("RENDER_WORKER_URL");
+    let RENDER_WORKER_URL = Deno.env.get("RENDER_WORKER_URL") || "";
     const RENDER_WORKER_SECRET = Deno.env.get("RENDER_WORKER_SECRET");
 
     if (!RENDER_WORKER_URL || !RENDER_WORKER_SECRET) {
@@ -29,6 +29,16 @@ Deno.serve(async (req) => {
         }),
         { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Auto-fix missing protocol prefix
+    if (!RENDER_WORKER_URL.startsWith("http")) {
+      RENDER_WORKER_URL = `https://${RENDER_WORKER_URL}`;
+    }
+
+    // Ensure /render endpoint is appended if not present
+    if (!RENDER_WORKER_URL.endsWith("/render")) {
+      RENDER_WORKER_URL = `${RENDER_WORKER_URL.replace(/\/$/, "")}/render`;
     }
 
     // Detect placeholder URL
