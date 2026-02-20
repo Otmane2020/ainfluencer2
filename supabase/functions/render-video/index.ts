@@ -173,9 +173,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Update progress to 20% — render job is now running in background on Railway
+    // Update progress to 20% and store jobId so poll-render-job can use it
     if (generationId) {
-      await supabase.from("generations").update({ progress: 20 }).eq("id", generationId);
+      await supabase.from("generations").update({
+        progress: 20,
+        external_task_id: jobId || null,
+      }).eq("id", generationId);
     }
 
     // ── Return immediately — client will poll the generations table ──
