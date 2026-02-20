@@ -41,38 +41,21 @@ Deno.serve(async (req) => {
       .replace(/\/render\/?$/, "")
       .replace(/\/$/, "");
 
-    // ── Health check BEFORE deducting any credits ──────────────────────────
-    // This catches: Railway not redeployed, wrong URL, service down.
+    // ── Optional health check (non-blocking) ──────────────────────────────
     try {
       const healthRes = await fetch(`${baseWorkerUrl}/health`, {
         method: "GET",
         headers: { Authorization: `Bearer ${RENDER_WORKER_SECRET}` },
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(5000),
       });
-      if (!healthRes.ok) {
-        const healthBody = await healthRes.text();
-        console.error(`[RENDER-VIDEO] Health check failed: ${healthRes.status} — ${healthBody.slice(0, 200)}`);
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: `Railway worker is not healthy (status ${healthRes.status}). Please redeploy your Railway service from the Railway dashboard and try again.`,
-            code: "WORKER_UNHEALTHY",
-          }),
-          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      if (healthRes.ok) {
+        console.log(`[RENDER-VIDEO] Health check OK ✅`);
+      } else {
+        console.warn(`[RENDER-VIDEO] Health check returned ${healthRes.status} — proceeding anyway`);
       }
-      console.log(`[RENDER-VIDEO] Health check OK ✅`);
     } catch (healthErr) {
       const msg = healthErr instanceof Error ? healthErr.message : String(healthErr);
-      console.error(`[RENDER-VIDEO] Health check unreachable: ${msg}`);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: `Railway worker is unreachable (${msg}). Check that RENDER_WORKER_URL is correct and the Railway service is running.`,
-          code: "WORKER_UNREACHABLE",
-        }),
-        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      console.warn(`[RENDER-VIDEO] Health check skipped (${msg}) — proceeding to render`);
     }
     // ────────────────────────────────────────────────────────────────────────
 
