@@ -42,13 +42,14 @@ export const VideoPreview = ({ segments, avatarUrl, onMerge, onDeleteSegment }: 
         animate={{ opacity: 1, y: 0 }}
         className="rounded-2xl bg-card p-6 shadow-card"
       >
+        <h3 className="font-display text-lg font-semibold mb-4">Video Preview</h3>
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
             <Play className="h-8 w-8 text-muted-foreground" />
           </div>
-          <p className="text-muted-foreground">No video generated</p>
-          <p className="text-sm text-muted-foreground">
-            Create video segments to see them here
+          <p className="font-medium text-foreground">No video generated yet</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Generate a video to preview it here
           </p>
         </div>
       </motion.div>
