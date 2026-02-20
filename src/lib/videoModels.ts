@@ -12,14 +12,15 @@ export interface VideoModel {
   type: VideoModelType;
   quality: 1 | 2 | 3 | 4 | 5 | 6; // Star rating
   duration: number; // seconds
-  resolution: "720p" | "1080p";
+  resolution: "720p" | "1080p" | "4K";
   credits: number;
   costPerVideo: number; // USD
   costLevel: CostLevel;
   usage: string;
-  provider: "kie" | "comet" | "openai";
+  provider: "kie" | "comet" | "openai" | "remotion";
   hasAudio?: boolean; // Audio generation support
   apiEndpoint?: string;
+  isLocalRender?: boolean; // Uses local FFmpeg worker
 }
 
 // ============================================================
@@ -261,9 +262,61 @@ const KLING_MODELS: VideoModel[] = [
 ];
 
 // ============================================================
+// REMOTION / CLIPMOTION MODELS (Railway FFmpeg Worker)
+// ============================================================
+const REMOTION_MODELS: VideoModel[] = [
+  {
+    id: "remotion-standard",
+    name: "ClipMotion Standard",
+    type: "text-to-video",
+    quality: 3,
+    duration: 10,
+    resolution: "1080p",
+    credits: 5,
+    costPerVideo: 0.05,
+    costLevel: "ultra-low",
+    usage: "Fast voiceover reel",
+    provider: "remotion",
+    hasAudio: true,
+    isLocalRender: true,
+  },
+  {
+    id: "remotion-pro",
+    name: "ClipMotion Pro",
+    type: "text-to-video",
+    quality: 4,
+    duration: 15,
+    resolution: "1080p",
+    credits: 10,
+    costPerVideo: 0.10,
+    costLevel: "ultra-low",
+    usage: "Narrated social video",
+    provider: "remotion",
+    hasAudio: true,
+    isLocalRender: true,
+  },
+  {
+    id: "remotion-cinema",
+    name: "ClipMotion Cinema",
+    type: "text-to-video",
+    quality: 5,
+    duration: 20,
+    resolution: "4K",
+    credits: 20,
+    costPerVideo: 0.20,
+    costLevel: "low",
+    usage: "Premium 4K reel",
+    provider: "remotion",
+    hasAudio: true,
+    isLocalRender: true,
+  },
+];
+
+// ============================================================
 // ALL VIDEO MODELS
 // ============================================================
 export const VIDEO_MODELS: VideoModel[] = [
+  ...REMOTION_MODELS,
   ...WAN_MODELS,
   ...KLING_MODELS,
 ];
@@ -358,13 +411,25 @@ export function parseModelIdForKie(modelId: string): {
   }
   
   const isWan = modelId.startsWith("wan-");
-  const isKling = modelId.startsWith("kling-");
   
   return {
     model: isWan ? "wan-2.6" : "kling-2.6",
     mode: model.type,
     duration: model.duration as 5 | 10 | 15,
-    resolution: model.resolution,
+    resolution: (model.resolution === "4K" ? "1080p" : model.resolution) as "720p" | "1080p",
     withAudio: model.hasAudio || false,
   };
+}
+
+// Check if a model uses Remotion rendering pipeline
+export function isRemotionModel(modelId: string): boolean {
+  const model = VIDEO_MODELS.find(m => m.id === modelId);
+  return model?.provider === "remotion";
+}
+
+// Map remotion model ID to quality tier
+export function getRemotionQuality(modelId: string): "standard" | "pro" | "cinema" {
+  if (modelId === "remotion-cinema") return "cinema";
+  if (modelId === "remotion-pro") return "pro";
+  return "standard";
 }

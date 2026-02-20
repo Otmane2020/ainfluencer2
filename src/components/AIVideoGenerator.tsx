@@ -263,13 +263,16 @@ export const AIVideoGenerator = ({ onBeforeGenerate }: AIVideoGeneratorProps) =>
     }
   };
 
-  // Generate voiceover audio
-  const generateVoiceover = async () => {
+  // Generate voiceover audio — uploads to Supabase Storage & returns public URL
+  const generateVoiceover = async (): Promise<string | null> => {
     if (!voiceoverText.trim()) return null;
     
     setIsGeneratingAudio(true);
     
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`,
         {
@@ -277,12 +280,11 @@ export const AIVideoGenerator = ({ onBeforeGenerate }: AIVideoGeneratorProps) =>
           headers: {
             "Content-Type": "application/json",
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${accessToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({
             text: voiceoverText,
             voiceId: selectedVoice.id,
-            quality: "premium-voice",
           }),
         }
       );
@@ -291,10 +293,23 @@ export const AIVideoGenerator = ({ onBeforeGenerate }: AIVideoGeneratorProps) =>
         throw new Error(`TTS failed: ${response.status}`);
       }
 
+      // Upload to Supabase Storage so edge function can access a real HTTPS URL
       const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      setGeneratedAudio(audioUrl);
-      return audioUrl;
+      const audioFileName = `audio/remotion-${Date.now()}.mp3`;
+      const { error: uploadError } = await supabase.storage
+        .from("media")
+        .upload(audioFileName, audioBlob, { contentType: "audio/mpeg", upsert: true });
+
+      if (uploadError) throw new Error(`Audio upload failed: ${uploadError.message}`);
+
+      const { data: urlData } = supabase.storage.from("media").getPublicUrl(audioFileName);
+      const publicUrl = urlData.publicUrl;
+
+      // Also keep a local blob for preview
+      const blobUrl = URL.createObjectURL(audioBlob);
+      setGeneratedAudio(blobUrl);
+
+      return publicUrl;
     } catch (error) {
       console.error("Voiceover error:", error);
       toast({

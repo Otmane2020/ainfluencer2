@@ -20,7 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { GenerationProgressModal } from "@/components/GenerationProgressModal";
 import { VideoModelSelector } from "@/components/VideoModelSelector";
-import { VideoModel, VIDEO_MODELS, getDefaultVideoModel, parseModelIdForKie } from "@/lib/videoModels";
+import { VideoModel, VIDEO_MODELS, getDefaultVideoModel, parseModelIdForKie, isRemotionModel, getRemotionQuality } from "@/lib/videoModels";
 import { useGenerationTasks, type GenerationTask as PersistentTask } from "@/hooks/useGenerationTasks";
 interface Project {
   id: string;
@@ -625,35 +625,99 @@ ${formattedHashtags}`;
       return;
     }
 
-    // Note: setIsGenerating already called in generateContent(), don't duplicate
-    // Only ensure progress modal is shown
     setShowProgressModal(true);
 
+    // ============================================================
+    // REMOTION / CLIPMOTION PATH
+    // ============================================================
+    if (isRemotionModel(selectedKieModel.id)) {
+      const quality = getRemotionQuality(selectedKieModel.id);
+      const segment = segments.find(s => s.script.trim());
+      if (!segment) {
+        toast({ title: "Script required", description: "Add a script first", variant: "destructive" });
+        setIsGenerating(false);
+        return;
+      }
+
+      try {
+        // Generate audio and upload to storage
+        const extractVoiceoverText = (script: string): string => {
+          const voiceoverMatches = script.match(/Voiceover:\s*["']?([^"'\n]+)["']?/gi);
+          if (voiceoverMatches?.length) {
+            return voiceoverMatches.map(m => m.replace(/Voiceover:\s*["']?/i, "").replace(/["']$/, "").trim()).join(" ");
+          }
+          const scriptMatch = script.match(/📜\s*SCRIPT:\s*\n([\s\S]*?)(?=\n🎥|$)/i);
+          if (scriptMatch) return scriptMatch[1].replace(/[\u{1F300}-\u{1F9FF}]/gu, "").trim();
+          return script.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]/gu, "").replace(/^🎬.*$|^━+$|^📍.*$|^📊.*$|^📜.*$|^🎥.*$|^\[.*\]$|^Visual:.*$/gm, "").replace(/#\w+/g, "").replace(/\n{2,}/g, " ").trim().slice(0, 500);
+        };
+
+        const voiceoverText = extractVoiceoverText(segment.script);
+        const audioResponse = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${accessToken}`
+          },
+          body: JSON.stringify({ text: voiceoverText, voiceId: selectedVoice.id })
+        });
+
+        if (!audioResponse.ok) throw new Error(`TTS failed: ${audioResponse.status}`);
+
+        const audioBlob = await audioResponse.blob();
+        const audioFileName = `audio/remotion-${Date.now()}.mp3`;
+        await supabase.storage.from("media").upload(audioFileName, audioBlob, { contentType: "audio/mpeg", upsert: true });
+        const { data: audioUrlData } = supabase.storage.from("media").getPublicUrl(audioFileName);
+
+        // Call render-video edge function
+        const { data, error } = await supabase.functions.invoke("render-video", {
+          body: {
+            quality,
+            audioUrl: audioUrlData.publicUrl,
+            props: { text: segment.script, duration: selectedKieModel.duration },
+          }
+        });
+
+        if (error) throw error;
+        if (data?.code === "WORKER_NOT_CONFIGURED" || data?.code === "WORKER_PLACEHOLDER_URL") {
+          throw new Error(data.error);
+        }
+        if (!data?.success) throw new Error(data?.error || "Remotion render failed to start");
+
+        toast({
+          title: "🎬 ClipMotion render started!",
+          description: `Quality: ${quality} · ${selectedKieModel.duration}s · Check History when ready`,
+        });
+      } catch (err: any) {
+        toast({ title: "Remotion render error", description: err.message, variant: "destructive" });
+      } finally {
+        setIsGenerating(false);
+      }
+      return;
+    }
+
+    // ============================================================
+    // STANDARD KIE PATH (Wan / Kling)
+    // ============================================================
+
     // Step 1: Generate audio with ElevenLabs TTS for voiceover
-    // Helper: Extract voiceover text from formatted script
     const extractVoiceoverText = (script: string): string => {
-      // Try to extract voiceover lines (format: Voiceover: "text")
       const voiceoverMatches = script.match(/Voiceover:\s*["']?([^"'\n]+)["']?/gi);
       if (voiceoverMatches && voiceoverMatches.length > 0) {
         return voiceoverMatches.map(m => m.replace(/Voiceover:\s*["']?/i, "").replace(/["']$/, "").trim()).join(" ");
       }
-
-      // Try to extract from SCRIPT section
       const scriptMatch = script.match(/📜\s*SCRIPT:\s*\n([\s\S]*?)(?=\n🎥|$)/i);
       if (scriptMatch) {
         return scriptMatch[1].replace(/[\u{1F300}-\u{1F9FF}]/gu, "").trim();
       }
-
-      // Fallback: clean the script of emojis and formatting
       return script.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]/gu, "").replace(/^🎬.*$|^━+$|^📍.*$|^📊.*$|^📜.*$|^🎥.*$|^\[.*\]$|^Visual:.*$/gm, "").replace(/#\w+/g, "").replace(/\n{2,}/g, " ").trim().slice(0, 500);
     };
+
     const segmentsWithAudio = await Promise.all(segments.map(async segment => {
       if (!segment.script.trim()) return segment;
       try {
-        // Extract only the voiceover text, not the full formatted script
         const voiceoverText = extractVoiceoverText(segment.script);
         console.log(`[TTS] Voice: ${selectedVoice.name} (${selectedVoice.id})`);
-        console.log(`[TTS] Voiceover text: ${voiceoverText.substring(0, 100)}...`);
         const audioResponse = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`, {
           method: "POST",
           headers: {
@@ -663,7 +727,7 @@ ${formattedHashtags}`;
           },
           body: JSON.stringify({
             text: voiceoverText,
-            voiceId: selectedVoice.id // This is the selected voice (Charlie, Sarah, etc.)
+            voiceId: selectedVoice.id
           })
         });
         if (!audioResponse.ok) throw new Error(`TTS failed: ${audioResponse.status}`);
@@ -696,7 +760,6 @@ ${formattedHashtags}`;
     const segmentsWithTasks = await Promise.all(segmentsWithAudio.map(async segment => {
       if (segment.status === "error" || !segment.script.trim()) return segment;
       try {
-        // Use KIE video endpoint for Wan/Kling models
         const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kie-video?action=create`, {
           method: "POST",
           headers: {
@@ -721,7 +784,6 @@ ${formattedHashtags}`;
         }
         const result = await response.json();
 
-        // Add to generation tasks
         const newTask: GenerationTask = {
           id: segment.id,
           taskId: result.taskId,
@@ -734,7 +796,6 @@ ${formattedHashtags}`;
           script: segment.script
         };
 
-        // Add to persistent storage
         addTask(newTask);
         setGenerationTasks(prev => {
           const updated = [...prev, newTask];
@@ -762,8 +823,6 @@ ${formattedHashtags}`;
       }
     }));
     setSegments(segmentsWithTasks);
-
-    // Create a ref-like variable to track current segments
     let currentSegments = [...segmentsWithTasks];
 
     // ============================================================
