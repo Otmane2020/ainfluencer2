@@ -28,37 +28,37 @@ interface QualityTier {
 
 const QUALITY_TIERS: QualityTier[] = [
   {
-    id: "fast",
-    name: "Fast",
-    model: "nano-banana",
-    provider: "lovable",
-    description: "Nano Banana - 5s",
-    duration: 5,
-    resolution: "720p",
+    id: "standard",
+    name: "Standard",
+    model: "ClipMotion",
+    provider: "remotion",
+    description: "Remotion - 5 credits",
+    duration: 10,
+    resolution: "1080p",
     icon: Zap,
     badge: "FAST",
     color: "from-emerald-500 to-teal-500",
   },
   {
-    id: "medium",
-    name: "Standard",
-    model: "nano-banana",
-    provider: "lovable",
-    description: "Nano Banana Pro - 8s",
-    duration: 8,
+    id: "pro",
+    name: "Pro",
+    model: "ClipMotion",
+    provider: "remotion",
+    description: "Remotion Pro - 10 credits",
+    duration: 15,
     resolution: "1080p",
     icon: Sparkles,
     badge: "POPULAR",
     color: "from-primary to-violet-600",
   },
   {
-    id: "high",
-    name: "Premium",
-    model: "nano-banana-pro",
-    provider: "lovable",
-    description: "Nano Banana Pro - 10s",
-    duration: 10,
-    resolution: "1080p",
+    id: "cinema",
+    name: "Cinema",
+    model: "ClipMotion",
+    provider: "remotion",
+    description: "Remotion Cinema - 20 credits",
+    duration: 20,
+    resolution: "4K",
     icon: Crown,
     badge: "BEST",
     color: "from-amber-500 to-orange-500",
@@ -90,10 +90,9 @@ interface AIVideoGeneratorProps {
 
 export const AIVideoGenerator = ({ onBeforeGenerate }: AIVideoGeneratorProps) => {
   const [prompt, setPrompt] = useState("");
-  const [selectedTier, setSelectedTier] = useState<QualityTier>(QUALITY_TIERS[0]); // Default to Fast (5s)
+  const [selectedTier, setSelectedTier] = useState<QualityTier>(QUALITY_TIERS[0]); // Default to Standard
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
-  const [taskId, setTaskId] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   
   // Voiceover state
@@ -121,88 +120,74 @@ export const AIVideoGenerator = ({ onBeforeGenerate }: AIVideoGeneratorProps) =>
     }
 
     setIsGenerating(true);
-    setProgress(0);
+    setProgress(10);
     setGeneratedVideo(null);
 
     toast({
-      title: `Generating ${selectedTier.name}...`,
-      description: `Using ${selectedTier.model} (${selectedTier.duration}s)`,
+      title: `Generating ${selectedTier.name} with Remotion...`,
+      description: `Quality: ${selectedTier.id} · ${selectedTier.resolution}`,
     });
 
     try {
-      const { data, error } = await supabase.functions.invoke("generate-ai-video", {
+      // Generate voiceover first if enabled
+      let audioUrl: string | null = null;
+      if (enableVoiceover && voiceoverText.trim()) {
+        audioUrl = await generateVoiceover();
+      }
+
+      const { data, error } = await supabase.functions.invoke("render-video", {
         body: {
-          prompt: prompt.trim(),
-          model: selectedTier.model,
-          provider: selectedTier.provider,
-          duration: selectedTier.duration,
-          resolution: selectedTier.resolution,
+          composition: "ClipMotion",
+          quality: selectedTier.id,
+          props: {
+            text: prompt.trim(),
+            audioUrl: audioUrl ?? undefined,
+            duration: selectedTier.duration,
+          },
         },
       });
 
       if (error) throw error;
 
-      if (data?.taskId) {
-        setTaskId(data.taskId);
-        // Start polling
-        pollForCompletion(data.taskId);
-      } else if (data?.videoUrl) {
+      if (data?.code === "WORKER_NOT_CONFIGURED") {
+        throw new Error("Render worker not configured. Add RENDER_WORKER_URL and RENDER_WORKER_SECRET in secrets.");
+      }
+
+      if (!data?.success) {
+        throw new Error(data?.error || "Render failed");
+      }
+
+      // Simulate progress while render is happening
+      const progressInterval = setInterval(() => {
+        setProgress((p) => Math.min(p + 5, 95));
+      }, 1500);
+
+      clearInterval(progressInterval);
+      setProgress(100);
+
+      if (data?.videoUrl) {
         setGeneratedVideo(data.videoUrl);
-        setIsGenerating(false);
         toast({
-          title: "Video generated! 🎬",
-          description: "Your AI video is ready",
+          title: "Video rendered! 🎬",
+          description: `Remotion · ${selectedTier.name} quality`,
+        });
+      } else {
+        // Track via generationId if async
+        toast({
+          title: "Render started",
+          description: "Check History for your video when ready",
         });
       }
     } catch (error: any) {
-      console.error("Video generation error:", error);
-      setIsGenerating(false);
+      console.error("Remotion render error:", error);
       toast({
-        title: "Generation error",
-        description: error.message || "Unable to generate video",
+        title: "Render error",
+        description: error.message || "Unable to render video",
         variant: "destructive",
       });
+    } finally {
+      setIsGenerating(false);
     }
-  };
-
-  const pollForCompletion = async (tid: string) => {
-    const maxAttempts = 120; // 10 minutes max
-    
-    for (let i = 0; i < maxAttempts; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 5000)); // 5s interval
-      
-      try {
-        const { data, error } = await supabase.functions.invoke("generate-ai-video", {
-          body: { action: "status", taskId: tid },
-        });
-
-        if (error) continue;
-
-        setProgress(data?.progress || Math.min(i * 2, 95));
-
-        if (data?.status === "completed" && data?.videoUrl) {
-          setGeneratedVideo(data.videoUrl);
-          setIsGenerating(false);
-          setProgress(100);
-          toast({
-            title: "Video generated! 🎬",
-            description: "Your AI video is ready",
-          });
-          return;
-        } else if (data?.status === "failed") {
-          throw new Error(data?.error || "Generation failed");
-        }
-      } catch (e) {
-        console.error("Polling error:", e);
-      }
-    }
-
-    setIsGenerating(false);
-    toast({
-      title: "Timeout",
-      description: "Video generation took too long. Please try again.",
-      variant: "destructive",
-    });
   };
 
   // Generate voiceover audio
@@ -455,7 +440,7 @@ export const AIVideoGenerator = ({ onBeforeGenerate }: AIVideoGeneratorProps) =>
       {isGenerating && (
         <div className="rounded-xl border border-border bg-card p-4 space-y-2">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Generating with {selectedTier.model}...</span>
+            <span>Rendering with Remotion ({selectedTier.id})...</span>
             <span>{progress}%</span>
           </div>
           <div className="h-2 rounded-full bg-muted overflow-hidden">
