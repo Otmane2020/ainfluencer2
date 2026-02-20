@@ -304,6 +304,54 @@ Video duration: ${duration} seconds
 Script type: ${scriptType}
 Target word count: ${minWords}-${maxWords} words`;
 
+    // ── Robust JSON extraction helpers ──────────────────────────────────
+    function repairAndParse(json: string): unknown {
+      let braces = 0, brackets = 0;
+      for (const char of json) {
+        if (char === "{") braces++;
+        if (char === "}") braces--;
+        if (char === "[") brackets++;
+        if (char === "]") brackets--;
+      }
+      let repaired = json
+        .replace(/,\s*}/g, "}")
+        .replace(/,\s*]/g, "]")
+        .replace(/[\x00-\x1F\x7F]/g, "");
+      while (brackets > 0) { repaired += "]"; brackets--; }
+      while (braces > 0) { repaired += "}"; braces--; }
+      return JSON.parse(repaired);
+    }
+
+    function extractJsonFromResponse(raw: string): unknown {
+      // 1. Direct parse
+      try { return JSON.parse(raw); } catch { /* fall through */ }
+
+      // 2. Strip markdown code fences (complete or incomplete)
+      const stripped = raw
+        .replace(/```json\s*/gi, "")
+        .replace(/```\s*/g, "")
+        .trim();
+
+      try { return JSON.parse(stripped); } catch { /* fall through */ }
+
+      // 3. Find first { to last } 
+      const start = stripped.indexOf("{");
+      const end = stripped.lastIndexOf("}");
+      if (start !== -1 && end !== -1 && end > start) {
+        const slice = stripped.substring(start, end + 1);
+        try { return JSON.parse(slice); } catch { /* fall through */ }
+        try { return repairAndParse(slice); } catch { /* fall through */ }
+      }
+
+      // 4. Repair whatever we have
+      if (start !== -1) {
+        try { return repairAndParse(stripped.substring(start)); } catch { /* fall through */ }
+      }
+
+      throw new Error("Could not extract valid JSON from AI response");
+    }
+    // ────────────────────────────────────────────────────────────────────
+
     // Call OpenRouter API
     const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
     if (!OPENROUTER_API_KEY) {
@@ -319,20 +367,20 @@ Target word count: ${minWords}-${maxWords} words`;
         Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite", // Fast & cheap Lovable AI model
+        model: "google/gemini-2.5-flash-lite",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage },
         ],
         temperature: 0.45,
-        max_tokens: 2000,
+        max_tokens: 6000, // was 2000 — caused truncation on long scripts
       }),
     });
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error("[generate-video-scenario] CometAPI error:", errorText);
-      throw new Error(`CometAPI error: ${aiResponse.status}`);
+      console.error("[generate-video-scenario] OpenRouter error:", errorText);
+      throw new Error(`OpenRouter error: ${aiResponse.status}`);
     }
 
     const aiData = await aiResponse.json();
@@ -344,22 +392,14 @@ Target word count: ${minWords}-${maxWords} words`;
       throw new Error("Empty AI response");
     }
 
-    // Parse JSON from response (handle markdown code blocks)
+    // Parse JSON — robust extraction + repair
     let scenarios: GeneratedScenario[];
     try {
-      let jsonStr = rawContent;
-      
-      // Remove markdown code blocks if present
-      const jsonMatch = rawContent.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (jsonMatch) {
-        jsonStr = jsonMatch[1].trim();
-      }
-      
-      const parsed = JSON.parse(jsonStr);
-      scenarios = parsed.scenarios;
+      const parsed = extractJsonFromResponse(rawContent) as { scenarios?: GeneratedScenario[] };
+      scenarios = parsed.scenarios || [];
 
       if (!Array.isArray(scenarios) || scenarios.length === 0) {
-        throw new Error("No scenarios in response");
+        throw new Error("No scenarios array in parsed response");
       }
     } catch (parseError) {
       console.error("[generate-video-scenario] JSON parse error:", parseError);
