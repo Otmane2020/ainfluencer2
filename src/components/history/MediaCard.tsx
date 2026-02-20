@@ -46,22 +46,35 @@ const MODEL_CONFIG: Record<string, ModelConfigEntry> = {
 };
 
 /** Parse raw model string → display label + API name */
-export const getModelInfo = (model: string): { label: string; api: string; color: string; icon: typeof Sparkles } => {
+export const getModelInfo = (model: string, provider?: string): { label: string; api: string; color: string; icon: typeof Sparkles } => {
   const lower = model.toLowerCase();
+
+  // Provider-based API name override
+  const PROVIDER_API: Record<string, string> = {
+    openai: "OpenAI",
+    kie: "KIE API",
+    comet: "Comet API",
+    replicate: "Replicate",
+    google: "Google",
+    "d-id": "D-ID API",
+    internal: "Internal",
+  };
+  const apiFromProvider = provider ? (PROVIDER_API[provider.toLowerCase()] || provider) : null;
+
   for (const [key, config] of Object.entries(MODEL_CONFIG)) {
     if (lower.includes(key)) {
-      // Try to extract version from model id (e.g. "kling-2.6" → "Kling 2.6")
       const versionMatch = model.match(/[\d]+\.[\d]+/);
       const label = versionMatch ? `${config.label} ${versionMatch[0]}` : config.label;
-      return { label, api: config.api, color: config.color, icon: config.icon };
+      const api = apiFromProvider || config.api;
+      return { label, api, color: config.color, icon: config.icon };
     }
   }
   const fallbackLabel = model.split("/").pop()?.replace(/-/g, " ") || model;
-  return { label: fallbackLabel, api: "API", color: "bg-muted/80", icon: Sparkles };
+  return { label: fallbackLabel, api: apiFromProvider || "API", color: "bg-muted/80", icon: Sparkles };
 };
 
-const ModelBadge = ({ model }: { model: string }) => {
-  const { label, api, color, icon: Icon } = getModelInfo(model);
+const ModelBadge = ({ model, provider }: { model: string; provider?: string }) => {
+  const { label, api, color, icon: Icon } = getModelInfo(model, provider);
   return (
     <div className={`absolute top-2 left-2 ${color} text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full flex items-center gap-1 pointer-events-none backdrop-blur-sm max-w-[90%]`}>
       <Icon className="h-2.5 w-2.5 shrink-0" />
@@ -90,6 +103,7 @@ export interface MediaItem {
   platforms?: string[];
   textContent?: string;
   model?: string;
+  provider?: string; // raw provider from DB (e.g. "openai", "kie", "comet")
   externalPostId?: string;
 }
 
@@ -227,7 +241,7 @@ export const MediaCard = ({
 
       {/* Model badge */}
       {item.model && !isHovered && (
-        <ModelBadge model={item.model} />
+        <ModelBadge model={item.model} provider={item.provider} />
       )}
 
       {/* Platform icons overlay */}
