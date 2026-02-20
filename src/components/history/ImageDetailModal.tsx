@@ -433,20 +433,17 @@ export const ImageDetailModal = ({
                   {campaignName && (
                     <Badge variant="outline" className="text-xs truncate max-w-[140px]">{campaignName}</Badge>
                   )}
-                </div>
-
-                {/* Model used */}
-                {model && (() => {
-                  const { label, api, color, icon: Icon } = getModelInfo(model, provider);
-                  return (
-                    <div className="flex items-center gap-2">
+                  {/* Model + API badge inline with project badges */}
+                  {model && (() => {
+                    const { label, api, color, icon: Icon } = getModelInfo(model, provider);
+                    return (
                       <div className={`${color} text-white text-[10px] font-medium px-2 py-0.5 rounded-full flex items-center gap-1`}>
                         <Icon className="h-3 w-3" />
                         <span>{api} · {label}</span>
                       </div>
-                    </div>
-                  );
-                })()}
+                    );
+                  })()}
+                </div>
 
                 {/* Action buttons bar */}
                 <div className="flex gap-2">
