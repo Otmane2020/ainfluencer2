@@ -1,80 +1,109 @@
 
-## Fix: Remotion/FFmpeg Video Generation Pipeline
+# Fix: Video Stuck at 92% — Root Cause & Full Solution
 
-### Root Cause Analysis
+## Diagnosis
 
-There are 3 cascading bugs:
+The 92% cap is intentional code: `Math.min(prev + 4, 92)`. The progress increments every 3 seconds but deliberately stops at 92% waiting for the database to flip `status` to `completed`. That never happens because:
 
-**Bug 1 — Wrong URL (immediate):** `RENDER_WORKER_URL` was set to `https://TON-SERVICE.up.railway.app/renders` (placeholder). The correct path on the Railway worker is `/render` (no "s"). This alone causes the 404 error seen in logs.
+**The Railway worker never calls the webhook back.**
 
-**Bug 2 — Wrong payload format:** The `render-video` edge function sends `{ composition, props, quality }` to the Railway worker, but the Railway `index.js` expects `{ imageUrl, audioUrl, duration }`. These are completely incompatible.
+Database evidence: Every recent generation has `status: processing, progress: 20` forever — no `completed_at`, no `error_message`. The worker accepted the job (progress went from 10 → 20) but never sent the webhook completion callback to `video-webhook`.
 
-**Bug 3 — Synchronous timeout:** The edge function awaits the Railway worker response synchronously. FFmpeg rendering takes 30-120 seconds, but Supabase edge functions time out after ~60 seconds. This will cause failures even if Bug 1 & 2 are fixed.
+## Root Cause: Two separate issues
 
-### Architecture — Async Flow (Required)
+### Issue 1 — Wrong endpoint on Railway Remotion worker
+The `render-video` edge function now calls `POST /renders` (Remotion queue endpoint). The Remotion worker API does NOT support a `webhookUrl` callback — it only exposes:
+- `POST /renders` — submits a job and returns a `jobId`
+- `GET /renders/:jobId` — poll for status
+
+The Remotion worker never calls any webhook. It expects the client to **poll `/renders/:jobId`** for progress, not wait for a callback.
+
+### Issue 2 — The webhook-based architecture is designed for the FFmpeg worker
+The `railway-video-service/index.js` (FFmpeg worker) DOES support `webhookUrl`. But the currently deployed service on Railway is the **Remotion** worker, which doesn't.
+
+## Which worker is actually deployed?
+
+From the Railway URL `clipmotion-video-production.up.railway.app`:
+- It has `/renders` route → **Remotion worker**
+- The FFmpeg `index.js` in the repo has `/render` → NOT deployed
+
+The edge function sends `webhookUrl` + `generationId` to the Remotion worker but the Remotion worker ignores those fields entirely. So the generation stays at `processing: 20` forever.
+
+## Solution: Add server-side progress polling for the Remotion job
+
+Instead of relying on a webhook callback (which the Remotion worker doesn't support), the `render-video` edge function should:
+1. Submit the job to `/renders` → get `jobId`
+2. Return `{ generationId, jobId }` to the client immediately
+3. A **new background polling mechanism** inside the edge function OR a scheduled check polls `GET /renders/:jobId` on Railway and updates the `generations` table
+
+But edge functions can't run indefinitely. The cleanest fix is:
+
+**Option A (Recommended — minimal changes):** Move the Remotion job status polling to a dedicated edge function that the client calls repeatedly, which in turn calls `GET /renders/:jobId` on Railway and updates the DB.
+
+**Option B (Alternative):** Switch back to the FFmpeg worker (`railway-video-service/index.js`) which already has full webhook support. Deploy it to Railway and use `POST /render`.
+
+## Chosen approach: Option A — Add a `poll-render-job` edge function
+
+This is the smallest change and keeps the Remotion worker.
+
+### What changes
+
+**1. New edge function: `supabase/functions/poll-render-job/index.ts`**
+- Called by the client every 3 seconds with `{ generationId, jobId }`
+- Fetches `GET /renders/:jobId` from the Railway Remotion worker
+- Maps Remotion job status to our DB progress:
+  - `queued` → 25%
+  - `rendering` → 50–85% (incrementing)
+  - `done` → upload video URL to storage, set `status: completed, progress: 100`
+  - `failed` → set `status: failed`, refund credits
+- Returns the current status to the client
+
+**2. `src/components/VideoGenerator.tsx` — update polling to call `poll-render-job`**
+- Current: polls `generations` table directly (never updates because webhook never fires)
+- New: every 3 seconds, call `poll-render-job` edge function with `{ generationId, jobId }`
+- The edge function updates the DB, and the UI reads the new value
+- Progress will now actually advance: 20% → 25% → 50% → 85% → 100%
+- At 100%, the video URL is set and the video player shows
+
+**3. `supabase/functions/render-video/index.ts` — store jobId in generation record**
+- Add `job_id: jobId` to the `generations` insert (or update after job is accepted)
+- This allows the poll function to retrieve it without the client tracking it separately
+
+**4. Remove the 92% artificial cap**
+- Change `Math.min(prev + 4, 92)` → no longer needed since real progress comes from Railway
+
+### Flow after fix
 
 ```text
-Client                  Edge Function            Railway Worker
-  |                          |                        |
-  |-- POST render-video -->  |                        |
-  |                          |-- POST /render ------> |
-  |                          |   (fire & forget)      |
-  |<-- { generationId } --   |                        |
-  |                          |                (FFmpeg runs...)
-  |-- poll generations -----> DB                      |
-  |   every 3s               |                        |
-  |                          |<-- webhook callback -- |
-  |                          |   (on complete)        |
-  |                          |-- update generation    |
-  |<-- status: completed -   DB                       |
+Client                     render-video EF          Railway Remotion Worker
+  |                              |                          |
+  |-- invoke render-video -----> |                          |
+  |                              |-- POST /renders -------> |
+  |                              |<-- { jobId } ----------- |
+  |<-- { generationId, jobId } - |                          |
+  |                              |                   (rendering...)
+  |-- call poll-render-job (t+3s)|                          |
+  |   { generationId, jobId }    |-- GET /renders/:jobId -> |
+  |                              |<-- { status: rendering } |
+  |                              |-- update generations DB  |
+  |<-- { progress: 50 } -------- |                          |
+  |-- call poll-render-job (t+6s)|-- GET /renders/:jobId -> |
+  |                              |<-- { status: done, url } |
+  |                              |-- upload to storage      |
+  |                              |-- update DB: completed   |
+  |<-- { progress: 100, url } -- |                          |
+  |-- show video player -------> |                          |
 ```
 
-### What Will Be Changed
-
-**1. Railway `index.js` — Add webhook callback support**
-
-The worker currently returns the video as base64 in the HTTP response body (synchronous). We need to change it to:
-- Accept `webhookUrl` + `generationId` in the request body
-- Start FFmpeg in the background (non-blocking)
-- Immediately return `{ jobId, status: "started" }` (202 Accepted)
-- When FFmpeg finishes, upload the base64 video + call the webhook URL with the result
-
-**2. Edge function `render-video/index.ts` — Fix payload + async**
-
-- Fix the payload sent to the Railway worker to include `imageUrl` (generated from a background image based on the prompt), `audioUrl`, `duration`
-- Since the worker is FFmpeg-based, send a **gradient/dark background image URL** as the base image when no `imageUrl` is provided
-- Pass `webhookUrl` = the URL of a new `video-webhook` edge function + `generationId`
-- Return immediately with `{ success: true, generationId }` — don't wait for FFmpeg
-
-**3. New edge function `video-webhook/index.ts`**
-
-- Receives the callback from the Railway worker when rendering is done
-- Receives `{ generationId, video: { base64 } }`
-- Uploads the base64 video to the `media` storage bucket
-- Updates the `generations` row: `status = "completed"`, `media_url = <public URL>`
-
-**4. `AIVideoGenerator.tsx` — Poll for completion**
-
-- After invoking `render-video`, get back `generationId`
-- Start polling the `generations` table every 3 seconds
-- Show real progress bar (10% → 95% while polling, 100% when `status = "completed"`)
-- When complete, display the video from `media_url`
-- If `status = "failed"`, show error toast
-
-**5. Update `RENDER_WORKER_URL` secret**
-
-The user must update the secret to their actual Railway URL. We will update the edge function to gracefully detect the placeholder URL and show a clear error instead of a 404.
-
-### Files to Edit
+### Files to modify
 
 | File | Change |
 |---|---|
-| `railway-video-service/index.js` | Add async mode: accept `webhookUrl`, start FFmpeg in background, call webhook on complete |
-| `supabase/functions/render-video/index.ts` | Fix payload format, make async, add webhook URL |
-| `supabase/functions/video-webhook/index.ts` | New: receives callback, uploads video, updates `generations` |
-| `supabase/config.toml` | Add `[functions.video-webhook]` entry |
-| `src/components/AIVideoGenerator.tsx` | Replace sync call with poll-based UI |
+| `supabase/functions/poll-render-job/index.ts` | New: polls Railway `/renders/:jobId`, updates DB, returns status |
+| `supabase/functions/render-video/index.ts` | Store `jobId` in generations record after job accepted |
+| `src/components/VideoGenerator.tsx` | Call `poll-render-job` edge function every 3s instead of querying DB directly; remove 92% cap |
+| `supabase/config.toml` | Add `[functions.poll-render-job]` entry |
 
-### User Action Required
+### Why not touch the Railway worker?
 
-After these changes, the user must update the `RENDER_WORKER_URL` secret to their actual Railway deployment URL (e.g. `https://my-real-service.up.railway.app/render`). The Railway `index.js` also needs to be redeployed with the new async code.
+The Remotion worker already works correctly — it accepts jobs and renders videos. The only missing piece is the bridge that reads its status and writes it to our database. That bridge is the new `poll-render-job` edge function.
