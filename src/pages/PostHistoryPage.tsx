@@ -86,11 +86,11 @@ const PostHistoryPage = () => {
     setIsLoading(true);
 
     try {
-      // Don't select media_url in list query - base64 data is too large (1-2MB each)
-      // Only load media_url on demand when user clicks a post
+      // Include media_url — Supabase Storage URLs are public direct URLs (not base64),
+      // so they're safe to include in list queries for thumbnail display
       let query = supabase
         .from("scheduled_posts")
-        .select("id, content_type, text_content, thumbnail_url, ai_prompt, status, created_at, platforms, campaign_id, project_id, external_post_id, campaigns(name), projects(name)")
+        .select("id, content_type, text_content, thumbnail_url, media_url, ai_prompt, status, created_at, platforms, campaign_id, project_id, external_post_id, campaigns(name), projects(name)")
         .eq("status", "published")
         .eq("user_id", user.id)
         .order("published_at", { ascending: false })
@@ -104,24 +104,28 @@ const PostHistoryPage = () => {
       if (error) throw error;
 
       const mapped: MediaItem[] = (data || [])
-        .map((item: any) => ({
-          id: item.id,
-          type: item.content_type === "video" ? "video" as const : "image" as const,
-          title: (item.projects as any)?.name || "Post",
-          url: undefined, // loaded on demand
-          thumbnailUrl: item.thumbnail_url || undefined,
-          createdAt: new Date(item.created_at),
-          status: item.status || "published",
-          projectId: item.project_id,
-          projectName: (item.projects as any)?.name,
-          campaignId: item.campaign_id || undefined,
-          campaignName: (item.campaigns as any)?.name,
-          platforms: item.platforms || [],
-          textContent: item.text_content || item.ai_prompt || "",
-          script: item.ai_prompt || undefined,
-          aspectRatio: item.content_type === "video" ? "vertical" as const : "square" as const,
-          externalPostId: item.external_post_id || undefined,
-        }));
+        .map((item: any) => {
+          const mediaUrl = item.media_url || undefined;
+          const thumbUrl = item.thumbnail_url || (item.content_type === "image" ? mediaUrl : undefined);
+          return {
+            id: item.id,
+            type: item.content_type === "video" ? "video" as const : "image" as const,
+            title: (item.projects as any)?.name || "Post",
+            url: mediaUrl,
+            thumbnailUrl: thumbUrl,
+            createdAt: new Date(item.created_at),
+            status: item.status || "published",
+            projectId: item.project_id,
+            projectName: (item.projects as any)?.name,
+            campaignId: item.campaign_id || undefined,
+            campaignName: (item.campaigns as any)?.name,
+            platforms: item.platforms || [],
+            textContent: item.text_content || item.ai_prompt || "",
+            script: item.ai_prompt || undefined,
+            aspectRatio: item.content_type === "video" ? "vertical" as const : "square" as const,
+            externalPostId: item.external_post_id || undefined,
+          };
+        });
 
       setItems(mapped);
     } catch (error) {
