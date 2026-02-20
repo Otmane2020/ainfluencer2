@@ -56,7 +56,7 @@ async function generateWithElevenLabs(
   text: string, 
   voiceId: string
 ): Promise<{ audioBuffer: ArrayBuffer | null; error?: string }> {
-  const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY");
+  const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY") || Deno.env.get("ELEVENLABS_API_KEY_1");
   
   if (!ELEVENLABS_API_KEY) {
     console.error("ELEVENLABS_API_KEY not configured");
