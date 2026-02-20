@@ -147,10 +147,10 @@ Deno.serve(async (req) => {
           Authorization: `Bearer ${RENDER_WORKER_SECRET}`,
         },
         body: JSON.stringify({
-          titleText: cleanText || "Video render",
-          image: finalImageUrl,
+          imageUrl: finalImageUrl,
           audioUrl: finalAudioUrl,
           duration,
+          outputFormat: "mp4",
           webhookUrl,
           generationId,
         }),
