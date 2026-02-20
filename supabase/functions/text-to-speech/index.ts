@@ -56,60 +56,75 @@ async function generateWithElevenLabs(
   text: string, 
   voiceId: string
 ): Promise<{ audioBuffer: ArrayBuffer | null; error?: string }> {
-  const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY_1") || Deno.env.get("ELEVENLABS_API_KEY");
+  // Try both keys in order
+  const keys = [
+    Deno.env.get("ELEVENLABS_API_KEY_1"),
+    Deno.env.get("ELEVENLABS_API_KEY"),
+  ].filter(Boolean) as string[];
   
-  if (!ELEVENLABS_API_KEY) {
-    console.error("ELEVENLABS_API_KEY not configured");
+  if (keys.length === 0) {
+    console.error("No ELEVENLABS_API_KEY configured");
     return { audioBuffer: null, error: "ElevenLabs API key not configured" };
   }
 
-  try {
-    console.log("[ElevenLabs] Generating TTS for:", text.substring(0, 50) + "...");
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const keyLabel = i === 0 ? "KEY_1" : "KEY";
+    console.log(`[ElevenLabs] Trying ${keyLabel} for TTS...`);
 
-    const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
-      {
-        method: "POST",
-        headers: {
-          "xi-api-key": ELEVENLABS_API_KEY,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          text,
-          model_id: "eleven_multilingual_v2",
-          voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.75,
-            style: 0.4,
-            use_speaker_boost: true,
-            speed: 0.85, // Slower speech for better comprehension
+    try {
+      const response = await fetch(
+        `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
+        {
+          method: "POST",
+          headers: {
+            "xi-api-key": key,
+            "Content-Type": "application/json",
           },
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[ElevenLabs] API error:", response.status, errorText);
-      
-      // Parse quota exceeded errors for clearer messaging
-      try {
-        const errorData = JSON.parse(errorText);
-        if (errorData?.detail?.status === "quota_exceeded") {
-          return { audioBuffer: null, error: `ElevenLabs quota exceeded: ${errorData.detail.message}` };
+          body: JSON.stringify({
+            text,
+            model_id: "eleven_multilingual_v2",
+            voice_settings: {
+              stability: 0.5,
+              similarity_boost: 0.75,
+              style: 0.4,
+              use_speaker_boost: true,
+              speed: 0.85,
+            },
+          }),
         }
-      } catch (_) { /* not JSON, use generic error */ }
-      
-      return { audioBuffer: null, error: `ElevenLabs API error: ${response.status}` };
-    }
+      );
 
-    const audioBuffer = await response.arrayBuffer();
-    console.log("[ElevenLabs] Audio generated, size:", audioBuffer.byteLength);
-    return { audioBuffer };
-  } catch (error) {
-    console.error("[ElevenLabs] Exception:", error);
-    return { audioBuffer: null, error: String(error) };
+      if (response.ok) {
+        const audioBuffer = await response.arrayBuffer();
+        console.log(`[ElevenLabs] Success with ${keyLabel}, size: ${audioBuffer.byteLength}`);
+        return { audioBuffer };
+      }
+
+      const errorText = await response.text();
+      console.error(`[ElevenLabs] ${keyLabel} error: ${response.status} ${errorText}`);
+
+      // If 401 or quota exceeded, try next key
+      if (response.status === 401 || response.status === 429) {
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData?.detail?.status === "quota_exceeded") {
+            console.log(`[ElevenLabs] ${keyLabel} quota exceeded, trying next key...`);
+            continue;
+          }
+        } catch (_) {}
+        console.log(`[ElevenLabs] ${keyLabel} auth failed, trying next key...`);
+        continue;
+      }
+
+      return { audioBuffer: null, error: `ElevenLabs API error: ${response.status}` };
+    } catch (error) {
+      console.error(`[ElevenLabs] ${keyLabel} exception:`, error);
+      continue;
+    }
   }
+
+  return { audioBuffer: null, error: "All ElevenLabs API keys failed (401/quota). Please update your API key." };
 }
 
 // ============================================================
