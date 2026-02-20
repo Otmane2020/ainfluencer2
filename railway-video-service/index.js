@@ -1,10 +1,13 @@
 import express from "express";
 import cors from "cors";
 import { exec } from "child_process";
-import { promises as fs } from "fs";
+import { promises as fs, createWriteStream, unlink } from "fs";
 import path from "path";
 import https from "https";
 import http from "http";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 app.use(cors());
@@ -31,7 +34,7 @@ app.get("/health", (req, res) => {
 async function downloadFile(url, destPath) {
   return new Promise((resolve, reject) => {
     const protocol = url.startsWith("https") ? https : http;
-    const file = require("fs").createWriteStream(destPath);
+    const file = createWriteStream(destPath);
 
     protocol.get(url, (response) => {
       if (response.statusCode === 301 || response.statusCode === 302) {
@@ -47,7 +50,7 @@ async function downloadFile(url, destPath) {
         resolve(destPath);
       });
     }).on("error", (err) => {
-      require("fs").unlink(destPath, () => {});
+      unlink(destPath, () => {});
       reject(err);
     });
   });
@@ -57,9 +60,9 @@ async function downloadFile(url, destPath) {
 async function callWebhook(webhookUrl, payload) {
   if (!webhookUrl) return;
   try {
-    const protocol = webhookUrl.startsWith("https") ? https : http;
     const url = new URL(webhookUrl);
     const body = JSON.stringify(payload);
+    const protocol = webhookUrl.startsWith("https") ? https : http;
 
     await new Promise((resolve, reject) => {
       const req = protocol.request(
