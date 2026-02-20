@@ -36,24 +36,61 @@ Deno.serve(async (req) => {
       RENDER_WORKER_URL = `https://${RENDER_WORKER_URL}`;
     }
 
-    // Strip any trailing /render (or /render/) so we can append exactly once
-    RENDER_WORKER_URL = RENDER_WORKER_URL.replace(/\/render\/?$/, "").replace(/\/$/, "");
+    // Strip any trailing /render so we can append exactly once
+    const baseWorkerUrl = RENDER_WORKER_URL
+      .replace(/\/render\/?$/, "")
+      .replace(/\/$/, "");
 
-    // Append the correct endpoint
-    RENDER_WORKER_URL = `${RENDER_WORKER_URL}/render`;
+    // ── Health check BEFORE deducting any credits ──────────────────────────
+    // This catches: Railway not redeployed, wrong URL, service down.
+    try {
+      const healthRes = await fetch(`${baseWorkerUrl}/health`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${RENDER_WORKER_SECRET}` },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!healthRes.ok) {
+        const healthBody = await healthRes.text();
+        console.error(`[RENDER-VIDEO] Health check failed: ${healthRes.status} — ${healthBody.slice(0, 200)}`);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Railway worker is not healthy (status ${healthRes.status}). Please redeploy your Railway service from the Railway dashboard and try again.`,
+            code: "WORKER_UNHEALTHY",
+          }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      console.log(`[RENDER-VIDEO] Health check OK ✅`);
+    } catch (healthErr) {
+      const msg = healthErr instanceof Error ? healthErr.message : String(healthErr);
+      console.error(`[RENDER-VIDEO] Health check unreachable: ${msg}`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Railway worker is unreachable (${msg}). Check that RENDER_WORKER_URL is correct and the Railway service is running.`,
+          code: "WORKER_UNREACHABLE",
+        }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    // ────────────────────────────────────────────────────────────────────────
 
     // Detect placeholder URL
-    if (RENDER_WORKER_URL.includes("TON-SERVICE")) {
+    if (baseWorkerUrl.includes("TON-SERVICE")) {
       return new Response(
         JSON.stringify({
           success: false,
           error:
-            "RENDER_WORKER_URL is still set to the placeholder. Please update it to your real Railway deployment URL (e.g. https://my-service.up.railway.app/render).",
+            "RENDER_WORKER_URL is still set to the placeholder. Please update it to your real Railway deployment URL (e.g. https://my-service.up.railway.app).",
           code: "WORKER_PLACEHOLDER_URL",
         }),
         { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Final render endpoint
+    const RENDER_ENDPOINT = `${baseWorkerUrl}/render`;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -186,11 +223,11 @@ Deno.serve(async (req) => {
     }
 
     // AWAIT the worker — fail fast so the generation doesn't stay stuck in "processing"
-    console.log(`[RENDER-VIDEO] Calling worker: ${RENDER_WORKER_URL}`);
+    console.log(`[RENDER-VIDEO] Calling worker: ${RENDER_ENDPOINT}`);
 
     let workerRes: Response;
     try {
-      workerRes = await fetch(RENDER_WORKER_URL, {
+      workerRes = await fetch(RENDER_ENDPOINT, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
