@@ -36,10 +36,11 @@ Deno.serve(async (req) => {
       RENDER_WORKER_URL = `https://${RENDER_WORKER_URL}`;
     }
 
-    // Ensure /render endpoint is appended if not present
-    if (!RENDER_WORKER_URL.endsWith("/render")) {
-      RENDER_WORKER_URL = `${RENDER_WORKER_URL.replace(/\/$/, "")}/render`;
-    }
+    // Strip any trailing /render (or /render/) so we can append exactly once
+    RENDER_WORKER_URL = RENDER_WORKER_URL.replace(/\/render\/?$/, "").replace(/\/$/, "");
+
+    // Append the correct endpoint
+    RENDER_WORKER_URL = `${RENDER_WORKER_URL}/render`;
 
     // Detect placeholder URL
     if (RENDER_WORKER_URL.includes("TON-SERVICE")) {
