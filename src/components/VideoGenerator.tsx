@@ -153,6 +153,74 @@ export const VideoGenerator = ({
     toast
   } = useToast();
 
+  // Remotion polling ref
+  const remotionPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [remotionProgress, setRemotionProgress] = useState(0);
+  const [remotionLabel, setRemotionLabel] = useState("");
+  const [remotionVideoUrl, setRemotionVideoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (remotionPollingRef.current) clearInterval(remotionPollingRef.current);
+    };
+  }, []);
+
+  const startRemotionPolling = (generationId: string) => {
+    if (remotionPollingRef.current) clearInterval(remotionPollingRef.current);
+    setRemotionProgress(20);
+    setRemotionLabel("FFmpeg rendering... 20%");
+
+    remotionPollingRef.current = setInterval(async () => {
+      const { data } = await supabase
+        .from("generations")
+        .select("status, progress, media_url, error_message")
+        .eq("id", generationId)
+        .maybeSingle();
+
+      if (!data) return;
+
+      if (data.status === "processing") {
+        // Use the DB progress if available, otherwise increment smoothly
+        const dbProgress = data.progress || 0;
+        setRemotionProgress(prev => {
+          const next = dbProgress > prev ? dbProgress : Math.min(prev + 4, 92);
+          setRemotionLabel(`FFmpeg rendering... ${next}%`);
+          return next;
+        });
+      }
+
+      if (data.status === "completed") {
+        clearInterval(remotionPollingRef.current!);
+        remotionPollingRef.current = null;
+        setRemotionProgress(100);
+        setRemotionLabel("✅ Render complete! 100%");
+        setIsGenerating(false);
+        setShowProgressModal(false);
+        if (data.media_url) {
+          setRemotionVideoUrl(data.media_url);
+          toast({
+            title: "🎬 ClipMotion video ready!",
+            description: "Your Remotion video has been rendered successfully.",
+          });
+        }
+      }
+
+      if (data.status === "failed") {
+        clearInterval(remotionPollingRef.current!);
+        remotionPollingRef.current = null;
+        setIsGenerating(false);
+        setShowProgressModal(false);
+        setRemotionProgress(0);
+        setRemotionLabel("");
+        toast({
+          title: "Remotion render failed",
+          description: data.error_message || "The render worker reported an error",
+          variant: "destructive",
+        });
+      }
+    }, 3000);
+  };
+
   // Avatar state
   const [avatarUrl, setAvatarUrlState] = useState<string | undefined>(storedPrefs.avatarUrl);
   const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
@@ -684,10 +752,16 @@ ${formattedHashtags}`;
         }
         if (!data?.success) throw new Error(data?.error || "Remotion render failed to start");
 
-        toast({
-          title: "🎬 ClipMotion render started!",
-          description: `Quality: ${quality} · ${selectedKieModel.duration}s · Check History when ready`,
-        });
+        const generationId = data.generationId;
+        if (generationId) {
+          setRemotionProgress(10);
+          setRemotionLabel("Render job submitted... 10%");
+          startRemotionPolling(generationId);
+          toast({
+            title: "🎬 ClipMotion render started!",
+            description: `Polling progress every 3s · Quality: ${quality} · ${selectedKieModel.duration}s`,
+          });
+        }
       } catch (err: any) {
         toast({ title: "Remotion render error", description: err.message, variant: "destructive" });
       } finally {
@@ -1172,6 +1246,53 @@ ${formattedHashtags}`;
       <Button onClick={generateContent} disabled={isGenerating || segments.every(s => !s.script.trim())} variant="gradient" className="w-full">
         {isGenerating ? <><Loader2 className="h-4 w-4 animate-spin" />Generating...</> : <><Wand2 className="h-4 w-4" />Generate ({selectedKieModel.credits} credits)</>}
       </Button>
+
+      {/* Remotion Live Progress Bar */}
+      {isRemotionModel(selectedKieModel.id) && remotionProgress > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-xl border border-border bg-card p-4 space-y-2"
+        >
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-medium text-foreground">🎬 ClipMotion Render</span>
+            <span className="font-bold text-primary">{remotionProgress}%</span>
+          </div>
+          <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
+            <motion.div
+              className="h-full rounded-full bg-gradient-to-r from-primary to-violet-500"
+              initial={{ width: "0%" }}
+              animate={{ width: `${remotionProgress}%` }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">{remotionLabel}</p>
+        </motion.div>
+      )}
+
+      {/* Remotion completed video preview */}
+      {remotionVideoUrl && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="rounded-xl border border-border overflow-hidden"
+        >
+          <video
+            src={remotionVideoUrl}
+            controls
+            className="w-full max-h-64 object-contain bg-black"
+          />
+          <div className="p-3 text-center">
+            <a
+              href={remotionVideoUrl}
+              download
+              className="text-sm text-primary underline hover:no-underline"
+            >
+              Download video
+            </a>
+          </div>
+        </motion.div>
+      )}
 
       {/* Generation Progress Modal */}
       <GenerationProgressModal isOpen={showProgressModal} onClose={() => setShowProgressModal(false)} tasks={generationTasks} productName={selectedKieModel.name} />
