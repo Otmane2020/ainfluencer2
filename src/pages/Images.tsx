@@ -33,6 +33,7 @@ const Images = () => {
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [latestImage, setLatestImage] = useState<GeneratedImage | null>(null);
+  const [isImageGenerating, setIsImageGenerating] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   
   const { subscription, isLoading } = useSubscription();
@@ -50,6 +51,7 @@ const Images = () => {
   };
 
   const handleImageGenerated = (image: GeneratedImage) => {
+    setIsImageGenerating(false);
     setLatestImage(image);
     setGeneratedImages((prev) => [image, ...prev]);
   };
@@ -67,6 +69,7 @@ const Images = () => {
       setShowPaywall(true);
       return false;
     }
+    setIsImageGenerating(true);
     return true;
   };
 
@@ -122,6 +125,7 @@ const Images = () => {
               latestImage={latestImage}
               recentImages={generatedImages}
               onDelete={handleDeleteImage}
+              isGenerating={isImageGenerating}
             />
           </div>
         </motion.div>

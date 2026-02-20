@@ -38,6 +38,8 @@ interface Project {
 const Videos = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [videoSegments, setVideoSegments] = useState<VideoSegment[]>([]);
+  const [isVideoGenerating, setIsVideoGenerating] = useState(false);
+  const [videoProgress, setVideoProgress] = useState(0);
   const [generationTasks, setGenerationTasks] = useState<GenerationTask[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("all");
@@ -107,6 +109,8 @@ const Videos = () => {
 
   const handleVideosGenerated = (videos: VideoSegment[]) => {
     setVideoSegments(videos);
+    setIsVideoGenerating(false);
+    setVideoProgress(0);
   };
 
   const handleMergeVideos = () => {
@@ -173,6 +177,10 @@ const Videos = () => {
               onTasksUpdated={setGenerationTasks}
               initialStartingFrameUrl={startingFrameUrl}
               onBeforeGenerate={handleBeforeGenerate}
+              onGeneratingChange={(generating, prog) => {
+                setIsVideoGenerating(generating);
+                setVideoProgress(prog);
+              }}
             />
             {generationTasks.length > 0 && (
               <GenerationTracker tasks={generationTasks} />
@@ -183,6 +191,8 @@ const Videos = () => {
               segments={videoSegments}
               onMerge={handleMergeVideos}
               onDeleteSegment={handleDeleteVideoSegment}
+              isGenerating={isVideoGenerating}
+              progress={videoProgress}
             />
           </div>
         </motion.div>
