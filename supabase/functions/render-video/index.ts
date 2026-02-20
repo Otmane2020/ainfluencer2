@@ -6,39 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Poll the Remotion worker until job is done or timeout
-async function pollJobUntilDone(
-  baseWorkerUrl: string,
-  secret: string,
-  jobId: string,
-  maxWaitMs = 180_000, // 3 minutes max
-  intervalMs = 5_000
-): Promise<{ status: string; outputUrl?: string; error?: string }> {
-  const deadline = Date.now() + maxWaitMs;
-  while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, intervalMs));
-    try {
-      const res = await fetch(`${baseWorkerUrl}/renders/${jobId}`, {
-        headers: { Authorization: `Bearer ${secret}` },
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (!res.ok) {
-        console.warn(`[POLL] GET /renders/${jobId} → ${res.status}`);
-        continue;
-      }
-      const job = await res.json();
-      console.log(`[POLL] Job ${jobId} status: ${job.status}`);
-      if (job.status === "done") return { status: "done", outputUrl: job.outputUrl };
-      if (job.status === "failed" || job.status === "cancelled") {
-        return { status: job.status, error: job.error || job.status };
-      }
-    } catch (e) {
-      console.warn(`[POLL] Error polling job: ${e}`);
-    }
-  }
-  return { status: "timeout", error: "Render timed out after 3 minutes" };
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -59,7 +26,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Normalize base URL — strip trailing /renders or /render
+    // Normalize base URL — strip any trailing path (/renders, /render, etc.)
     if (!RENDER_WORKER_URL.startsWith("http")) {
       RENDER_WORKER_URL = `https://${RENDER_WORKER_URL}`;
     }
@@ -67,7 +34,8 @@ Deno.serve(async (req) => {
       .replace(/\/renders?\/?$/, "")
       .replace(/\/$/, "");
 
-    const RENDERS_ENDPOINT = `${baseWorkerUrl}/renders`;
+    // The FFmpeg worker exposes POST /render (not /renders)
+    const RENDER_ENDPOINT = `${baseWorkerUrl}/render`;
 
     // Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -93,6 +61,7 @@ Deno.serve(async (req) => {
     const creditCost = CREDIT_COSTS[quality] || 5;
 
     console.log(`[RENDER-VIDEO] User: ${userId || "anon"} | Quality: ${quality} | Duration: ${duration}s`);
+    console.log(`[RENDER-VIDEO] Worker endpoint: ${RENDER_ENDPOINT}`);
 
     // Validate required fields
     const finalAudioUrl = audioUrl || props.audioUrl;
@@ -129,16 +98,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Create generation record
+    // Create generation record — status: processing
     const { data: generationRecord } = await supabase.from("generations").insert({
       user_id: userId || "00000000-0000-0000-0000-000000000000",
       type: "video", status: "processing", progress: 10,
       quality, project_id: projectId || null,
       prompt: props.text || "Video render",
-      model: "remotion", provider: "railway", duration,
+      model: "clipmotion-ffmpeg", provider: "railway", duration,
     }).select().single();
     const generationId = generationRecord?.id;
-    console.log(`[RENDER-VIDEO] Generation record: ${generationId}`);
+    console.log(`[RENDER-VIDEO] Generation record created: ${generationId}`);
+
+    // Webhook URL — video-webhook edge function will receive the result
+    const webhookUrl = `${supabaseUrl}/functions/v1/video-webhook`;
 
     // ── Optional health check (non-blocking) ──
     try {
@@ -146,47 +118,48 @@ Deno.serve(async (req) => {
         headers: { Authorization: `Bearer ${RENDER_WORKER_SECRET}` },
         signal: AbortSignal.timeout(5_000),
       });
-      console.log(`[RENDER-VIDEO] Health: ${hRes.status}`);
-    } catch { /* ignore */ }
+      console.log(`[RENDER-VIDEO] Health check: ${hRes.status}`);
+    } catch { /* ignore — health check is best-effort */ }
 
-    // ── Submit job to Remotion worker ──
-    let jobId: string;
+    // ── Fire-and-forget: POST /render to FFmpeg worker ──
+    // Worker responds immediately with 202 + jobId, then calls webhookUrl when done
+    let jobId: string | undefined;
     try {
-      const workerRes = await fetch(RENDERS_ENDPOINT, {
+      const workerRes = await fetch(RENDER_ENDPOINT, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${RENDER_WORKER_SECRET}`,
         },
         body: JSON.stringify({
-          // Standard Remotion worker props
-          titleText: props.text || "Video",
-          // Extended props for ClipMotion composition
           imageUrl: finalImageUrl,
           audioUrl: finalAudioUrl,
           duration,
+          outputFormat: "mp4",
+          webhookUrl,
           generationId,
         }),
+        signal: AbortSignal.timeout(15_000), // Just wait for 202 acceptance
       });
 
       if (!workerRes.ok) {
         const errBody = await workerRes.text();
-        throw new Error(`Worker rejected (${workerRes.status}): ${errBody.slice(0, 200)}`);
+        throw new Error(`Worker rejected (${workerRes.status}): ${errBody.slice(0, 300)}`);
       }
 
       const workerJson = await workerRes.json();
       jobId = workerJson.jobId;
-      console.log(`[RENDER-VIDEO] Job submitted: ${jobId}`);
+      console.log(`[RENDER-VIDEO] Job accepted by worker: ${jobId} (status: ${workerJson.status})`);
     } catch (fetchErr) {
       const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
       console.error(`[RENDER-VIDEO] Worker call failed: ${msg}`);
 
-      // Refund credits
+      // Refund credits on failure
       if (userId) {
         await supabase.rpc("add_credits", { p_user_id: userId, p_amount: creditCost });
         await supabase.from("credit_transactions").insert({
           user_id: userId, amount: creditCost, type: "refund",
-          description: `Refund: Worker error`,
+          description: `Refund: Worker unreachable`,
         });
       }
       if (generationId) {
@@ -200,75 +173,22 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Update progress
+    // Update progress to 20% — render job is now running in background on Railway
     if (generationId) {
       await supabase.from("generations").update({ progress: 20 }).eq("id", generationId);
     }
 
-    // ── Poll until done (runs within edge function timeout) ──
-    const pollResult = await pollJobUntilDone(baseWorkerUrl, RENDER_WORKER_SECRET, jobId);
-
-    if (pollResult.status !== "done" || !pollResult.outputUrl) {
-      const errorMsg = pollResult.error || "Render did not complete";
-      if (generationId) {
-        await supabase.from("generations").update({
-          status: "failed", error_message: errorMsg, progress: 0,
-        }).eq("id", generationId);
-      }
-      // Refund credits on failure
-      if (userId) {
-        await supabase.rpc("add_credits", { p_user_id: userId, p_amount: creditCost });
-        await supabase.from("credit_transactions").insert({
-          user_id: userId, amount: creditCost, type: "refund",
-          description: `Refund: ${errorMsg}`,
-        });
-      }
-      return new Response(
-        JSON.stringify({ success: false, error: errorMsg, code: "RENDER_FAILED" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    console.log(`[RENDER-VIDEO] Job done. Output: ${pollResult.outputUrl}`);
-
-    // ── Download & re-upload video to Supabase storage ──
-    let mediaUrl = pollResult.outputUrl;
-    try {
-      const videoRes = await fetch(pollResult.outputUrl, { signal: AbortSignal.timeout(60_000) });
-      if (videoRes.ok) {
-        const videoBuffer = await videoRes.arrayBuffer();
-        const fileName = `videos/${userId || "anon"}/${generationId}.mp4`;
-        const { error: uploadError } = await supabase.storage
-          .from("media")
-          .upload(fileName, videoBuffer, { contentType: "video/mp4", upsert: true });
-        if (!uploadError) {
-          const { data: publicData } = supabase.storage.from("media").getPublicUrl(fileName);
-          mediaUrl = publicData.publicUrl;
-          console.log(`[RENDER-VIDEO] Uploaded to storage: ${mediaUrl}`);
-        }
-      }
-    } catch (uploadErr) {
-      console.warn(`[RENDER-VIDEO] Storage upload failed (using direct URL): ${uploadErr}`);
-    }
-
-    // ── Finalize generation record ──
-    if (generationId) {
-      await supabase.from("generations").update({
-        status: "completed",
-        media_url: mediaUrl,
-        progress: 100,
-        completed_at: new Date().toISOString(),
-      }).eq("id", generationId);
-    }
-
+    // ── Return immediately — client will poll the generations table ──
+    // The video-webhook edge function will complete the record when Railway calls back
     return new Response(
       JSON.stringify({
         success: true,
         generationId,
-        mediaUrl,
+        jobId,
         quality,
         creditCost,
         duration,
+        message: "Render job started. Poll generations table for status.",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
