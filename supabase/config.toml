@@ -157,3 +157,6 @@ verify_jwt = false
 
 [functions.render-video]
 verify_jwt = false
+
+[functions.video-webhook]
+verify_jwt = false
