@@ -167,72 +167,77 @@ export const VideoGenerator = ({
     };
   }, []);
 
-  const startRemotionPolling = (generationId: string) => {
+  const startRemotionPolling = (generationId: string, jobId?: string) => {
     if (remotionPollingRef.current) clearInterval(remotionPollingRef.current);
     setRemotionProgress(20);
-    setRemotionLabel("FFmpeg rendering... 20%");
+    setRemotionLabel("Rendering... 20%");
     onGeneratingChange?.(true, 20);
 
     remotionPollingRef.current = setInterval(async () => {
-      const { data } = await supabase
-        .from("generations")
-        .select("status, progress, media_url, error_message")
-        .eq("id", generationId)
-        .maybeSingle();
-
-      if (!data) return;
-
-      if (data.status === "processing") {
-        const dbProgress = data.progress || 0;
-        setRemotionProgress(prev => {
-          const next = dbProgress > prev ? dbProgress : Math.min(prev + 4, 92);
-          setRemotionLabel(`Rendering... ${next}%`);
-          onGeneratingChange?.(true, next);
-          // Sync task progress so GenerationProgressModal shows the real value
-          setGenerationTasks(prev => prev.map(t => ({ ...t, progress: next, status: "in_progress" as const })));
-          return next;
+      try {
+        // Call the poll-render-job edge function which queries Railway and updates DB
+        const { data, error } = await supabase.functions.invoke("poll-render-job", {
+          body: { generationId, jobId },
         });
-      }
 
-      if (data.status === "completed") {
-        clearInterval(remotionPollingRef.current!);
-        remotionPollingRef.current = null;
-        setRemotionProgress(100);
-        setRemotionLabel("✅ Render complete! 100%");
-        setIsGenerating(false);
-        setShowProgressModal(false);
-        onGeneratingChange?.(false, 100);
-        if (data.media_url) {
-          setRemotionVideoUrl(data.media_url);
-          const completedSegment = {
-            id: generationId,
-            script: "ClipMotion Video",
-            duration: 10,
-            status: "ready" as const,
-            videoUrl: data.media_url,
-          };
-          setSegments([completedSegment]);
-          onVideosGenerated?.([completedSegment]);
+        if (error) {
+          console.warn("[RemotionPolling] poll-render-job error:", error);
+          return;
+        }
+
+        const progress: number = data?.progress ?? 20;
+        const status: string = data?.status ?? "processing";
+
+        if (status === "processing") {
+          setRemotionProgress(progress);
+          setRemotionLabel(`Rendering... ${progress}%`);
+          onGeneratingChange?.(true, progress);
+          setGenerationTasks(prev => prev.map(t => ({ ...t, progress, status: "in_progress" as const })));
+        }
+
+        if (status === "completed") {
+          clearInterval(remotionPollingRef.current!);
+          remotionPollingRef.current = null;
+          setRemotionProgress(100);
+          setRemotionLabel("✅ Render complete! 100%");
+          setIsGenerating(false);
+          setShowProgressModal(false);
+          onGeneratingChange?.(false, 100);
+          const mediaUrl: string | undefined = data?.mediaUrl;
+          if (mediaUrl) {
+            setRemotionVideoUrl(mediaUrl);
+            const completedSegment = {
+              id: generationId,
+              script: "ClipMotion Video",
+              duration: 10,
+              status: "ready" as const,
+              videoUrl: mediaUrl,
+            };
+            setSegments([completedSegment]);
+            onVideosGenerated?.([completedSegment]);
+            toast({
+              title: "🎬 ClipMotion video ready!",
+              description: "Your Remotion video has been rendered successfully.",
+            });
+          }
+        }
+
+        if (status === "failed") {
+          clearInterval(remotionPollingRef.current!);
+          remotionPollingRef.current = null;
+          setIsGenerating(false);
+          setShowProgressModal(false);
+          setRemotionProgress(0);
+          setRemotionLabel("");
+          onGeneratingChange?.(false, 0);
           toast({
-            title: "🎬 ClipMotion video ready!",
-            description: "Your Remotion video has been rendered successfully.",
+            title: "Remotion render failed",
+            description: data?.error || "The render worker reported an error",
+            variant: "destructive",
           });
         }
-      }
-
-      if (data.status === "failed") {
-        clearInterval(remotionPollingRef.current!);
-        remotionPollingRef.current = null;
-        setIsGenerating(false);
-        setShowProgressModal(false);
-        setRemotionProgress(0);
-        setRemotionLabel("");
-        onGeneratingChange?.(false, 0);
-        toast({
-          title: "Remotion render failed",
-          description: data.error_message || "The render worker reported an error",
-          variant: "destructive",
-        });
+      } catch (pollErr) {
+        console.warn("[RemotionPolling] Unexpected error:", pollErr);
       }
     }, 3000);
   };
@@ -774,10 +779,11 @@ ${formattedHashtags}`;
         if (!data?.success) throw new Error(data?.error || "Remotion render failed to start");
 
         const generationId = data.generationId;
+        const jobId = data.jobId;
         if (generationId) {
           setRemotionProgress(10);
           setRemotionLabel("Render job submitted... 10%");
-          startRemotionPolling(generationId);
+          startRemotionPolling(generationId, jobId);
           toast({
             title: "🎬 ClipMotion render started!",
             description: `Polling progress every 3s · Quality: ${quality} · ${selectedKieModel.duration}s`,
