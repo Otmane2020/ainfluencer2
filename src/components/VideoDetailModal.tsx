@@ -1,3 +1,4 @@
+import { getModelInfo } from "@/components/history/MediaCard";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -452,12 +453,15 @@ export const VideoDetailModal = ({
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-3">
             <h2 className="font-semibold truncate max-w-[200px] md:max-w-none">{title}</h2>
-            {model && (
-              <Badge variant="secondary" className="text-xs">
-                <Sparkles className="h-3 w-3 mr-1" />
-                {model}
-              </Badge>
-            )}
+            {model && (() => {
+                const { label, api, color, icon: Icon } = getModelInfo(model);
+                return (
+                  <div className={`${color} text-white text-[10px] font-medium px-2 py-0.5 rounded-full flex items-center gap-1`}>
+                    <Icon className="h-3 w-3" />
+                    <span>{api} · {label}</span>
+                  </div>
+                );
+              })()}
           </div>
           <div className="flex items-center gap-2">
             {createdAt && (
@@ -581,7 +585,10 @@ export const VideoDetailModal = ({
                     </div>
                     <div className="bg-muted/30 rounded-lg p-3">
                       <p className="text-xs text-muted-foreground">Model</p>
-                      <p className="text-sm font-medium">{model || "Sora-2"}</p>
+                      {model ? (() => {
+                        const { label, api } = getModelInfo(model);
+                        return <p className="text-sm font-medium">{api} · {label}</p>;
+                      })() : <p className="text-sm font-medium">Sora-2</p>}
                     </div>
                   </div>
 
