@@ -1,39 +1,80 @@
 
-## Problème identifié : Double déclaration qui casse tout le cron
+## Fix: Remotion/FFmpeg Video Generation Pipeline
 
-Le log d'erreur est sans appel :
+### Root Cause Analysis
+
+There are 3 cascading bugs:
+
+**Bug 1 — Wrong URL (immediate):** `RENDER_WORKER_URL` was set to `https://TON-SERVICE.up.railway.app/renders` (placeholder). The correct path on the Railway worker is `/render` (no "s"). This alone causes the 404 error seen in logs.
+
+**Bug 2 — Wrong payload format:** The `render-video` edge function sends `{ composition, props, quality }` to the Railway worker, but the Railway `index.js` expects `{ imageUrl, audioUrl, duration }`. These are completely incompatible.
+
+**Bug 3 — Synchronous timeout:** The edge function awaits the Railway worker response synchronously. FFmpeg rendering takes 30-120 seconds, but Supabase edge functions time out after ~60 seconds. This will cause failures even if Bug 1 & 2 are fixed.
+
+### Architecture — Async Flow (Required)
+
+```text
+Client                  Edge Function            Railway Worker
+  |                          |                        |
+  |-- POST render-video -->  |                        |
+  |                          |-- POST /render ------> |
+  |                          |   (fire & forget)      |
+  |<-- { generationId } --   |                        |
+  |                          |                (FFmpeg runs...)
+  |-- poll generations -----> DB                      |
+  |   every 3s               |                        |
+  |                          |<-- webhook callback -- |
+  |                          |   (on complete)        |
+  |                          |-- update generation    |
+  |<-- status: completed -   DB                       |
 ```
-SyntaxError: Identifier 'uploadBase64ToStorage' has already been declared at line 162
-```
 
-Lors de la correction précédente, j'ai ajouté `uploadBase64ToStorage` en haut du fichier (ligne 17), mais cette fonction **existait déjà** dans le fichier original (ligne 207). Le runtime Deno refuse de charger le fichier avec une déclaration dupliquée, ce qui fait que **le cron ne démarre pas du tout** depuis la dernière modification.
+### What Will Be Changed
 
-Résultat : tous les posts programmés depuis cette heure-là (y compris LovelyAnswers à 16h45) n'ont pas été publiés.
+**1. Railway `index.js` — Add webhook callback support**
 
----
+The worker currently returns the video as base64 in the HTTP response body (synchronous). We need to change it to:
+- Accept `webhookUrl` + `generationId` in the request body
+- Start FFmpeg in the background (non-blocking)
+- Immediately return `{ jobId, status: "started" }` (202 Accepted)
+- When FFmpeg finishes, upload the base64 video + call the webhook URL with the result
 
-## Plan de correction
+**2. Edge function `render-video/index.ts` — Fix payload + async**
 
-### Étape 1 : Supprimer la déclaration dupliquée (lignes 14-52)
-Retirer le bloc `uploadBase64ToStorage` ajouté en haut du fichier (lignes 14-52), puisque la version originale existe déjà plus bas (ligne 207).
+- Fix the payload sent to the Railway worker to include `imageUrl` (generated from a background image based on the prompt), `audioUrl`, `duration`
+- Since the worker is FFmpeg-based, send a **gradient/dark background image URL** as the base image when no `imageUrl` is provided
+- Pass `webhookUrl` = the URL of a new `video-webhook` edge function + `generationId`
+- Return immediately with `{ success: true, generationId }` — don't wait for FFmpeg
 
-### Étape 2 : Vérifier la version originale (ligne 207)
-La version originale fait la même chose mais avec un code plus simple. Elle sera conservée et utilisée pour le bloc de conversion base64 ajouté avant la boucle de publication (~ligne 1400).
+**3. New edge function `video-webhook/index.ts`**
 
-### Étape 3 : Redéployer immédiatement
-Déployer la fonction corrigée pour que le cron reprenne son fonctionnement normal au prochain tick (chaque minute).
+- Receives the callback from the Railway worker when rendering is done
+- Receives `{ generationId, video: { base64 } }`
+- Uploads the base64 video to the `media` storage bucket
+- Updates the `generations` row: `status = "completed"`, `media_url = <public URL>`
 
-### Étape 4 : Reprogrammer le post LovelyAnswers manqué
-Après le déploiement, le post manqué de 16h45 devra être reprogrammé ou publié manuellement, car il a déjà été marqué "failed" ou est resté "scheduled" sans être traité.
+**4. `AIVideoGenerator.tsx` — Poll for completion**
 
----
+- After invoking `render-video`, get back `generationId`
+- Start polling the `generations` table every 3 seconds
+- Show real progress bar (10% → 95% while polling, 100% when `status = "completed"`)
+- When complete, display the video from `media_url`
+- If `status = "failed"`, show error toast
 
-## Détail technique
+**5. Update `RENDER_WORKER_URL` secret**
 
-**Fichier à modifier :** `supabase/functions/run-campaigns-cron/index.ts`
+The user must update the secret to their actual Railway URL. We will update the edge function to gracefully detect the placeholder URL and show a clear error instead of a 404.
 
-**Action :** Supprimer les lignes 14 à 52 (le bloc `uploadBase64ToStorage` dupliqué).
+### Files to Edit
 
-La version existante à la ligne ~207 fonctionne correctement et sera utilisée par tous les appels existants + le nouveau bloc de conversion base64 avant publication.
+| File | Change |
+|---|---|
+| `railway-video-service/index.js` | Add async mode: accept `webhookUrl`, start FFmpeg in background, call webhook on complete |
+| `supabase/functions/render-video/index.ts` | Fix payload format, make async, add webhook URL |
+| `supabase/functions/video-webhook/index.ts` | New: receives callback, uploads video, updates `generations` |
+| `supabase/config.toml` | Add `[functions.video-webhook]` entry |
+| `src/components/AIVideoGenerator.tsx` | Replace sync call with poll-based UI |
 
-**Impact immédiat :** Après redéploiement, le cron rebootera sans erreur et recommencera à publier les posts à l'heure prévue.
+### User Action Required
+
+After these changes, the user must update the `RENDER_WORKER_URL` secret to their actual Railway deployment URL (e.g. `https://my-real-service.up.railway.app/render`). The Railway `index.js` also needs to be redeployed with the new async code.
