@@ -49,6 +49,7 @@ interface ImageDetailModalProps {
   campaignName?: string;
   isProductShot?: boolean;
   model?: string;
+  provider?: string;
   onDelete?: () => void;
 }
 
@@ -107,6 +108,7 @@ export const ImageDetailModal = ({
   campaignName,
   isProductShot,
   model,
+  provider,
   onDelete,
 }: ImageDetailModalProps) => {
   const [caption, setCaption] = useState("");
@@ -435,7 +437,7 @@ export const ImageDetailModal = ({
 
                 {/* Model used */}
                 {model && (() => {
-                  const { label, api, color, icon: Icon } = getModelInfo(model);
+                  const { label, api, color, icon: Icon } = getModelInfo(model, provider);
                   return (
                     <div className="flex items-center gap-2">
                       <div className={`${color} text-white text-[10px] font-medium px-2 py-0.5 rounded-full flex items-center gap-1`}>

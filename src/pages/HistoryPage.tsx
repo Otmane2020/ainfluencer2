@@ -241,6 +241,7 @@ const HistoryPage = () => {
           campaignName: undefined,
           aspectRatio: "vertical",
           model: video.voice && video.voice !== "Unknown" ? video.voice : undefined,
+          provider: (video as any).provider || undefined,
         });
       }
       
@@ -670,7 +671,8 @@ const HistoryPage = () => {
         prompt={selectedVideo?.script}
         duration={selectedVideo?.duration}
         createdAt={selectedVideo?.createdAt}
-        model="AI Video"
+        model={selectedVideo?.model}
+        provider={selectedVideo?.provider}
         projectId={selectedVideo?.projectId}
         onDelete={() => {
           if (selectedVideo) {
@@ -693,6 +695,7 @@ const HistoryPage = () => {
         campaignName={selectedImage?.campaignName}
         isProductShot={selectedImage?.isProductShot}
         model={selectedImage?.model}
+        provider={selectedImage?.provider}
         onDelete={() => {
           if (selectedImage) {
             handleDelete(selectedImage.id, "image");

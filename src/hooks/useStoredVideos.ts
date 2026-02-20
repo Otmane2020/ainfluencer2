@@ -24,7 +24,7 @@ export const useStoredVideos = () => {
         // Database generations table - filter by user_id for security
         user ? supabase
           .from("generations")
-          .select("id, type, status, media_url, script, duration, model, prompt, created_at, thumbnail_url, campaign_id")
+          .select("id, type, status, media_url, script, duration, model, provider, prompt, created_at, thumbnail_url, campaign_id")
           .eq("type", "video")
           .eq("user_id", user.id)
           .in("status", ["completed", "ready"])
@@ -75,6 +75,7 @@ export const useStoredVideos = () => {
             thumbnailUrl: gen.thumbnail_url || undefined,
             createdAt: new Date(gen.created_at),
             voice: gen.model || "Unknown",
+            provider: (gen as any).provider || undefined,
             status: "ready" as const,
             campaignId: gen.campaign_id || undefined,
           }));

@@ -77,6 +77,7 @@ interface VideoDetailModalProps {
   duration?: number;
   createdAt?: Date;
   model?: string;
+  provider?: string;
   projectId?: string;
   onDelete?: () => void;
 }
@@ -91,6 +92,7 @@ export const VideoDetailModal = ({
   duration,
   createdAt,
   model,
+  provider,
   projectId,
   onDelete,
 }: VideoDetailModalProps) => {
@@ -454,7 +456,7 @@ export const VideoDetailModal = ({
           <div className="flex items-center gap-3">
             <h2 className="font-semibold truncate max-w-[200px] md:max-w-none">{title}</h2>
             {model && (() => {
-                const { label, api, color, icon: Icon } = getModelInfo(model);
+                const { label, api, color, icon: Icon } = getModelInfo(model, provider);
                 return (
                   <div className={`${color} text-white text-[10px] font-medium px-2 py-0.5 rounded-full flex items-center gap-1`}>
                     <Icon className="h-3 w-3" />
@@ -586,9 +588,9 @@ export const VideoDetailModal = ({
                     <div className="bg-muted/30 rounded-lg p-3">
                       <p className="text-xs text-muted-foreground">Model</p>
                       {model ? (() => {
-                        const { label, api } = getModelInfo(model);
+                        const { label, api } = getModelInfo(model, provider);
                         return <p className="text-sm font-medium">{api} · {label}</p>;
-                      })() : <p className="text-sm font-medium">Sora-2</p>}
+                      })() : <p className="text-sm font-medium">–</p>}
                     </div>
                   </div>
 
