@@ -199,8 +199,27 @@ const HistoryPage = () => {
     if (data) setCampaigns(data);
   };
 
-  const loadAllMedia = async () => {
+  const CACHE_KEY = `history_media_${user?.id}`;
+  const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+  const loadAllMedia = async (forceRefresh = false) => {
     if (!user) return;
+
+    // Check cache first
+    if (!forceRefresh) {
+      try {
+        const cached = sessionStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const { data, timestamp } = JSON.parse(cached);
+          if (Date.now() - timestamp < CACHE_TTL) {
+            const restored = data.map((m: any) => ({ ...m, createdAt: new Date(m.createdAt) }));
+            setAllMedia(restored);
+            return;
+          }
+        }
+      } catch {}
+    }
+
     setIsLoading(true);
     
     try {
@@ -362,6 +381,11 @@ const HistoryPage = () => {
       // Sort by date
       media.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
       setAllMedia(media);
+
+      // Save to cache
+      try {
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data: media, timestamp: Date.now() }));
+      } catch {}
     } catch (error) {
       console.error("Error loading media:", error);
     } finally {
@@ -370,7 +394,8 @@ const HistoryPage = () => {
   };
 
   const handleRefresh = async () => {
-    await loadAllMedia();
+    sessionStorage.removeItem(CACHE_KEY);
+    await loadAllMedia(true);
     toast({
       title: "Refreshed",
       description: `Found ${allMedia.length} items`,

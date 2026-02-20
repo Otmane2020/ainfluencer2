@@ -81,8 +81,28 @@ const PostHistoryPage = () => {
     if (data) setProjects(data);
   };
 
-  const fetchPosts = async () => {
+  const POST_CACHE_KEY = `post_history_${user?.id}_${selectedProject}`;
+  const POST_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+  const fetchPosts = async (forceRefresh = false) => {
     if (!user) return;
+
+    // Check cache first
+    if (!forceRefresh) {
+      try {
+        const cached = sessionStorage.getItem(POST_CACHE_KEY);
+        if (cached) {
+          const { data, timestamp } = JSON.parse(cached);
+          if (Date.now() - timestamp < POST_CACHE_TTL) {
+            const restored = data.map((m: any) => ({ ...m, createdAt: new Date(m.createdAt) }));
+            setItems(restored);
+            setIsLoading(false);
+            return;
+          }
+        }
+      } catch {}
+    }
+
     setIsLoading(true);
 
     try {
@@ -128,6 +148,11 @@ const PostHistoryPage = () => {
         });
 
       setItems(mapped);
+
+      // Save to cache
+      try {
+        sessionStorage.setItem(POST_CACHE_KEY, JSON.stringify({ data: mapped, timestamp: Date.now() }));
+      } catch {}
     } catch (error) {
       console.error("Error fetching posts:", error);
     } finally {
@@ -209,7 +234,8 @@ const PostHistoryPage = () => {
   };
 
   const handleRefresh = async () => {
-    await fetchPosts();
+    sessionStorage.removeItem(POST_CACHE_KEY);
+    await fetchPosts(true);
     toast({ title: "Refreshed", description: `Found ${items.length} posts` });
   };
 
