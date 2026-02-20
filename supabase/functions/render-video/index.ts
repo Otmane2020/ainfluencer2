@@ -34,8 +34,9 @@ Deno.serve(async (req) => {
       .replace(/\/renders?\/?$/, "")
       .replace(/\/$/, "");
 
-    // FFmpeg worker exposes POST /render (webhook-based)
+    // Try both /render and /renders for Railway worker compatibility
     const RENDER_ENDPOINT = `${baseWorkerUrl}/render`;
+    const RENDER_ENDPOINT_ALT = `${baseWorkerUrl}/renders`;
 
     // Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -136,26 +137,35 @@ Deno.serve(async (req) => {
       console.log(`[RENDER-VIDEO] Health check: ${hRes.status}`);
     } catch { /* ignore — health check is best-effort */ }
 
-    // ── Fire-and-forget: POST /render to FFmpeg worker ──
-    // Worker responds immediately with 202 + jobId, then calls webhookUrl when done
+    // ── POST to FFmpeg worker — try /render, fallback to /renders ──
     let jobId: string | undefined;
+    const payload = JSON.stringify({
+      imageUrl: finalImageUrl,
+      audioUrl: finalAudioUrl,
+      duration,
+      outputFormat: "mp4",
+      webhookUrl,
+      generationId,
+    });
+    const fetchHeaders = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${RENDER_WORKER_SECRET}`,
+    };
+
     try {
-      const workerRes = await fetch(RENDER_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${RENDER_WORKER_SECRET}`,
-        },
-        body: JSON.stringify({
-          imageUrl: finalImageUrl,
-          audioUrl: finalAudioUrl,
-          duration,
-          outputFormat: "mp4",
-          webhookUrl,
-          generationId,
-        }),
-        signal: AbortSignal.timeout(15_000), // Just wait for 202 acceptance
+      let workerRes = await fetch(RENDER_ENDPOINT, {
+        method: "POST", headers: fetchHeaders, body: payload,
+        signal: AbortSignal.timeout(15_000),
       });
+
+      // Fallback: if /render 404s, try /renders (old route)
+      if (workerRes.status === 404) {
+        console.log(`[RENDER-VIDEO] /render returned 404, trying /renders...`);
+        workerRes = await fetch(RENDER_ENDPOINT_ALT, {
+          method: "POST", headers: fetchHeaders, body: payload,
+          signal: AbortSignal.timeout(15_000),
+        });
+      }
 
       if (!workerRes.ok) {
         const errBody = await workerRes.text();
