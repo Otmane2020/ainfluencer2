@@ -105,12 +105,10 @@ async function callWebhook(webhookUrl, payload) {
 }
 
 // ── Remotion Render Job ──
-async function runRenderJob({ jobId, imageUrl, audioUrl, duration, webhookUrl, generationId, titleText, width, height }) {
+async function runRenderJob({ jobId, imageUrl, audioUrl, duration, webhookUrl, generationId, titleText, width, height, timeline }) {
   const job = jobs.get(jobId);
   console.log(`[${jobId}] Starting Remotion render`);
-  console.log(`[${jobId}] Image: ${imageUrl?.slice(0, 80)}...`);
-  console.log(`[${jobId}] Audio: ${audioUrl?.slice(0, 80)}...`);
-  console.log(`[${jobId}] Title: "${titleText}" | ${width}x${height} | ${duration}s`);
+  console.log(`[${jobId}] Mode: ${timeline ? "timeline" : "legacy"} | ${width}x${height} | ${duration}s`);
 
   try {
     if (!bundleLocation) throw new Error("Remotion bundle not ready");
@@ -121,11 +119,19 @@ async function runRenderJob({ jobId, imageUrl, audioUrl, duration, webhookUrl, g
     const fps = 30;
     const durationInFrames = Math.round(duration * fps);
 
-    // Select the right composition based on orientation
+    // Select composition based on aspect ratio
     const isVertical = height > width;
-    const compositionId = isVertical ? "ClipMotionVertical" : "ClipMotionVideo";
+    const isSquare = Math.abs(width - height) < 50;
+    const compositionId = isSquare
+      ? "ClipMotionSquare"
+      : isVertical
+        ? "ClipMotionVertical"
+        : "ClipMotionVideo";
 
-    const inputProps = { imageUrl, audioUrl, titleText: titleText || "" };
+    // Support both timeline mode and legacy flat mode
+    const inputProps = timeline
+      ? { timeline, imageUrl: "", audioUrl: "", titleText: "" }
+      : { timeline: null, imageUrl, audioUrl, titleText: titleText || "" };
 
     if (job) job.progress = 0.15;
 
@@ -135,7 +141,6 @@ async function runRenderJob({ jobId, imageUrl, audioUrl, duration, webhookUrl, g
       inputProps,
     });
 
-    // Override duration and dimensions
     composition.durationInFrames = durationInFrames;
     composition.width = width;
     composition.height = height;
@@ -144,7 +149,6 @@ async function runRenderJob({ jobId, imageUrl, audioUrl, duration, webhookUrl, g
     if (job) job.progress = 0.25;
 
     const outputPath = path.join(RENDERS_DIR, `${jobId}.mp4`);
-
     console.log(`[${jobId}] Rendering ${compositionId}: ${width}x${height}, ${durationInFrames} frames...`);
 
     await renderMedia({
@@ -154,9 +158,7 @@ async function runRenderJob({ jobId, imageUrl, audioUrl, duration, webhookUrl, g
       outputLocation: outputPath,
       inputProps,
       concurrency: 2,
-      chromiumOptions: {
-        enableMultiProcessOnLinux: false, // Prevent OOM
-      },
+      chromiumOptions: { enableMultiProcessOnLinux: false },
       onProgress: ({ progress }) => {
         if (job) job.progress = 0.25 + progress * 0.6;
         if (Math.round(progress * 100) % 20 === 0) {
@@ -169,7 +171,6 @@ async function runRenderJob({ jobId, imageUrl, audioUrl, duration, webhookUrl, g
 
     const stats = await fs.stat(outputPath);
     const relativeVideoUrl = `/renders/${jobId}.mp4`;
-
     console.log(`[${jobId}] Done: ${stats.size} bytes → ${relativeVideoUrl}`);
 
     if (job) {
@@ -198,10 +199,12 @@ app.post(["/render", "/renders"], authMiddleware, async (req, res) => {
     duration = 10, outputFormat = "mp4",
     webhookUrl, generationId,
     titleText = "", width = 1280, height = 720,
+    timeline = null,
   } = req.body;
 
-  if (!imageUrl || !audioUrl) {
-    return res.status(400).json({ error: "imageUrl and audioUrl are required" });
+  // Timeline mode doesn't require imageUrl/audioUrl
+  if (!timeline && (!imageUrl || !audioUrl)) {
+    return res.status(400).json({ error: "imageUrl and audioUrl are required (or provide timeline)" });
   }
 
   if (!bundleLocation) {
@@ -215,7 +218,6 @@ app.post(["/render", "/renders"], authMiddleware, async (req, res) => {
     output: null, error: null, createdAt: Date.now(),
   });
 
-  // 10-minute timeout for Remotion renders
   setTimeout(() => {
     const j = jobs.get(jobId);
     if (j && (j.status === "queued" || j.status === "in-progress")) {
@@ -228,7 +230,7 @@ app.post(["/render", "/renders"], authMiddleware, async (req, res) => {
 
   res.status(202).json({ jobId, generationId, status: "queued" });
 
-  runRenderJob({ jobId, imageUrl, audioUrl, duration, webhookUrl, generationId, titleText, width, height })
+  runRenderJob({ jobId, imageUrl, audioUrl, duration, webhookUrl, generationId, titleText, width, height, timeline })
     .catch((err) => console.error(`[${jobId}] Unhandled:`, err));
 });
 

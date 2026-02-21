@@ -1,138 +1,109 @@
 import React from "react";
-import {
-  AbsoluteFill,
-  Img,
-  Audio,
-  useCurrentFrame,
-  useVideoConfig,
-  interpolate,
-  spring,
-  Sequence,
-} from "remotion";
+import { AbsoluteFill, Audio, Sequence } from "remotion";
+import { z } from "zod";
+import { FPS, INTRO_DURATION } from "./lib/constants";
+import { TimelineSchema } from "./lib/types";
+import { calculateFrameTiming, buildSimpleTimeline } from "./lib/utils";
+import { SceneBackground } from "./components/SceneBackground";
+import { Subtitle } from "./components/Subtitle";
+import { Vignette } from "./components/Vignette";
+import { IntroTitle } from "./components/IntroTitle";
 
-export interface ClipMotionVideoProps {
-  imageUrl: string;
-  audioUrl: string;
-  titleText: string;
-}
+/**
+ * Zod-validated props schema (official Remotion pattern).
+ */
+export const clipMotionSchema = z.object({
+  // Timeline mode (structured scenes)
+  timeline: TimelineSchema.nullable().optional(),
+  // Legacy flat mode (single image + audio)
+  imageUrl: z.string().optional().default(""),
+  audioUrl: z.string().optional().default(""),
+  titleText: z.string().optional().default(""),
+});
 
-export const ClipMotionVideo: React.FC<ClipMotionVideoProps> = ({
-  imageUrl,
-  audioUrl,
-  titleText,
-}) => {
-  const frame = useCurrentFrame();
-  const { fps, durationInFrames, width, height } = useVideoConfig();
+export type ClipMotionVideoProps = z.infer<typeof clipMotionSchema>;
 
-  // ── Ken Burns zoom effect ──
-  const scale = interpolate(frame, [0, durationInFrames], [1, 1.12], {
-    extrapolateRight: "clamp",
-  });
+/**
+ * Main ClipMotion composition.
+ * Supports both timeline mode (multi-scene) and legacy flat mode.
+ * Architecture based on official template-prompt-to-video.
+ */
+export const ClipMotionVideo: React.FC<ClipMotionVideoProps> = (props) => {
+  const { durationInFrames } = require("remotion").useVideoConfig();
 
-  // ── Title fade-in with spring ──
-  const titleProgress = spring({
-    frame,
-    fps,
-    config: { damping: 80, stiffness: 200 },
-    durationInFrames: fps, // 1 second spring
-  });
-
-  const titleOpacity = interpolate(titleProgress, [0, 1], [0, 1]);
-  const titleY = interpolate(titleProgress, [0, 1], [-20, 0]);
-
-  // ── Title fade-out near end ──
-  const fadeOutStart = durationInFrames - fps * 2;
-  const titleFadeOut = interpolate(
-    frame,
-    [fadeOutStart, durationInFrames - fps],
-    [1, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
-
-  const finalTitleOpacity = titleOpacity * titleFadeOut;
-
-  // ── Vignette overlay for cinematic feel ──
-  const vignetteStyle: React.CSSProperties = {
-    position: "absolute",
-    inset: 0,
-    background:
-      "radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.4) 100%)",
-    pointerEvents: "none",
-  };
-
-  // ── Bottom gradient for text legibility ──
-  const isVertical = height > width;
-  const titleFontSize = isVertical ? 32 : 36;
+  // Resolve timeline: use structured timeline if provided, otherwise build from flat props
+  const timeline =
+    props.timeline ??
+    buildSimpleTimeline(
+      props.imageUrl || "",
+      props.audioUrl || "",
+      props.titleText || "",
+      (durationInFrames / FPS) * 1000
+    );
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
-      {/* Background image with Ken Burns */}
-      {imageUrl && (
-        <AbsoluteFill
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            overflow: "hidden",
-          }}
-        >
-          <Img
-            src={imageUrl}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              transform: `scale(${scale})`,
-              transformOrigin: "center center",
-            }}
-          />
-        </AbsoluteFill>
-      )}
+      {/* ── Intro title card ── */}
+      <Sequence durationInFrames={INTRO_DURATION}>
+        <IntroTitle title={timeline.shortTitle} />
+      </Sequence>
 
-      {/* Vignette overlay */}
-      <div style={vignetteStyle} />
-
-      {/* Title overlay */}
-      {titleText && titleText.trim() && (
-        <div
-          style={{
-            position: "absolute",
-            top: isVertical ? 80 : 40,
-            left: 20,
-            right: 20,
-            textAlign: "center",
-            opacity: finalTitleOpacity,
-            transform: `translateY(${titleY}px)`,
-          }}
-        >
-          <span
-            style={{
-              display: "inline-block",
-              backgroundColor: "rgba(0, 0, 0, 0.6)",
-              color: "#fff",
-              fontSize: titleFontSize,
-              fontWeight: 700,
-              fontFamily:
-                '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-              padding: "10px 24px",
-              borderRadius: 8,
-              lineHeight: 1.3,
-              maxWidth: "90%",
-              letterSpacing: 0.5,
-              textShadow: "0 2px 8px rgba(0,0,0,0.5)",
-            }}
+      {/* ── Background scenes with transitions ── */}
+      {timeline.elements.map((element, index) => {
+        const { startFrame, duration } = calculateFrameTiming(
+          element.startMs,
+          element.endMs,
+          { includeIntro: index === 0 }
+        );
+        return (
+          <Sequence
+            key={`scene-${index}`}
+            from={startFrame}
+            durationInFrames={duration}
           >
-            {titleText.slice(0, 80)}
-          </span>
-        </div>
-      )}
+            <SceneBackground item={element} />
+          </Sequence>
+        );
+      })}
 
-      {/* Audio track */}
-      {audioUrl && (
-        <Sequence from={0}>
-          <Audio src={audioUrl} />
-        </Sequence>
-      )}
+      {/* ── Cinematic vignette ── */}
+      <Vignette />
+
+      {/* ── Subtitle overlays ── */}
+      {timeline.text.map((element, index) => {
+        const { startFrame, duration } = calculateFrameTiming(
+          element.startMs,
+          element.endMs,
+          { addIntroOffset: true }
+        );
+        return (
+          <Sequence
+            key={`text-${index}`}
+            from={startFrame}
+            durationInFrames={duration}
+          >
+            <Subtitle item={element} />
+          </Sequence>
+        );
+      })}
+
+      {/* ── Audio tracks ── */}
+      {timeline.audio.map((element, index) => {
+        const { startFrame, duration } = calculateFrameTiming(
+          element.startMs,
+          element.endMs,
+          { addIntroOffset: true }
+        );
+        return (
+          <Sequence
+            key={`audio-${index}`}
+            from={startFrame}
+            durationInFrames={duration}
+          >
+            <Audio src={element.audioUrl} />
+          </Sequence>
+        );
+      })}
     </AbsoluteFill>
   );
 };
