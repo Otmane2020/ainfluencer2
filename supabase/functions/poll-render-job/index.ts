@@ -59,27 +59,38 @@ Deno.serve(async (req) => {
     if (!RENDER_WORKER_URL.startsWith("http")) RENDER_WORKER_URL = `https://${RENDER_WORKER_URL}`;
     const baseWorkerUrl = RENDER_WORKER_URL.replace(/\/renders?\/?$/, "").replace(/\/$/, "");
 
-    // Poll Remotion server for job status: GET /renders/:jobId
+    // Poll worker for job status
+    const pollUrl = `${baseWorkerUrl}/renders/${jobId}`;
+    console.log(`[POLL] Fetching: ${pollUrl}`);
     let workerData: any = null;
     try {
-      const workerRes = await fetch(`${baseWorkerUrl}/renders/${jobId}`, {
+      const workerRes = await fetch(pollUrl, {
         signal: AbortSignal.timeout(10_000),
       });
 
+      const rawText = await workerRes.text();
+      console.log(`[POLL] Worker response (${workerRes.status}): ${rawText.slice(0, 500)}`);
+
       if (!workerRes.ok) {
-        const txt = await workerRes.text();
-        console.error(`[POLL] Worker ${workerRes.status}: ${txt.slice(0, 200)}`);
+        return new Response(
+          JSON.stringify({ status: "processing", progress: gen.progress, workerStatus: workerRes.status, workerError: rawText.slice(0, 200) }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      try {
+        workerData = JSON.parse(rawText);
+      } catch {
+        console.error(`[POLL] Failed to parse worker JSON: ${rawText.slice(0, 200)}`);
         return new Response(
           JSON.stringify({ status: "processing", progress: gen.progress }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-
-      workerData = await workerRes.json();
-    } catch (fetchErr) {
-      console.error("[POLL] Fetch error:", fetchErr);
+    } catch (fetchErr: any) {
+      console.error(`[POLL] Fetch error: ${fetchErr?.message || fetchErr}`);
       return new Response(
-        JSON.stringify({ status: "processing", progress: gen.progress }),
+        JSON.stringify({ status: "processing", progress: gen.progress, fetchError: fetchErr?.message }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
