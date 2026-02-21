@@ -111,24 +111,34 @@ Deno.serve(async (req) => {
     }
 
     // ── DONE ──
-    if (remotionStatus === "done") {
-      // Remotion server serves the rendered video as a static file.
-      // The output path is typically at /renders/<jobId>/<filename>.mp4
-      // workerData should contain an outputFile or output property with the filename
+    if (remotionStatus === "done" || remotionStatus === "completed") {
+      // Worker may return videoUrl directly OR outputFile/output
+      const rawVideoUrl: string | undefined = workerData.videoUrl || workerData.video_url;
       const outputFile: string | undefined = workerData.outputFile || workerData.output;
       
-      // Build the video URL from the Railway server
-      // The static files are served at /renders, so the video is at /renders/<output>
       let videoSourceUrl: string | undefined;
-      if (outputFile) {
-        // outputFile could be a relative path like "renders/<jobId>/out.mp4" or just the filename
+      
+      if (rawVideoUrl) {
+        // Worker returned a direct URL — fix localhost URLs to use the real Railway URL
+        if (rawVideoUrl.includes("localhost") || rawVideoUrl.includes("127.0.0.1")) {
+          // Replace localhost origin with the actual Railway worker URL
+          const urlPath = new URL(rawVideoUrl).pathname;
+          videoSourceUrl = `${baseWorkerUrl}${urlPath}`;
+          console.log(`[POLL] Rewrote localhost URL to: ${videoSourceUrl}`);
+        } else {
+          videoSourceUrl = rawVideoUrl;
+        }
+      } else if (outputFile) {
         if (outputFile.startsWith("http")) {
           videoSourceUrl = outputFile;
         } else {
-          // Strip leading "renders/" if present since the static mount is at /renders
           const cleanPath = outputFile.replace(/^renders\//, "");
           videoSourceUrl = `${baseWorkerUrl}/renders/${cleanPath}`;
         }
+      } else {
+        // Fallback: try the standard path /renders/<jobId>.mp4
+        videoSourceUrl = `${baseWorkerUrl}/renders/${jobId}.mp4`;
+        console.log(`[POLL] No videoUrl/outputFile, trying fallback: ${videoSourceUrl}`);
       }
 
       let finalVideoUrl: string | undefined;
