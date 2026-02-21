@@ -130,7 +130,18 @@ Deno.serve(async (req) => {
       
       if (outputFile) {
         if (outputFile.startsWith("http")) {
-          videoSourceUrl = outputFile;
+          // Rewrite localhost/127.0.0.1 URLs to the real Railway public URL
+          if (outputFile.includes("localhost") || outputFile.includes("127.0.0.1")) {
+            try {
+              const urlPath = new URL(outputFile).pathname;
+              videoSourceUrl = `${baseWorkerUrl}${urlPath}`;
+              console.log(`[POLL] Rewrote localhost URL to: ${videoSourceUrl}`);
+            } catch {
+              videoSourceUrl = outputFile;
+            }
+          } else {
+            videoSourceUrl = outputFile;
+          }
         } else {
           // output is a relative path like "renders/abc.mp4" — build full URL
           const cleanPath = outputFile.replace(/^\//, "");
