@@ -109,10 +109,10 @@ Deno.serve(async (req) => {
     }
 
     // ── IN-PROGRESS ──
-    if (remotionStatus === "in-progress" || remotionStatus === "rendering") {
-      // Remotion progress is a 0-1 fraction; map to 25-90 range
+    if (remotionStatus === "in-progress") {
+      // Worker progress is a 0-1 fraction; map to 25-90 range
       const remotionProgress = typeof workerData.progress === "number" ? workerData.progress : 0;
-      const mappedProgress = Math.round(25 + remotionProgress * 65); // 25 at 0%, 90 at 100%
+      const mappedProgress = Math.round(25 + remotionProgress * 65);
       const nextProgress = Math.max(gen.progress || 25, Math.min(mappedProgress, 90));
       await supabase.from("generations").update({ progress: nextProgress }).eq("id", generationId);
       return new Response(
@@ -123,34 +123,25 @@ Deno.serve(async (req) => {
 
     // ── DONE ──
     if (remotionStatus === "done" || remotionStatus === "completed") {
-      // Worker may return videoUrl directly OR outputFile/output
-      const rawVideoUrl: string | undefined = workerData.videoUrl || workerData.video_url;
-      const outputFile: string | undefined = workerData.outputFile || workerData.output;
+      // Worker returns `output` field (relative path like "renders/<jobId>.mp4")
+      const outputFile: string | undefined = workerData.output || workerData.outputFile || workerData.videoUrl || workerData.video_url;
       
       let videoSourceUrl: string | undefined;
       
-      if (rawVideoUrl) {
-        // Worker returned a direct URL — fix localhost URLs to use the real Railway URL
-        if (rawVideoUrl.includes("localhost") || rawVideoUrl.includes("127.0.0.1")) {
-          // Replace localhost origin with the actual Railway worker URL
-          const urlPath = new URL(rawVideoUrl).pathname;
-          videoSourceUrl = `${baseWorkerUrl}${urlPath}`;
-          console.log(`[POLL] Rewrote localhost URL to: ${videoSourceUrl}`);
-        } else {
-          videoSourceUrl = rawVideoUrl;
-        }
-      } else if (outputFile) {
+      if (outputFile) {
         if (outputFile.startsWith("http")) {
           videoSourceUrl = outputFile;
         } else {
-          const cleanPath = outputFile.replace(/^renders\//, "");
-          videoSourceUrl = `${baseWorkerUrl}/renders/${cleanPath}`;
+          // output is a relative path like "renders/abc.mp4" — build full URL
+          const cleanPath = outputFile.replace(/^\//, "");
+          videoSourceUrl = `${baseWorkerUrl}/${cleanPath}`;
         }
       } else {
         // Fallback: try the standard path /renders/<jobId>.mp4
         videoSourceUrl = `${baseWorkerUrl}/renders/${jobId}.mp4`;
-        console.log(`[POLL] No videoUrl/outputFile, trying fallback: ${videoSourceUrl}`);
       }
+      
+      console.log(`[POLL] Video source URL: ${videoSourceUrl}`);
 
       let finalVideoUrl: string | undefined;
 
