@@ -114,47 +114,44 @@ export const AIVideoGenerator = ({ onBeforeGenerate }: AIVideoGeneratorProps) =>
     };
   }, []);
 
-  const startPolling = (generationId: string) => {
+  const startPolling = (generationId: string, jobId: string) => {
     if (pollingRef.current) clearInterval(pollingRef.current);
 
     pollingRef.current = setInterval(async () => {
-      const { data } = await supabase
-        .from("generations")
-        .select("status, progress, media_url, error_message")
-        .eq("id", generationId)
-        .maybeSingle();
+      const { data, error } = await supabase.functions.invoke("poll-render-job", {
+        body: { generationId, jobId },
+      });
 
-      if (!data) return;
+      if (error || !data) return;
 
-      // Smoothly advance progress between 20–95% while processing
-      if (data.status === "processing") {
-        setProgress((p) => Math.min(p + 3, 95));
-        setProgressLabel("FFmpeg rendering your video...");
-      }
+      setProgress(data.progress ?? 0);
+      setProgressLabel(`Rendering... ${data.progress ?? 0}%`);
 
       if (data.status === "completed") {
         clearInterval(pollingRef.current!);
         pollingRef.current = null;
+
+        setIsGenerating(false);
         setProgress(100);
         setProgressLabel("Done!");
-        setIsGenerating(false);
-        if (data.media_url) {
-          setGeneratedVideo(data.media_url);
-          toast({
-            title: "Video rendered! 🎬",
-            description: `Remotion · ${selectedTier.name} quality`,
-          });
-        }
+        setGeneratedVideo(data.mediaUrl);
+
+        toast({
+          title: "Video ready 🎬",
+          description: "Render completed",
+        });
       }
 
       if (data.status === "failed") {
         clearInterval(pollingRef.current!);
         pollingRef.current = null;
+
         setIsGenerating(false);
         setProgress(0);
+
         toast({
           title: "Render failed",
-          description: data.error_message || "The render worker reported an error",
+          description: data.error || "Worker failed",
           variant: "destructive",
         });
       }
@@ -235,14 +232,15 @@ export const AIVideoGenerator = ({ onBeforeGenerate }: AIVideoGeneratorProps) =>
       }
 
       const generationId = data.generationId;
-      console.log("[AIVideoGenerator] Render started, generationId:", generationId);
+      const jobId = data.jobId;
+      console.log("[AIVideoGenerator] Render started, generationId:", generationId, "jobId:", jobId);
 
       setProgressLabel("Worker accepted. FFmpeg rendering...");
       setProgress(20);
 
       // Start polling for completion
-      if (generationId) {
-        startPolling(generationId);
+      if (generationId && jobId) {
+        startPolling(generationId, jobId);
       } else {
         // Fallback: no generationId returned
         setIsGenerating(false);
