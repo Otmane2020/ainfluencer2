@@ -158,6 +158,19 @@ ${markdown.slice(0, 3000)}`,
     if (!aiRes.ok) {
       const errText = await aiRes.text();
       console.error("[url-to-video-script] AI error:", errText);
+      
+      if (aiRes.status === 402) {
+        return new Response(
+          JSON.stringify({ success: false, error: "AI credits exhausted. Please add credits to your Lovable workspace under Settings → Workspace → Usage." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (aiRes.status === 429) {
+        return new Response(
+          JSON.stringify({ success: false, error: "AI rate limit reached. Please wait a moment and try again." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       return new Response(
         JSON.stringify({ success: false, error: "AI script generation failed" }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
