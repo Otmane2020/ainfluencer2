@@ -1,64 +1,82 @@
 
 
-## Fix: Video renders without audio and shows raw text
+# Fix: "Hello Demo" / Broken Video Rendering
 
-### Problem
+## Problem
 
-Two issues causing the broken video output:
+The URL-to-Video pipeline generates videos that all look generic because:
 
-1. **No voiceover audio**: The frontend sends `audioUrl` to the `render-video` edge function, but the edge function never extracts it from the request body and never forwards it to the Railway worker.
-2. **Raw text dump on screen**: The worker only receives `titleText` — no `duration`, no `audioUrl`, no `image`. The Remotion composition falls back to its default React template.
+1. The Railway FFmpeg worker **ignores** the `titleText` parameter sent by the edge function — it only processes `imageUrl`, `audioUrl`, and `duration`
+2. The AI script prompt sometimes produces metadata labels ("Angle: BENEFIT", "Engagement: HIGH") mixed into the script instead of clean narration
+3. No text overlay is rendered on the final video — it's just a zooming image with audio
 
-### Root Cause
+## Solution
 
-In `supabase/functions/render-video/index.ts`:
-- Line 51: `const { quality, projectId, props } = body;` — `audioUrl` is never destructured from `body`
-- Lines 129-138: The worker POST payload only includes `titleText` — missing `audioUrl`, `duration`, and `image`
+### 1. Update Railway Worker (`railway-video-service/index.js`)
 
-### Fix (2 changes, same file)
-
-**File: `supabase/functions/render-video/index.ts`**
-
-#### Change 1 — Extract `audioUrl` from request body
+- Accept `titleText` and `width`/`height` params in the `/renders` endpoint
+- Add an FFmpeg `drawtext` filter to burn a short title (first line of the script or page title) onto the video with a semi-transparent background bar
+- Use the provided `width`/`height` or default to `720x1280`
 
 ```text
-// Line 51: add audioUrl extraction
-const { quality = "standard", projectId, props = {}, audioUrl } = body;
+FFmpeg filter chain:
+  zoompan (Ken Burns) -> drawtext (title at top with background box)
 ```
 
-#### Change 2 — Forward all props to the Railway worker
+### 2. Fix the AI Script Prompt (`supabase/functions/url-to-video-script/index.ts`)
 
-Update the worker POST body (lines 129-138) to include `audioUrl`, `duration`, and a default background image:
+- Strengthen the system prompt to explicitly forbid metadata labels like "Angle:", "Engagement:", "SCRIPT:", "Hook:", etc.
+- Add a post-processing step to strip any remaining metadata lines from the generated script before returning it
+
+### 3. Pass title text properly from `render-video` edge function
+
+- The `render-video` function already sends `titleText` — no change needed there
+- The Railway worker just needs to USE it (fix in step 1)
+
+### 4. Sanitize script in `UrlToVideoGenerator.tsx`
+
+- Before sending `props.text` to render-video, strip any lines starting with metadata labels ("Angle:", "Hook:", "SCRIPT:", etc.)
+- Use the `pageTitle` as the video overlay text instead of the script body (the script is for voiceover audio, not for on-screen display)
+
+## Technical Details
+
+### Railway Worker FFmpeg Filter Update
+
+Add `drawtext` after `zoompan`:
+
+```text
+zoompan=...,drawtext=text='Title Here':fontsize=36:fontcolor=white:
+  box=1:boxcolor=black@0.5:boxborderw=10:x=(w-text_w)/2:y=60
+```
+
+### Script Sanitization (post-processing)
 
 ```typescript
-body: JSON.stringify({
-  titleText: cleanText,
-  audioUrl: audioUrl || null,
-  duration,
-  image: props.image || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1920&q=80",
-  width: renderWidth,
-  height: renderHeight,
-  crf: renderCrf,
-  concurrency: renderConcurrency,
-  ffmpegThreads: renderThreads,
-  webhookUrl,
-  generationId,
-}),
+// Strip metadata lines from AI output
+const cleanScript = script
+  .split('\n')
+  .filter(line => !/^(Angle|Engagement|Hook|SCRIPT|Scene|CTA)\s*:/i.test(line.trim()))
+  .join('\n')
+  .trim();
 ```
 
-### Result After Fix
+### Video text prop fix
 
-The Railway worker will receive:
-- `titleText` — clean script text
-- `audioUrl` — HTTPS URL to the voiceover MP3 (uploaded to storage)
-- `duration` — video length in seconds
-- `image` — background image URL
+In `UrlToVideoGenerator.tsx`, send `pageTitle` as the overlay text instead of `script.slice(0,120)`:
 
-The Remotion composition can then render a proper video with audio track instead of the default React logo template.
+```typescript
+props: {
+  text: pageTitle || "Your Brand",  // Clean title for overlay
+  duration: 10,
+  image: screenshot || undefined,
+}
+```
 
-### No other files need changes
+## Files to Modify
 
-- Frontend (`AIVideoGenerator.tsx`) already sends `audioUrl` correctly
-- `poll-render-job` already handles the completion flow
-- Railway worker already expects these props per the documented payload format
+| File | Change |
+|------|--------|
+| `railway-video-service/index.js` | Accept and use `titleText` in FFmpeg drawtext filter |
+| `supabase/functions/url-to-video-script/index.ts` | Stricter prompt + post-process to strip metadata labels |
+| `src/components/UrlToVideoGenerator.tsx` | Send `pageTitle` as overlay text, not raw script |
 
