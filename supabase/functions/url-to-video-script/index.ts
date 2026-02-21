@@ -52,21 +52,55 @@ Deno.serve(async (req) => {
       }),
     });
 
-    const scrapeData = await scrapeRes.json();
+    let markdown = "";
+    let screenshot: string | null = null;
+    let pageTitle = "";
 
-    if (!scrapeRes.ok) {
-      console.error("[url-to-video-script] Firecrawl error:", scrapeData);
-      return new Response(
-        JSON.stringify({ success: false, error: "Failed to scrape URL" }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (scrapeRes.ok) {
+      const scrapeData = await scrapeRes.json();
+      markdown = scrapeData?.data?.markdown || scrapeData?.markdown || "";
+      screenshot = scrapeData?.data?.screenshot || scrapeData?.screenshot || null;
+      pageTitle = scrapeData?.data?.metadata?.title || scrapeData?.metadata?.title || "";
+      console.log(`[url-to-video-script] Firecrawl OK: ${markdown.length} chars | Screenshot: ${screenshot ? "yes" : "no"}`);
+    } else {
+      const errBody = await scrapeRes.text();
+      console.warn(`[url-to-video-script] Firecrawl failed (${scrapeRes.status}): ${errBody}`);
+      console.log("[url-to-video-script] Falling back to internal fetch...");
+
+      // Fallback: simple fetch
+      try {
+        const fallbackRes = await fetch(formattedUrl, {
+          headers: { "User-Agent": "Mozilla/5.0 (compatible; NanoBanana/1.0)" },
+          redirect: "follow",
+        });
+        const html = await fallbackRes.text();
+        // Extract title
+        const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+        pageTitle = titleMatch ? titleMatch[1].trim() : "";
+        // Extract text content (strip tags)
+        markdown = html
+          .replace(/<script[\s\S]*?<\/script>/gi, "")
+          .replace(/<style[\s\S]*?<\/style>/gi, "")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 5000);
+        console.log(`[url-to-video-script] Fallback OK: ${markdown.length} chars`);
+      } catch (fallbackErr) {
+        console.error("[url-to-video-script] Fallback also failed:", fallbackErr);
+        return new Response(
+          JSON.stringify({ success: false, error: `Failed to scrape URL: Firecrawl returned ${scrapeRes.status} and fallback fetch also failed` }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
-    const markdown = scrapeData?.data?.markdown || scrapeData?.markdown || "";
-    const screenshot = scrapeData?.data?.screenshot || scrapeData?.screenshot || null;
-    const pageTitle = scrapeData?.data?.metadata?.title || scrapeData?.metadata?.title || "";
-
-    console.log(`[url-to-video-script] Scraped: ${markdown.length} chars | Screenshot: ${screenshot ? "yes" : "no"}`);
+    if (!markdown || markdown.length < 20) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Could not extract enough content from this URL" }),
+        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Step 2: Generate video script using AI
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
