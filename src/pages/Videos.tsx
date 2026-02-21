@@ -5,6 +5,7 @@ import { VideoGenerator, GenerationTask } from "@/components/VideoGenerator";
 import { VideoPreview } from "@/components/VideoPreview";
 import { GenerationTracker } from "@/components/GenerationTracker";
 import { PaywallModal } from "@/components/PaywallModal";
+import { UrlToVideoGenerator } from "@/components/UrlToVideoGenerator";
 import { useSubscription } from "@/hooks/useSubscription";
 import {
   Select,
@@ -13,8 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Video, Globe } from "lucide-react";
 
 // Cache version — bump this to invalidate stale localStorage prefs
 const CACHE_VERSION = "v6-remotion";
@@ -54,19 +57,14 @@ const Videos = () => {
   useEffect(() => {
     const storedVersion = localStorage.getItem(CACHE_VERSION_KEY);
     if (storedVersion !== CACHE_VERSION) {
-      // Remove all video generator prefs so stale model IDs don't break anything
       const keysToClear = ["video_generator_prefs", "generation_tasks", "video_generator_cache_version"];
       keysToClear.forEach(k => localStorage.removeItem(k));
-      // Also clear any key starting with "video_"
       Object.keys(localStorage)
         .filter(k => k.startsWith("video_") || k.startsWith("remotion_"))
         .forEach(k => localStorage.removeItem(k));
       localStorage.setItem(CACHE_VERSION_KEY, CACHE_VERSION);
-      console.log("[Videos] Full cache cleared — new version:", CACHE_VERSION);
     }
 
-    // On every mount: clear any "in_progress" or "queued" tasks that were
-    // left behind from a previous session (navigation away interrupts polling).
     try {
       const stored = localStorage.getItem("generation_tasks");
       if (stored) {
@@ -77,10 +75,9 @@ const Videos = () => {
         localStorage.setItem("generation_tasks", JSON.stringify(cleaned));
       }
     } catch {
-      // Ignore parse errors
+      // Ignore
     }
 
-    // Also reset local preview state
     setVideoSegments([]);
     setGenerationTasks([]);
   }, []);
@@ -89,7 +86,6 @@ const Videos = () => {
     fetchProjects();
   }, []);
 
-  // Clear the URL param after using it
   useEffect(() => {
     if (startingFrameUrl) {
       const timer = setTimeout(() => {
@@ -114,17 +110,13 @@ const Videos = () => {
   };
 
   const handleMergeVideos = () => {
-    toast({
-      title: "Merging...",
-      description: "Videos are being merged",
-    });
+    toast({ title: "Merging...", description: "Videos are being merged" });
   };
 
   const handleDeleteVideoSegment = (id: string) => {
     setVideoSegments((prev) => prev.filter((s) => s.id !== id));
   };
 
-  // Check if user can generate before proceeding
   const handleBeforeGenerate = (): boolean => {
     if (!isSubscribed) {
       setShowPaywall(true);
@@ -166,39 +158,64 @@ const Videos = () => {
           </div>
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="grid grid-cols-1 gap-6 lg:grid-cols-3"
-        >
-          <div className="space-y-6 lg:col-span-2">
-            <VideoGenerator
-              onVideosGenerated={handleVideosGenerated}
-              onTasksUpdated={setGenerationTasks}
-              initialStartingFrameUrl={startingFrameUrl}
-              onBeforeGenerate={handleBeforeGenerate}
-              onGeneratingChange={(generating, prog) => {
-                setIsVideoGenerating(generating);
-                setVideoProgress(prog);
-              }}
-            />
-            {generationTasks.length > 0 && (
-              <GenerationTracker tasks={generationTasks} />
-            )}
-          </div>
-          <div className="space-y-6">
-            <VideoPreview
-              segments={videoSegments}
-              onMerge={handleMergeVideos}
-              onDeleteSegment={handleDeleteVideoSegment}
-              isGenerating={isVideoGenerating}
-              progress={videoProgress}
-            />
-          </div>
-        </motion.div>
+        {/* Tabs: AI Video | URL to Video */}
+        <Tabs defaultValue="ai-video" className="w-full">
+          <TabsList className="w-full max-w-md grid grid-cols-2">
+            <TabsTrigger value="ai-video" className="flex items-center gap-2">
+              <Video className="h-4 w-4" />
+              AI Video
+            </TabsTrigger>
+            <TabsTrigger value="url-to-video" className="flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              URL to Video
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="ai-video">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="grid grid-cols-1 gap-6 lg:grid-cols-3"
+            >
+              <div className="space-y-6 lg:col-span-2">
+                <VideoGenerator
+                  onVideosGenerated={handleVideosGenerated}
+                  onTasksUpdated={setGenerationTasks}
+                  initialStartingFrameUrl={startingFrameUrl}
+                  onBeforeGenerate={handleBeforeGenerate}
+                  onGeneratingChange={(generating, prog) => {
+                    setIsVideoGenerating(generating);
+                    setVideoProgress(prog);
+                  }}
+                />
+                {generationTasks.length > 0 && (
+                  <GenerationTracker tasks={generationTasks} />
+                )}
+              </div>
+              <div className="space-y-6">
+                <VideoPreview
+                  segments={videoSegments}
+                  onMerge={handleMergeVideos}
+                  onDeleteSegment={handleDeleteVideoSegment}
+                  isGenerating={isVideoGenerating}
+                  progress={videoProgress}
+                />
+              </div>
+            </motion.div>
+          </TabsContent>
+
+          <TabsContent value="url-to-video">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="max-w-2xl"
+            >
+              <UrlToVideoGenerator onBeforeGenerate={handleBeforeGenerate} />
+            </motion.div>
+          </TabsContent>
+        </Tabs>
       </div>
 
-      {/* Paywall Modal */}
       <PaywallModal
         open={showPaywall}
         onOpenChange={setShowPaywall}
