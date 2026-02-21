@@ -120,14 +120,22 @@ Deno.serve(async (req) => {
 
     const styleInstruction = stylePrompts[style] || stylePrompts.promo;
 
+    console.log("[url-to-video-script] Calling OpenRouter for script generation...");
     const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
+        "HTTP-Referer": "https://ainfluencer2.lovable.app",
+        "X-Title": "ClipMotion",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-preview",
+        models: [
+          "google/gemini-2.5-flash",
+          "google/gemini-2.0-flash-001",
+          "openai/gpt-4o-mini",
+        ],
+        route: "fallback",
         messages: [
           {
             role: "system",
@@ -157,11 +165,11 @@ ${markdown.slice(0, 3000)}`,
 
     if (!aiRes.ok) {
       const errText = await aiRes.text();
-      console.error("[url-to-video-script] AI error:", errText);
+      console.error("[url-to-video-script] AI error:", aiRes.status, errText);
       
       if (aiRes.status === 402) {
         return new Response(
-          JSON.stringify({ success: false, error: "AI credits exhausted. Please add credits to your Lovable workspace under Settings → Workspace → Usage." }),
+          JSON.stringify({ success: false, error: "OpenRouter credits exhausted. Please top up your OpenRouter account." }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -172,10 +180,11 @@ ${markdown.slice(0, 3000)}`,
         );
       }
       return new Response(
-        JSON.stringify({ success: false, error: "AI script generation failed" }),
+        JSON.stringify({ success: false, error: `AI script generation failed (${aiRes.status}): ${errText.slice(0, 200)}` }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    console.log("[url-to-video-script] AI response OK");
 
     const aiData = await aiRes.json();
     const script = aiData?.choices?.[0]?.message?.content?.trim() || "";
