@@ -115,11 +115,17 @@ Deno.serve(async (req) => {
     const renderConcurrency = 2; // Limit parallel frame renders
     const renderThreads = 2; // Limit FFmpeg threads to prevent OOM
 
+    // Build webhook callback URL for the worker
+    const webhookUrl = `${supabaseUrl}/functions/v1/render-callback`;
+
     let jobId: string | undefined;
     try {
       const workerRes = await fetch(`${baseWorkerUrl}/renders`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${Deno.env.get("RENDER_WORKER_SECRET") || ""}`,
+        },
         body: JSON.stringify({
           titleText: cleanText,
           width: renderWidth,
@@ -127,6 +133,8 @@ Deno.serve(async (req) => {
           crf: renderCrf,
           concurrency: renderConcurrency,
           ffmpegThreads: renderThreads,
+          webhookUrl,
+          generationId,
         }),
         signal: AbortSignal.timeout(15_000),
       });

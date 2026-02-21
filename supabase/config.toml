@@ -163,3 +163,6 @@ verify_jwt = false
 
 [functions.video-webhook]
 verify_jwt = false
+
+[functions.render-callback]
+verify_jwt = false
