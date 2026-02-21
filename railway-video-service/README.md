@@ -1,6 +1,6 @@
-# ClipMotion Video Service (Remotion Engine)
+# ClipMotion Video Service (Remotion Engine v3)
 
-React-based video rendering service powered by **Remotion** for creating dynamic MP4 reels.
+React-based video rendering service powered by **Remotion** — based on the official `template-prompt-to-video` architecture.
 
 ## Architecture
 
@@ -9,21 +9,65 @@ Express Server (index.js)
   ├── Startup: bundle() React compositions via @remotion/bundler
   ├── POST /renders: accept job → renderMedia() → webhook callback
   └── GET /renders/:jobId: poll job status
+
+src/
+  ├── Root.tsx                    → Remotion entry (3 compositions)
+  ├── ClipMotionVideo.tsx         → Main composition (timeline + legacy mode)
+  ├── lib/
+  │   ├── types.ts                → Zod schemas (Timeline, Scene, Text, Audio)
+  │   ├── constants.ts            → FPS, INTRO_DURATION, EXTRA_SCALE
+  │   └── utils.ts                → Frame timing, blur calc, simple timeline builder
+  └── components/
+      ├── SceneBackground.tsx     → Ken Burns zoom + blur/fade transitions
+      ├── Subtitle.tsx            → Spring-animated word overlay (stroke + fill)
+      ├── Vignette.tsx            → Cinematic vignette
+      └── IntroTitle.tsx          → Full-screen title card
 ```
 
 ## Compositions
 
 | ID | Resolution | Use Case |
 |----|-----------|----------|
-| `ClipMotionVideo` | 1280×720 (landscape) | Standard marketing videos |
+| `ClipMotionVideo` | 1280×720 (landscape) | Marketing videos, ads |
 | `ClipMotionVertical` | 720×1280 (portrait) | Reels / TikTok / Stories |
+| `ClipMotionSquare` | 1080×1080 (square) | Instagram feed / Facebook |
 
-### Features
-- **Ken Burns** zoom effect via Remotion `interpolate()`
-- **Title overlay** with spring animation + fade out
-- **Cinematic vignette** overlay
-- **Audio sync** via Remotion `<Audio>` component
-- **Dynamic duration** from inputProps
+## Two Rendering Modes
+
+### Legacy Mode (flat props)
+```json
+{
+  "imageUrl": "https://...",
+  "audioUrl": "https://...",
+  "titleText": "My Brand",
+  "duration": 10
+}
+```
+
+### Timeline Mode (multi-scene, official pattern)
+```json
+{
+  "timeline": {
+    "shortTitle": "Brand Story",
+    "elements": [
+      { "imageUrl": "https://...", "startMs": 0, "endMs": 5000,
+        "enterTransition": "blur", "exitTransition": "fade",
+        "animations": [{ "type": "scale", "startMs": 0, "endMs": 5000, "from": 1, "to": 1.12 }] },
+      { "imageUrl": "https://...", "startMs": 5000, "endMs": 10000 }
+    ],
+    "text": [
+      { "text": "Discover", "startMs": 0, "endMs": 3000, "position": "top" },
+      { "text": "Our Brand", "startMs": 3000, "endMs": 6000, "position": "center" }
+    ],
+    "audio": [
+      { "audioUrl": "https://...", "startMs": 0, "endMs": 10000 }
+    ]
+  },
+  "duration": 10,
+  "width": 1080,
+  "height": 1920
+}
+```
 
 ## 🚀 Deploy to Railway
 
@@ -40,9 +84,8 @@ Express Server (index.js)
 
 ### Railway Settings
 - **Builder:** Dockerfile
-- **Root Directory:** `/` (if repo root) or path to this folder
+- **Root Directory:** `/` (repo root)
 - **Health Check:** `/health`
-- **Start Command:** `node index.js` (auto from Dockerfile)
 
 ### After Deployment
 
@@ -63,18 +106,6 @@ GET /health
 POST /renders
 Authorization: Bearer YOUR_API_SECRET
 Content-Type: application/json
-
-{
-  "imageUrl": "https://.../image.png",
-  "audioUrl": "https://.../audio.mp3",
-  "titleText": "My Brand",
-  "duration": 10,
-  "width": 1280,
-  "height": 720,
-  "webhookUrl": "https://.../render-callback",
-  "generationId": "uuid"
-}
-
 → 202 { jobId: "job-...", status: "queued" }
 ```
 
