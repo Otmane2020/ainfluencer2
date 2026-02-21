@@ -120,6 +120,21 @@ Deno.serve(async (req) => {
 
     let jobId: string | undefined;
     try {
+      // Pre-flight health check with generous cold-start timeout
+      try {
+        const healthRes = await fetch(`${baseWorkerUrl}/health`, {
+          signal: AbortSignal.timeout(30_000),
+        });
+        if (!healthRes.ok) {
+          throw new Error(`Health check failed: ${healthRes.status}`);
+        }
+        const healthJson = await healthRes.json();
+        console.log(`[RENDER-VIDEO] Worker healthy: ${JSON.stringify(healthJson)}`);
+      } catch (healthErr) {
+        const msg = healthErr instanceof Error ? healthErr.message : String(healthErr);
+        throw new Error(`Worker unreachable (health check): ${msg}`);
+      }
+
       const workerRes = await fetch(`${baseWorkerUrl}/renders`, {
         method: "POST",
         headers: {
@@ -139,7 +154,7 @@ Deno.serve(async (req) => {
           webhookUrl,
           generationId,
         }),
-        signal: AbortSignal.timeout(15_000),
+        signal: AbortSignal.timeout(30_000),
       });
 
       if (!workerRes.ok) {
