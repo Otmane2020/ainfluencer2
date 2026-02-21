@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { quality = "standard", projectId, props = {} } = body;
+    const { quality = "standard", projectId, props = {}, audioUrl } = body;
 
     const DURATION_BY_QUALITY: Record<string, number> = { standard: 10, pro: 15, cinema: 20 };
     const duration = props.duration || DURATION_BY_QUALITY[quality] || 10;
@@ -128,6 +128,9 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           titleText: cleanText,
+          audioUrl: audioUrl || null,
+          duration,
+          imageUrl: props.image || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1920&q=80",
           width: renderWidth,
           height: renderHeight,
           crf: renderCrf,
