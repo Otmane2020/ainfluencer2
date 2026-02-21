@@ -142,12 +142,16 @@ Deno.serve(async (req) => {
             content: `You are a professional video scriptwriter for SaaS and ecommerce brands. You write scripts that are read aloud as voiceovers for promotional videos.
 
 Rules:
-- Write ONLY the narration text (no scene directions, no timestamps, no emojis)
+- Write ONLY the narration text that will be spoken aloud
+- NEVER include labels, headers, or metadata like "Angle:", "Engagement:", "Hook:", "SCRIPT:", "Scene:", "CTA:", "Visual:", "Shot:", "Tone:", "Music:", "SFX:", "Duration:", "Slide:"
+- NEVER include timestamps like [0-5s] or scene directions like (pan to product)
+- NO emojis, NO hashtags, NO markdown formatting
 - Language: ${language === "fr" ? "French" : language === "en" ? "English" : language}
 - Keep it under 120 words
 - Each sentence on its own line
 - Make every word count — no filler
-- End with a clear call-to-action`,
+- End with a clear call-to-action
+- Start directly with the first spoken sentence`,
           },
           {
             role: "user",
@@ -187,9 +191,18 @@ ${markdown.slice(0, 3000)}`,
     console.log("[url-to-video-script] AI response OK");
 
     const aiData = await aiRes.json();
-    const script = aiData?.choices?.[0]?.message?.content?.trim() || "";
+    const rawScript = aiData?.choices?.[0]?.message?.content?.trim() || "";
 
-    console.log(`[url-to-video-script] Script generated: ${script.length} chars`);
+    // Post-process: strip any remaining metadata lines
+    const script = rawScript
+      .split("\n")
+      .filter((line: string) => !/^(Angle|Engagement|Hook|SCRIPT|Scene|CTA|Visual|Shot|Tone|Music|SFX|Duration|Slide)\s*:/i.test(line.trim()))
+      .filter((line: string) => !/^\[[\d\-]+s\]/.test(line.trim()))
+      .filter((line: string) => !/^━+$/.test(line.trim()))
+      .join("\n")
+      .trim();
+
+    console.log(`[url-to-video-script] Script generated: ${script.length} chars (raw: ${rawScript.length})`);
 
     // Step 3: Upload screenshot to Supabase Storage for the render worker
     let screenshotUrl = screenshot; // base64 data URL from Firecrawl

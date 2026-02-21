@@ -169,12 +169,14 @@ export const UrlToVideoGenerator = ({ onBeforeGenerate }: UrlToVideoGeneratorPro
       setProgressLabel("Starting render...");
 
       // Call render-video with screenshot as image
+      // Use pageTitle for video overlay text (script is for voiceover audio only)
+      const overlayText = pageTitle || url.replace(/^https?:\/\//, "").split("/")[0] || "Your Brand";
       const { data, error } = await supabase.functions.invoke("render-video", {
         body: {
           quality: "standard",
           audioUrl,
           props: {
-            text: script.slice(0, 120),
+            text: overlayText.slice(0, 80),
             duration: 10,
             image: screenshot || undefined,
           },

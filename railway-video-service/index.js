@@ -102,7 +102,7 @@ async function callWebhook(webhookUrl, payload) {
 }
 
 // Background render job
-async function runRenderJob({ jobId, imageUrl, audioUrl, duration, outputFormat, webhookUrl, generationId }) {
+async function runRenderJob({ jobId, imageUrl, audioUrl, duration, outputFormat, webhookUrl, generationId, titleText, width, height }) {
   const workDir = `/tmp/${jobId}`;
   const job = jobs.get(jobId);
 
@@ -131,6 +131,24 @@ async function runRenderJob({ jobId, imageUrl, audioUrl, duration, outputFormat,
     const zoomSpeed = 0.0008;
     const frameRate = 30;
     const totalFrames = duration * frameRate;
+    const vw = width || 720;
+    const vh = height || 1280;
+
+    // Build filter chain: scale → zoompan → drawtext (if title provided)
+    let filterChain = `scale=${vw}:${vh}:force_original_aspect_ratio=decrease,pad=${vw}:${vh}:(ow-iw)/2:(oh-ih)/2,zoompan=z='min(zoom+${zoomSpeed},1.08)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${totalFrames}:s=${vw}x${vh}:fps=${frameRate}`;
+
+    // Add title text overlay if provided
+    if (titleText && titleText.trim()) {
+      // Escape special chars for FFmpeg drawtext
+      const safeTitle = titleText
+        .replace(/\\/g, "\\\\\\\\")
+        .replace(/'/g, "'\\\\\\''")
+        .replace(/:/g, "\\\\:")
+        .replace(/%/g, "%%")
+        .slice(0, 80);
+      filterChain += `,drawtext=text='${safeTitle}':fontsize=36:fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=12:x=(w-text_w)/2:y=60:font=sans`;
+      console.log(`[${jobId}] Title overlay: "${titleText.slice(0, 50)}"`);
+    }
 
     const ffmpegCmd = [
       "ffmpeg",
@@ -143,7 +161,7 @@ async function runRenderJob({ jobId, imageUrl, audioUrl, duration, outputFormat,
       "-crf", "28",
       "-t", String(duration),
       "-pix_fmt", "yuv420p",
-      "-vf", `scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2,zoompan=z='min(zoom+${zoomSpeed},1.08)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${totalFrames}:s=720x1280:fps=${frameRate}`,
+      "-vf", filterChain,
       "-c:a", "aac",
       "-b:a", "128k",
       "-shortest",
@@ -229,6 +247,9 @@ app.post(["/render", "/renders"], authMiddleware, async (req, res) => {
     outputFormat = "mp4",
     webhookUrl,
     generationId,
+    titleText = "",
+    width = 720,
+    height = 1280,
   } = req.body;
 
   if (!imageUrl || !audioUrl) {
@@ -265,7 +286,7 @@ app.post(["/render", "/renders"], authMiddleware, async (req, res) => {
   res.status(202).json({ jobId, generationId, status: "queued" });
 
   // Fire and forget
-  runRenderJob({ jobId, imageUrl, audioUrl, duration, outputFormat, webhookUrl, generationId }).catch(
+  runRenderJob({ jobId, imageUrl, audioUrl, duration, outputFormat, webhookUrl, generationId, titleText, width, height }).catch(
     (err) => console.error(`[${jobId}] Unhandled render error:`, err)
   );
 });
