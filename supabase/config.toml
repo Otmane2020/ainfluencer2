@@ -166,3 +166,6 @@ verify_jwt = false
 
 [functions.render-callback]
 verify_jwt = false
+
+[functions.url-to-video-script]
+verify_jwt = false
