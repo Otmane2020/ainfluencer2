@@ -107,13 +107,27 @@ Deno.serve(async (req) => {
     const generationId = generationRecord?.id;
     console.log(`[RENDER-VIDEO] Generation: ${generationId}`);
 
-    // POST to Remotion server — /renders endpoint expects { titleText }
+    // POST to Remotion server — /renders endpoint
+    // Pass optimization params to reduce RAM usage on Railway
+    const renderWidth = quality === "cinema" ? 1920 : 1280;
+    const renderHeight = quality === "cinema" ? 1080 : 720;
+    const renderCrf = quality === "cinema" ? 23 : 28;
+    const renderConcurrency = 2; // Limit parallel frame renders
+    const renderThreads = 2; // Limit FFmpeg threads to prevent OOM
+
     let jobId: string | undefined;
     try {
       const workerRes = await fetch(`${baseWorkerUrl}/renders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ titleText: cleanText }),
+        body: JSON.stringify({
+          titleText: cleanText,
+          width: renderWidth,
+          height: renderHeight,
+          crf: renderCrf,
+          concurrency: renderConcurrency,
+          ffmpegThreads: renderThreads,
+        }),
         signal: AbortSignal.timeout(15_000),
       });
 
