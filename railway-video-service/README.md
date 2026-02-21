@@ -1,88 +1,90 @@
-# ClipMotion Video Service
+# ClipMotion Video Service (Remotion Engine)
 
-FFmpeg-based video rendering service for creating real MP4 reels from image + audio.
+React-based video rendering service powered by **Remotion** for creating dynamic MP4 reels.
+
+## Architecture
+
+```
+Express Server (index.js)
+  ├── Startup: bundle() React compositions via @remotion/bundler
+  ├── POST /renders: accept job → renderMedia() → webhook callback
+  └── GET /renders/:jobId: poll job status
+```
+
+## Compositions
+
+| ID | Resolution | Use Case |
+|----|-----------|----------|
+| `ClipMotionVideo` | 1280×720 (landscape) | Standard marketing videos |
+| `ClipMotionVertical` | 720×1280 (portrait) | Reels / TikTok / Stories |
+
+### Features
+- **Ken Burns** zoom effect via Remotion `interpolate()`
+- **Title overlay** with spring animation + fade out
+- **Cinematic vignette** overlay
+- **Audio sync** via Remotion `<Audio>` component
+- **Dynamic duration** from inputProps
 
 ## 🚀 Deploy to Railway
 
-### Step 1: Create Railway Project
+### Requirements
+- Railway **Pro Plan** (8GB+ RAM recommended)
+- Docker builder (not Nixpacks) for Chromium support
 
-1. Go to [railway.app](https://railway.app)
-2. Click **"New Project"** → **"Deploy from GitHub repo"**
-3. Connect this folder or push to a new repo
-
-### Step 2: Configure Environment Variables
-
-In Railway dashboard, add these variables:
+### Environment Variables
 
 | Variable | Value |
 |----------|-------|
-| `API_SECRET` | Create a secure random string (e.g., `clipmotion-xyz123-secret`) |
-| `PORT` | `3000` (Railway sets this automatically) |
+| `API_SECRET` | Secure random string |
+| `PORT` | `3000` (auto-set by Railway) |
 
-### Step 3: Get Your Service URL
+### Railway Settings
+- **Builder:** Dockerfile
+- **Root Directory:** `/` (if repo root) or path to this folder
+- **Health Check:** `/health`
+- **Start Command:** `node index.js` (auto from Dockerfile)
 
-After deployment, Railway will provide a URL like:
-```
-https://clipmotion-video-service.up.railway.app
-```
+### After Deployment
 
-### Step 4: Add URL to Lovable Secrets
+Add to Lovable Cloud secrets:
+- `RENDER_WORKER_URL` → Railway URL (e.g., `https://clipmotion-video.up.railway.app`)
+- `RENDER_WORKER_SECRET` → Same as `API_SECRET`
 
-In Lovable, add the secret:
-- **Name:** `RAILWAY_VIDEO_SERVICE_URL`
-- **Value:** Your Railway URL (e.g., `https://clipmotion-video-service.up.railway.app`)
-
-Also add:
-- **Name:** `RAILWAY_VIDEO_SERVICE_SECRET`
-- **Value:** The same `API_SECRET` you set in Railway
-
-## 📡 API Reference
+## API
 
 ### Health Check
 ```
 GET /health
+→ { status: "ok", engine: "remotion", bundled: true, jobs: 0 }
 ```
 
 ### Render Video
 ```
-POST /render
+POST /renders
 Authorization: Bearer YOUR_API_SECRET
 Content-Type: application/json
 
 {
-  "imageUrl": "https://..../image.png",
-  "audioUrl": "https://..../audio.mp3",
-  "duration": 10
+  "imageUrl": "https://.../image.png",
+  "audioUrl": "https://.../audio.mp3",
+  "titleText": "My Brand",
+  "duration": 10,
+  "width": 1280,
+  "height": 720,
+  "webhookUrl": "https://.../render-callback",
+  "generationId": "uuid"
 }
+
+→ 202 { jobId: "job-...", status: "queued" }
 ```
 
-Response:
-```json
-{
-  "success": true,
-  "jobId": "job-123456",
-  "video": {
-    "base64": "AAAA...",
-    "mimeType": "video/mp4",
-    "size": 1234567,
-    "duration": 10,
-    "resolution": "1080x1920"
-  }
-}
+### Poll Status
+```
+GET /renders/:jobId
+→ { id, status, progress, output, error }
 ```
 
 ## 💰 Cost
-
-- Railway: ~$5/month for hobby tier
-- FFmpeg: Free
-- Storage: Uses Supabase (already included)
-
-## 🎬 What it does
-
-1. Downloads image and audio from provided URLs
-2. Applies Ken Burns zoom effect to image
-3. Overlays audio track
-4. Exports as MP4 (1080x1920, 30fps)
-5. Returns base64-encoded video
-
-The edge function then uploads this to Supabase Storage.
+- Railway Pro: ~$20/month (8GB RAM)
+- Remotion: Free for self-hosted
+- Chromium + FFmpeg: Included in Docker image
