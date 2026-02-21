@@ -6,6 +6,44 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const GENERATION_TIMEOUT_MS = 1000 * 60 * 10; // 10 minutes
+const CREDIT_COSTS: Record<string, number> = { standard: 5, pro: 10, cinema: 20 };
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+/** Refund credits + log transaction */
+async function refundCredits(supabase: any, userId: string, quality: string, reason: string) {
+  const amount = CREDIT_COSTS[quality || "standard"] || 5;
+  await supabase.rpc("add_credits", { p_user_id: userId, p_amount: amount });
+  await supabase.from("credit_transactions").insert({
+    user_id: userId, amount, type: "refund", description: `Refund: ${reason}`,
+  });
+}
+
+/** Build absolute video URL from worker output (relative or absolute) */
+function resolveVideoUrl(output: string, baseWorkerUrl: string): string {
+  if (!output) return "";
+
+  // Already absolute → rewrite localhost if needed
+  if (output.startsWith("http")) {
+    if (output.includes("localhost") || output.includes("127.0.0.1")) {
+      try {
+        return `${baseWorkerUrl}${new URL(output).pathname}`;
+      } catch { return output; }
+    }
+    return output;
+  }
+
+  // Relative path → build absolute using base URL
+  const cleanPath = output.replace(/^\//, "");
+  return `${baseWorkerUrl}/${cleanPath}`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -17,162 +55,113 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     let RENDER_WORKER_URL = Deno.env.get("RENDER_WORKER_URL") || "";
-
     const body = await req.json();
     const { generationId, jobId } = body;
 
     if (!generationId || !jobId) {
-      return new Response(
-        JSON.stringify({ error: "generationId and jobId are required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({ error: "generationId and jobId are required" }, 400);
     }
 
-    // Fetch current generation
+    // Fetch generation
     const { data: gen, error: genErr } = await supabase
       .from("generations")
-      .select("id, user_id, quality, status, progress")
+      .select("id, user_id, quality, status, progress, created_at")
       .eq("id", generationId)
       .single();
 
     if (genErr || !gen) {
-      return new Response(
-        JSON.stringify({ error: "Generation not found" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({ error: "Generation not found" }, 404);
     }
 
-    // Already done
+    // Already terminal
     if (gen.status === "completed" || gen.status === "failed") {
       const { data: latest } = await supabase
         .from("generations")
         .select("status, progress, media_url, error_message")
         .eq("id", generationId)
         .single();
-      return new Response(
-        JSON.stringify({ status: latest?.status, progress: latest?.progress, mediaUrl: latest?.media_url }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({ status: latest?.status, progress: latest?.progress, mediaUrl: latest?.media_url });
+    }
+
+    // ── TIMEOUT CHECK (10 min) ──
+    const createdAt = new Date(gen.created_at).getTime();
+    if (Date.now() - createdAt > GENERATION_TIMEOUT_MS) {
+      console.warn(`[POLL] ⏰ Generation ${generationId} timed out (>10min)`);
+      await supabase.from("generations").update({
+        status: "failed", error_message: "Generation timeout (10 min)", progress: 0,
+        completed_at: new Date().toISOString(),
+      }).eq("id", generationId);
+
+      if (gen.user_id) await refundCredits(supabase, gen.user_id, gen.quality, "Generation timeout");
+
+      return jsonResponse({ status: "failed", progress: 0, error: "Generation timeout (10 min)" });
     }
 
     // Normalize base URL
     if (!RENDER_WORKER_URL.startsWith("http")) RENDER_WORKER_URL = `https://${RENDER_WORKER_URL}`;
     const baseWorkerUrl = RENDER_WORKER_URL.replace(/\/renders?\/?$/, "").replace(/\/$/, "");
 
-    // Poll worker for job status
+    // Poll worker
     const pollUrl = `${baseWorkerUrl}/renders/${jobId}`;
     console.log(`[POLL] Fetching: ${pollUrl}`);
+
     let workerData: any = null;
     try {
-      const workerRes = await fetch(pollUrl, {
-        signal: AbortSignal.timeout(10_000),
-      });
-
+      const workerRes = await fetch(pollUrl, { signal: AbortSignal.timeout(10_000) });
       const rawText = await workerRes.text();
       console.log(`[POLL] Worker response (${workerRes.status}): ${rawText.slice(0, 500)}`);
 
       if (!workerRes.ok) {
-        return new Response(
-          JSON.stringify({ status: "processing", progress: gen.progress, workerStatus: workerRes.status, workerError: rawText.slice(0, 200) }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return jsonResponse({ status: "processing", progress: gen.progress, workerStatus: workerRes.status });
       }
 
-      try {
-        workerData = JSON.parse(rawText);
-      } catch {
-        console.error(`[POLL] Failed to parse worker JSON: ${rawText.slice(0, 200)}`);
-        return new Response(
-          JSON.stringify({ status: "processing", progress: gen.progress }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      try { workerData = JSON.parse(rawText); } catch {
+        return jsonResponse({ status: "processing", progress: gen.progress });
       }
     } catch (fetchErr: any) {
-      console.error(`[POLL] Fetch error: ${fetchErr?.message || fetchErr}`);
-      return new Response(
-        JSON.stringify({ status: "processing", progress: gen.progress, fetchError: fetchErr?.message }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      console.error(`[POLL] Fetch error: ${fetchErr?.message}`);
+      return jsonResponse({ status: "processing", progress: gen.progress, fetchError: fetchErr?.message });
     }
-
-    console.log(`[POLL] Job ${jobId}: ${JSON.stringify(workerData).slice(0, 300)}`);
 
     const remotionStatus: string = workerData.status || "unknown";
 
     // ── QUEUED ──
     if (remotionStatus === "queued") {
       await supabase.from("generations").update({ progress: 25 }).eq("id", generationId);
-      return new Response(
-        JSON.stringify({ status: "processing", progress: 25 }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({ status: "processing", progress: 25 });
     }
 
     // ── IN-PROGRESS ──
     if (remotionStatus === "in-progress") {
-      // Worker progress is a 0-1 fraction; map to 25-90 range
       const remotionProgress = typeof workerData.progress === "number" ? workerData.progress : 0;
       const mappedProgress = Math.round(25 + remotionProgress * 65);
       const nextProgress = Math.max(gen.progress || 25, Math.min(mappedProgress, 90));
       await supabase.from("generations").update({ progress: nextProgress }).eq("id", generationId);
-      return new Response(
-        JSON.stringify({ status: "processing", progress: nextProgress }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({ status: "processing", progress: nextProgress });
     }
 
     // ── DONE ──
     if (remotionStatus === "done" || remotionStatus === "completed") {
-      // Worker returns `output` field (relative path like "renders/<jobId>.mp4")
-      const outputFile: string | undefined = workerData.output || workerData.outputFile || workerData.videoUrl || workerData.video_url;
-      
-      let videoSourceUrl: string | undefined;
-      
-      if (outputFile) {
-        if (outputFile.startsWith("http")) {
-          // Rewrite localhost/127.0.0.1 URLs to the real Railway public URL
-          if (outputFile.includes("localhost") || outputFile.includes("127.0.0.1")) {
-            try {
-              const urlPath = new URL(outputFile).pathname;
-              videoSourceUrl = `${baseWorkerUrl}${urlPath}`;
-              console.log(`[POLL] Rewrote localhost URL to: ${videoSourceUrl}`);
-            } catch {
-              videoSourceUrl = outputFile;
-            }
-          } else {
-            videoSourceUrl = outputFile;
-          }
-        } else {
-          // output is a relative path like "renders/abc.mp4" — build full URL
-          const cleanPath = outputFile.replace(/^\//, "");
-          videoSourceUrl = `${baseWorkerUrl}/${cleanPath}`;
-        }
-      } else {
-        // Fallback: try the standard path /renders/<jobId>.mp4
-        videoSourceUrl = `${baseWorkerUrl}/renders/${jobId}.mp4`;
-      }
-      
+      const outputFile = workerData.output || workerData.outputFile || workerData.videoUrl || workerData.video_url;
+      const videoSourceUrl = outputFile ? resolveVideoUrl(outputFile, baseWorkerUrl) : `${baseWorkerUrl}/renders/${jobId}.mp4`;
+
       console.log(`[POLL] Video source URL: ${videoSourceUrl}`);
 
       let finalVideoUrl: string | undefined;
 
       if (videoSourceUrl) {
-        // Download from Railway and re-upload to our storage
         try {
-          console.log(`[POLL] Downloading video from: ${videoSourceUrl}`);
           const videoRes = await fetch(videoSourceUrl, { signal: AbortSignal.timeout(60_000) });
           if (videoRes.ok) {
             const videoBytes = new Uint8Array(await videoRes.arrayBuffer());
             const videoPath = `videos/remotion-${Date.now()}-${Math.random().toString(36).slice(2)}.mp4`;
             const { error: uploadErr } = await supabase.storage
-              .from("media")
-              .upload(videoPath, videoBytes, { contentType: "video/mp4", upsert: true });
+              .from("media").upload(videoPath, videoBytes, { contentType: "video/mp4", upsert: true });
             if (!uploadErr) {
-              const { data: urlData } = supabase.storage.from("media").getPublicUrl(videoPath);
-              finalVideoUrl = urlData.publicUrl;
+              finalVideoUrl = supabase.storage.from("media").getPublicUrl(videoPath).data.publicUrl;
             } else {
               console.error("[POLL] Upload error:", uploadErr);
-              finalVideoUrl = videoSourceUrl; // Fallback to Railway URL
+              finalVideoUrl = videoSourceUrl;
             }
           } else {
             console.error(`[POLL] Download failed: ${videoRes.status}`);
@@ -185,88 +174,38 @@ Deno.serve(async (req) => {
 
       if (!finalVideoUrl) {
         await supabase.from("generations").update({
-          status: "failed",
-          error_message: "Render done but no video file available",
-          progress: 0,
-          completed_at: new Date().toISOString(),
+          status: "failed", error_message: "Render done but no video file available",
+          progress: 0, completed_at: new Date().toISOString(),
         }).eq("id", generationId);
-
-        // Refund
-        if (gen.user_id) {
-          const CREDIT_COSTS: Record<string, number> = { standard: 5, pro: 10, cinema: 20 };
-          const refundAmount = CREDIT_COSTS[gen.quality || "standard"] || 5;
-          await supabase.rpc("add_credits", { p_user_id: gen.user_id, p_amount: refundAmount });
-          await supabase.from("credit_transactions").insert({
-            user_id: gen.user_id, amount: refundAmount, type: "refund",
-            description: "Refund: Video file unavailable",
-          });
-        }
-
-        return new Response(
-          JSON.stringify({ status: "failed", progress: 0 }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        if (gen.user_id) await refundCredits(supabase, gen.user_id, gen.quality, "Video file unavailable");
+        return jsonResponse({ status: "failed", progress: 0 });
       }
 
       await supabase.from("generations").update({
-        status: "completed",
-        progress: 100,
-        media_url: finalVideoUrl,
+        status: "completed", progress: 100, media_url: finalVideoUrl,
         completed_at: new Date().toISOString(),
       }).eq("id", generationId);
 
       console.log(`[POLL] ✓ Generation ${generationId} completed: ${finalVideoUrl}`);
-
-      return new Response(
-        JSON.stringify({ status: "completed", progress: 100, mediaUrl: finalVideoUrl }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({ status: "completed", progress: 100, mediaUrl: finalVideoUrl });
     }
 
     // ── FAILED ──
     if (remotionStatus === "failed" || remotionStatus === "error") {
-      const rawErr = workerData.error;
-      const errMsg = typeof rawErr === "string" && rawErr
-        ? rawErr
-        : typeof workerData.message === "string" && workerData.message
-          ? workerData.message
-          : "Remotion render failed";
-
-      // Refund
-      if (gen.user_id) {
-        const CREDIT_COSTS: Record<string, number> = { standard: 5, pro: 10, cinema: 20 };
-        const refundAmount = CREDIT_COSTS[gen.quality || "standard"] || 5;
-        await supabase.rpc("add_credits", { p_user_id: gen.user_id, p_amount: refundAmount });
-        await supabase.from("credit_transactions").insert({
-          user_id: gen.user_id, amount: refundAmount, type: "refund",
-          description: "Refund: Remotion render failed",
-        });
-      }
-
+      const errMsg = workerData.error || workerData.message || "Render failed";
+      if (gen.user_id) await refundCredits(supabase, gen.user_id, gen.quality, "Render failed");
       await supabase.from("generations").update({
-        status: "failed",
-        error_message: errMsg,
-        progress: 0,
+        status: "failed", error_message: errMsg, progress: 0,
         completed_at: new Date().toISOString(),
       }).eq("id", generationId);
-
-      return new Response(
-        JSON.stringify({ status: "failed", progress: 0, error: errMsg }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({ status: "failed", progress: 0, error: errMsg });
     }
 
-    // Unknown status
-    return new Response(
-      JSON.stringify({ status: "processing", progress: gen.progress }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    // Unknown
+    return jsonResponse({ status: "processing", progress: gen.progress });
 
   } catch (error) {
     console.error("[POLL] Unhandled error:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });
