@@ -107,13 +107,16 @@ Deno.serve(async (req) => {
     const generationId = generationRecord?.id;
     console.log(`[RENDER-VIDEO] Generation: ${generationId}`);
 
-    // POST to Remotion server — /renders endpoint
-    // Pass optimization params to reduce RAM usage on Railway
+    // POST to Remotion server — /render endpoint
+    // Determine composition/template based on aspect ratio
     const renderWidth = quality === "cinema" ? 1920 : 1280;
     const renderHeight = quality === "cinema" ? 1080 : 720;
+    const isVertical = renderHeight > renderWidth;
+    const isSquare = Math.abs(renderWidth - renderHeight) < 50;
+    const templateId = isSquare ? "ClipMotionSquare" : isVertical ? "ClipMotionVertical" : "ClipMotionVideo";
     const renderCrf = quality === "cinema" ? 23 : 28;
-    const renderConcurrency = 2; // Limit parallel frame renders
-    const renderThreads = 2; // Limit FFmpeg threads to prevent OOM
+    const renderConcurrency = 2;
+    const renderThreads = 2;
 
     // Build webhook callback URL for the worker
     const webhookUrl = `${supabaseUrl}/functions/v1/render-callback`;
@@ -142,6 +145,7 @@ Deno.serve(async (req) => {
           "Authorization": `Bearer ${Deno.env.get("RENDER_WORKER_SECRET") || ""}`,
         },
         body: JSON.stringify({
+          templateId,
           titleText: cleanText,
           audioUrl: audioUrl || null,
           duration,
