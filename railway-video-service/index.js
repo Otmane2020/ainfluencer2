@@ -21,6 +21,30 @@ fs.mkdir(RENDERS_DIR, { recursive: true }).catch(() => {});
 const jobs = new Map();
 let bundleLocation = null;
 
+// ── Log filter: suppress Remotion internal noise ──
+const _origLog = console.log;
+const _origInfo = console.info;
+let _suppressLogs = false;
+
+function enableLogFilter() {
+  _suppressLogs = true;
+  const filter = (...args) => {
+    const msg = args.map(String).join(" ");
+    if (/^\[job-/.test(msg) || /error|fail|warn/i.test(msg) || /^\[webhook\]/.test(msg) || /^\[remotion\]/.test(msg) || /^🎬/.test(msg)) {
+      _origLog(...args);
+    }
+    // else: suppressed
+  };
+  console.log = filter;
+  console.info = filter;
+}
+
+function disableLogFilter() {
+  _suppressLogs = false;
+  console.log = _origLog;
+  console.info = _origInfo;
+}
+
 // ── Auth middleware ──
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -35,13 +59,18 @@ async function initRemotionBundle() {
   console.log("[remotion] Bundling compositions...");
   const { bundle } = await import("@remotion/bundler");
   const entryPoint = path.resolve(__dirname, "src/index.ts");
-  bundleLocation = await bundle({
-    entryPoint,
-    onProgress: (progress) => {
-      if (progress % 25 === 0) console.log(`[remotion] Bundle: ${progress}%`);
-    },
-  });
-  console.log(`[remotion] Bundle ready: ${bundleLocation}`);
+  enableLogFilter();
+  try {
+    bundleLocation = await bundle({
+      entryPoint,
+      onProgress: (progress) => {
+        if (progress === 100) _origLog(`[remotion] Bundle: 100%`);
+      },
+    });
+  } finally {
+    disableLogFilter();
+  }
+  console.log(`[remotion] Bundle ready`);
 }
 
 // ── Health check ──
@@ -115,6 +144,7 @@ async function runRenderJob({ jobId, imageUrl, audioUrl, duration, webhookUrl, g
     if (job) job.status = "in-progress";
 
     const { selectComposition, renderMedia } = await import("@remotion/renderer");
+    enableLogFilter();
 
     const fps = 30;
     const durationInFrames = Math.round(duration * fps);
@@ -158,12 +188,13 @@ async function runRenderJob({ jobId, imageUrl, audioUrl, duration, webhookUrl, g
       outputLocation: outputPath,
       inputProps,
       concurrency: 2,
+      logLevel: "error",
       chromiumOptions: { enableMultiProcessOnLinux: false },
       onProgress: ({ progress }) => {
         if (job) job.progress = 0.25 + progress * 0.6;
         const pct = Math.round(progress * 100);
-        if (pct % 25 === 0 && pct > 0) {
-          console.log(`[${jobId}] Render: ${pct}%`);
+        if (pct === 50 || pct === 100) {
+          _origLog(`[${jobId}] Render: ${pct}%`);
         }
       },
     });
@@ -190,6 +221,8 @@ async function runRenderJob({ jobId, imageUrl, audioUrl, duration, webhookUrl, g
     console.error(`[${jobId}] Render error:`, error);
     if (job) { job.status = "failed"; job.error = error.message; job.progress = 0; }
     await callWebhook(webhookUrl, { jobId, generationId, status: "failed", error: error.message });
+  } finally {
+    disableLogFilter();
   }
 }
 
