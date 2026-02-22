@@ -1,82 +1,31 @@
 
 
-# Fix: "Hello Demo" / Broken Video Rendering
+## Fix Railway Rate Limit (500 logs/sec)
 
-## Problem
+### Problem
+Remotion's internal engine emits hundreds of log lines per render (bundling progress, browser lifecycle, frame timing stats, cleanup messages). This exceeds Railway's 500 logs/sec limit, causing 724 messages to be dropped.
 
-The URL-to-Video pipeline generates videos that all look generic because:
+### Solution
+Wrap the Remotion render execution with a **console override** that filters out noisy internal logs, only allowing important messages through (errors, job-level status updates).
 
-1. The Railway FFmpeg worker **ignores** the `titleText` parameter sent by the edge function — it only processes `imageUrl`, `audioUrl`, and `duration`
-2. The AI script prompt sometimes produces metadata labels ("Angle: BENEFIT", "Engagement: HIGH") mixed into the script instead of clean narration
-3. No text overlay is rendered on the final video — it's just a zooming image with audio
+### Technical Details
 
-## Solution
+**File: `railway-video-service/index.js`**
 
-### 1. Update Railway Worker (`railway-video-service/index.js`)
+1. **Add a logging wrapper** around the `runRenderJob` function that temporarily replaces `console.log` with a filtered version during Remotion operations:
+   - Allow lines starting with `[job-` (our own logs)
+   - Allow lines containing `error`, `fail`, `warn`
+   - Suppress all other Remotion internal noise (bundling %, frame stats, browser lifecycle, cleanup messages)
 
-- Accept `titleText` and `width`/`height` params in the `/renders` endpoint
-- Add an FFmpeg `drawtext` filter to burn a short title (first line of the script or page title) onto the video with a semi-transparent background bar
-- Use the provided `width`/`height` or default to `720x1280`
+2. **Suppress bundler progress** in `initRemotionBundle` by removing or reducing the `onProgress` callback to only log at 0% and 100%.
 
-```text
-FFmpeg filter chain:
-  zoompan (Ken Burns) -> drawtext (title at top with background box)
-```
+3. **Reduce `renderMedia` verbosity** by setting `logLevel: "error"` in the Remotion render options (suppresses info-level logs from the renderer itself).
 
-### 2. Fix the AI Script Prompt (`supabase/functions/url-to-video-script/index.ts`)
+4. **Keep essential logs only**:
+   - Job start/end with summary (duration, file size)
+   - Render progress at 50% and 100% only
+   - Errors and webhook notifications
 
-- Strengthen the system prompt to explicitly forbid metadata labels like "Angle:", "Engagement:", "SCRIPT:", "Hook:", etc.
-- Add a post-processing step to strip any remaining metadata lines from the generated script before returning it
-
-### 3. Pass title text properly from `render-video` edge function
-
-- The `render-video` function already sends `titleText` — no change needed there
-- The Railway worker just needs to USE it (fix in step 1)
-
-### 4. Sanitize script in `UrlToVideoGenerator.tsx`
-
-- Before sending `props.text` to render-video, strip any lines starting with metadata labels ("Angle:", "Hook:", "SCRIPT:", etc.)
-- Use the `pageTitle` as the video overlay text instead of the script body (the script is for voiceover audio, not for on-screen display)
-
-## Technical Details
-
-### Railway Worker FFmpeg Filter Update
-
-Add `drawtext` after `zoompan`:
-
-```text
-zoompan=...,drawtext=text='Title Here':fontsize=36:fontcolor=white:
-  box=1:boxcolor=black@0.5:boxborderw=10:x=(w-text_w)/2:y=60
-```
-
-### Script Sanitization (post-processing)
-
-```typescript
-// Strip metadata lines from AI output
-const cleanScript = script
-  .split('\n')
-  .filter(line => !/^(Angle|Engagement|Hook|SCRIPT|Scene|CTA)\s*:/i.test(line.trim()))
-  .join('\n')
-  .trim();
-```
-
-### Video text prop fix
-
-In `UrlToVideoGenerator.tsx`, send `pageTitle` as the overlay text instead of `script.slice(0,120)`:
-
-```typescript
-props: {
-  text: pageTitle || "Your Brand",  // Clean title for overlay
-  duration: 10,
-  image: screenshot || undefined,
-}
-```
-
-## Files to Modify
-
-| File | Change |
-|------|--------|
-| `railway-video-service/index.js` | Accept and use `titleText` in FFmpeg drawtext filter |
-| `supabase/functions/url-to-video-script/index.ts` | Stricter prompt + post-process to strip metadata labels |
-| `src/components/UrlToVideoGenerator.tsx` | Send `pageTitle` as overlay text, not raw script |
+### Deployment
+After approval, push the updated `index.js` to the `render-server12` repository and redeploy on Railway.
 
