@@ -55,8 +55,8 @@ app.get("/health", (req, res) => {
   });
 });
 
-// ── Serve rendered files ──
-app.use("/renders", express.static(RENDERS_DIR));
+// ── Serve rendered files (use /output to avoid conflict with POST /renders) ──
+app.use("/output", express.static(RENDERS_DIR));
 
 // ── Download helper ──
 async function downloadFile(url, destPath) {
@@ -170,7 +170,7 @@ async function runRenderJob({ jobId, imageUrl, audioUrl, duration, webhookUrl, g
     if (job) job.progress = 0.9;
 
     const stats = await fs.stat(outputPath);
-    const relativeVideoUrl = `/renders/${jobId}.mp4`;
+    const relativeVideoUrl = `/output/${jobId}.mp4`;
     console.log(`[${jobId}] Done: ${stats.size} bytes → ${relativeVideoUrl}`);
 
     if (job) {
