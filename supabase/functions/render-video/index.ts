@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
         throw new Error(`Worker unreachable (health check): ${msg}`);
       }
 
-      const workerRes = await fetch(`${baseWorkerUrl}/renders`, {
+      const workerRes = await fetch(`${baseWorkerUrl}/render`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
