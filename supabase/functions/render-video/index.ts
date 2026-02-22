@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
     const renderHeight = quality === "cinema" ? 1080 : 720;
     const isVertical = renderHeight > renderWidth;
     const isSquare = Math.abs(renderWidth - renderHeight) < 50;
-    const templateId = isSquare ? "ClipMotionSquare" : isVertical ? "ClipMotionVertical" : "ClipMotionVideo";
+    const templateId = "template-prompt-to-video";
     const renderCrf = quality === "cinema" ? 23 : 28;
     const renderConcurrency = 2;
     const renderThreads = 2;
