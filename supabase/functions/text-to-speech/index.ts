@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,7 +7,52 @@ const corsHeaders = {
 };
 
 // ============================================================
-// TTS MODEL POOL CONFIGURATION - ElevenLabs Only (High Quality)
+// AUDIO CACHE - store in Supabase Storage to avoid re-generating
+// ============================================================
+
+async function hashKey(text: string, voiceId: string): Promise<string> {
+  const data = new TextEncoder().encode(`${voiceId}:${text}`);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function getSupabaseAdmin() {
+  return createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+}
+
+async function getCachedAudio(cacheKey: string): Promise<ArrayBuffer | null> {
+  try {
+    const sb = getSupabaseAdmin();
+    const path = `tts-cache/${cacheKey}.mp3`;
+    const { data, error } = await sb.storage.from("media").download(path);
+    if (error || !data) return null;
+    console.log(`[TTS Cache] HIT for ${cacheKey.substring(0, 12)}…`);
+    return await data.arrayBuffer();
+  } catch {
+    return null;
+  }
+}
+
+async function setCachedAudio(cacheKey: string, buffer: ArrayBuffer): Promise<void> {
+  try {
+    const sb = getSupabaseAdmin();
+    const path = `tts-cache/${cacheKey}.mp3`;
+    const blob = new Blob([buffer], { type: "audio/mpeg" });
+    await sb.storage.from("media").upload(path, blob, {
+      contentType: "audio/mpeg",
+      upsert: true,
+    });
+    console.log(`[TTS Cache] STORED ${cacheKey.substring(0, 12)}…`);
+  } catch (e) {
+    console.warn("[TTS Cache] Failed to store:", e);
+  }
+}
+
+// ============================================================
+// TTS MODEL POOL CONFIGURATION
 // ============================================================
 
 interface TTSModelOption {
@@ -17,17 +63,12 @@ interface TTSModelOption {
 }
 
 const TTS_MODEL_POOLS: Record<string, TTSModelOption[]> = {
-  // Standard Voice - ElevenLabs (reliable high quality)
   "standard-voice": [
     { id: "elevenlabs-tts", provider: "elevenlabs", weight: 100, costEstimate: 0.024 },
   ],
-  
-  // Natural Voice - ElevenLabs
   "natural-voice": [
     { id: "elevenlabs-tts", provider: "elevenlabs", weight: 100, costEstimate: 0.024 },
   ],
-  
-  // Premium Voice - ElevenLabs highest quality
   "premium-voice": [
     { id: "elevenlabs-tts", provider: "elevenlabs", weight: 100, costEstimate: 0.024 },
   ],
@@ -39,12 +80,10 @@ function selectTTSModel(qualityId: string): TTSModelOption {
   const pool = TTS_MODEL_POOLS[qualityId] || TTS_MODEL_POOLS[DEFAULT_QUALITY];
   const totalWeight = pool.reduce((sum, m) => sum + m.weight, 0);
   let random = Math.random() * totalWeight;
-  
   for (const model of pool) {
     random -= model.weight;
     if (random <= 0) return model;
   }
-  
   return pool[0];
 }
 
@@ -56,7 +95,6 @@ async function generateWithElevenLabs(
   text: string, 
   voiceId: string
 ): Promise<{ audioBuffer: ArrayBuffer | null; error?: string }> {
-  // Try both keys in order
   const keys = [
     Deno.env.get("ELEVENLABS_API_KEY_1"),
     Deno.env.get("ELEVENLABS_API_KEY"),
@@ -70,7 +108,7 @@ async function generateWithElevenLabs(
   for (let i = 0; i < keys.length; i++) {
     const key = keys[i];
     const keyLabel = i === 0 ? "KEY_1" : "KEY";
-    console.log(`[ElevenLabs] Trying ${keyLabel} for TTS...`);
+    console.log(`[ElevenLabs] Trying ${keyLabel}…`);
 
     try {
       const response = await fetch(
@@ -104,16 +142,15 @@ async function generateWithElevenLabs(
       const errorText = await response.text();
       console.error(`[ElevenLabs] ${keyLabel} error: ${response.status} ${errorText}`);
 
-      // If 401 or quota exceeded, try next key
       if (response.status === 401 || response.status === 429) {
         try {
           const errorData = JSON.parse(errorText);
           if (errorData?.detail?.status === "quota_exceeded") {
-            console.log(`[ElevenLabs] ${keyLabel} quota exceeded, trying next key...`);
+            console.log(`[ElevenLabs] ${keyLabel} quota exceeded, trying next…`);
             continue;
           }
         } catch (_) {}
-        console.log(`[ElevenLabs] ${keyLabel} auth failed, trying next key...`);
+        console.log(`[ElevenLabs] ${keyLabel} auth failed, trying next…`);
         continue;
       }
 
@@ -124,7 +161,7 @@ async function generateWithElevenLabs(
     }
   }
 
-  return { audioBuffer: null, error: "All ElevenLabs API keys failed (401/quota). Please update your API key." };
+  return { audioBuffer: null, error: "All ElevenLabs API keys failed (401/quota)." };
 }
 
 // ============================================================
@@ -146,22 +183,22 @@ serve(async (req) => {
       );
     }
 
-    // Select model from pool based on quality
+    const finalVoiceId = voiceId || "JBFqnCBsd6RMkjVDRZzb";
     const qualityLevel = quality || DEFAULT_QUALITY;
     const selectedModel = selectTTSModel(qualityLevel);
-    
-    // Use the provided voiceId or fallback to George (male voice)
-    const finalVoiceId = voiceId || "JBFqnCBsd6RMkjVDRZzb";
-    
-    console.log(`=== TTS Request ===`);
-    console.log(`Voice ID received: ${voiceId || "(none - using default)"}`);
-    console.log(`Voice ID used: ${finalVoiceId}`);
-    console.log(`Quality: ${qualityLevel}`);
-    console.log(`Selected: ${selectedModel.id} (${selectedModel.provider})`);
-    console.log(`Text length: ${text.length} chars`);
-    console.log(`Text preview: ${text.substring(0, 100)}...`);
 
-    // Generate with ElevenLabs using the selected voice
+    console.log(`=== TTS Request === voice=${finalVoiceId} quality=${qualityLevel} chars=${text.length}`);
+
+    // --- CHECK CACHE FIRST ---
+    const cacheKey = await hashKey(text, finalVoiceId);
+    const cached = await getCachedAudio(cacheKey);
+    if (cached) {
+      return new Response(cached, {
+        headers: { ...corsHeaders, "Content-Type": "audio/mpeg" },
+      });
+    }
+
+    // --- GENERATE ---
     const result = await generateWithElevenLabs(text, finalVoiceId);
 
     if (!result.audioBuffer) {
@@ -171,13 +208,11 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[TTS] Success with voice ${finalVoiceId}, returning audio`);
+    // --- STORE IN CACHE (fire-and-forget) ---
+    setCachedAudio(cacheKey, result.audioBuffer);
 
     return new Response(result.audioBuffer, {
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "audio/mpeg",
-      },
+      headers: { ...corsHeaders, "Content-Type": "audio/mpeg" },
     });
   } catch (error) {
     console.error("TTS error:", error);
