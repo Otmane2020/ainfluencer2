@@ -161,8 +161,9 @@ async function runRenderJob({ jobId, imageUrl, audioUrl, duration, webhookUrl, g
       chromiumOptions: { enableMultiProcessOnLinux: false },
       onProgress: ({ progress }) => {
         if (job) job.progress = 0.25 + progress * 0.6;
-        if (Math.round(progress * 100) % 20 === 0) {
-          console.log(`[${jobId}] Render progress: ${Math.round(progress * 100)}%`);
+        const pct = Math.round(progress * 100);
+        if (pct % 25 === 0 && pct > 0) {
+          console.log(`[${jobId}] Render: ${pct}%`);
         }
       },
     });
