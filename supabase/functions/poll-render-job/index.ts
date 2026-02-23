@@ -115,7 +115,54 @@ Deno.serve(async (req) => {
         // Worker returned 404 — job may have expired from memory but file may exist
         // Try to download the video file directly as a fallback
         if (workerRes.status === 404) {
-          console.log(`[POLL] Job ${jobId} not found in worker memory, trying direct file download...`);
+          console.log(`[POLL] Job ${jobId} not found in worker memory, checking Supabase storage...`);
+          
+          // Check if the video was already uploaded to Supabase storage by the worker/callback
+          try {
+            const { data: storageFiles } = await supabase.storage
+              .from("media")
+              .list("videos", { limit: 50, sortBy: { column: "created_at", order: "desc" } });
+            
+            // Look for a file matching this jobId
+            const matchingFile = storageFiles?.find((f: any) => f.name?.includes(jobId));
+            if (matchingFile) {
+              const publicUrl = supabase.storage.from("media").getPublicUrl(`videos/${matchingFile.name}`).data.publicUrl;
+              console.log(`[POLL] Found video in storage: ${publicUrl}`);
+              
+              // Directly mark as completed
+              await supabase.from("generations").update({
+                status: "completed", progress: 100, media_url: publicUrl,
+                completed_at: new Date().toISOString(),
+              }).eq("id", generationId);
+              
+              return jsonResponse({ status: "completed", progress: 100, mediaUrl: publicUrl });
+            }
+            
+            // Also check if a recently uploaded video exists (within last 15 min, matching generation creation time)
+            const genCreatedAt = new Date(gen.created_at).getTime();
+            const recentFile = storageFiles?.find((f: any) => {
+              if (!f.created_at || !f.name?.endsWith('.mp4')) return false;
+              const fileTime = new Date(f.created_at).getTime();
+              // File uploaded after generation was created and within 15 min
+              return fileTime >= genCreatedAt && (fileTime - genCreatedAt) < 15 * 60 * 1000;
+            });
+            
+            if (recentFile && !recentFile.name?.includes('/')) {
+              const publicUrl = supabase.storage.from("media").getPublicUrl(`videos/${recentFile.name}`).data.publicUrl;
+              console.log(`[POLL] Found recent video in storage (time-matched): ${publicUrl}`);
+              
+              await supabase.from("generations").update({
+                status: "completed", progress: 100, media_url: publicUrl,
+                completed_at: new Date().toISOString(),
+              }).eq("id", generationId);
+              
+              return jsonResponse({ status: "completed", progress: 100, mediaUrl: publicUrl });
+            }
+          } catch (storageErr) {
+            console.error(`[POLL] Storage check error:`, storageErr);
+          }
+          
+          // Fallback: try direct file download from worker
           const directUrl = `${baseWorkerUrl}/output/${jobId}.mp4`;
           try {
             const fileRes = await fetch(directUrl, { method: "HEAD", signal: AbortSignal.timeout(10_000) });
