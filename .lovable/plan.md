@@ -1,80 +1,70 @@
 
 
-## Fix Railway Rate Limit + Poll 404s on render-server12
+## Root Cause Analysis: Video Generation Failures
 
-### Problem 1: Log Spam (176 messages dropped)
-Your current code uses `spawn("npx", ["remotion", "render", ... "--log", "verbose"])` which dumps every frame to stdout/stderr, and you log ALL of it. This exceeds Railway's 500 logs/sec limit.
+There is a **payload mismatch** between the `render-video` edge function and what `render-server12` actually expects. The edge function was written for a different server architecture (the `index.js` shown in `railway-video-service/`), not your real deployed `render-server12`.
 
-### Problem 2: Poll 404 errors
-Your edge function `poll-render-job` polls `/renders/{jobId}` but your server exposes job status at `/jobs/{id}`. The `/renders` path only serves static MP4 files. This is why generations get stuck at 20%.
+### The 3 Mismatches
 
-### What you need to change in render-server12
+| Field | Edge function sends | render-server12 expects |
+|-------|-------------------|----------------------|
+| Props | `titleText`, `audioUrl`, `imageUrl` at top level | Nested inside `props: { ... }` |
+| Callback URL | `webhookUrl` | `callbackUrl` |
+| Template/Composition | `"template-prompt-to-video"` | Must match a composition ID registered in `templates/index.tsx` on the server |
 
-You need to manually update the `index.js` file in your `render-server12` GitHub repository with these changes:
+### What needs to change
 
-**Change 1** -- Reduce Remotion log level from `verbose` to `error`:
+**Option A (recommended): Update the `render-video` edge function** to match what render-server12 expects:
+
+1. Restructure the POST body so `imageUrl`, `audioUrl`, `titleText`, `duration`, `width`, `height` are nested inside `props`
+2. Rename `webhookUrl` to `callbackUrl`
+3. Set the correct `templateId` matching what is registered in your Remotion `templates/index.tsx` on Railway
+
+**Option B: Update render-server12** to accept the current edge function payload (destructure the flat fields, rename callbackUrl to webhookUrl). This is what we partially did in the last session.
+
+### Recommended Fix (Option A)
+
+Update `supabase/functions/render-video/index.ts` to send the correct payload format:
+
 ```text
-BEFORE:  "--log", "verbose"
-AFTER:   "--log", "error"
-```
-
-**Change 2** -- Filter stdout/stderr to only log at 25% intervals instead of every line:
-```text
-BEFORE:
-  renderProcess.stdout.on("data", (data) => {
-    const output = data.toString();
-    console.log(`[${jobId}] ${output}`);          // <-- logs EVERY line
-    ...
-  });
+BEFORE (line 147-160):
+  body: JSON.stringify({
+    templateId,
+    titleText: cleanText,
+    audioUrl: audioUrl || null,
+    duration,
+    imageUrl: props.image || "https://...",
+    width, height, crf, concurrency, ffmpegThreads,
+    webhookUrl,
+    generationId,
+  })
 
 AFTER:
-  renderProcess.stdout.on("data", (data) => {
-    const output = data.toString();
-    const progressMatch = output.match(/(\d+)%/);
-    if (progressMatch) {
-      const pct = parseInt(progressMatch[1]);
-      job.progress = pct;
-      if (pct === 50 || pct === 100) {            // <-- only log at 50% and 100%
-        console.log(`[${jobId}] Render: ${pct}%`);
-      }
-    }
-  });
+  body: JSON.stringify({
+    templateId: "<your-actual-composition-id>",
+    props: {
+      titleText: cleanText,
+      audioUrl: audioUrl || null,
+      imageUrl: props.image || "https://...",
+      duration,
+      width: renderWidth,
+      height: renderHeight,
+    },
+    callbackUrl: webhookUrl,
+  })
 ```
 
-Same filter for stderr.
+### Pre-requisite: Confirm Composition ID
 
-**Change 3** -- Add a `/renders/:jobId` route (without file extension) so `poll-render-job` can find job status:
-```text
-ADD THIS ROUTE (before the static serves):
+Before implementing this fix, we need to know the exact composition IDs registered in your `render-server12` Remotion templates. You can check by calling `GET /templates` on your Railway worker, or by looking at the `templates/index.tsx` file in the `render-server12` repository.
 
-  app.get("/renders/:id", (req, res) => {
-    if (req.params.id.includes(".")) return next();   // let static handler serve .mp4 files
-    const job = jobs.get(req.params.id);
-    if (!job) return res.status(404).json({ status: "not-found" });
-    res.json({
-      id: job.id,
-      status: job.status === "rendering" ? "in-progress" : job.status,
-      progress: job.progress / 100,
-      output: job.outputFile ? `/renders/${job.outputFile}` : null,
-      error: job.error,
-    });
-  });
-```
+### Additional fix: render-callback webhook
 
-This maps your server's status format to what `poll-render-job` expects:
-- `"rendering"` becomes `"in-progress"`
-- `progress` is sent as 0-1 (not 0-100)
-- `output` includes the path prefix
+The `render-callback` edge function expects `{ jobId, generationId, status, videoUrl }` in the webhook payload, but render-server12 sends `{ jobId, status: "completed", outputUrl: "/renders/..." }`. The callback needs to also handle `outputUrl` as the video path field.
 
-### How to deploy
+### Steps
 
-1. Open your `render-server12` repository on GitHub
-2. Edit `index.js` with the 3 changes above
-3. Commit and push -- Railway will auto-redeploy
-4. Verify with the `/health` endpoint
-
-### Summary of impact
-- Log spam: eliminated (from 176+ dropped messages to near zero)
-- Poll 404s: fixed (generations will progress past 20% and complete properly)
-- No changes needed in Lovable -- the edge functions stay as-is
-
+1. Confirm the Remotion composition IDs from your render-server12 `/templates` endpoint
+2. Update `render-video` edge function to send properly structured payload matching render-server12's API
+3. Update `render-callback` to accept `outputUrl` in addition to `videoUrl`
+4. Test end-to-end video generation
