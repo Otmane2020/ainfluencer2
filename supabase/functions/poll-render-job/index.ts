@@ -109,14 +109,31 @@ Deno.serve(async (req) => {
     try {
       const workerRes = await fetch(pollUrl, { signal: AbortSignal.timeout(10_000) });
       const rawText = await workerRes.text();
-      console.log(`[POLL] Worker response (${workerRes.status}): ${rawText.slice(0, 500)}`);
+      console.log(`[POLL] Worker response (${workerRes.status}): ${rawText.slice(0, 300)}`);
 
       if (!workerRes.ok) {
-        return jsonResponse({ status: "processing", progress: gen.progress, workerStatus: workerRes.status });
+        // Worker returned 404 — job may have expired from memory but file may exist
+        // Try to download the video file directly as a fallback
+        if (workerRes.status === 404) {
+          console.log(`[POLL] Job ${jobId} not found in worker memory, trying direct file download...`);
+          const directUrl = `${baseWorkerUrl}/output/${jobId}.mp4`;
+          try {
+            const fileRes = await fetch(directUrl, { method: "HEAD", signal: AbortSignal.timeout(10_000) });
+            if (fileRes.ok) {
+              console.log(`[POLL] Found completed video at ${directUrl}`);
+              workerData = { status: "done", output: `/output/${jobId}.mp4` };
+            }
+          } catch { /* ignore */ }
+        }
+        if (!workerData) {
+          return jsonResponse({ status: "processing", progress: gen.progress, workerStatus: workerRes.status });
+        }
       }
 
-      try { workerData = JSON.parse(rawText); } catch {
-        return jsonResponse({ status: "processing", progress: gen.progress });
+      if (!workerData) {
+        try { workerData = JSON.parse(rawText); } catch {
+          return jsonResponse({ status: "processing", progress: gen.progress });
+        }
       }
     } catch (fetchErr: any) {
       console.error(`[POLL] Fetch error: ${fetchErr?.message}`);
