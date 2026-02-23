@@ -118,8 +118,9 @@ Deno.serve(async (req) => {
     const renderConcurrency = 2;
     const renderThreads = 2;
 
-    // Build webhook callback URL for the worker
-    const webhookUrl = `${supabaseUrl}/functions/v1/render-callback`;
+    // Build webhook callback URL for the worker (include apikey for Supabase edge function auth)
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
+    const webhookUrl = `${supabaseUrl}/functions/v1/render-callback?apikey=${supabaseAnonKey}`;
 
     let jobId: string | undefined;
     try {
