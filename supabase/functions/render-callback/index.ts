@@ -15,7 +15,9 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { jobId, generationId, status, videoUrl, error: errorMsg, fileSize } = body;
+    const { jobId, generationId, status, videoUrl, outputUrl, error: errorMsg, fileSize } = body;
+    // Server may send videoUrl or outputUrl depending on version
+    const resolvedVideoUrl = videoUrl || outputUrl;
 
     console.log(`[RENDER-CALLBACK] jobId=${jobId} generationId=${generationId} status=${status}`);
 
@@ -55,22 +57,21 @@ Deno.serve(async (req) => {
     }
 
     // ── COMPLETED ──
-    if (status === "completed" && videoUrl) {
+    if (status === "completed" && resolvedVideoUrl) {
       // videoUrl is relative (e.g. /renders/job-xxx.mp4) — build absolute URL
       let RENDER_WORKER_URL = Deno.env.get("RENDER_WORKER_URL") || "";
       if (!RENDER_WORKER_URL.startsWith("http")) RENDER_WORKER_URL = `https://${RENDER_WORKER_URL}`;
       const baseWorkerUrl = RENDER_WORKER_URL.replace(/\/renders?\/?$/, "").replace(/\/$/, "");
 
       let videoSourceUrl: string;
-      if (videoUrl.startsWith("http")) {
-        // Rewrite localhost if needed
-        if (videoUrl.includes("localhost") || videoUrl.includes("127.0.0.1")) {
-          try { videoSourceUrl = `${baseWorkerUrl}${new URL(videoUrl).pathname}`; } catch { videoSourceUrl = videoUrl; }
+      if (resolvedVideoUrl.startsWith("http")) {
+        if (resolvedVideoUrl.includes("localhost") || resolvedVideoUrl.includes("127.0.0.1")) {
+          try { videoSourceUrl = `${baseWorkerUrl}${new URL(resolvedVideoUrl).pathname}`; } catch { videoSourceUrl = resolvedVideoUrl; }
         } else {
-          videoSourceUrl = videoUrl;
+          videoSourceUrl = resolvedVideoUrl;
         }
       } else {
-        const cleanPath = videoUrl.replace(/^\//, "");
+        const cleanPath = resolvedVideoUrl.replace(/^\//, "");
         videoSourceUrl = `${baseWorkerUrl}/${cleanPath}`;
       }
 
