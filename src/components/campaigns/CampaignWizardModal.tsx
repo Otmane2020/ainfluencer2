@@ -322,7 +322,7 @@ export const CampaignWizardModal = ({
   const selectedPlatform = platforms.find(p => p.slug === selectedPlatformSlug);
   const selectedFormat = selectedPlatform?.platform_formats.find(f => f.id === selectedFormatId);
 
-  // Generate AI content
+  // Generate AI content using project context
   const handleGenerateContent = async (type: "video_prompt" | "post_caption") => {
     if (!selectedPlatformSlug || !selectedFormat) return;
     const setLoading = type === "video_prompt" ? setIsGeneratingVideo : setIsGeneratingCaption;
@@ -331,6 +331,23 @@ export const CampaignWizardModal = ({
     setLoading(true);
     try {
       const proj = projects.find(p => p.id === projectId);
+      // Fetch full project context for AI generation
+      const { data: fullProject } = await supabase
+        .from("projects")
+        .select("name, description, url, marketing_context, ai_context_summary, scraped_markdown, detected_language")
+        .eq("id", projectId)
+        .single();
+
+      const mktCtx = fullProject?.marketing_context as Record<string, any> | null;
+      const topicParts = [
+        ...(serviceTags.length > 0 ? serviceTags : []),
+        mktCtx?.usp || "",
+        mktCtx?.target_audience || "",
+        fullProject?.description || "",
+      ].filter(Boolean);
+      const topic = subject || topicParts.join(". ") || "our products and services";
+      const cta = mktCtx?.cta || mktCtx?.call_to_action || "Learn more";
+
       const { data, error } = await supabase.functions.invoke("generate-platform-content", {
         body: {
           action: "generate",
@@ -338,12 +355,13 @@ export const CampaignWizardModal = ({
           format_slug: selectedFormat.format_slug,
           generation_type: type,
           variables: {
-            brand: proj?.name || "Our Brand",
-            topic: subject || serviceTags[0] || "our products",
+            brand: fullProject?.name || proj?.name || "Our Brand",
+            topic,
             tone,
-            cta: "Learn more",
+            cta,
             duration: selectedFormat.max_duration_sec ? String(selectedFormat.max_duration_sec) : "30",
           },
+          project_context: fullProject?.ai_context_summary || null,
         },
       });
       if (error) throw error;
@@ -673,53 +691,71 @@ export const CampaignWizardModal = ({
           {/* Step 4: AI Prompt Generation */}
           {step === 4 && selectedFormat && (
             <motion.div key="step4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
-              <div>
-                <Label className="text-base">Generate Content</Label>
-                <p className="text-sm text-muted-foreground">
-                  AI-powered scripts and captions for {selectedPlatform?.name} {selectedFormat.label}
-                </p>
-              </div>
+               <div>
+                 <Label className="text-base">Generate Content</Label>
+                 <p className="text-sm text-muted-foreground">
+                   AI-powered scripts and captions for {selectedPlatform?.name} {selectedFormat.label} — based on your project context
+                 </p>
+               </div>
 
-              {/* Variables */}
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <Label>Topic / Subject</Label>
-                  <Textarea value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="What is this content about?" rows={2} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Tone</Label>
-                  <Select value={tone} onValueChange={setTone}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent className="bg-card">
-                      {TONES.map((t) => (<SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+               {/* Project context summary */}
+               {(() => {
+                 const proj = projects.find(p => p.id === projectId);
+                 return proj ? (
+                   <div className="rounded-lg bg-muted/50 border border-border p-3 space-y-1">
+                     <p className="text-xs font-medium text-muted-foreground">Project Context</p>
+                     <p className="text-sm font-medium">{proj.name}</p>
+                     {proj.description && <p className="text-xs text-muted-foreground line-clamp-2">{proj.description}</p>}
+                     {serviceTags.length > 0 && (
+                       <div className="flex flex-wrap gap-1 mt-1">
+                         {serviceTags.map((tag, i) => (
+                           <Badge key={i} variant="secondary" className="text-[10px]">{tag}</Badge>
+                         ))}
+                       </div>
+                     )}
+                   </div>
+                 ) : null;
+               })()}
 
-              {/* Generate buttons */}
-              <div className="grid grid-cols-2 gap-3">
-                {selectedFormat.content_type === "video" && (
-                  <Button
-                    variant="outline"
-                    className="h-auto p-3 flex flex-col gap-1"
-                    onClick={() => handleGenerateContent("video_prompt")}
-                    disabled={isGeneratingVideo}
-                  >
-                    {isGeneratingVideo ? <Loader2 className="h-5 w-5 animate-spin" /> : <Video className="h-5 w-5 text-violet-500" />}
-                    <span className="text-xs">Generate Video Script</span>
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  className="h-auto p-3 flex flex-col gap-1"
-                  onClick={() => handleGenerateContent("post_caption")}
-                  disabled={isGeneratingCaption}
-                >
-                  {isGeneratingCaption ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileText className="h-5 w-5 text-cyan-500" />}
-                  <span className="text-xs">Generate Caption</span>
-                </Button>
-              </div>
+               {/* Optional subject override */}
+               <div className="space-y-2">
+                 <Label className="text-xs text-muted-foreground">Optional: Override topic</Label>
+                 <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Leave empty to use project context" className="text-sm" />
+               </div>
+
+               <div className="space-y-2">
+                 <Label>Tone</Label>
+                 <Select value={tone} onValueChange={setTone}>
+                   <SelectTrigger><SelectValue /></SelectTrigger>
+                   <SelectContent className="bg-card">
+                     {TONES.map((t) => (<SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>))}
+                   </SelectContent>
+                 </Select>
+               </div>
+
+               {/* Generate buttons */}
+               <div className="grid grid-cols-2 gap-3">
+                 {selectedFormat.content_type === "video" && (
+                   <Button
+                     variant="outline"
+                     className="h-auto p-3 flex flex-col gap-1"
+                     onClick={() => handleGenerateContent("video_prompt")}
+                     disabled={isGeneratingVideo}
+                   >
+                     {isGeneratingVideo ? <Loader2 className="h-5 w-5 animate-spin" /> : <Video className="h-5 w-5 text-primary" />}
+                     <span className="text-xs">Generate Video Script</span>
+                   </Button>
+                 )}
+                 <Button
+                   variant="outline"
+                   className="h-auto p-3 flex flex-col gap-1"
+                   onClick={() => handleGenerateContent("post_caption")}
+                   disabled={isGeneratingCaption}
+                 >
+                   {isGeneratingCaption ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileText className="h-5 w-5 text-primary" />}
+                   <span className="text-xs">Generate Caption</span>
+                 </Button>
+               </div>
 
               {/* Generated results */}
               {generatedVideoScript && (
