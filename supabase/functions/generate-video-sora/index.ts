@@ -169,22 +169,43 @@ const KIE_VIDEO_MODELS: Record<string, VideoModelConfig> = {
   },
 };
 
-// All available models (Sora 2 + Veo 3.1 + KIE)
+// ============================================================
+// HEYGEN AVATAR MODEL (Final fallback - UGC community style)
+// Uses HeyGen V2 API for avatar-based video generation
+// ============================================================
+const HEYGEN_MODELS: Record<string, VideoModelConfig> = {
+  "heygen-avatar": {
+    model: "heygen-avatar",
+    endpoint: "https://api.heygen.com/v2/video/generate",
+    maxDuration: 120,
+    displayName: "HeyGen Avatar",
+    provider: "heygen" as any,
+    requestBody: (prompt, duration, aspectRatio) => ({
+      script: prompt,
+      duration,
+      aspectRatio,
+    }),
+  },
+};
+
+// All available models (Sora 2 + Veo 3.1 + KIE + HeyGen)
 // NOTE: Veo models are only attempted when GEMINI_API_KEY is present.
 // NOTE: KIE models are only attempted when KIE_API_KEY is present.
+// NOTE: HeyGen is only attempted when HEYGEN_API_KEY is present.
 const ALL_MODELS: Record<string, VideoModelConfig> = {
   ...OPENAI_MODELS,
   ...GEMINI_VEO_MODELS,
   ...KIE_VIDEO_MODELS,
+  ...HEYGEN_MODELS,
 };
 
 // Quality tier mapping with fallbacks
-// Prefer OpenAI Sora models first, then fall back to Gemini Veo, then KIE as last resort.
+// Prefer OpenAI Sora models first, then Gemini Veo, then KIE, then HeyGen Avatar as last resort.
 // This prevents total outages when premium providers hit billing/quota limits.
 const MODEL_FALLBACK_CHAINS: Record<string, string[]> = {
-  cinema: ["sora-2-pro", "sora-2", "veo-3.1-pro", "veo-3.1", "kie-wan-2.6", "kie-kling-2.6"],
-  pro: ["sora-2-pro", "sora-2", "veo-3.1-pro", "veo-3.1", "kie-wan-2.6", "kie-kling-2.6"],
-  standard: ["sora-2", "sora-2-pro", "veo-3.1", "veo-3.1-pro", "kie-wan-2.6", "kie-kling-2.6"],
+  cinema: ["sora-2-pro", "sora-2", "veo-3.1-pro", "veo-3.1", "kie-wan-2.6", "kie-kling-2.6", "heygen-avatar"],
+  pro: ["sora-2-pro", "sora-2", "veo-3.1-pro", "veo-3.1", "kie-wan-2.6", "kie-kling-2.6", "heygen-avatar"],
+  standard: ["sora-2", "sora-2-pro", "veo-3.1", "veo-3.1-pro", "kie-wan-2.6", "kie-kling-2.6", "heygen-avatar"],
 };
 
 function getModelFallbackChain(quality: string): VideoModelConfig[] {
@@ -208,6 +229,8 @@ const VALID_DURATIONS: Record<string, number[]> = {
   // KIE models
   "wan-2.6": [5, 10, 15],
   "kling-2.6": [5, 10],
+  // HeyGen accepts any duration up to 120s
+  "heygen-avatar": [10, 15, 30, 60, 120],
 };
 
 function getSupportedOpenAISizes(modelId: string): string[] {
@@ -310,6 +333,7 @@ async function tryVideoGeneration(
   referenceImageUrl?: string // Optional image for image-to-video
 ): Promise<{ success: boolean; model: VideoModelConfig; taskId?: string; status?: string; mediaUrl?: string; error?: string }> {
   const kieApiKey = Deno.env.get("KIE_API_KEY") || "";
+  const heygenApiKey = Deno.env.get("HEYGEN_API_KEY") || "";
   let lastBillingLimitError: string | null = null;
   let lastQuotaOrRateLimitError: string | null = null;
 
@@ -325,6 +349,8 @@ async function tryVideoGeneration(
       apiKey = geminiApiKey;
     } else if (model.provider === "kie") {
       apiKey = kieApiKey;
+    } else if ((model.provider as string) === "heygen") {
+      apiKey = heygenApiKey;
     } else {
       apiKey = "";
     }
@@ -433,6 +459,70 @@ async function tryVideoGeneration(
           taskId: kieResult.taskId,
           status: "queued",
         };
+      } else if ((model.provider as string) === "heygen") {
+        // HeyGen Avatar API - UGC community style video generation
+        console.log(`[VIDEO] Using HeyGen Avatar API for ${model.displayName}`);
+        
+        const dimension = aspectRatio === "9:16"
+          ? { width: 1080, height: 1920 }
+          : { width: 1920, height: 1080 };
+
+        const heygenPayload = {
+          video_inputs: [
+            {
+              character: {
+                type: "avatar",
+                avatar_id: "Daisy-inskirt-20220818",
+                avatar_style: "normal",
+              },
+              voice: {
+                type: "text",
+                voice_id: "en_us_001",
+                input_text: prompt.slice(0, 1500),
+              },
+              background: {
+                type: "color",
+                value: "#000000",
+              },
+            },
+          ],
+          dimension,
+          test: false,
+        };
+
+        response = await fetch(model.endpoint, {
+          method: "POST",
+          headers: {
+            "X-Api-Key": apiKey,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(heygenPayload),
+        });
+
+        const heygenText = await response.text();
+        console.log(`[heygen-avatar] Response: ${response.status} - ${heygenText.substring(0, 300)}`);
+
+        if (!response.ok) {
+          console.warn(`[heygen-avatar] Failed with status ${response.status} - trying next model`);
+          continue;
+        }
+
+        try {
+          const heygenData = JSON.parse(heygenText);
+          const videoId = heygenData.data?.video_id;
+          if (videoId) {
+            console.log(`✓ [HeyGen Avatar] Video created! Video ID: ${videoId}`);
+            return {
+              success: true,
+              model,
+              taskId: videoId,
+              status: "processing",
+            };
+          }
+        } catch {
+          console.warn(`[heygen-avatar] Invalid JSON response`);
+        }
+        continue;
       } else {
         // Gemini Veo API uses x-goog-api-key header
         response = await fetch(model.endpoint, {
@@ -1075,6 +1165,49 @@ serve(async (req) => {
             progress,
             videoUrl: kieStatus.resultUrl,
             error: kieStatus.error,
+          };
+        }
+      } else if (provider === "heygen") {
+        // HeyGen status check
+        const HEYGEN_API_KEY = Deno.env.get("HEYGEN_API_KEY") || "";
+        const response = await fetch(`https://api.heygen.com/v1/video_status.get?video_id=${taskId}`, {
+          headers: { "X-Api-Key": HEYGEN_API_KEY },
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[STATUS] HeyGen error: ${response.status} - ${errorText}`);
+          statusResponse = {
+            id: taskId,
+            status: "failed",
+            progress: 0,
+            error: `HeyGen status check failed: ${response.status}`,
+          };
+        } else {
+          const result = await response.json();
+          console.log(`[STATUS] HeyGen result:`, JSON.stringify(result).substring(0, 200));
+          
+          const heygenStatus = result.data?.status;
+          let mappedStatus: VideoStatusResponse["status"] = "queued";
+          let progress = 0;
+          
+          if (heygenStatus === "completed") {
+            mappedStatus = "completed";
+            progress = 100;
+          } else if (heygenStatus === "failed") {
+            mappedStatus = "failed";
+            progress = 0;
+          } else if (heygenStatus === "processing") {
+            mappedStatus = "in_progress";
+            progress = Math.min(80, 20 + (result.data?.progress || 0));
+          }
+          
+          statusResponse = {
+            id: taskId,
+            status: mappedStatus,
+            progress,
+            videoUrl: result.data?.video_url,
+            error: result.data?.error,
           };
         }
       } else {
