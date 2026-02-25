@@ -14,6 +14,59 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_generation_configs: {
+        Row: {
+          created_at: string
+          generation_type: string
+          id: string
+          is_active: boolean | null
+          language: string | null
+          max_tokens: number | null
+          model: string | null
+          platform_format_id: string
+          system_prompt: string
+          temperature: number | null
+          user_prompt_template: string
+          variables: Json | null
+        }
+        Insert: {
+          created_at?: string
+          generation_type: string
+          id?: string
+          is_active?: boolean | null
+          language?: string | null
+          max_tokens?: number | null
+          model?: string | null
+          platform_format_id: string
+          system_prompt: string
+          temperature?: number | null
+          user_prompt_template: string
+          variables?: Json | null
+        }
+        Update: {
+          created_at?: string
+          generation_type?: string
+          id?: string
+          is_active?: boolean | null
+          language?: string | null
+          max_tokens?: number | null
+          model?: string | null
+          platform_format_id?: string
+          system_prompt?: string
+          temperature?: number | null
+          user_prompt_template?: string
+          variables?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_generation_configs_platform_format_id_fkey"
+            columns: ["platform_format_id"]
+            isOneToOne: false
+            referencedRelation: "platform_formats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaigns: {
         Row: {
           ai_context: string | null
@@ -38,6 +91,7 @@ export type Database = {
           linkedin_enabled: boolean | null
           name: string
           overlay_text: string | null
+          platform_format_id: string | null
           posting_hour: number | null
           posting_minute: number | null
           posts_per_week: number | null
@@ -81,6 +135,7 @@ export type Database = {
           linkedin_enabled?: boolean | null
           name: string
           overlay_text?: string | null
+          platform_format_id?: string | null
           posting_hour?: number | null
           posting_minute?: number | null
           posts_per_week?: number | null
@@ -124,6 +179,7 @@ export type Database = {
           linkedin_enabled?: boolean | null
           name?: string
           overlay_text?: string | null
+          platform_format_id?: string | null
           posting_hour?: number | null
           posting_minute?: number | null
           posts_per_week?: number | null
@@ -146,10 +202,67 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "campaigns_platform_format_id_fkey"
+            columns: ["platform_format_id"]
+            isOneToOne: false
+            referencedRelation: "platform_formats"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "campaigns_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claude_usage_log: {
+        Row: {
+          campaign_id: string | null
+          cost_usd: number | null
+          created_at: string
+          format_slug: string | null
+          generated_text: string | null
+          generation_type: string | null
+          id: string
+          platform_slug: string | null
+          tokens_input: number | null
+          tokens_output: number | null
+          user_id: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          format_slug?: string | null
+          generated_text?: string | null
+          generation_type?: string | null
+          id?: string
+          platform_slug?: string | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          user_id: string
+        }
+        Update: {
+          campaign_id?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          format_slug?: string | null
+          generated_text?: string | null
+          generation_type?: string | null
+          id?: string
+          platform_slug?: string | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claude_usage_log_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
         ]
@@ -201,6 +314,63 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      generated_prompts: {
+        Row: {
+          ai_config_id: string | null
+          ai_output: string | null
+          campaign_id: string | null
+          created_at: string
+          filled_prompt: string | null
+          format_slug: string | null
+          id: string
+          platform_slug: string | null
+          prompt_type: string | null
+          user_id: string
+          variables: Json | null
+        }
+        Insert: {
+          ai_config_id?: string | null
+          ai_output?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          filled_prompt?: string | null
+          format_slug?: string | null
+          id?: string
+          platform_slug?: string | null
+          prompt_type?: string | null
+          user_id: string
+          variables?: Json | null
+        }
+        Update: {
+          ai_config_id?: string | null
+          ai_output?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          filled_prompt?: string | null
+          format_slug?: string | null
+          id?: string
+          platform_slug?: string | null
+          prompt_type?: string | null
+          user_id?: string
+          variables?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_prompts_ai_config_id_fkey"
+            columns: ["ai_config_id"]
+            isOneToOne: false
+            referencedRelation: "ai_generation_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_prompts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       generations: {
         Row: {
@@ -400,6 +570,86 @@ export type Database = {
           page_id?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      platform_formats: {
+        Row: {
+          aspect_ratio: string | null
+          content_type: string
+          created_at: string
+          format_slug: string
+          id: string
+          label: string
+          max_duration_sec: number | null
+          max_text_chars: number | null
+          notes: string | null
+          platform_id: string
+          recommended_frequency: string | null
+          recommended_resolution: string | null
+        }
+        Insert: {
+          aspect_ratio?: string | null
+          content_type: string
+          created_at?: string
+          format_slug: string
+          id?: string
+          label: string
+          max_duration_sec?: number | null
+          max_text_chars?: number | null
+          notes?: string | null
+          platform_id: string
+          recommended_frequency?: string | null
+          recommended_resolution?: string | null
+        }
+        Update: {
+          aspect_ratio?: string | null
+          content_type?: string
+          created_at?: string
+          format_slug?: string
+          id?: string
+          label?: string
+          max_duration_sec?: number | null
+          max_text_chars?: number | null
+          notes?: string | null
+          platform_id?: string
+          recommended_frequency?: string | null
+          recommended_resolution?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_formats_platform_id_fkey"
+            columns: ["platform_id"]
+            isOneToOne: false
+            referencedRelation: "platforms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platforms: {
+        Row: {
+          color: string | null
+          created_at: string
+          icon: string | null
+          id: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name: string
+          slug: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name?: string
+          slug?: string
         }
         Relationships: []
       }
@@ -684,6 +934,42 @@ export type Database = {
           },
         ]
       }
+      user_budgets: {
+        Row: {
+          alert_threshold_pct: number | null
+          created_at: string
+          current_spend_usd: number | null
+          id: string
+          monthly_budget_usd: number | null
+          period_end: string | null
+          period_start: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alert_threshold_pct?: number | null
+          created_at?: string
+          current_spend_usd?: number | null
+          id?: string
+          monthly_budget_usd?: number | null
+          period_end?: string | null
+          period_start?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alert_threshold_pct?: number | null
+          created_at?: string
+          current_spend_usd?: number | null
+          id?: string
+          monthly_budget_usd?: number | null
+          period_end?: string | null
+          period_start?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       youtube_connections: {
         Row: {
           access_token: string
@@ -746,6 +1032,18 @@ export type Database = {
       deduct_credits: {
         Args: { p_amount: number; p_user_id: string }
         Returns: boolean
+      }
+      get_ai_config: {
+        Args: { p_format: string; p_platform: string; p_type: string }
+        Returns: {
+          config_id: string
+          max_tokens: number
+          model: string
+          system_prompt: string
+          temperature: number
+          user_prompt_template: string
+          variables: Json
+        }[]
       }
     }
     Enums: {
