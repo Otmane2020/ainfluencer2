@@ -20,7 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { GenerationProgressModal } from "@/components/GenerationProgressModal";
 import { VideoModelSelector } from "@/components/VideoModelSelector";
-import { VideoModel, VIDEO_MODELS, getDefaultVideoModel, parseModelIdForKie, isRemotionModel, getRemotionQuality } from "@/lib/videoModels";
+import { VideoModel, VIDEO_MODELS, getDefaultVideoModel, parseModelIdForKie, isRemotionModel, isHeygenModel, getRemotionQuality } from "@/lib/videoModels";
 import { useGenerationTasks, type GenerationTask as PersistentTask } from "@/hooks/useGenerationTasks";
 interface Project {
   id: string;
@@ -825,6 +825,124 @@ ${formattedHashtags}`;
         }
       } catch (err: any) {
         toast({ title: "Remotion render error", description: err.message, variant: "destructive" });
+      } finally {
+        setIsGenerating(false);
+      }
+      return;
+    }
+
+    // ============================================================
+    // HEYGEN AVATAR PATH
+    // ============================================================
+    if (isHeygenModel(selectedKieModel.id)) {
+      const segment = segments.find(s => s.script.trim());
+      if (!segment) {
+        toast({ title: "Script required", description: "Add a script first", variant: "destructive" });
+        setIsGenerating(false);
+        return;
+      }
+
+      try {
+        const { data: sessionData2 } = await supabase.auth.getSession();
+        const token = sessionData2?.session?.access_token;
+
+        const { data, error } = await supabase.functions.invoke("generate-video-heygen", {
+          body: {
+            action: "create",
+            script: segment.script.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]/gu, "")
+              .replace(/^🎬.*$|^━+$|^📍.*$|^📊.*$|^📜.*$|^🎥.*$|^\[.*\]$|^Visual:.*$/gm, "")
+              .replace(/#\w+/g, "").replace(/\n{2,}/g, " ").trim().slice(0, 1500),
+            duration: selectedKieModel.duration,
+            credits: selectedKieModel.credits,
+            projectId: selectedProject?.id,
+            aspectRatio: selectedFormat === "landscape" ? "16:9" : "9:16",
+          },
+        });
+
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        const generationId = data.generationId;
+        const videoId = data.videoId;
+
+        if (generationId && videoId) {
+          // Start polling HeyGen status
+          setRemotionProgress(20);
+          setRemotionLabel("HeyGen avatar rendering... 20%");
+          onGeneratingChange?.(true, 20);
+
+          const startedAt = Date.now();
+          const HEYGEN_TIMEOUT_MS = 10 * 60 * 1000; // 10 min
+
+          remotionPollingRef.current = setInterval(async () => {
+            if (Date.now() - startedAt > HEYGEN_TIMEOUT_MS) {
+              clearInterval(remotionPollingRef.current!);
+              remotionPollingRef.current = null;
+              setIsGenerating(false);
+              setShowProgressModal(false);
+              onGeneratingChange?.(false, 0);
+              toast({ title: "HeyGen video timed out", variant: "destructive" });
+              return;
+            }
+
+            try {
+              const { data: statusData } = await supabase.functions.invoke("generate-video-heygen", {
+                body: { action: "status", videoId, generationId },
+              });
+
+              if (statusData?.status === "completed") {
+                clearInterval(remotionPollingRef.current!);
+                remotionPollingRef.current = null;
+                setRemotionProgress(100);
+                setRemotionLabel("✅ HeyGen video ready! 100%");
+                setIsGenerating(false);
+                setShowProgressModal(false);
+                onGeneratingChange?.(false, 100);
+
+                // Fetch the updated generation to get media_url
+                const { data: gen } = await supabase
+                  .from("generations")
+                  .select("media_url")
+                  .eq("id", generationId)
+                  .single();
+
+                if (gen?.media_url) {
+                  const completedSegment = {
+                    id: generationId,
+                    script: "HeyGen Avatar Video",
+                    duration: selectedKieModel.duration,
+                    status: "ready" as const,
+                    videoUrl: gen.media_url,
+                  };
+                  setSegments([completedSegment]);
+                  onVideosGenerated?.([completedSegment]);
+                }
+                toast({ title: "🎥 HeyGen avatar video ready!" });
+              } else if (statusData?.status === "failed") {
+                clearInterval(remotionPollingRef.current!);
+                remotionPollingRef.current = null;
+                setIsGenerating(false);
+                setShowProgressModal(false);
+                onGeneratingChange?.(false, 0);
+                toast({ title: "HeyGen video failed", variant: "destructive" });
+              } else {
+                const prog = Math.min(80, 20 + (statusData?.progress || 0));
+                setRemotionProgress(prog);
+                setRemotionLabel(`HeyGen rendering... ${prog}%`);
+                onGeneratingChange?.(true, prog);
+              }
+            } catch (e) {
+              console.warn("[HeyGen] Poll error:", e);
+            }
+          }, 5000);
+
+          toast({
+            title: "🎥 HeyGen avatar video started!",
+            description: `${selectedKieModel.credits} credits • ${selectedKieModel.duration}s`,
+          });
+        }
+      } catch (err: any) {
+        toast({ title: "HeyGen error", description: err.message, variant: "destructive" });
       } finally {
         setIsGenerating(false);
       }

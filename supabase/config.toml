@@ -169,3 +169,6 @@ verify_jwt = false
 
 [functions.url-to-video-script]
 verify_jwt = false
+
+[functions.generate-video-heygen]
+verify_jwt = false
