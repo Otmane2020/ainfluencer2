@@ -4,7 +4,7 @@
  */
 
 export type VideoModelType = "text-to-video" | "image-to-video" | "video-to-video";
-export type CostLevel = "ultra-low" | "low" | "medium" | "high";
+export type CostLevel = "ultra-low" | "low" | "medium" | "high" | "premium";
 
 export interface VideoModel {
   id: string;
@@ -17,7 +17,7 @@ export interface VideoModel {
   costPerVideo: number; // USD
   costLevel: CostLevel;
   usage: string;
-  provider: "kie" | "comet" | "openai" | "remotion";
+  provider: "kie" | "comet" | "openai" | "remotion" | "heygen";
   hasAudio?: boolean; // Audio generation support
   apiEndpoint?: string;
   isLocalRender?: boolean; // Uses local FFmpeg worker
@@ -313,12 +313,61 @@ const REMOTION_MODELS: VideoModel[] = [
 ];
 
 // ============================================================
+// HEYGEN AVATAR MODELS
+// ============================================================
+const HEYGEN_MODELS: VideoModel[] = [
+  {
+    id: "heygen-avatar-30s",
+    name: "HeyGen Avatar (30s)",
+    type: "text-to-video",
+    quality: 5,
+    duration: 30,
+    resolution: "1080p",
+    credits: 100,
+    costPerVideo: 1.00,
+    costLevel: "medium",
+    usage: "Talking avatar presenter",
+    provider: "heygen",
+    hasAudio: true,
+  },
+  {
+    id: "heygen-avatar-60s",
+    name: "HeyGen Avatar (60s)",
+    type: "text-to-video",
+    quality: 5,
+    duration: 60,
+    resolution: "1080p",
+    credits: 180,
+    costPerVideo: 1.80,
+    costLevel: "high",
+    usage: "Long-form avatar video",
+    provider: "heygen",
+    hasAudio: true,
+  },
+  {
+    id: "heygen-avatar-120s",
+    name: "HeyGen Avatar (2min)",
+    type: "text-to-video",
+    quality: 6,
+    duration: 120,
+    resolution: "1080p",
+    credits: 300,
+    costPerVideo: 3.00,
+    costLevel: "premium",
+    usage: "Full presentation video",
+    provider: "heygen",
+    hasAudio: true,
+  },
+];
+
+// ============================================================
 // ALL VIDEO MODELS
 // ============================================================
 export const VIDEO_MODELS: VideoModel[] = [
   ...REMOTION_MODELS,
   ...WAN_MODELS,
   ...KLING_MODELS,
+  ...HEYGEN_MODELS,
 ];
 
 // Default model (cost-effective)
@@ -346,6 +395,8 @@ export function getCostLevelColor(level: CostLevel): string {
       return "bg-amber-500/20 text-amber-400 border-amber-500/30";
     case "high":
       return "bg-red-500/20 text-red-400 border-red-500/30";
+    case "premium":
+      return "bg-purple-500/20 text-purple-400 border-purple-500/30";
   }
 }
 
@@ -359,6 +410,8 @@ export function getCostLevelLabel(level: CostLevel): string {
       return "Medium";
     case "high":
       return "High";
+    case "premium":
+      return "Premium";
   }
 }
 
@@ -432,4 +485,10 @@ export function getRemotionQuality(modelId: string): "standard" | "pro" | "cinem
   if (modelId === "remotion-cinema") return "cinema";
   if (modelId === "remotion-pro") return "pro";
   return "standard";
+}
+
+// Check if a model uses HeyGen avatar pipeline
+export function isHeygenModel(modelId: string): boolean {
+  const model = VIDEO_MODELS.find(m => m.id === modelId);
+  return model?.provider === "heygen";
 }
