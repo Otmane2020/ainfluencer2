@@ -612,26 +612,36 @@ export const ScheduledPostModal = ({
         }
       }
 
-      setPublishingStatus("Publishing to platforms...");
-
-      toast({
-        title: "Content generated ✓",
-        description: "Social post with description and hashtags is ready",
-      });
-
       onUpdate?.();
+
+      // Check if video was generated (has media) — if not, don't try to publish yet
+      const hasMedia = !!(post.media_url || localMediaUrl);
       
-      // Now call the original publish handler
-      if (onPublishNow) {
-        await onPublishNow({
-          ...post,
-          text_content: finalTextContent,
+      if (post.content_type === "video" && !hasMedia) {
+        // Video is generating asynchronously — cannot publish yet
+        setPublishingStatus("Video generation started!");
+        toast({
+          title: "Content saved ✓",
+          description: "Video is generating. It will be ready for publishing once complete.",
         });
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        onClose();
+      } else {
+        // Media is ready — proceed with publishing
+        setPublishingStatus("Publishing to platforms...");
+        
+        if (onPublishNow) {
+          await onPublishNow({
+            ...post,
+            text_content: finalTextContent,
+            media_url: localMediaUrl || post.media_url,
+          });
+        }
+        
+        setPublishingStatus("Published successfully!");
+        await new Promise(resolve => setTimeout(resolve, 500));
+        onClose();
       }
-      
-      setPublishingStatus("Published successfully!");
-      await new Promise(resolve => setTimeout(resolve, 500));
-      onClose();
     } catch (error) {
       console.error("Generate and publish error:", error);
       setPublishingStatus("Failed");
