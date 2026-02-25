@@ -67,6 +67,45 @@ export type Database = {
           },
         ]
       }
+      api_pricing: {
+        Row: {
+          avatar_type: string | null
+          billing_unit: string | null
+          cost_per_call: number | null
+          cost_per_min: number | null
+          endpoint: string
+          id: string
+          notes: string | null
+          provider: string
+          quality: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_type?: string | null
+          billing_unit?: string | null
+          cost_per_call?: number | null
+          cost_per_min?: number | null
+          endpoint: string
+          id?: string
+          notes?: string | null
+          provider: string
+          quality?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_type?: string | null
+          billing_unit?: string | null
+          cost_per_call?: number | null
+          cost_per_min?: number | null
+          endpoint?: string
+          id?: string
+          notes?: string | null
+          provider?: string
+          quality?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       campaigns: {
         Row: {
           ai_context: string | null
@@ -1032,6 +1071,14 @@ export type Database = {
       deduct_credits: {
         Args: { p_amount: number; p_user_id: string }
         Returns: boolean
+      }
+      estimate_heygen_cost: {
+        Args: {
+          p_avatar_type: string
+          p_duration_sec: number
+          p_quality?: string
+        }
+        Returns: Json
       }
       get_ai_config: {
         Args: { p_format: string; p_platform: string; p_type: string }
