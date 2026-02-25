@@ -56,26 +56,28 @@ serve(async (req) => {
 
     console.log("Generating content for prompt:", prompt.slice(0, 100), "type:", type, "language:", language);
 
-    // Generate text content
+    // Generate text content using Claude API
     let generatedText = "";
     if (type === "text" || type === "both") {
-      const textResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+      if (!ANTHROPIC_API_KEY) {
+        throw new Error("ANTHROPIC_API_KEY is not configured");
+      }
+
+      const textResponse = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          // FIX 3: Use stable model instead of preview
-          model: "google/gemini-2.5-flash",
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1024,
+          system: systemPrompt,
           messages: [
             {
-              role: "system",
-              content: systemPrompt,
-            },
-            {
               role: "user",
-              // FIX 2: Stronger language lock in user prompt
               content: `Create a viral post about: ${prompt}.
 IMPORTANT: Write ONLY in ${languageName}. Do not use any other language.`,
             },
@@ -85,15 +87,17 @@ IMPORTANT: Write ONLY in ${languageName}. Do not use any other language.`,
 
       if (!textResponse.ok) {
         const status = textResponse.status;
+        const errorBody = await textResponse.text();
+        console.error("Claude API error:", status, errorBody);
         if (status === 429) {
           return new Response(
             JSON.stringify({ error: "Rate limits exceeded, please try again later." }),
             { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-        if (status === 402) {
+        if (status === 402 || status === 400) {
           return new Response(
-            JSON.stringify({ error: "Payment required, please add credits." }),
+            JSON.stringify({ error: "Claude API error, please check your API key and credits." }),
             { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
@@ -101,8 +105,8 @@ IMPORTANT: Write ONLY in ${languageName}. Do not use any other language.`,
       }
 
       const textData = await textResponse.json();
-      generatedText = textData.choices?.[0]?.message?.content || "";
-      console.log("Generated text:", generatedText.substring(0, 100) + "...");
+      generatedText = textData.content?.[0]?.text || "";
+      console.log("Generated text (Claude):", generatedText.substring(0, 100) + "...");
     }
 
     // Generate image if requested
