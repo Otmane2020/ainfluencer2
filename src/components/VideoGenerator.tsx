@@ -1270,9 +1270,9 @@ ${formattedHashtags}`;
                   <span>{heygenAvatarName}</span>
                 </button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
+              <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Choose HeyGen Avatar</DialogTitle>
+                  <DialogTitle className="text-xl">Choose an Avatar</DialogTitle>
                 </DialogHeader>
                 <HeyGenAvatarPicker
                   selectedAvatarId={heygenAvatarId}
