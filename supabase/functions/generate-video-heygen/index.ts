@@ -293,6 +293,38 @@ serve(async (req) => {
     }
 
     // ============================================================
+    // ACTION: cache-avatars — Store avatars in DB for fast loading
+    // ============================================================
+    if (action === "cache-avatars") {
+      const { avatars: avatarList } = body;
+      if (!avatarList || !Array.isArray(avatarList)) {
+        return new Response(JSON.stringify({ error: "avatars array required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Upsert public avatars (user_id = null)
+      for (const a of avatarList.slice(0, 100)) {
+        await supabase.from("heygen_avatars").upsert({
+          avatar_id: a.avatar_id,
+          avatar_name: a.avatar_name,
+          gender: a.gender || null,
+          category: a.category || "all",
+          preview_image_url: a.preview_image_url || null,
+          preview_video_url: a.preview_video_url || null,
+          scenes: a.scenes || [],
+          cached_at: new Date().toISOString(),
+          user_id: null,
+        }, { onConflict: "avatar_id" });
+      }
+
+      return new Response(JSON.stringify({ success: true, cached: avatarList.length }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ============================================================
     // ACTION: voices — List available HeyGen voices
     // ============================================================
     if (action === "voices") {
@@ -308,7 +340,7 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ error: "Invalid action. Use: create, status, avatars, voices" }), {
+    return new Response(JSON.stringify({ error: "Invalid action. Use: create, status, avatars, voices, cache-avatars" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

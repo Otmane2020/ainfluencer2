@@ -525,6 +525,51 @@ export type Database = {
           },
         ]
       }
+      heygen_avatars: {
+        Row: {
+          avatar_id: string
+          avatar_name: string
+          cached_at: string
+          category: string | null
+          gender: string | null
+          id: string
+          is_favorite: boolean | null
+          last_used_at: string | null
+          preview_image_url: string | null
+          preview_video_url: string | null
+          scenes: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          avatar_id: string
+          avatar_name: string
+          cached_at?: string
+          category?: string | null
+          gender?: string | null
+          id?: string
+          is_favorite?: boolean | null
+          last_used_at?: string | null
+          preview_image_url?: string | null
+          preview_video_url?: string | null
+          scenes?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          avatar_id?: string
+          avatar_name?: string
+          cached_at?: string
+          category?: string | null
+          gender?: string | null
+          id?: string
+          is_favorite?: boolean | null
+          last_used_at?: string | null
+          preview_image_url?: string | null
+          preview_video_url?: string | null
+          scenes?: Json | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       linkedin_connections: {
         Row: {
           access_token: string
