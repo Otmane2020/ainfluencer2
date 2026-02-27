@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Video, Wand2, Loader2, Play, Plus, Trash2, ChevronDown, ImagePlus, X, User, Upload, Volume2 } from "lucide-react";
+import { Video, Wand2, Loader2, Play, Plus, Trash2, ChevronDown, ImagePlus, X, User, Upload, Volume2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +21,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { GenerationProgressModal } from "@/components/GenerationProgressModal";
 import { VideoModelSelector } from "@/components/VideoModelSelector";
 import { VideoModel, VIDEO_MODELS, getDefaultVideoModel, parseModelIdForKie, isRemotionModel, isHeygenModel, getRemotionQuality } from "@/lib/videoModels";
+import { Switch } from "@/components/ui/switch";
+import { HeyGenAvatarPicker } from "@/components/HeyGenAvatarPicker";
 import { useGenerationTasks, type GenerationTask as PersistentTask } from "@/hooks/useGenerationTasks";
 interface Project {
   id: string;
@@ -89,7 +91,11 @@ interface StoredPrefs {
   startingFrameUrl?: string;
   format?: ContentFormat;
   brandOptions?: BrandOptionsState;
-  kieVideoModelId?: string; // New KIE video model (Wan/Kling)
+  kieVideoModelId?: string;
+  ugcMode?: boolean;
+  heygenAvatarId?: string;
+  heygenAvatarName?: string;
+  heygenAvatarPreview?: string;
 }
 const loadPrefs = (): StoredPrefs => {
   try {
@@ -308,19 +314,36 @@ export const VideoGenerator = ({
     includeAvatar: false
   });
 
+  // UGC Mode state — forces HeyGen Avatar exclusively
+  const [ugcMode, setUgcModeState] = useState<boolean>(storedPrefs.ugcMode || false);
+  const [heygenAvatarId, setHeygenAvatarIdState] = useState<string>(storedPrefs.heygenAvatarId || "Daisy-inskirt-20220818");
+  const [heygenAvatarName, setHeygenAvatarNameState] = useState<string>(storedPrefs.heygenAvatarName || "Daisy");
+  const [heygenAvatarPreview, setHeygenAvatarPreviewState] = useState<string | undefined>(storedPrefs.heygenAvatarPreview);
+
   // Video mode - always "standard" now (clipmotion and motion modes removed)
   const videoMode = "standard";
   const setBrandOptions = (options: BrandOptionsState) => {
     setBrandOptionsState(options);
-    savePrefs({
-      brandOptions: options
-    });
+    savePrefs({ brandOptions: options });
   };
   const setSelectedFormat = (format: ContentFormat) => {
     setSelectedFormatState(format);
-    savePrefs({
-      format
-    });
+    savePrefs({ format });
+  };
+  const setUgcMode = (enabled: boolean) => {
+    setUgcModeState(enabled);
+    savePrefs({ ugcMode: enabled });
+    // When enabling UGC, auto-select the default HeyGen model
+    if (enabled) {
+      const heygenModel = VIDEO_MODELS.find(m => m.id === "heygen-avatar-30s");
+      if (heygenModel) setSelectedKieModel(heygenModel);
+    }
+  };
+  const setHeygenAvatar = (avatarId: string, name: string, preview?: string) => {
+    setHeygenAvatarIdState(avatarId);
+    setHeygenAvatarNameState(name);
+    setHeygenAvatarPreviewState(preview);
+    savePrefs({ heygenAvatarId: avatarId, heygenAvatarName: name, heygenAvatarPreview: preview });
   };
 
   // Wrapper functions to persist preferences
@@ -700,9 +723,10 @@ ${formattedHashtags}`;
       status: "generating" as const,
       progress: 0
     } : s));
+    const activeModelName = ugcMode ? `HeyGen Avatar (${heygenAvatarName})` : selectedKieModel.name;
     toast({
-      title: `Generating with ${selectedKieModel.name}...`,
-      description: `${selectedKieModel.credits} credits • ${selectedKieModel.duration}s ${selectedKieModel.resolution}`
+      title: `Generating with ${activeModelName}...`,
+      description: ugcMode ? `100 credits • UGC Avatar Video` : `${selectedKieModel.credits} credits • ${selectedKieModel.duration}s ${selectedKieModel.resolution}`
     });
     try {
       // Video and Avatar generation only on this page
@@ -834,7 +858,7 @@ ${formattedHashtags}`;
     // ============================================================
     // HEYGEN AVATAR PATH
     // ============================================================
-    if (isHeygenModel(selectedKieModel.id)) {
+    if (isHeygenModel(selectedKieModel.id) || ugcMode) {
       const segment = segments.find(s => s.script.trim());
       if (!segment) {
         toast({ title: "Script required", description: "Add a script first", variant: "destructive" });
@@ -846,14 +870,18 @@ ${formattedHashtags}`;
         const { data: sessionData2 } = await supabase.auth.getSession();
         const token = sessionData2?.session?.access_token;
 
+        const heygenModel = ugcMode
+          ? (VIDEO_MODELS.find(m => m.id === "heygen-avatar-30s") || selectedKieModel)
+          : selectedKieModel;
         const { data, error } = await supabase.functions.invoke("generate-video-heygen", {
           body: {
             action: "create",
             script: segment.script.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]/gu, "")
               .replace(/^🎬.*$|^━+$|^📍.*$|^📊.*$|^📜.*$|^🎥.*$|^\[.*\]$|^Visual:.*$/gm, "")
               .replace(/#\w+/g, "").replace(/\n{2,}/g, " ").trim().slice(0, 1500),
-            duration: selectedKieModel.duration,
-            credits: selectedKieModel.credits,
+            avatarId: heygenAvatarId,
+            duration: heygenModel.duration,
+            credits: heygenModel.credits,
             projectId: selectedProject?.id,
             aspectRatio: selectedFormat === "landscape" ? "16:9" : "9:16",
           },
@@ -1197,7 +1225,7 @@ ${formattedHashtags}`;
     opacity: 1,
     y: 0
   }} className="rounded-2xl bg-card p-4 shadow-card">
-      {/* Header compact */}
+      {/* Header with UGC Toggle */}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary">
@@ -1205,15 +1233,69 @@ ${formattedHashtags}`;
           </div>
           <span className="font-medium text-sm">AI Generator</span>
         </div>
+        <div className="flex items-center gap-2">
+          <label htmlFor="ugc-toggle" className="flex items-center gap-2 cursor-pointer">
+            <Users className="h-4 w-4 text-primary" />
+            <span className="text-xs font-medium">UGC</span>
+          </label>
+          <Switch
+            id="ugc-toggle"
+            checked={ugcMode}
+            onCheckedChange={setUgcMode}
+          />
+        </div>
       </div>
 
-      {/* Video Model Selector (Wan 2.6 / Kling 2.6) */}
-      <div className="mb-3">
-        <VideoModelSelector 
-          selectedModel={selectedKieModel} 
-          onModelChange={setSelectedKieModel}
-        />
-      </div>
+      {/* UGC Mode Banner */}
+      {ugcMode && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          exit={{ opacity: 0, height: 0 }}
+          className="mb-3 rounded-xl border border-primary/20 bg-primary/5 p-3"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-primary" />
+              <span className="text-xs font-semibold text-primary">UGC Mode — HeyGen Avatar</span>
+            </div>
+            <Dialog>
+              <DialogTrigger asChild>
+                <button className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-background px-2 py-1 text-xs hover:bg-muted transition-colors">
+                  {heygenAvatarPreview ? (
+                    <img src={heygenAvatarPreview} alt={heygenAvatarName} className="h-5 w-5 rounded-full object-cover" />
+                  ) : (
+                    <User className="h-4 w-4 text-primary" />
+                  )}
+                  <span>{heygenAvatarName}</span>
+                </button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Choose HeyGen Avatar</DialogTitle>
+                </DialogHeader>
+                <HeyGenAvatarPicker
+                  selectedAvatarId={heygenAvatarId}
+                  onAvatarSelect={(id, name, preview) => setHeygenAvatar(id, name, preview)}
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Exclusively uses HeyGen for UGC-style avatar videos. Select your avatar and write a script.
+          </p>
+        </motion.div>
+      )}
+
+      {/* Video Model Selector — hidden in UGC mode */}
+      {!ugcMode && (
+        <div className="mb-3">
+          <VideoModelSelector 
+            selectedModel={selectedKieModel} 
+            onModelChange={setSelectedKieModel}
+          />
+        </div>
+      )}
 
       {/* Quick Settings Bar - Popup buttons */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -1422,9 +1504,16 @@ ${formattedHashtags}`;
 
 
       {/* Generate Button with Credit Cost */}
-      <Button onClick={generateContent} disabled={isGenerating || segments.every(s => !s.script.trim())} variant="gradient" className="w-full">
-        {isGenerating ? <><Loader2 className="h-4 w-4 animate-spin" />Generating...</> : <><Wand2 className="h-4 w-4" />Generate ({selectedKieModel.credits} credits)</>}
-      </Button>
+      {(() => {
+        const activeModel = ugcMode
+          ? (VIDEO_MODELS.find(m => m.id === "heygen-avatar-30s") || selectedKieModel)
+          : selectedKieModel;
+        return (
+          <Button onClick={generateContent} disabled={isGenerating || segments.every(s => !s.script.trim())} variant="gradient" className="w-full">
+            {isGenerating ? <><Loader2 className="h-4 w-4 animate-spin" />Generating...</> : <><Wand2 className="h-4 w-4" />{ugcMode ? `Generate UGC (${activeModel.credits} credits)` : `Generate (${activeModel.credits} credits)`}</>}
+          </Button>
+        );
+      })()}
 
       {/* Remotion Live Progress Bar */}
       {isRemotionModel(selectedKieModel.id) && remotionProgress > 0 && (
