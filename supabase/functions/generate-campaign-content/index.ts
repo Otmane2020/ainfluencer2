@@ -1,20 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { 
-  validateAndBuildContext, 
+import {
+  validateAndBuildContext,
   logContextValidation,
   type MarketingContext,
-  type GenerationGuardInput 
+  type GenerationGuardInput,
 } from "../_shared/generation-context-guard.ts";
-import {
-  createKieTask,
-  checkKieTaskStatus,
-  KIE_MODEL_NAMES,
-} from "../_shared/kie-api-client.ts";
+import { createKieTask, checkKieTaskStatus, KIE_MODEL_NAMES } from "../_shared/kie-api-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 // ============================================================
@@ -36,19 +33,23 @@ function buildScheduledDate(dayOffset: number, localHour: number, localMinute: n
   const day = String(base.getUTCDate()).padStart(2, "0");
   const hour = String(localHour).padStart(2, "0");
   const minute = String(localMinute).padStart(2, "0");
-  
+
   // Use Intl to get the UTC offset for the target timezone on that date
   try {
     const formatter = new Intl.DateTimeFormat("en-US", {
       timeZone: timezone,
       timeZoneName: "shortOffset",
-      year: "numeric", month: "2-digit", day: "2-digit",
-      hour: "2-digit", minute: "2-digit", hour12: false,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
     });
     // Get the offset by comparing a known date in both timezones
     const testDate = new Date(`${year}-${month}-${day}T${hour}:${minute}:00Z`);
     const parts = formatter.formatToParts(testDate);
-    const tzPart = parts.find(p => p.type === "timeZoneName")?.value || "+0";
+    const tzPart = parts.find((p) => p.type === "timeZoneName")?.value || "+0";
     // Parse offset like "GMT+2" or "GMT-5" or "GMT+5:30"
     const offsetMatch = tzPart.match(/GMT([+-]?)(\d{1,2})(?::(\d{2}))?/);
     let offsetMinutes = 0;
@@ -100,7 +101,7 @@ const BANNED_CLICHES = ["laptop in café", "person smiling at phone", "man in su
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
-  let binary = '';
+  let binary = "";
   const chunkSize = 8192;
   for (let i = 0; i < bytes.length; i += chunkSize) {
     const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
@@ -111,7 +112,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 
 async function generateAndUploadImage(prompt: string, format: string, supabase: any): Promise<string | null> {
   const COMETAPI_API_KEY = Deno.env.get("COMETAPI_API_KEY");
-  
+
   try {
     // Map format to aspect ratio for KIE
     let aspectRatio = "1:1";
@@ -131,7 +132,7 @@ async function generateAndUploadImage(prompt: string, format: string, supabase: 
     if (COMETAPI_API_KEY) {
       const response = await fetch("https://api.cometapi.com/v1/images/generations", {
         method: "POST",
-        headers: { "Authorization": `Bearer ${COMETAPI_API_KEY}`, "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${COMETAPI_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model: "flux-pro", prompt: enhancedPrompt, n: 1, size, response_format: "b64_json" }),
       });
       if (response.ok) {
@@ -163,9 +164,9 @@ async function generateAndUploadImage(prompt: string, format: string, supabase: 
           // Poll for result (max 30s)
           let attempts = 0;
           while (attempts < 30) {
-            await new Promise(r => setTimeout(r, attempts < 10 ? 1000 : 2000));
+            await new Promise((r) => setTimeout(r, attempts < 10 ? 1000 : 2000));
             const status = await checkKieTaskStatus(taskResult.taskId);
-            
+
             if (status.status === "completed") {
               const imageUrl = status.resultUrl || status.resultUrls?.[0];
               if (imageUrl) {
@@ -230,8 +231,13 @@ async function generateAndUploadImage(prompt: string, format: string, supabase: 
 
     const imageBytes = Uint8Array.from(atob(imageBase64), (c) => c.charCodeAt(0));
     const fileName = `campaign-gen/${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
-    const { error: uploadError } = await supabase.storage.from("media").upload(fileName, imageBytes, { contentType: "image/png" });
-    if (uploadError) { console.error("[Image Gen] Upload error:", uploadError); return null; }
+    const { error: uploadError } = await supabase.storage
+      .from("media")
+      .upload(fileName, imageBytes, { contentType: "image/png" });
+    if (uploadError) {
+      console.error("[Image Gen] Upload error:", uploadError);
+      return null;
+    }
 
     const publicUrl = supabase.storage.from("media").getPublicUrl(fileName).data.publicUrl;
     console.log("[Image Gen] Uploaded:", publicUrl);
@@ -247,47 +253,106 @@ function safeJsonParse(text: string) {
     const start = text.indexOf("{");
     const end = text.lastIndexOf("}");
     return start !== -1 && end !== -1 ? JSON.parse(text.slice(start, end + 1)) : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 // ============================================================
 // GENERATE A SINGLE POST (extracted for clarity)
 // ============================================================
 
-// ============================================================
-// LINKEDIN VALUE-FIRST POST TYPES
-// ============================================================
+// Each angle is a UNIQUE fictional scenario seed — forces completely different stories
+// Story angles are now dynamically generated per-project via buildProjectStoryAngles()
 
-const LINKEDIN_POST_TYPES = [
-  "STORY_DRIVEN: Tell a real-feeling story about someone's problem → discovery → result. First-person or close observer. Must feel authentic.",
-  "VALUE_BREAKDOWN: Break down a specific tactic, framework, or process step-by-step. Teach something actionable.",
-  "AUTHORITY_POSITIONING: Share a contrarian opinion, data insight, or hard-won lesson. Position as thought leader without bragging.",
-  "SOFT_CONVERSION: Address a specific pain point, show empathy, then softly invite discussion. NO hard selling.",
-  "CURIOSITY_HOOK: Open with something unexpected, then unpack it. Make them stop scrolling.",
-  "BEHIND_THE_SCENES: Show real process, real numbers, real struggles. Raw and unfiltered.",
-  "CONTRARIAN_TAKE: Challenge conventional wisdom in the industry. Be bold but backed by reasoning.",
-  "MICRO_CASE_STUDY: One specific example, one specific result. Concrete, not abstract.",
+// Narrative structures to combine with angles for maximum diversity
+const NARRATIVE_STRUCTURES = [
+  "PROBLEM BREAKDOWN: Open with a real operational bottleneck",
+  "METRIC SHOCK: Start with a surprising number",
+  "PROCESS FAILURE: Describe a workflow that isn't scaling",
+  "FOUNDER CONFESSION: Honest admission about a mistake",
+  "FUNNEL DIAGNOSIS: Reveal where conversion is leaking",
+  "RETENTION MOMENT: A churn insight that changed everything",
+  "TEAM TENSION: A leadership decision under pressure",
+  "CHANNEL REALIZATION: Discovering what channel actually works",
 ];
 
-const LINKEDIN_HOOK_STYLES = [
-  "One-liner that challenges a common belief",
-  "A specific number or stat that surprises",
-  "A confession or vulnerable admission",
-  "A bold claim followed by 'Here's why:'",
-  "A question the reader can't scroll past",
-  "A timestamp + vivid scene ('Last Tuesday at 2am...')",
-  "A pattern interrupt ('Stop doing X. Seriously.')",
-  "A relatable frustration stated plainly",
-];
+// Build dynamic story angles from project context
+function buildProjectStoryAngles(
+  project: any,
+  campaign: any,
+): Array<{ character: string; scene: string; emotion: string }> {
+  const mc = project.marketing_context || {};
+  const services = mc.services || mc.products || [];
+  const usp = mc.usp || mc.unique_selling_point || project.description || "";
+  const audience = mc.target_audience || mc.audience || "";
+  const brandName = project.name || "the brand";
+  const industry = mc.industry || mc.sector || "";
 
-const LINKEDIN_CTA_STYLES = [
-  "Ask a genuine question inviting comments",
-  "Invite them to DM a keyword for a resource",
-  "Ask 'What's your take?' or 'Agree or disagree?'",
-  "Soft invite: 'If this resonates, let's connect'",
-  "Challenge: 'Try this for 7 days and tell me what happens'",
-  "Curiosity: 'I'm writing Part 2 about X — what should I cover?'",
-];
+  // Character archetypes that adapt to ANY business
+  const CUSTOMER_ARCHETYPES = [
+    "a solo SaaS founder stuck at $5k MRR",
+    "a technical founder overwhelmed by marketing",
+    "a B2B agency owner juggling 12 clients",
+    "a startup CTO explaining ROI to investors",
+    "a founder preparing for a funding round",
+    "a SaaS operator struggling with churn",
+    "a product-led founder obsessed with retention metrics",
+    "a bootstrapped founder running lean",
+    "a growth lead testing channels that aren't converting",
+    "a founder scaling from 3 to 10 employees",
+  ];
+  // Scene templates that reference the project's actual services
+  const serviceList = services.length > 0 ? services : [brandName + "'s solution"];
+  const scenes: Array<{ character: string; scene: string; emotion: string }> = [];
+
+  const SCENE_TEMPLATES = [
+    (svc: string) => ({
+      scene: `tries ${svc} for the first time and gets unexpected results within hours`,
+      emotion: "surprise turning into excitement",
+    }),
+    (svc: string) => ({
+      scene: `compares ${svc} with what they used before and realizes the gap`,
+      emotion: "regret for not switching sooner",
+    }),
+    (svc: string) => ({
+      scene: `gets a message from a friend asking 'how did you do that?' after using ${svc}`,
+      emotion: "pride and social validation",
+    }),
+    (svc: string) => ({
+      scene: `almost gives up on their goal, then discovers ${svc} changes everything`,
+      emotion: "hope after despair",
+    }),
+    (svc: string) => ({
+      scene: `overhears someone recommending ${svc} to a stranger, and they're already a user`,
+      emotion: "warm recognition",
+    }),
+    (svc: string) => ({
+      scene: `runs the numbers after 3 months of using ${svc} and can't believe the difference`,
+      emotion: "data-driven revelation",
+    }),
+    (svc: string) => ({
+      scene: `explains ${svc} to their grandmother and she immediately gets it`,
+      emotion: "simplicity is genius",
+    }),
+    (svc: string) => ({
+      scene: `wakes up to find ${svc} handled everything while they slept`,
+      emotion: "freedom and trust",
+    }),
+  ];
+
+  for (let i = 0; i < CUSTOMER_ARCHETYPES.length; i++) {
+    const svc = serviceList[i % serviceList.length];
+    const tmpl = SCENE_TEMPLATES[i % SCENE_TEMPLATES.length](typeof svc === "string" ? svc : svc.name || brandName);
+    scenes.push({
+      character: CUSTOMER_ARCHETYPES[i],
+      scene: tmpl.scene,
+      emotion: tmpl.emotion,
+    });
+  }
+
+  return scenes;
+}
 
 async function generateLinkedInStoryPost(
   idx: number,
@@ -299,125 +364,158 @@ async function generateLinkedInStoryPost(
   OPENROUTER_API_KEY: string,
 ): Promise<any | null> {
   const lang = project.detected_language || "en";
+  const angles = buildProjectStoryAngles(project, campaign);
+  const angle = angles[idx % angles.length];
+  const narrative = NARRATIVE_STRUCTURES[idx % NARRATIVE_STRUCTURES.length];
+
+  const randomSeed = Math.random().toString(36).slice(2, 8);
   const mc = project.marketing_context || {};
-  const services = (mc.services || mc.products || []).map((s: any) => typeof s === "string" ? s : s.name).filter(Boolean);
+  const services = (mc.services || mc.products || [])
+    .map((s: any) => (typeof s === "string" ? s : s.name))
+    .filter(Boolean);
   const usp = mc.usp || mc.unique_selling_point || project.description || "";
   const audience = mc.target_audience || mc.audience || "";
-  const randomSeed = Math.random().toString(36).slice(2, 8);
 
-  const postType = LINKEDIN_POST_TYPES[idx % LINKEDIN_POST_TYPES.length];
-  const hookStyle = LINKEDIN_HOOK_STYLES[idx % LINKEDIN_HOOK_STYLES.length];
-  const ctaStyle = LINKEDIN_CTA_STYLES[idx % LINKEDIN_CTA_STYLES.length];
-
-  console.log(`[Campaign] LinkedIn Value-First #${idx + 1}: Type: ${postType.slice(0, 30)}... | Hook: ${hookStyle.slice(0, 30)}...`);
+  console.log(
+    `[Campaign] LinkedIn Story #${idx + 1}: Character: ${angle.character.slice(0, 40)}... | Structure: ${narrative.slice(0, 30)}...`,
+  );
 
   const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
-    headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "google/gemini-3-flash-preview",
-      messages: [{
-        role: "system",
-        content: `═══ 🚨 LINKEDIN CLOSE-DEALS PHILOSOPHY MODE 🚨 ═══
+      messages: [
+        {
+          role: "system",
+          content: `═══ 🚨 LINKEDIN CLOSE DEALS PHILOSOPHY MODE 🚨 ═══
 
-You are generating LinkedIn posts based STRICTLY on the philosophy:
-"Close Deals in LinkedIn DMs".
+You are generating LinkedIn posts STRICTLY based on:
+
+"Close Deals in LinkedIn DMs"
+
+This is relationship-first positioning.
+Not traditional marketing.
+Not direct selling.
 
 CORE STRATEGY (MANDATORY):
 
-- Lead with value before pitching.
-- Diagnose before offering.
-- Start conversations, do NOT try to close immediately.
-- The goal of the first post is to earn the second reply.
-- LinkedIn is a trust platform, NOT a marketplace.
-- Avoid hype, urgency, scarcity, or aggressive CTAs.
-
-OBJECTIVE:
-Generate inbound conversations organically from:
-- SaaS founders
-- AI startup builders
-- B2B service providers
-
-TONE:
-- Confident
-- Strategic
-- Builder mindset
-- Conversational
-- Calm authority
-- Zero spam energy
-
-POST STRUCTURE (MANDATORY):
-
-1. Strong curiosity-driven hook (1 line)
-2. Short paragraphs (1–2 lines max)
-3. Reframe a real founder problem
-4. Provide insight (diagnose before offering)
-5. End with subtle conversation trigger
-
-IMPORTANT:
+• Lead with VALUE before pitching  
+• Diagnose before offering  
+• Start conversations — do NOT close immediately  
+• The goal is the SECOND reply, not the first conversion  
+• LinkedIn is a TRUST platform, not a marketplace  
+• Avoid hype, urgency, fake scarcity, or aggressive CTAs  
 
 Every post must feel like:
-"I understand your situation"
-
+"I understand your situation."
 NOT:
-"Buy my solution"
+"Buy my solution."
 
-ABSOLUTELY FORBIDDEN:
-- "Let's hop on a call"
-- "Quick 15 minutes"
-- "Limited spots"
-- "Book now"
-- Any aggressive closing language
-- Fake urgency
-- Generic motivational fluff
-- "In today's fast-paced world..."
-- "Game-changer", "Synergy", "Leverage", "Disrupt"
-- "🚀🔥💯" emoji spam
-- Corporate jargon or buzzwords
-- Talking about services the brand does NOT offer
+If the tone becomes salesy → internally rewrite before output.
 
-CTA RULE:
-End with:
-- A question
-- "Comment 'DM'"
-- Or low-friction engagement
+━━━━━━━━━━━━━━━━━━━━━━
+BRAND IDENTITY FIREWALL (NON-NEGOTIABLE)
+━━━━━━━━━━━━━━━━━━━━━━
 
-Never hard sell.
+You are writing EXCLUSIVELY for "${project.name}".
 
-════════ BRAND CONTEXT BELOW — APPLY THIS STRATEGY TO THE BRAND ════════
+OFFICIAL DESCRIPTION:
+${project.description || "N/A"}
+
+OFFICIAL PRODUCTS/SERVICES:
+${
+  services.length > 0
+    ? services.join(", ")
+    : (() => {
+        const mc = project.marketing_context || {};
+        const ps = mc.products_services || [];
+        return ps.length > 0 ? ps.map((p: any) => p.name || p).join(", ") : project.description || "see context below";
+      })()
+}
+
+⛔ You MUST ONLY mention products/services listed above.
+⛔ NEVER invent features.
+⛔ NEVER extrapolate capabilities.
+⛔ NEVER mix with competitors.
+
+When unsure → re-read description above.
+
+${contextGuard.enhancedPrompt}
+
+━━━━━━━━━━━━━━━━━━━━━━
+BRAND CONTEXT
+━━━━━━━━━━━━━━━━━━━━━━
 
 BRAND NAME: ${project.name}
 DESCRIPTION: ${project.description || "N/A"}
-OFFICIAL PRODUCTS/SERVICES: ${services.length > 0 ? services.join(", ") : "See description"}
+SERVICES/PRODUCTS: ${services.length > 0 ? services.join(", ") : "See description"}
 UNIQUE SELLING POINT: ${usp}
 TARGET AUDIENCE: ${audience}
 ${campaign.ai_context ? `CAMPAIGN BRIEF: ${campaign.ai_context}` : ""}
 ${project.url ? `WEBSITE: ${project.url}` : ""}
-⛔ You MUST ONLY mention products/services listed above. NEVER invent capabilities.
 
-${contextGuard.enhancedPrompt}
+Every claim MUST align with the description above.
 
-═══ POST ASSIGNMENT ═══
-POST TYPE: ${postType}
-HOOK STYLE: ${hookStyle}
-CTA STYLE: ${ctaStyle}
+━━━━━━━━━━━━━━━━━━━━━━
+STORY SEED
+━━━━━━━━━━━━━━━━━━━━━━
+
+CHARACTER TYPE: ${angle.character}
+SCENE IDEA: ${angle.scene}
+CORE EMOTION: ${angle.emotion}
+NARRATIVE STRUCTURE: ${narrative}
 UNIQUE SEED: ${randomSeed}
 
-═══ FORMAT RULES ═══
-- 800-2000 characters total
+INSTRUCTIONS:
+
+• Create a real-feeling scenario  
+• Brand must appear naturally — never forced  
+• Insight must come before brand mention  
+• Diagnose tension before resolution  
+• Show understanding before showing solution  
+
+The character must:
+- Be a realistic SaaS founder or B2B operator
+- Reflect a real operational tension
+- Include one specific measurable situation (numbers, timeline, tool, workflow)
+- Include one moment of realization
+- Keep it grounded and credible (no theatrical drama)
+
+━━━━━━━━━━━━━━━━━━━━━━
+STRICTLY FORBIDDEN
+━━━━━━━━━━━━━━━━━━━━━━
+
+❌ "Let's hop on a call"
+❌ "Book a free 15-minute call"
+❌ "Limited spots"
+❌ Hard selling language
+❌ Funnel tone
+❌ Corporate jargon
+❌ Generic motivational fluff
+
+━━━━━━━━━━━━━━━━━━━━━━
+FORMAT
+━━━━━━━━━━━━━━━━━━━━━━
+
+• Strong curiosity-driven hook (1 line)
+• Short paragraphs (1–2 lines max)
+• 800–1500 characters
+• Conversational tone
+• Builder mindset
+• Subtle CTA only (question or reflection)
+• 3–5 relevant hashtags
 - Language: ${lang}
-- 3-5 relevant hashtags at end
-- Use line breaks generously (LinkedIn mobile = narrow screen)
-${project.url ? `- If mentioning the brand, weave ${project.url} naturally (NOT as a pitch)` : ""}
-${project.linkedin_page_url ? `- Reference ${project.linkedin_page_url} when organically relevant` : ""}
+${project.url ? `- Weave ${project.url} naturally into the CTA` : ""}
+${project.linkedin_page_url ? `- Reference ${project.linkedin_page_url} when relevant` : ""}
 
 OUTPUT: Return ONLY valid JSON:
 {
-  "textContent": "the complete LinkedIn post",
-  "postType": "story|value_breakdown|authority|soft_conversion|curiosity|bts|contrarian|case_study"
-}`
-      }],
-      temperature: 0.92,
+  "textContent": "the complete LinkedIn story post"
+}`,
+        },
+      ],
+      temperature: 0.72,
     }),
   });
 
@@ -425,46 +523,62 @@ OUTPUT: Return ONLY valid JSON:
   const parsed = safeJsonParse(aiData.choices?.[0]?.message?.content);
 
   if (!parsed?.textContent) {
-    console.warn(`[Campaign] LinkedIn Value-First #${idx + 1}: AI parsing failed`);
+    console.warn(`[Campaign] LinkedIn Story #${idx + 1}: AI parsing failed`);
     return null;
   }
 
-  // Distribute posts evenly across 30 days
+  // Distribute posts evenly across 30 days based on totalTarget
   const daysSpan = 30;
   const gap = Math.max(1, Math.floor(daysSpan / totalTarget));
   const dayOffset = idx * gap;
   const postMinute = campaign.posting_minute ?? Math.floor(Math.random() * 30);
-  const scheduledISO = buildScheduledDate(dayOffset, campaign.posting_hour || 10, postMinute, campaign.timezone || "Europe/Paris");
+  const scheduledISO = buildScheduledDate(
+    dayOffset,
+    campaign.posting_hour || 10,
+    postMinute,
+    campaign.timezone || "Europe/Paris",
+  );
 
-  // Generate a visual prompt for the accompanying image
+  // Generate a VISUAL-ONLY image prompt (no text/typography instructions)
   const imagePromptResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
-    headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "google/gemini-3-flash-preview",
-      messages: [{
-        role: "system",
-        content: `You are a visual art director for LinkedIn content. Create a PURE VISUAL image prompt.
+      messages: [
+        {
+          role: "system",
+          content: `You are a visual art director. Create a PURE VISUAL image prompt for AI image generation.
 
 BRAND: ${project.name}
 ${project.theme_color ? `BRAND COLOR: ${project.theme_color}` : ""}
 ${project.description ? `BUSINESS: ${project.description}` : ""}
-POST TYPE: ${parsed.postType || "value_breakdown"}
 
-CREATE a professional LinkedIn-appropriate visual prompt:
-- SUBJECT: Professional, authentic-feeling scene related to the post topic
-- STYLE: Editorial photography, NOT stock photo feeling
-- LIGHTING: Natural, professional
-- COMPOSITION: Square 1:1, clean, modern
-- MOOD: Trustworthy, expert, approachable
+STORY CONTEXT: Character: ${angle.character} | Scene: ${angle.scene} | Emotion: ${angle.emotion}
 
-CRITICAL: NO text, NO typography, NO words, NO brand names in the image.
-Think like a photographer, not a graphic designer.
-Avoid: handshakes, lightbulbs, puzzle pieces, generic stock imagery.
+CREATE a detailed VISUAL-ONLY prompt that describes:
+- SUBJECT: What is physically shown (person, object, scene, product mockup)
+- SETTING: Environment, location, background details
+- LIGHTING: Type of light (studio, golden hour, neon, moody)
+- COMPOSITION: Camera angle, framing, depth of field
+- COLORS: Specific color palette using brand color ${project.theme_color || "#2563EB"}
+- MOOD: Emotional tone conveyed through visuals alone
+- STYLE: Photography style (editorial, cinematic, product shot, documentary)
 
-OUTPUT: Return ONLY the visual description as plain text.`
-      }],
-      temperature: 0.85,
+FORMAT: Square 1:1, professional LinkedIn-quality photography.
+
+CRITICAL RULES:
+- Describe ONLY what the camera sees — subjects, objects, light, colors, textures
+- NO text, NO typography, NO words, NO letters, NO brand names in the image
+- NO "bold headline", NO "quote overlay", NO "text reads..."
+- Think like a photographer describing a shot, not a graphic designer
+- The image must work WITHOUT any text overlay
+- Avoid: generic stock photos, handshakes, lightbulbs, puzzle pieces, clipart
+
+OUTPUT: Return ONLY the visual description as plain text. No JSON, no quotes, no formatting.`,
+        },
+      ],
+      temperature: 0.72,
     }),
   });
 
@@ -473,10 +587,12 @@ OUTPUT: Return ONLY the visual description as plain text.`
     const imgPromptData = await imagePromptResponse.json();
     linkedInImagePrompt = imgPromptData.choices?.[0]?.message?.content?.trim() || null;
     if (linkedInImagePrompt) {
-      console.log(`[Campaign] LinkedIn Value-First #${idx + 1}: Visual prompt generated (${linkedInImagePrompt.length} chars)`);
+      console.log(
+        `[Campaign] LinkedIn Story #${idx + 1}: Visual prompt generated (${linkedInImagePrompt.length} chars)`,
+      );
     }
   } catch {
-    console.warn(`[Campaign] LinkedIn Value-First #${idx + 1}: Image prompt generation failed`);
+    console.warn(`[Campaign] LinkedIn Story #${idx + 1}: Image prompt generation failed`);
   }
 
   return {
@@ -485,7 +601,7 @@ OUTPUT: Return ONLY the visual description as plain text.`
     campaign_id: campaign.id,
     content_type: "image",
     scheduled_for: scheduledISO,
-    ai_prompt: linkedInImagePrompt || `Professional LinkedIn visual for ${project.name}`,
+    ai_prompt: linkedInImagePrompt || `${angle.character} — ${angle.scene}`,
     text_content: parsed.textContent,
     media_url: null,
     status: "scheduled",
@@ -518,15 +634,22 @@ async function generateSinglePost(
 
   const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
-    headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "google/gemini-3-flash-preview",
-      messages: [{
-        role: "system",
-        content: `═══ 🚨 BRAND IDENTITY FIREWALL — READ THIS FIRST 🚨 ═══
+      messages: [
+        {
+          role: "system",
+          content: `═══ 🚨 BRAND IDENTITY FIREWALL — READ THIS FIRST 🚨 ═══
 You are writing EXCLUSIVELY for "${project.name}".
 OFFICIAL DESCRIPTION: ${project.description || "N/A"}
-OFFICIAL PRODUCTS/SERVICES: ${(() => { const mc = project.marketing_context || {}; const ps = mc.products_services || []; return ps.length > 0 ? ps.map((p: any) => p.name || p).join(", ") : project.description || "see context below"; })()}
+OFFICIAL PRODUCTS/SERVICES: ${(() => {
+            const mc = project.marketing_context || {};
+            const ps = mc.products_services || [];
+            return ps.length > 0
+              ? ps.map((p: any) => p.name || p).join(", ")
+              : project.description || "see context below";
+          })()}
 ⛔ You MUST ONLY mention products/services listed above. NEVER invent, extrapolate, or borrow features from other brands.
 ⛔ If a feature is NOT in the list above, do NOT mention it — even if it sounds related.
 ⛔ Do NOT mention: review management, customer support, chatbots, appointment booking, or ANY service not explicitly listed above.
@@ -560,15 +683,16 @@ OUTPUT: Return ONLY valid JSON:
 {
   "aiPrompt": "detailed VISUAL-ONLY description for AI image generation (subjects, lighting, colors, composition, mood - NO TEXT/TYPOGRAPHY)",
   "textContent": "engaging social media caption with hashtags (in ${lang})"
-}`
-      }],
-      temperature: 0.92,
+}`,
+        },
+      ],
+      temperature: 0.72,
     }),
   });
 
   const aiData = await aiResponse.json();
   const parsed = safeJsonParse(aiData.choices?.[0]?.message?.content);
-  
+
   if (!parsed?.aiPrompt) {
     console.warn(`[Campaign] Post ${idx + 1}: AI parsing failed, skipping`);
     return null;
@@ -579,7 +703,12 @@ OUTPUT: Return ONLY valid JSON:
 
   const dayOffset = Math.floor(idx * (30 / totalTarget));
   const postMinute = campaign.posting_minute ?? Math.floor(Math.random() * 60);
-  const scheduledISO = buildScheduledDate(dayOffset, campaign.posting_hour || 10, postMinute, campaign.timezone || "Europe/Paris");
+  const scheduledISO = buildScheduledDate(
+    dayOffset,
+    campaign.posting_hour || 10,
+    postMinute,
+    campaign.timezone || "Europe/Paris",
+  );
 
   return {
     user_id: campaign.user_id,
@@ -607,8 +736,9 @@ serve(async (req) => {
     const { campaignId, platforms, productDescription } = input;
 
     if (!campaignId) {
-      return new Response(JSON.stringify({ error: "Campaign ID is required" }), { 
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      return new Response(JSON.stringify({ error: "Campaign ID is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -618,17 +748,27 @@ serve(async (req) => {
     if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is not configured");
 
     // 1. Fetch Campaign & Project
-    const { data: campaign, error: campaignError } = await supabase.from("campaigns").select("*").eq("id", campaignId).single();
+    const { data: campaign, error: campaignError } = await supabase
+      .from("campaigns")
+      .select("*")
+      .eq("id", campaignId)
+      .single();
     if (campaignError || !campaign) {
-      return new Response(JSON.stringify({ error: "Campaign not found" }), { 
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      return new Response(JSON.stringify({ error: "Campaign not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { data: project, error: projectError } = await supabase.from("projects").select("*").eq("id", campaign.project_id).single();
+    const { data: project, error: projectError } = await supabase
+      .from("projects")
+      .select("*")
+      .eq("id", campaign.project_id)
+      .single();
     if (projectError || !project) {
-      return new Response(JSON.stringify({ error: "Project not found" }), { 
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      return new Response(JSON.stringify({ error: "Project not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -647,7 +787,8 @@ serve(async (req) => {
       marketingContext: project.marketing_context as MarketingContext,
       aiContextSummary: project.ai_context_summary,
       scrapedMarkdown: project.scraped_markdown,
-      generationPrompt: productDescription || campaign.ai_context || project.description || `Content for ${project.name}`,
+      generationPrompt:
+        productDescription || campaign.ai_context || project.description || `Content for ${project.name}`,
       generationType: "image",
       includeLogo: campaign.include_logo || false,
       includeUrl: campaign.include_url || false,
@@ -661,12 +802,15 @@ serve(async (req) => {
     if (campaign.campaign_type === "linkedin_story") {
       totalTarget = campaign.images_per_month || (campaign.posts_per_week || 2) * 4;
     } else {
-      const totalVideos = campaign.campaign_type === "image" ? 0 : (campaign.videos_per_month || 4);
-      const totalImages = campaign.campaign_type === "video" ? 0 : (campaign.images_per_month || 12);
+      const totalVideos = campaign.campaign_type === "image" ? 0 : campaign.videos_per_month || 4;
+      const totalImages = campaign.campaign_type === "video" ? 0 : campaign.images_per_month || 12;
       totalTarget = totalVideos + totalImages;
     }
-    
-    const { count } = await supabase.from("scheduled_posts").select("*", { count: "exact", head: true }).eq("campaign_id", campaignId);
+
+    const { count } = await supabase
+      .from("scheduled_posts")
+      .select("*", { count: "exact", head: true })
+      .eq("campaign_id", campaignId);
     const alreadyDone = count || 0;
     const BATCH_SIZE = 2;
     const toGen = Math.min(Math.max(0, totalTarget - alreadyDone), BATCH_SIZE);
@@ -674,9 +818,15 @@ serve(async (req) => {
     console.log(`[Campaign] Target: ${totalTarget}, Already done: ${alreadyDone}, Batch: ${toGen}`);
 
     if (toGen <= 0) {
-      return new Response(JSON.stringify({ 
-        success: true, message: "Campaign generation complete", count: 0, batchComplete: true 
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Campaign generation complete",
+          count: 0,
+          batchComplete: true,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     // 4. Generate posts one by one, inserting each immediately
@@ -687,8 +837,15 @@ serve(async (req) => {
       const idx = alreadyDone + i;
       try {
         const post = await generateSinglePost(
-          idx, campaign, project, contextGuard, effectiveFormat,
-          platforms, totalTarget, supabase, OPENROUTER_API_KEY
+          idx,
+          campaign,
+          project,
+          contextGuard,
+          effectiveFormat,
+          platforms,
+          totalTarget,
+          supabase,
+          OPENROUTER_API_KEY,
         );
 
         if (post) {
@@ -705,7 +862,12 @@ serve(async (req) => {
           console.warn(`[Campaign] Post ${idx + 1} failed, inserting error placeholder`);
           const errDayOffset = Math.floor(idx * (30 / totalTarget)) + 1;
           const errMinute = campaign.posting_minute ?? Math.floor(Math.random() * 60);
-          const errScheduledISO = buildScheduledDate(errDayOffset, campaign.posting_hour || 10, errMinute, campaign.timezone || "Europe/Paris");
+          const errScheduledISO = buildScheduledDate(
+            errDayOffset,
+            campaign.posting_hour || 10,
+            errMinute,
+            campaign.timezone || "Europe/Paris",
+          );
           await supabase.from("scheduled_posts").insert({
             user_id: campaign.user_id,
             project_id: campaign.project_id,
@@ -728,10 +890,13 @@ serve(async (req) => {
 
     // 5. Update campaign totals
     const newTotal = alreadyDone + generated;
-    await supabase.from("campaigns").update({ 
-      total_generated: newTotal,
-      status: "active" 
-    }).eq("id", campaignId);
+    await supabase
+      .from("campaigns")
+      .update({
+        total_generated: newTotal,
+        status: "active",
+      })
+      .eq("id", campaignId);
 
     console.log(`[Campaign] Batch done: ${generated} posts. Total: ${newTotal}/${totalTarget}`);
 
@@ -741,15 +906,15 @@ serve(async (req) => {
       console.log(`[Campaign] ${remaining} posts remaining, self-reinvoking via waitUntil...`);
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      
+
       const reinvokePromise = fetch(`${supabaseUrl}/functions/v1/generate-campaign-content`, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${serviceRoleKey}`,
+          Authorization: `Bearer ${serviceRoleKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ campaignId, platforms, productDescription }),
-      }).catch(err => console.error("[Campaign] Self-reinvoke error:", err));
+      }).catch((err) => console.error("[Campaign] Self-reinvoke error:", err));
 
       // Use EdgeRuntime.waitUntil so the fetch fires even during shutdown
       if (typeof (globalThis as any).EdgeRuntime !== "undefined" && (globalThis as any).EdgeRuntime.waitUntil) {
@@ -757,16 +922,22 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ 
-      success: true, count: generated, total: newTotal, target: totalTarget,
-      batchComplete: newTotal >= totalTarget
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
+    return new Response(
+      JSON.stringify({
+        success: true,
+        count: generated,
+        total: newTotal,
+        target: totalTarget,
+        batchComplete: newTotal >= totalTarget,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (e: unknown) {
     const errorMessage = e instanceof Error ? e.message : "Unknown error";
     console.error("[Campaign] Critical error:", errorMessage);
-    return new Response(JSON.stringify({ error: errorMessage }), { 
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } 
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
