@@ -2,9 +2,10 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
-const corsHeaders = {
+const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 // Stripe price mappings (USD)
@@ -46,32 +47,30 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace("Bearer ", "");
-    
-    // Use getClaims for reliable JWT validation
+
     const supabaseWithAuth = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
       { global: { headers: { Authorization: authHeader } } }
     );
-    
-    const { data: claimsData, error: claimsError } = await supabaseWithAuth.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      throw new Error("User not authenticated");
-    }
-    
-    const userId = claimsData.claims.sub as string;
-    const userEmail = claimsData.claims.email as string;
-    
-    if (!userEmail) throw new Error("User email not available");
-    logStep("User authenticated via getClaims", { userId, email: userEmail });
 
-    const { type, planId, packId } = await req.json();
+    const { data: { user: authUser }, error: authError } = await supabaseWithAuth.auth.getUser(token);
+    if (authError || !authUser?.email) {
+      throw new Error(authError?.message ?? "User not authenticated");
+    }
+
+    const userId = authUser.id;
+    const userEmail = authUser.email;
+    logStep("User authenticated", { userId, email: userEmail });
+
+    const body = await req.json();
+    const { type, planId, packId, origin: bodyOrigin } = body;
     logStep("Request params", { type, planId, packId });
 
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+    const stripe = new Stripe(stripeKey);
 
     // Check if customer exists
     const customers = await stripe.customers.list({ email: userEmail, limit: 1 });
@@ -103,7 +102,7 @@ serve(async (req) => {
       }
     }
 
-    const origin = req.headers.get("origin") || "https://ainfluencer2.lovable.app";
+    const origin = (bodyOrigin || req.headers.get("origin") || "").replace(/\/$/, "") || "https://www.clipmotion.ai";
     let session: Stripe.Checkout.Session;
 
     if (type === "subscription") {
