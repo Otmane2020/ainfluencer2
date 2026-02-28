@@ -250,9 +250,8 @@ async function generateAndUploadImage(prompt: string, format: string, supabase: 
 
 function safeJsonParse(text: string) {
   try {
-    const start = text.indexOf("{");
-    const end = text.lastIndexOf("}");
-    return start !== -1 && end !== -1 ? JSON.parse(text.slice(start, end + 1)) : null;
+    const match = text.match(/\{[\s\S]*\}/);
+    return match ? JSON.parse(match[0]) : null;
   } catch {
     return null;
   }
@@ -529,7 +528,7 @@ HOOK STYLE: ${hookStyle}
 HOOK EXECUTION RULE: ${hookRule}
 
 UNIQUE SEED: ${randomSeed}
-UNIQUE SEED: ${randomSeed}
+
 
 INSTRUCTIONS:
 
@@ -593,7 +592,7 @@ OUTPUT: Return ONLY valid JSON:
 
   // Distribute posts evenly across 30 days based on totalTarget
   const daysSpan = 30;
-  const gap = Math.max(1, Math.floor(daysSpan / totalTarget));
+  const gap = totalTarget > 0 ? Math.max(1, Math.floor(daysSpan / totalTarget)) : 1;
   const dayOffset = idx * gap;
   const postMinute = campaign.posting_minute ?? Math.floor(Math.random() * 30);
   const scheduledISO = buildScheduledDate(
