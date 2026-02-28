@@ -134,7 +134,7 @@ serve(async (req) => {
             },
             voice: voiceId
               ? { type: "text", voice_id: voiceId, input_text: script }
-              : { type: "text", voice_id: "en_us_001", input_text: script },
+              : { type: "text", voice_id: "f38a635bee7a4d1f9b0a654a31d050d2", input_text: script },
             background: {
               type: "color",
               value: "#000000",
