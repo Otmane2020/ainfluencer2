@@ -254,77 +254,40 @@ function safeJsonParse(text: string) {
 // GENERATE A SINGLE POST (extracted for clarity)
 // ============================================================
 
-// Each angle is a UNIQUE fictional scenario seed — forces completely different stories
-// Story angles are now dynamically generated per-project via buildProjectStoryAngles()
+// ============================================================
+// LINKEDIN VALUE-FIRST POST TYPES
+// ============================================================
 
-// Narrative structures to combine with angles for maximum diversity
-const NARRATIVE_STRUCTURES = [
-  "COLD OPEN: Start mid-action in a vivid scene, then zoom out to explain context",
-  "THE QUESTION: Open with a provocative question the reader can't ignore, then answer it through the story",
-  "CONFESSION: Start with 'I'll be honest...' or 'I almost didn't share this...' — vulnerability-first",
-  "TIMESTAMP: Start with an exact moment ('It was 11:47pm on a Tuesday when...') for cinematic immersion",
-  "DIALOGUE: Open with a direct quote from a real conversation that changed everything",
-  "THE LIST TWIST: Start with what seems like a listicle, then pivot into an emotional story",
-  "CONTRAST: 'Before vs After' — paint two vivid pictures separated by the turning point",
-  "THE OUTSIDER: Tell the story from an unexpected observer's perspective",
+const LINKEDIN_POST_TYPES = [
+  "STORY_DRIVEN: Tell a real-feeling story about someone's problem → discovery → result. First-person or close observer. Must feel authentic.",
+  "VALUE_BREAKDOWN: Break down a specific tactic, framework, or process step-by-step. Teach something actionable.",
+  "AUTHORITY_POSITIONING: Share a contrarian opinion, data insight, or hard-won lesson. Position as thought leader without bragging.",
+  "SOFT_CONVERSION: Address a specific pain point, show empathy, then softly invite discussion. NO hard selling.",
+  "CURIOSITY_HOOK: Open with something unexpected, then unpack it. Make them stop scrolling.",
+  "BEHIND_THE_SCENES: Show real process, real numbers, real struggles. Raw and unfiltered.",
+  "CONTRARIAN_TAKE: Challenge conventional wisdom in the industry. Be bold but backed by reasoning.",
+  "MICRO_CASE_STUDY: One specific example, one specific result. Concrete, not abstract.",
 ];
 
-// Build dynamic story angles from project context
-function buildProjectStoryAngles(project: any, campaign: any): Array<{ character: string; scene: string; emotion: string }> {
-  const mc = project.marketing_context || {};
-  const services = mc.services || mc.products || [];
-  const usp = mc.usp || mc.unique_selling_point || project.description || "";
-  const audience = mc.target_audience || mc.audience || "";
-  const brandName = project.name || "the brand";
-  const industry = mc.industry || mc.sector || "";
+const LINKEDIN_HOOK_STYLES = [
+  "One-liner that challenges a common belief",
+  "A specific number or stat that surprises",
+  "A confession or vulnerable admission",
+  "A bold claim followed by 'Here's why:'",
+  "A question the reader can't scroll past",
+  "A timestamp + vivid scene ('Last Tuesday at 2am...')",
+  "A pattern interrupt ('Stop doing X. Seriously.')",
+  "A relatable frustration stated plainly",
+];
 
-  // Character archetypes that adapt to ANY business
-  const CUSTOMER_ARCHETYPES = [
-    "a first-time customer who was skeptical",
-    "a loyal client who almost left for a competitor",
-    "an employee who discovered the product by accident",
-    "a business owner in the same industry struggling with the old way",
-    "a parent who needed a solution fast",
-    "a freelancer trying to scale without a team",
-    "a retiree discovering technology for the first time",
-    "a student with zero budget finding a workaround",
-    "a manager explaining the ROI to a skeptical CEO",
-    "a competitor's client who switched after a bad experience",
-    "a partner/supplier who saw the impact firsthand",
-    "a journalist investigating trends in the sector",
-    "an influencer who tested it live on camera",
-    "a night-owl entrepreneur working from a kitchen table",
-    "a team lead onboarding new hires with the tool",
-    "a customer support agent who became the biggest advocate",
-  ];
-
-  // Scene templates that reference the project's actual services
-  const serviceList = services.length > 0 ? services : [brandName + "'s solution"];
-  const scenes: Array<{ character: string; scene: string; emotion: string }> = [];
-
-  const SCENE_TEMPLATES = [
-    (svc: string) => ({ scene: `tries ${svc} for the first time and gets unexpected results within hours`, emotion: "surprise turning into excitement" }),
-    (svc: string) => ({ scene: `compares ${svc} with what they used before and realizes the gap`, emotion: "regret for not switching sooner" }),
-    (svc: string) => ({ scene: `gets a message from a friend asking 'how did you do that?' after using ${svc}`, emotion: "pride and social validation" }),
-    (svc: string) => ({ scene: `almost gives up on their goal, then discovers ${svc} changes everything`, emotion: "hope after despair" }),
-    (svc: string) => ({ scene: `overhears someone recommending ${svc} to a stranger, and they're already a user`, emotion: "warm recognition" }),
-    (svc: string) => ({ scene: `runs the numbers after 3 months of using ${svc} and can't believe the difference`, emotion: "data-driven revelation" }),
-    (svc: string) => ({ scene: `explains ${svc} to their grandmother and she immediately gets it`, emotion: "simplicity is genius" }),
-    (svc: string) => ({ scene: `wakes up to find ${svc} handled everything while they slept`, emotion: "freedom and trust" }),
-  ];
-
-  for (let i = 0; i < CUSTOMER_ARCHETYPES.length; i++) {
-    const svc = serviceList[i % serviceList.length];
-    const tmpl = SCENE_TEMPLATES[i % SCENE_TEMPLATES.length](typeof svc === "string" ? svc : svc.name || brandName);
-    scenes.push({
-      character: CUSTOMER_ARCHETYPES[i],
-      scene: tmpl.scene,
-      emotion: tmpl.emotion,
-    });
-  }
-
-  return scenes;
-}
+const LINKEDIN_CTA_STYLES = [
+  "Ask a genuine question inviting comments",
+  "Invite them to DM a keyword for a resource",
+  "Ask 'What's your take?' or 'Agree or disagree?'",
+  "Soft invite: 'If this resonates, let's connect'",
+  "Challenge: 'Try this for 7 days and tell me what happens'",
+  "Curiosity: 'I'm writing Part 2 about X — what should I cover?'",
+];
 
 async function generateLinkedInStoryPost(
   idx: number,
@@ -336,17 +299,17 @@ async function generateLinkedInStoryPost(
   OPENROUTER_API_KEY: string,
 ): Promise<any | null> {
   const lang = project.detected_language || "en";
-  const angles = buildProjectStoryAngles(project, campaign);
-  const angle = angles[idx % angles.length];
-  const narrative = NARRATIVE_STRUCTURES[idx % NARRATIVE_STRUCTURES.length];
-  
-  const randomSeed = Math.random().toString(36).slice(2, 8);
   const mc = project.marketing_context || {};
   const services = (mc.services || mc.products || []).map((s: any) => typeof s === "string" ? s : s.name).filter(Boolean);
   const usp = mc.usp || mc.unique_selling_point || project.description || "";
   const audience = mc.target_audience || mc.audience || "";
+  const randomSeed = Math.random().toString(36).slice(2, 8);
 
-  console.log(`[Campaign] LinkedIn Story #${idx + 1}: Character: ${angle.character.slice(0, 40)}... | Structure: ${narrative.slice(0, 30)}...`);
+  const postType = LINKEDIN_POST_TYPES[idx % LINKEDIN_POST_TYPES.length];
+  const hookStyle = LINKEDIN_HOOK_STYLES[idx % LINKEDIN_HOOK_STYLES.length];
+  const ctaStyle = LINKEDIN_CTA_STYLES[idx % LINKEDIN_CTA_STYLES.length];
+
+  console.log(`[Campaign] LinkedIn Value-First #${idx + 1}: Type: ${postType.slice(0, 30)}... | Hook: ${hookStyle.slice(0, 30)}...`);
 
   const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -355,18 +318,24 @@ async function generateLinkedInStoryPost(
       model: "google/gemini-3-flash-preview",
       messages: [{
         role: "system",
-      content: `═══ 🚨 BRAND IDENTITY FIREWALL — READ THIS FIRST 🚨 ═══
+        content: `═══ 🚨 BRAND IDENTITY FIREWALL — READ THIS FIRST 🚨 ═══
 You are writing EXCLUSIVELY for "${project.name}".
-OFFICIAL DESCRIPTION: ${project.description || "N/A"}
-OFFICIAL PRODUCTS/SERVICES: ${services.length > 0 ? services.join(", ") : (() => { const mc = project.marketing_context || {}; const ps = mc.products_services || []; return ps.length > 0 ? ps.map((p: any) => p.name || p).join(", ") : project.description || "see context below"; })()}
-⛔ You MUST ONLY mention products/services listed above. NEVER invent, extrapolate, or borrow features from other brands.
-⛔ If a feature is NOT in the list above, do NOT mention it — even if it sounds related.
+OFFICIAL PRODUCTS/SERVICES: ${services.length > 0 ? services.join(", ") : project.description || "see context below"}
+⛔ You MUST ONLY mention products/services listed above. NEVER invent capabilities.
 
-You are a LinkedIn storytelling genius for "${project.name}".
+═══ YOUR ROLE ═══
+You are a LinkedIn content strategist who follows the VALUE-FIRST philosophy:
+- Lead with value before ANY mention of a product
+- Diagnose before offering solutions
+- Focus on starting conversations, not closing immediately
+- Make the goal of the first impression: "I want to hear more from this person"
+- Position LinkedIn as a trust platform, NOT a marketplace
+- NO hype, NO fake urgency, NO aggressive CTAs
+- Every post must feel like: "I understand your situation" NOT "Buy my solution"
 
 ${contextGuard.enhancedPrompt}
 
-═══ BRAND CONTEXT (CRITICAL — the story MUST revolve around THIS brand) ═══
+═══ BRAND CONTEXT ═══
 BRAND NAME: ${project.name}
 DESCRIPTION: ${project.description || "N/A"}
 SERVICES/PRODUCTS: ${services.length > 0 ? services.join(", ") : "See description"}
@@ -375,55 +344,57 @@ TARGET AUDIENCE: ${audience}
 ${campaign.ai_context ? `CAMPAIGN BRIEF: ${campaign.ai_context}` : ""}
 ${project.url ? `WEBSITE: ${project.url}` : ""}
 
-═══ 🚨 BRAND IDENTITY FIREWALL (MOST CRITICAL RULE) 🚨 ═══
-You are writing EXCLUSIVELY about "${project.name}" — a brand that does: ${project.description || services.join(", ") || "see context above"}.
-⚠️ DO NOT confuse this brand with ANY other business, competitor, or similar product.
-⚠️ DO NOT invent features or services that are NOT explicitly listed in the brand context above.
-⚠️ If the brand does AI-optimized content/SEO, do NOT say it does review management, customer support, or chatbots.
-⚠️ If the brand does review management, do NOT say it does SEO content or article writing.
-⚠️ Every claim you make MUST be verifiable from the brand context provided above.
-⚠️ When in doubt, re-read the DESCRIPTION and SERVICES/PRODUCTS fields — they are the ONLY source of truth.
-
-═══ STORY SEED (adapt to the brand above!) ═══
-CHARACTER TYPE: ${angle.character}
-SCENE IDEA: ${angle.scene}
-CORE EMOTION: ${angle.emotion}
-NARRATIVE STRUCTURE: ${narrative}
+═══ POST ASSIGNMENT ═══
+POST TYPE: ${postType}
+HOOK STYLE: ${hookStyle}
+CTA STYLE: ${ctaStyle}
 UNIQUE SEED: ${randomSeed}
 
-═══ CREATIVE MANDATE ═══
-INVENT a SPECIFIC story about a real-feeling person interacting with "${project.name}".
-- The character MUST be a plausible customer/user of ${project.name}'s actual services
-- The story MUST reference at least one REAL service/product of ${project.name}: ${services.length > 0 ? services.join(", ") : project.description || project.name}
-- Give the character a FIRST NAME, a city, and ONE personal quirk
-- Include ONE physical detail of the scene (weather, object, sound)
-- Include ONE line of DIRECT DIALOGUE
-- The brand appears NATURALLY — the character discovers/uses/benefits from it
-- The story must feel like it ACTUALLY HAPPENED to a real person
+═══ WRITING RULES (NON-NEGOTIABLE) ═══
 
-═══ ABSOLUTELY BANNED ═══
-❌ Generic stories not related to ${project.name}'s actual business
-❌ "In today's fast-paced world...", "Innovation is key..."
-❌ Corporate jargon: "leverage", "synergy", "game-changer"
-❌ Talking about a product/service that ${project.name} does NOT offer
-❌ Inventing capabilities the brand doesn't have (check DESCRIPTION above!)
-❌ Cookie-cutter motivational posts with no specific character
-
-═══ FORMAT ═══
-- SHORT paragraphs (1-3 lines) for mobile
-- 800-1500 characters
-- Human CTA at end (not salesy)
-- 3-5 hashtags
+FORMAT:
+- Strong curiosity-driven hook in FIRST LINE (this is 80% of the post's success)
+- SHORT paragraphs: 1-2 lines MAX per paragraph
+- Use line breaks generously (LinkedIn mobile = narrow screen)
+- Conversational, builder-mindset tone
+- 800-2000 characters total
+- 3-5 relevant hashtags at end
 - Language: ${lang}
-${project.url ? `- Weave ${project.url} naturally into the CTA` : ""}
-${project.linkedin_page_url ? `- Reference ${project.linkedin_page_url} when relevant` : ""}
+${project.url ? `- If mentioning the brand, weave ${project.url} naturally (NOT as a pitch)` : ""}
+${project.linkedin_page_url ? `- Reference ${project.linkedin_page_url} when organically relevant` : ""}
+
+TONE:
+- Write like a founder talking to another founder over coffee
+- Be specific, not generic. Use real scenarios, numbers, timeframes
+- Show expertise through insights, not claims
+- Use "I", "we", personal anecdotes (even fictional ones that feel real)
+- Occasional emoji is fine — but sparingly, not every line
+
+ABSOLUTELY BANNED:
+❌ "Let's hop on a call"
+❌ "Quick 15 minutes"  
+❌ "Limited spots"
+❌ "DM me for more info" (as a hard sell)
+❌ "In today's fast-paced world..."
+❌ "Game-changer", "Synergy", "Leverage", "Disrupt"
+❌ Generic motivational fluff with no substance
+❌ Aggressive closing language
+❌ "🚀🔥💯" emoji spam
+❌ Talking about services the brand does NOT offer
+❌ Corporate jargon or buzzwords
+
+INSTEAD, END WITH:
+- A genuine question that invites discussion
+- A low-friction engagement ask (comment a word, share their experience)
+- Curiosity that makes them want Part 2
 
 OUTPUT: Return ONLY valid JSON:
 {
-  "textContent": "the complete LinkedIn story post"
+  "textContent": "the complete LinkedIn post",
+  "postType": "story|value_breakdown|authority|soft_conversion|curiosity|bts|contrarian|case_study"
 }`
       }],
-      temperature: 0.98,
+      temperature: 0.92,
     }),
   });
 
@@ -431,18 +402,18 @@ OUTPUT: Return ONLY valid JSON:
   const parsed = safeJsonParse(aiData.choices?.[0]?.message?.content);
 
   if (!parsed?.textContent) {
-    console.warn(`[Campaign] LinkedIn Story #${idx + 1}: AI parsing failed`);
+    console.warn(`[Campaign] LinkedIn Value-First #${idx + 1}: AI parsing failed`);
     return null;
   }
 
-  // Distribute posts evenly across 30 days based on totalTarget
+  // Distribute posts evenly across 30 days
   const daysSpan = 30;
   const gap = Math.max(1, Math.floor(daysSpan / totalTarget));
   const dayOffset = idx * gap;
   const postMinute = campaign.posting_minute ?? Math.floor(Math.random() * 30);
   const scheduledISO = buildScheduledDate(dayOffset, campaign.posting_hour || 10, postMinute, campaign.timezone || "Europe/Paris");
 
-  // Generate a VISUAL-ONLY image prompt (no text/typography instructions)
+  // Generate a visual prompt for the accompanying image
   const imagePromptResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
@@ -450,34 +421,25 @@ OUTPUT: Return ONLY valid JSON:
       model: "google/gemini-3-flash-preview",
       messages: [{
         role: "system",
-        content: `You are a visual art director. Create a PURE VISUAL image prompt for AI image generation.
+        content: `You are a visual art director for LinkedIn content. Create a PURE VISUAL image prompt.
 
 BRAND: ${project.name}
 ${project.theme_color ? `BRAND COLOR: ${project.theme_color}` : ""}
 ${project.description ? `BUSINESS: ${project.description}` : ""}
+POST TYPE: ${parsed.postType || "value_breakdown"}
 
-STORY CONTEXT: Character: ${angle.character} | Scene: ${angle.scene} | Emotion: ${angle.emotion}
+CREATE a professional LinkedIn-appropriate visual prompt:
+- SUBJECT: Professional, authentic-feeling scene related to the post topic
+- STYLE: Editorial photography, NOT stock photo feeling
+- LIGHTING: Natural, professional
+- COMPOSITION: Square 1:1, clean, modern
+- MOOD: Trustworthy, expert, approachable
 
-CREATE a detailed VISUAL-ONLY prompt that describes:
-- SUBJECT: What is physically shown (person, object, scene, product mockup)
-- SETTING: Environment, location, background details
-- LIGHTING: Type of light (studio, golden hour, neon, moody)
-- COMPOSITION: Camera angle, framing, depth of field
-- COLORS: Specific color palette using brand color ${project.theme_color || "#2563EB"}
-- MOOD: Emotional tone conveyed through visuals alone
-- STYLE: Photography style (editorial, cinematic, product shot, documentary)
+CRITICAL: NO text, NO typography, NO words, NO brand names in the image.
+Think like a photographer, not a graphic designer.
+Avoid: handshakes, lightbulbs, puzzle pieces, generic stock imagery.
 
-FORMAT: Square 1:1, professional LinkedIn-quality photography.
-
-CRITICAL RULES:
-- Describe ONLY what the camera sees — subjects, objects, light, colors, textures
-- NO text, NO typography, NO words, NO letters, NO brand names in the image
-- NO "bold headline", NO "quote overlay", NO "text reads..."
-- Think like a photographer describing a shot, not a graphic designer
-- The image must work WITHOUT any text overlay
-- Avoid: generic stock photos, handshakes, lightbulbs, puzzle pieces, clipart
-
-OUTPUT: Return ONLY the visual description as plain text. No JSON, no quotes, no formatting.`
+OUTPUT: Return ONLY the visual description as plain text.`
       }],
       temperature: 0.85,
     }),
@@ -488,10 +450,10 @@ OUTPUT: Return ONLY the visual description as plain text. No JSON, no quotes, no
     const imgPromptData = await imagePromptResponse.json();
     linkedInImagePrompt = imgPromptData.choices?.[0]?.message?.content?.trim() || null;
     if (linkedInImagePrompt) {
-      console.log(`[Campaign] LinkedIn Story #${idx + 1}: Visual prompt generated (${linkedInImagePrompt.length} chars)`);
+      console.log(`[Campaign] LinkedIn Value-First #${idx + 1}: Visual prompt generated (${linkedInImagePrompt.length} chars)`);
     }
   } catch {
-    console.warn(`[Campaign] LinkedIn Story #${idx + 1}: Image prompt generation failed`);
+    console.warn(`[Campaign] LinkedIn Value-First #${idx + 1}: Image prompt generation failed`);
   }
 
   return {
@@ -500,7 +462,7 @@ OUTPUT: Return ONLY the visual description as plain text. No JSON, no quotes, no
     campaign_id: campaign.id,
     content_type: "image",
     scheduled_for: scheduledISO,
-    ai_prompt: linkedInImagePrompt || `${angle.character} — ${angle.scene}`,
+    ai_prompt: linkedInImagePrompt || `Professional LinkedIn visual for ${project.name}`,
     text_content: parsed.textContent,
     media_url: null,
     status: "scheduled",
