@@ -34,14 +34,23 @@ export const useAuth = () => {
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      }
-      setIsLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        if (error && (String(error.message).includes("Refresh Token") || String(error.message).includes("Invalid"))) {
+          supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+        } else {
+          setSession(session);
+          setUser(session?.user ?? null);
+          if (session?.user) {
+            fetchProfile(session.user.id);
+          }
+        }
+        setIsLoading(false);
+      })
+      .catch(() => setIsLoading(false));
 
     return () => subscription.unsubscribe();
   }, []);
@@ -51,10 +60,23 @@ export const useAuth = () => {
       .from("profiles")
       .select("*")
       .eq("user_id", userId)
-      .single();
+      .maybeSingle();
 
     if (!error && data) {
       setProfile(data as Profile);
+      return;
+    }
+
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (currentUser?.id === userId) {
+      const displayName = (currentUser.user_metadata?.full_name ?? currentUser.user_metadata?.name ?? currentUser.email?.split("@")[0] ?? "") || null;
+      const avatarUrl = currentUser.user_metadata?.avatar_url ?? currentUser.user_metadata?.picture ?? null;
+      const { data: inserted } = await supabase
+        .from("profiles")
+        .insert({ user_id: userId, display_name: displayName, avatar_url: avatarUrl })
+        .select()
+        .single();
+      if (inserted) setProfile(inserted as Profile);
     }
   };
 

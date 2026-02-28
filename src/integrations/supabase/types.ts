@@ -764,6 +764,42 @@ export type Database = {
         }
         Relationships: []
       }
+      echome_profiles: {
+        Row: {
+          id: string
+          user_id: string
+          display_name: string | null
+          tone: string
+          traits: string | null
+          sample_phrases: string | null
+          language: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          display_name?: string | null
+          tone?: string
+          traits?: string | null
+          sample_phrases?: string | null
+          language?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          display_name?: string | null
+          tone?: string
+          traits?: string | null
+          sample_phrases?: string | null
+          language?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
           ai_context_summary: string | null

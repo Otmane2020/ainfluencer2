@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,8 +25,19 @@ const Auth = () => {
   const [isAppleLoading, setIsAppleLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [forgotPasswordSent, setForgotPasswordSent] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Exchange OAuth hash for session when returning from provider
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user && window.location.hash) {
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -187,56 +197,68 @@ const Auth = () => {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setIsGoogleLoading(true);
+  const redirectTo = `${window.location.origin}/auth`;
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      setErrors({ email: "Enter your email address" });
+      return;
+    }
+    setIsLoading(true);
     try {
-      const { error } = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth?reset=1`,
       });
-      if (error) {
-        console.error("[Auth] Google OAuth error:", error);
-        toast({
-          title: "Google Sign In Error",
-          description: error.message || "Failed to authenticate with Google",
-          variant: "destructive",
-        });
-        setIsGoogleLoading(false);
-      }
-      // Don't reset loading state on success - page will redirect
-    } catch (error) {
-      console.error("[Auth] Google OAuth exception:", error);
+      if (error) throw error;
+      setForgotPasswordSent(true);
+      toast({
+        title: "Check your email",
+        description: "We sent you a link to reset your password.",
+      });
+    } catch (err) {
       toast({
         title: "Error",
-        description: "Failed to sign in with Google. Please try again.",
+        description: err instanceof Error ? err.message : "Failed to send reset email",
         variant: "destructive",
       });
-      setIsGoogleLoading(false);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleAppleSignIn = async () => {
-    setIsAppleLoading(true);
+  const handleOAuthSignIn = async (provider: "google" | "apple" | "github") => {
+    if (provider === "google") setIsGoogleLoading(true);
+    if (provider === "apple") setIsAppleLoading(true);
     try {
-      const { error } = await lovable.auth.signInWithOAuth("apple", {
-        redirect_uri: window.location.origin,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
+        },
       });
       if (error) {
-        console.error("[Auth] Apple OAuth error:", error);
+        console.error(`[Auth] ${provider} OAuth error:`, error);
         toast({
-          title: "Apple Sign In Error",
-          description: error.message || "Failed to authenticate with Apple",
+          title: `${provider === "google" ? "Google" : provider === "apple" ? "Apple" : "GitHub"} Sign In Error`,
+          description: error.message || `Failed to authenticate with ${provider}`,
           variant: "destructive",
         });
-        setIsAppleLoading(false);
       }
-      // Don't reset loading state on success - page will redirect
+      // On success Supabase redirects to provider then back to redirectTo
     } catch (error) {
-      console.error("[Auth] Apple OAuth exception:", error);
+      console.error(`[Auth] ${provider} OAuth exception:`, error);
       toast({
         title: "Error",
-        description: "Failed to sign in with Apple. Please try again.",
+        description: `Failed to sign in with ${provider}. Please try again.`,
         variant: "destructive",
       });
+    } finally {
+      setIsGoogleLoading(false);
       setIsAppleLoading(false);
     }
   };
@@ -288,15 +310,52 @@ const Auth = () => {
 
           <div className="text-center mb-8">
             <h2 className="font-display text-3xl font-bold mb-2">
-              {isLogin ? "Welcome back" : "Create an account"}
+              {isForgotPassword ? "Reset password" : forgotPasswordSent ? "Check your email" : isLogin ? "Welcome back" : "Create an account"}
             </h2>
             <p className="text-muted-foreground">
-              {isLogin
-                ? "Sign in to access your dashboard"
-                : "Start creating viral content today"}
+              {isForgotPassword ? "Enter your email and we'll send you a reset link" : forgotPasswordSent ? "We sent you a link to reset your password" : isLogin ? "Sign in to access your dashboard" : "Start creating viral content today"}
             </p>
           </div>
 
+          {forgotPasswordSent ? (
+            <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                We sent a password reset link to <strong>{email}</strong>. Check your inbox and spam folder.
+              </p>
+              <button
+                type="button"
+                onClick={() => { setForgotPasswordSent(false); setIsForgotPassword(false); }}
+                className="text-sm text-primary hover:underline"
+              >
+                Back to sign in
+              </button>
+            </div>
+          ) : isForgotPassword ? (
+            <form onSubmit={handleForgotPassword} className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="forgot-email">Email</Label>
+                <Input
+                  id="forgot-email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="h-12"
+                />
+                {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
+              </div>
+              <Button type="submit" className="w-full h-12" disabled={isLoading}>
+                {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Send reset link"}
+              </Button>
+              <button
+                type="button"
+                onClick={() => setIsForgotPassword(false)}
+                className="w-full text-sm text-muted-foreground hover:text-primary"
+              >
+                Back to sign in
+              </button>
+            </form>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
             {!isLogin && (
               <div className="space-y-2">
@@ -336,23 +395,34 @@ const Auth = () => {
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 h-12"
-                />
+            {!isForgotPassword && (
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 h-12"
+                  />
+                </div>
+                {errors.password && (
+                  <p className="text-sm text-destructive">{errors.password}</p>
+                )}
+                <div className="text-right">
+                  <button
+                    type="button"
+                    onClick={() => setIsForgotPassword(true)}
+                    className="text-sm text-muted-foreground hover:text-primary"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
               </div>
-              {errors.password && (
-                <p className="text-sm text-destructive">{errors.password}</p>
-              )}
-            </div>
+            )}
 
             <Button
               type="submit"
@@ -369,7 +439,10 @@ const Auth = () => {
               )}
             </Button>
           </form>
+          )}
 
+          {!isForgotPassword && !forgotPasswordSent && (
+            <>
           {/* Divider */}
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
@@ -385,7 +458,7 @@ const Auth = () => {
             <Button
               type="button"
               variant="outline"
-              onClick={handleGoogleSignIn}
+              onClick={() => handleOAuthSignIn("google")}
               disabled={isGoogleLoading}
               className="w-full h-12 font-semibold"
             >
@@ -407,7 +480,7 @@ const Auth = () => {
             <Button
               type="button"
               variant="outline"
-              onClick={handleAppleSignIn}
+              onClick={() => handleOAuthSignIn("apple")}
               disabled={isAppleLoading}
               className="w-full h-12 font-semibold"
             >
@@ -423,7 +496,10 @@ const Auth = () => {
               )}
             </Button>
           </div>
+            </>
+          )}
 
+          {!isForgotPassword && !forgotPasswordSent && (
           <div className="mt-6 text-center">
             <button
               type="button"
@@ -438,6 +514,7 @@ const Auth = () => {
                 : "Already have an account? Sign in"}
             </button>
           </div>
+          )}
         </motion.div>
       </div>
     </div>

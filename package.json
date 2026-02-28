@@ -10,7 +10,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "deploy": "git add . && git commit -m \"update\" && git push",
+    "test:supabase": "node scripts/test-supabase-connection.js"
   },
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",

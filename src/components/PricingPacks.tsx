@@ -8,6 +8,8 @@ import { AnchoringLabel } from "@/components/nudges/AnchoringLabel";
 import { LiveViewersCount } from "@/components/nudges/LiveViewersCount";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
+import { formatDebugForClipboard } from "@/lib/checkoutDebug";
 import { useState, useEffect } from "react";
 
 // Flash sale discount configuration
@@ -123,16 +125,49 @@ export const PricingPacks = ({
     try {
       const result = await startCheckout("subscription", { planId: plan.id });
       if (!result.success) {
+        const msg =
+          result.error instanceof Error
+            ? result.error.message
+            : result.error != null
+              ? String(result.error)
+              : "Échec du checkout (voir console F12)";
+        console.error("[PricingPacks] checkout failed:", { result, msg });
+        const debugPayload = result.debug ?? {
+          timestamp: new Date().toISOString(),
+          step: "unknown",
+          supabaseUrl: import.meta.env.VITE_SUPABASE_URL ?? "?",
+          hasSession: true,
+          planId: plan.id,
+          responseData: null,
+          responseError: result.error,
+          errorMessage: msg,
+        };
+        const copyDebug = () => {
+          try {
+            const text = result.debug ? formatDebugForClipboard(result.debug) : JSON.stringify(debugPayload, null, 2);
+            navigator.clipboard.writeText(text);
+            toast({ title: "Debug copié", description: "Colle dans la console ou envoie au support." });
+          } catch (e) {
+            toast({ title: "Erreur copie", description: String(e), variant: "destructive" });
+          }
+        };
         toast({
-          title: "Error",
-          description: "Failed to start checkout. Please try again.",
+          title: "Checkout error",
+          description: msg,
           variant: "destructive",
+          action: (
+            <ToastAction altText="Copier debug" onClick={copyDebug}>
+              Copier debug
+            </ToastAction>
+          ),
         });
       }
     } catch (error) {
+      const msg = error instanceof Error ? error.message : "An unexpected error occurred.";
+      console.error("[PricingPacks] checkout threw:", error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred.",
+        description: msg,
         variant: "destructive",
       });
     } finally {

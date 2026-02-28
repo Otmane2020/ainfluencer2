@@ -27,6 +27,7 @@ import {
   Image,
   Megaphone,
   Camera,
+  UserCircle2,
 } from "lucide-react";
 
 const mainNavItems = [
@@ -49,6 +50,7 @@ const historyNavItems = [
 ];
 
 const accountNavItems = [
+  { title: "EchoMe", url: "/echome", icon: UserCircle2, label: "Beta" },
   { title: "Integrations", url: "/integrations", icon: Plug },
   { title: "Settings", url: "/settings", icon: Settings },
 ];

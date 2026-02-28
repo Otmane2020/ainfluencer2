@@ -6,7 +6,7 @@ const THEME_KEY = "app_theme";
 
 export function useTheme() {
   const [theme, setThemeState] = useState<Theme>(() => {
-    return (localStorage.getItem(THEME_KEY) as Theme) || "dark";
+    return (localStorage.getItem(THEME_KEY) as Theme) || "light";
   });
 
   useEffect(() => {
