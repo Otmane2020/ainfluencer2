@@ -60,11 +60,13 @@ serve(async (req) => {
         script,
         avatarId = "Daisy-inskirt-20220818",
         voiceId,
-        duration,
-        credits = 100,
+        duration = 30,
         projectId,
         aspectRatio = "9:16",
       } = body;
+
+      // Calculate fair credit cost based on duration: ~10 credits per 30s
+      const creditCost = Math.max(8, Math.round((duration / 30) * 10));
 
       if (!script) {
         return new Response(JSON.stringify({ error: "Script is required" }), {
@@ -76,7 +78,7 @@ serve(async (req) => {
       // Deduct credits
       const { data: deducted } = await supabase.rpc("deduct_credits", {
         p_user_id: userId,
-        p_amount: credits,
+        p_amount: creditCost,
       });
       if (!deducted) {
         return new Response(JSON.stringify({ error: "Insufficient credits", code: "INSUFFICIENT_CREDITS" }), {
@@ -88,9 +90,9 @@ serve(async (req) => {
       // Log credit transaction
       await supabase.from("credit_transactions").insert({
         user_id: userId,
-        amount: -credits,
+        amount: -creditCost,
         type: "heygen_video",
-        description: `HeyGen avatar video (${duration || 30}s)`,
+        description: `HeyGen avatar video (${duration}s)`,
       });
 
       // Create generation record
@@ -110,8 +112,8 @@ serve(async (req) => {
           provider: "heygen",
           quality: "1080p",
           format: aspectRatio === "16:9" ? "landscape" : "vertical",
-          duration: duration || 30,
-          estimated_cost: credits,
+          duration,
+          estimated_cost: creditCost,
         })
         .select("id")
         .single();
@@ -159,10 +161,10 @@ serve(async (req) => {
 
       if (!heygenRes.ok || heygenData.error) {
         // Refund credits on failure
-        await supabase.rpc("add_credits", { p_user_id: userId, p_amount: credits });
+        await supabase.rpc("add_credits", { p_user_id: userId, p_amount: creditCost });
         await supabase.from("credit_transactions").insert({
           user_id: userId,
-          amount: credits,
+          amount: creditCost,
           type: "refund",
           description: `HeyGen video failed: ${heygenData.error?.message || heygenRes.status}`,
         });
