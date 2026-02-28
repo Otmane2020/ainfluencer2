@@ -20,7 +20,7 @@ export const OrgProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("organization_members")
         .select("organization:organizations(id,name)");
 
@@ -33,7 +33,7 @@ export const OrgProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       const orgs =
-        data?.map((x: { organization: Organization | null }) => x.organization).filter(Boolean) ?? [];
+        data?.map((x: any) => x.organization).filter(Boolean) ?? [];
 
       setOrganizations(orgs);
 
