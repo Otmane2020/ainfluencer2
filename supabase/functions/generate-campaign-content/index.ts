@@ -408,8 +408,9 @@ async function generateLinkedInStoryPost(
   const angles = buildProjectStoryAngles(project, campaign);
   const angle = angles[idx % angles.length];
   const narrative = NARRATIVE_STRUCTURES[idx % NARRATIVE_STRUCTURES.length];
-  const hookStyle = HOOK_STYLES[idx % HOOK_STYLES.length];
-
+  const hookStyleObj = HOOK_STYLES[idx % HOOK_STYLES.length];
+  const hookStyle = hookStyleObj.id;
+  const hookRule = hookStyleObj.rule;
   const randomSeed = Math.random().toString(36).slice(2, 8);
   const mc = project.marketing_context || {};
   const services = (mc.services || mc.products || [])
@@ -426,7 +427,7 @@ async function generateLinkedInStoryPost(
     method: "POST",
     headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
+      model: "anthropic/claude-3.5-sonnet",
       messages: [
         {
           role: "system",
@@ -455,6 +456,22 @@ NOT:
 "Buy my solution."
 
 If the tone becomes salesy → internally rewrite before output.
+INTERNAL QUALITY CHECK (MANDATORY — DO NOT OUTPUT SCORES):
+
+Before finalizing:
+
+• Sales pressure level (0–10)
+• Hype intensity (0–10)
+• Trust depth (0–10)
+• Peer-to-peer tone (0–10)
+
+Rules:
+- Sales pressure ≤ 3
+- Hype intensity ≤ 3
+- Trust depth ≥ 7
+- Peer tone ≥ 7
+
+If not compliant → rewrite silently.
 
 ━━━━━━━━━━━━━━━━━━━━━━
 BRAND IDENTITY FIREWALL (NON-NEGOTIABLE)
@@ -507,7 +524,11 @@ CHARACTER TYPE: ${angle.character}
 SCENE IDEA: ${angle.scene}
 CORE EMOTION: ${angle.emotion}
 NARRATIVE STRUCTURE: ${narrative}
+
 HOOK STYLE: ${hookStyle}
+HOOK EXECUTION RULE: ${hookRule}
+
+UNIQUE SEED: ${randomSeed}
 UNIQUE SEED: ${randomSeed}
 
 INSTRUCTIONS:
@@ -572,7 +593,7 @@ OUTPUT: Return ONLY valid JSON:
 
   // Distribute posts evenly across 30 days based on totalTarget
   const daysSpan = 30;
-  const gap = Math.ceil(daysSpan / totalTarget);
+  const gap = Math.max(1, Math.floor(daysSpan / totalTarget));
   const dayOffset = idx * gap;
   const postMinute = campaign.posting_minute ?? Math.floor(Math.random() * 30);
   const scheduledISO = buildScheduledDate(
