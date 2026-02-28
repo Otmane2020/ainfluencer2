@@ -161,10 +161,10 @@ serve(async (req) => {
 
       if (!heygenRes.ok || heygenData.error) {
         // Refund credits on failure
-        await supabase.rpc("add_credits", { p_user_id: userId, p_amount: credits });
+        await supabase.rpc("add_credits", { p_user_id: userId, p_amount: creditCost });
         await supabase.from("credit_transactions").insert({
           user_id: userId,
-          amount: credits,
+          amount: creditCost,
           type: "refund",
           description: `HeyGen video failed: ${heygenData.error?.message || heygenRes.status}`,
         });
