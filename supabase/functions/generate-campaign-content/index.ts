@@ -567,6 +567,8 @@ FORMAT
 • Conversational tone
 • Builder mindset
 • Subtle CTA only (question or reflection)
+• End with a question that invites reflection, not action.
+• The goal is to trigger comments or DMs organically.
 • 3–5 relevant hashtags
 - Language: ${lang}
 ${project.url ? `- Weave ${project.url} naturally into the CTA` : ""}
@@ -578,7 +580,7 @@ OUTPUT: Return ONLY valid JSON:
 }`,
         },
       ],
-      temperature: 0.72,
+      temperature: 0.6,
     }),
   });
 
