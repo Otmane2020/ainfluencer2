@@ -40,7 +40,7 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+    const stripe = new Stripe(stripeKey);
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
     
     if (customers.data.length === 0) {
@@ -50,7 +50,14 @@ serve(async (req) => {
     const customerId = customers.data[0].id;
     logStep("Found Stripe customer", { customerId });
 
-    const origin = req.headers.get("origin") || "https://ainfluencer2.lovable.app";
+    let origin = req.headers.get("origin") || "";
+    try {
+      if (req.method === "POST" && req.body) {
+        const body = await req.json() as { origin?: string };
+        if (body?.origin) origin = body.origin;
+      }
+    } catch { /* ignore */ }
+    origin = (origin || "").replace(/\/$/, "") || "https://www.clipmotion.ai";
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: customerId,
       return_url: `${origin}/settings`,

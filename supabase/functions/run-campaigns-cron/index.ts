@@ -50,7 +50,7 @@ async function verifyAutoPostAccess(
       const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
       if (stripeKey) {
         try {
-          const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
+          const stripe = new Stripe(stripeKey);
           const customers = await stripe.customers.list({ email: userEmail, limit: 1 });
           
           if (customers.data.length > 0) {

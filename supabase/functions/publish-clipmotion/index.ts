@@ -84,7 +84,7 @@ async function verifyPublishAccess(email: string | null, userId: string, supabas
     }
 
     // Check Stripe subscription
-    const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
+    const stripe = new Stripe(stripeKey);
     const customers = await stripe.customers.list({ email, limit: 1 });
     
     if (customers.data.length === 0) {

@@ -1,2 +1,0 @@
-ALTER TABLE public.campaigns DROP CONSTRAINT campaigns_campaign_type_check;
-ALTER TABLE public.campaigns ADD CONSTRAINT campaigns_campaign_type_check CHECK (campaign_type = ANY (ARRAY['video'::text, 'image'::text, 'mixed'::text, 'linkedin_story'::text]));
