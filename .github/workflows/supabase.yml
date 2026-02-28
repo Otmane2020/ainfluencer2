@@ -8,6 +8,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
@@ -28,13 +29,34 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
-      - name: Notify on failure
-        if: failure()
-        env:
-          WEBHOOK_URL: ${{ secrets.DEPLOY_FAILURE_WEBHOOK_URL }}
-          PAYLOAD: '{"error":"Deploy failed","run_url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}'
+      # -------------------------
+      # SUCCESS WEBHOOK
+      # -------------------------
+      - name: Notify Deploy Success
+        if: success()
         run: |
-          curl -s -X POST "https://axwwpawvezqsybttulyo.supabase.co/functions/v1/deploy-error-webhook" \
-            -H "Content-Type: application/json" -d "$PAYLOAD"
-          [ -n "$WEBHOOK_URL" ] && curl -s -X POST "$WEBHOOK_URL" -H "Content-Type: application/json" -d "$PAYLOAD"
+          curl -s -X POST https://axwwpawvezqsybttulyo.supabase.co/functions/v1/deploy-webhook \
+            -H "Content-Type: application/json" \
+            -d '{
+              "status": "success",
+              "commit": "${{ github.sha }}",
+              "actor": "${{ github.actor }}",
+              "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }'
+        continue-on-error: true
+
+      # -------------------------
+      # FAILURE WEBHOOK
+      # -------------------------
+      - name: Notify Deploy Failure
+        if: failure()
+        run: |
+          curl -s -X POST https://axwwpawvezqsybttulyo.supabase.co/functions/v1/deploy-webhook \
+            -H "Content-Type: application/json" \
+            -d '{
+              "status": "error",
+              "commit": "${{ github.sha }}",
+              "actor": "${{ github.actor }}",
+              "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }'
         continue-on-error: true
