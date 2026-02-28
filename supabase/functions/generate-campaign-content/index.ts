@@ -276,7 +276,14 @@ const NARRATIVE_STRUCTURES = [
   "CONVERSATION TURNING POINT: Highlight a DM or conversation that reframed everything",
   "PATTERN RECOGNITION: Reveal a recurring pattern across multiple founders",
 ];
-
+const HOOK_STYLES = [
+  "BLUNT_STATEMENT",
+  "UNEXPECTED_STAT",
+  "SHORT_CONFESSION",
+  "CONTRARIAN_TAKE",
+  "SPECIFIC_MICRO_MOMENT",
+  "INDUSTRY_MYTH",
+];
 // Build dynamic story angles from project context
 function buildProjectStoryAngles(
   project: any,
