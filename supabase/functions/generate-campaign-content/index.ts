@@ -267,14 +267,14 @@ function safeJsonParse(text: string) {
 
 // Narrative structures to combine with angles for maximum diversity
 const NARRATIVE_STRUCTURES = [
-  "PROBLEM BREAKDOWN: Open with a real operational bottleneck",
-  "METRIC SHOCK: Start with a surprising number",
-  "PROCESS FAILURE: Describe a workflow that isn't scaling",
-  "FOUNDER CONFESSION: Honest admission about a mistake",
-  "FUNNEL DIAGNOSIS: Reveal where conversion is leaking",
-  "RETENTION MOMENT: A churn insight that changed everything",
-  "TEAM TENSION: A leadership decision under pressure",
-  "CHANNEL REALIZATION: Discovering what channel actually works",
+  "DIAGNOSIS FIRST: Start by identifying a hidden operational bottleneck before revealing the lesson",
+  "INVISIBLE LEAK: Expose a silent revenue or conversion leak most founders overlook",
+  "BEFORE THE FIX: Describe the frustration phase before discovering a better approach",
+  "DATA REALIZATION: Share the exact moment a metric revealed a deeper issue",
+  "WRONG ASSUMPTION: Challenge a belief the founder held that turned out to be incorrect",
+  "SYSTEM SHIFT: Show how changing a system (not effort) changed the outcome",
+  "CONVERSATION TURNING POINT: Highlight a DM or conversation that reframed everything",
+  "PATTERN RECOGNITION: Reveal a recurring pattern across multiple founders",
 ];
 
 // Build dynamic story angles from project context
