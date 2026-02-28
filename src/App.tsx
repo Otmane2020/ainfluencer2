@@ -113,7 +113,7 @@ const App = () => (
             
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/history/posts" element={<PostHistoryPage />} />
-            <Route path="/echome" element={<EchoMePage />} />
+            
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/settings" element={<Settings />} />
           </Route>

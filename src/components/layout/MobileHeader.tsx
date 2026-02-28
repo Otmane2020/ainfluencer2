@@ -27,7 +27,6 @@ import {
   Image,
   Megaphone,
   Camera,
-  UserCircle2,
 } from "lucide-react";
 
 const mainNavItems = [
