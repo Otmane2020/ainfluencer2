@@ -218,7 +218,21 @@ serve(async (req) => {
       const videoUrl = statusData.data?.video_url;
       const thumbnailUrl = statusData.data?.thumbnail_url;
 
+      // Calculate simulated progress based on elapsed time (HeyGen doesn't provide granular progress)
+      let estimatedProgress = 0;
       if (generationId) {
+        const { data: genRow } = await supabase
+          .from("generations")
+          .select("created_at, duration")
+          .eq("id", generationId)
+          .single();
+
+        if (genRow) {
+          const elapsedSec = (Date.now() - new Date(genRow.created_at).getTime()) / 1000;
+          const expectedDuration = Math.max((genRow.duration || 30) * 4, 60); // ~4x real duration for render
+          estimatedProgress = Math.min(85, Math.round((elapsedSec / expectedDuration) * 85) + 10);
+        }
+
         if (videoStatus === "completed" && videoUrl) {
           // Download video and upload to our storage
           const videoRes = await fetch(videoUrl);
@@ -237,6 +251,7 @@ serve(async (req) => {
             thumbnail_url: thumbnailUrl || null,
             completed_at: new Date().toISOString(),
           }).eq("id", generationId);
+          estimatedProgress = 100;
         } else if (videoStatus === "failed") {
           // Refund on failure
           const { data: genData } = await supabase
@@ -258,10 +273,10 @@ serve(async (req) => {
             status: "failed",
             error_message: statusData.data?.error || "HeyGen rendering failed",
           }).eq("id", generationId);
+          estimatedProgress = 0;
         } else if (videoStatus === "processing") {
-          // Update progress estimate
           await supabase.from("generations").update({
-            progress: Math.min(80, 20 + (statusData.data?.progress || 0)),
+            progress: estimatedProgress,
           }).eq("id", generationId);
         }
       }
@@ -270,7 +285,7 @@ serve(async (req) => {
         status: videoStatus,
         videoUrl,
         thumbnailUrl,
-        progress: statusData.data?.progress || 0,
+        progress: estimatedProgress,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
