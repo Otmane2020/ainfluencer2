@@ -14,7 +14,6 @@ import {
   Image,
   Camera,
   Sparkles,
-  UserCircle2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { NavLink } from "@/components/NavLink";
@@ -57,7 +56,6 @@ const historyNavItems = [
 ];
 
 const accountNavItems = [
-  { title: "EchoMe", url: "/echome", icon: UserCircle2, label: "Beta" },
   { title: "Integrations", url: "/integrations", icon: Plug },
   { title: "Settings", url: "/settings", icon: Settings },
 ];

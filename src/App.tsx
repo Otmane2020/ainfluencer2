@@ -53,7 +53,7 @@ import InstagramReelsAIPage from "./pages/blog/InstagramReelsAIPage";
 import AIVideoForEcommercePage from "./pages/blog/AIVideoForEcommercePage";
 import TikTokCallbackPage from "./pages/TikTokCallbackPage";
 import ChoosePlanPage from "./pages/ChoosePlanPage";
-import EchoMePage from "./pages/EchoMePage";
+
 import { SubscriptionProvider } from "./contexts/SubscriptionContext";
 import { OrgProvider } from "./contexts/OrgContext";
 
@@ -113,7 +113,7 @@ const App = () => (
             
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/history/posts" element={<PostHistoryPage />} />
-            <Route path="/echome" element={<EchoMePage />} />
+            
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
