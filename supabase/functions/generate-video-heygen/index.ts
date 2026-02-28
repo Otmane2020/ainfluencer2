@@ -112,8 +112,8 @@ serve(async (req) => {
           provider: "heygen",
           quality: "1080p",
           format: aspectRatio === "16:9" ? "landscape" : "vertical",
-          duration: duration || 30,
-          estimated_cost: credits,
+          duration,
+          estimated_cost: creditCost,
         })
         .select("id")
         .single();
