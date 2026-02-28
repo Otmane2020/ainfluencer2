@@ -277,12 +277,30 @@ const NARRATIVE_STRUCTURES = [
   "PATTERN RECOGNITION: Reveal a recurring pattern across multiple founders",
 ];
 const HOOK_STYLES = [
-  "BLUNT_STATEMENT",
-  "UNEXPECTED_STAT",
-  "SHORT_CONFESSION",
-  "CONTRARIAN_TAKE",
-  "SPECIFIC_MICRO_MOMENT",
-  "INDUSTRY_MYTH",
+  {
+    id: "BLUNT_STATEMENT",
+    rule: "Open with a direct, bold observation in under 12 words. No fluff.",
+  },
+  {
+    id: "UNEXPECTED_STAT",
+    rule: "Start with a surprising metric or number that challenges expectations.",
+  },
+  {
+    id: "SHORT_CONFESSION",
+    rule: "Begin with a short personal admission (first person, vulnerable tone).",
+  },
+  {
+    id: "CONTRARIAN_TAKE",
+    rule: "Challenge a common LinkedIn belief in one sharp sentence.",
+  },
+  {
+    id: "SPECIFIC_MICRO_MOMENT",
+    rule: "Open with a very specific real-world moment (time, place, or action).",
+  },
+  {
+    id: "INDUSTRY_MYTH",
+    rule: "Expose a widely believed industry myth in one clean sentence.",
+  },
 ];
 // Build dynamic story angles from project context
 function buildProjectStoryAngles(
@@ -297,18 +315,34 @@ function buildProjectStoryAngles(
   const industry = mc.industry || mc.sector || "";
 
   // Character archetypes that adapt to ANY business
-  const CUSTOMER_ARCHETYPES = [
-    "a solo SaaS founder stuck at $5k MRR",
-    "a technical founder overwhelmed by marketing",
-    "a B2B agency owner juggling 12 clients",
-    "a startup CTO explaining ROI to investors",
-    "a founder preparing for a funding round",
-    "a SaaS operator struggling with churn",
-    "a product-led founder obsessed with retention metrics",
-    "a bootstrapped founder running lean",
-    "a growth lead testing channels that aren't converting",
-    "a founder scaling from 3 to 10 employees",
-  ];
+  let CUSTOMER_ARCHETYPES: string[];
+
+  if (audience?.toLowerCase().includes("local")) {
+    CUSTOMER_ARCHETYPES = [
+      "a restaurant owner overwhelmed by visibility issues",
+      "a local business owner struggling with foot traffic",
+      "a store manager trying to increase repeat customers",
+      "a service business owner trying to increase repeat bookings",
+    ];
+  } else if (audience?.toLowerCase().includes("agency")) {
+    CUSTOMER_ARCHETYPES = [
+      "a B2B agency owner juggling 12 clients",
+      "an agency founder struggling with client churn",
+      "a performance marketer drowning in dashboards",
+    ];
+  } else {
+    CUSTOMER_ARCHETYPES = [
+      "a solo SaaS founder stuck at $5k MRR",
+      "a technical founder overwhelmed by marketing",
+      "a startup CTO explaining ROI to investors",
+      "a founder preparing for a funding round",
+      "a SaaS operator struggling with churn",
+      "a product-led founder obsessed with retention metrics",
+      "a bootstrapped founder running lean",
+      "a growth lead testing channels that aren't converting",
+      "a founder scaling from 3 to 10 employees",
+    ];
+  }
   // Scene templates that reference the project's actual services
   const serviceList = services.length > 0 ? services : [brandName + "'s solution"];
   const scenes: Array<{ character: string; scene: string; emotion: string }> = [];
@@ -473,6 +507,7 @@ CHARACTER TYPE: ${angle.character}
 SCENE IDEA: ${angle.scene}
 CORE EMOTION: ${angle.emotion}
 NARRATIVE STRUCTURE: ${narrative}
+HOOK STYLE: ${hookStyle}
 UNIQUE SEED: ${randomSeed}
 
 INSTRUCTIONS:
