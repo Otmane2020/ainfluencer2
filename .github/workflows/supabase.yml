@@ -11,11 +11,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      # 🔥 Force latest Supabase CLI (fix major_version error)
       - uses: supabase/setup-cli@v1
-        with:
-          version: latest
 
       - name: Link project
         run: supabase link --project-ref axwwpawvezqsybttulyo
@@ -39,7 +35,7 @@ jobs:
       - name: Notify Deploy Success
         if: success()
         run: |
-          curl -s -X POST https://axwwpawvezqsybttulyo.supabase.co/functions/v1/supabase-functions-new-deploy-webhook \
+          curl -s -X POST https://axwwpawvezqsybttulyo.supabase.co/functions/v1/deploy-webhook \
             -H "Content-Type: application/json" \
             -d '{
               "status": "success",
@@ -55,7 +51,7 @@ jobs:
       - name: Notify Deploy Failure
         if: failure()
         run: |
-          curl -s -X POST https://axwwpawvezqsybttulyo.supabase.co/functions/v1/supabase-functions-new-deploy-webhook \
+          curl -s -X POST https://axwwpawvezqsybttulyo.supabase.co/functions/v1/deploy-webhook \
             -H "Content-Type: application/json" \
             -d '{
               "status": "error",
