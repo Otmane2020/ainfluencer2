@@ -374,6 +374,7 @@ async function generateLinkedInStoryPost(
   const angles = buildProjectStoryAngles(project, campaign);
   const angle = angles[idx % angles.length];
   const narrative = NARRATIVE_STRUCTURES[idx % NARRATIVE_STRUCTURES.length];
+  const hookStyle = HOOK_STYLES[idx % HOOK_STYLES.length];
 
   const randomSeed = Math.random().toString(36).slice(2, 8);
   const mc = project.marketing_context || {};
@@ -613,6 +614,11 @@ OUTPUT: Return ONLY the visual description as plain text. No JSON, no quotes, no
     media_url: null,
     status: "scheduled",
     platforms: ["linkedin"],
+
+    // 🔥 optimization metadata
+    narrative_structure: narrative,
+    character_archetype: angle.character,
+    hook_style: hookStyle,
   };
 }
 
