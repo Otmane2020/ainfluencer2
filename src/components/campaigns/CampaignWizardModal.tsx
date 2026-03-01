@@ -378,7 +378,7 @@ export const CampaignWizardModal = ({
   };
 
   const handleSubmit = async () => {
-    if (!user || !projectId || !selectedFormatId) return;
+    if (!user || !projectId || selectedFormatIds.length === 0) return;
     setIsSubmitting(true);
     setShowProgress(true);
     setProgressStatus("creating");
