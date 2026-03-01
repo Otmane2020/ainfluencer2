@@ -175,8 +175,13 @@ const LinkedInReactionsPage = () => {
         return;
       }
 
-      setReplies(data.replies || []);
+      const generatedReplies = data.replies || [];
+      setReplies(generatedReplies);
       setScrapedPreview(data.scrapedText || "");
+      // Store replies per post if postId is provided
+      if (postId) {
+        setPostReplies(prev => ({ ...prev, [postId]: generatedReplies }));
+      }
     } catch (e: any) {
       console.error(e);
       toast({ title: "Error", description: e.message || "Generation failed", variant: "destructive" });
