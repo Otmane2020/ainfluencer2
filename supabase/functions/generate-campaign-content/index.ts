@@ -679,7 +679,245 @@ OUTPUT: Return ONLY the visual description as plain text. No JSON, no quotes, no
   };
 }
 
-async function generateSinglePost(
+// ============================================================
+// LINKEDIN REACTION POST (Trend-Based Commentary)
+// ============================================================
+
+const REACTION_TOPICS = [
+  "Google AEO update",
+  "AI SEO optimization",
+  "Answer Engine Optimization",
+  "AI-generated search results",
+  "Generative Search Experience",
+  "AI content strategy",
+  "SEO algorithm changes 2026",
+  "ChatGPT search impact",
+  "Perplexity AI vs Google",
+  "AI overviews SEO impact",
+  "zero-click searches AI",
+  "AI agents for marketing",
+  "programmatic SEO with AI",
+  "voice search optimization",
+  "AI-powered content marketing",
+  "LLM optimization for brands",
+  "structured data AI search",
+  "brand visibility in AI answers",
+  "E-E-A-T and AI content",
+  "AI disrupting digital marketing",
+];
+
+const REACTION_FRAMES = [
+  { style: "CONTRARIAN_INSIGHT", rule: "Challenge the mainstream narrative. 'Everyone says X, but actually...' — back with a specific observation." },
+  { style: "PERSONAL_TAKE", rule: "Start with 'Here's my take on...' or 'What nobody's saying about...' — make it feel like a DM to a friend." },
+  { style: "PATTERN_SPOTTER", rule: "Connect two unrelated trends. 'I noticed X happening while Y is rising — here's what it means.'" },
+  { style: "EARLY_SIGNAL", rule: "Flag something others haven't seen yet. 'I've been watching X closely and here's what I see coming...'" },
+  { style: "PRACTICAL_LESSON", rule: "Extract one actionable lesson from the news. 'This update means one thing for [audience]: [lesson]'" },
+  { style: "QUESTION_OPENER", rule: "Open with a provocative question that the news raises. Make people stop scrolling to think." },
+];
+
+async function fetchTrendingNews(topic: string): Promise<string | null> {
+  const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
+  
+  if (FIRECRAWL_API_KEY) {
+    try {
+      const response = await fetch("https://api.firecrawl.dev/v1/search", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: `${topic} latest news 2026`,
+          limit: 3,
+          lang: "en",
+          tbs: "qdr:w", // last week
+          scrapeOptions: { formats: ["markdown"] },
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const results = data.data || [];
+        if (results.length > 0) {
+          const summary = results
+            .slice(0, 3)
+            .map((r: any) => `- ${r.title || "Untitled"}: ${(r.markdown || r.description || "").slice(0, 300)}`)
+            .join("\n");
+          console.log(`[Reaction] Firecrawl found ${results.length} articles for "${topic}"`);
+          return summary;
+        }
+      }
+    } catch (err) {
+      console.warn("[Reaction] Firecrawl search failed:", err);
+    }
+  }
+
+  // Fallback: use internal scraper on Google News
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const response = await fetch(`${supabaseUrl}/functions/v1/internal-scraper`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceRoleKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ url: `https://news.google.com/search?q=${encodeURIComponent(topic)}&hl=en`, timeout: 8000 }),
+    });
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success && data.data?.markdown) {
+        console.log(`[Reaction] Internal scraper fallback success for "${topic}"`);
+        return data.data.markdown.slice(0, 1000);
+      }
+    }
+  } catch (err) {
+    console.warn("[Reaction] Internal scraper fallback failed:", err);
+  }
+
+  return null;
+}
+
+async function generateLinkedInReactionPost(
+  idx: number,
+  campaign: any,
+  project: any,
+  contextGuard: any,
+  totalTarget: number,
+  supabase: any,
+  OPENROUTER_API_KEY: string,
+): Promise<any | null> {
+  const lang = project.detected_language || "en";
+  const mc = project.marketing_context || {};
+  const services = (mc.services || mc.products || [])
+    .map((s: any) => (typeof s === "string" ? s : s.name))
+    .filter(Boolean);
+  const usp = mc.usp || mc.unique_selling_point || project.description || "";
+  const audience = mc.target_audience || mc.audience || "";
+
+  // Pick a rotating topic
+  const topic = REACTION_TOPICS[idx % REACTION_TOPICS.length];
+  const frame = REACTION_FRAMES[idx % REACTION_FRAMES.length];
+  const randomSeed = Math.random().toString(36).slice(2, 8);
+
+  console.log(`[Reaction] Post #${idx + 1}: Topic: "${topic}" | Frame: ${frame.style}`);
+
+  // Fetch real trending news
+  const newsContext = await fetchTrendingNews(topic);
+
+  const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "anthropic/claude-3.5-sonnet",
+      messages: [
+        {
+          role: "system",
+          content: `═══ LINKEDIN REACTION POST GENERATOR ═══
+
+You generate SHORT, punchy LinkedIn commentary posts that react to real industry news/trends.
+
+STYLE REFERENCE (this is the EXACT vibe to match):
+"it's surprising how much potential lies untapped in AI. With small adjustments, their growth could soar."
+
+CORE RULES:
+• Posts are 400–800 characters MAX (SHORT — like a smart text message, not an article)
+• Conversational, peer-to-peer tone — like texting a founder friend
+• Lead with YOUR perspective/insight, not a news recap
+• One idea per post. One insight. That's it.
+• No fluff, no filler, no corporate speak
+• End with a reflection question OR a bold statement (never a CTA)
+• 2–4 relevant hashtags max
+
+REACTION FRAME: ${frame.style}
+FRAME RULE: ${frame.rule}
+
+━━━━━━━━━━━━━━━━━━━━━━
+BRAND CONTEXT (YOUR VOICE)
+━━━━━━━━━━━━━━━━━━━━━━
+
+BRAND: ${project.name}
+DESCRIPTION: ${project.description || "N/A"}
+SERVICES: ${services.length > 0 ? services.join(", ") : "See description"}
+USP: ${usp}
+TARGET AUDIENCE: ${audience}
+${campaign.ai_context ? `EXPERTISE AREAS: ${campaign.ai_context}` : ""}
+
+You are writing AS this brand's founder/expert. Position yourself as someone who LIVES in this space.
+
+━━━━━━━━━━━━━━━━━━━━━━
+TRENDING NEWS TO REACT TO
+━━━━━━━━━━━━━━━━━━━━━━
+
+TOPIC: ${topic}
+
+${newsContext ? `RECENT NEWS:\n${newsContext}` : `No specific news found — generate a reaction based on general trends around "${topic}".`}
+
+━━━━━━━━━━━━━━━━━━━━━━
+STRICTLY FORBIDDEN
+━━━━━━━━━━━━━━━━━━━━━━
+
+❌ News recaps or summaries (you're NOT a journalist)
+❌ "Let's hop on a call" / "Book a demo" / hard CTAs
+❌ Generic takes ("AI is changing everything!")
+❌ Long posts (>800 chars = FAIL)
+❌ Bullet point lists
+❌ Emojis overload (max 1-2)
+❌ Corporate jargon
+
+UNIQUE SEED: ${randomSeed}
+LANGUAGE: ${lang}
+${project.url ? `Weave ${project.url} naturally ONLY if it fits — otherwise skip it entirely.` : ""}
+
+OUTPUT: Return ONLY valid JSON:
+{
+  "textContent": "the complete LinkedIn reaction post (400-800 chars)",
+  "newsTopic": "the specific trend/news being reacted to"
+}`,
+        },
+      ],
+      temperature: 0.7,
+    }),
+  });
+
+  const aiData = await aiResponse.json();
+  const parsed = safeJsonParse(aiData.choices?.[0]?.message?.content);
+
+  if (!parsed?.textContent) {
+    console.warn(`[Reaction] Post #${idx + 1}: AI parsing failed`);
+    return null;
+  }
+
+  // Schedule evenly across 30 days
+  const daysSpan = 30;
+  const gap = totalTarget > 0 ? Math.max(1, Math.floor(daysSpan / totalTarget)) : 1;
+  const dayOffset = idx * gap;
+  const postMinute = campaign.posting_minute ?? Math.floor(Math.random() * 30);
+  const scheduledISO = buildScheduledDate(
+    dayOffset,
+    campaign.posting_hour || 10,
+    postMinute,
+    campaign.timezone || "Europe/Paris",
+  );
+
+  return {
+    user_id: campaign.user_id,
+    project_id: campaign.project_id,
+    campaign_id: campaign.id,
+    content_type: "text", // No image needed for short reaction posts
+    scheduled_for: scheduledISO,
+    ai_prompt: `Reaction to: ${parsed.newsTopic || topic}`,
+    text_content: parsed.textContent,
+    media_url: null,
+    status: "scheduled",
+    platforms: ["linkedin"],
+    hook_style: frame.style,
+  };
+}
+
+// ============================================================
+// GENERATE A SINGLE POST (generic)
+// ============================================================
+
   idx: number,
   campaign: any,
   project: any,
