@@ -102,18 +102,16 @@ serve(async (req) => {
       ? `\n\nYour brand context (use subtly, never hard-sell):\n${brandContext}`
       : "";
 
-    const systemPrompt = `You are a LinkedIn engagement strategist. Your goal is to craft replies that:
+    const systemPrompt = `You are a LinkedIn comment strategist. Your goal is to craft SHORT comments that:
 1. Get noticed by the post author (potential client/partner)
 2. Demonstrate expertise without being salesy
-3. Add genuine value to the conversation
-4. Encourage further engagement
-5. Are concise (2-4 sentences max, or a short list)
+3. Add genuine value in very few words
 
 Rules:
+- MAXIMUM 1-2 sentences per reply. Keep it punchy.
 - Never start with "Great post!" or generic compliments
-- Lead with an insight, question, or complementary perspective
+- Lead with an insight, question, or bold take
 - Use natural language, not corporate jargon
-- Include a subtle hook that invites reply
 - Write in the same language as the original post
 ${toneInstruction}${brandBlock}`;
 
@@ -129,11 +127,11 @@ ${toneInstruction}${brandBlock}`;
           { role: "system", content: systemPrompt },
           {
             role: "user",
-            content: `Here is the LinkedIn post to reply to:\n\n---\n${scrapedText.slice(0, 3000)}\n---\n\nGenerate 3 different reply options. Format each with a number (1., 2., 3.) followed by the reply text. Make each reply distinct in approach.`,
+            content: `Here is the LinkedIn post to reply to:\n\n---\n${scrapedText.slice(0, 3000)}\n---\n\nGenerate 3 short comment options (1-2 sentences each). Format: 1. reply\\n2. reply\\n3. reply`,
           },
         ],
         temperature: 0.8,
-        max_tokens: 1000,
+        max_tokens: 400,
       }),
     });
 

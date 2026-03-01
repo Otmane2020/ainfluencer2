@@ -57,11 +57,9 @@ For each post, return a JSON array with objects containing:
 - "author": the author's name or handle
 - "preview": the first 200 characters of the post content
 - "fullText": a longer excerpt (up to 500 chars) of the post content
-- "url": the LinkedIn post URL if available, or "" if not
+- "url": the full LinkedIn post URL (e.g. https://www.linkedin.com/posts/username_...). Try hard to provide real URLs. If you absolutely cannot find one, use "".
 
-Return ONLY the JSON array, no other text. If you cannot find real posts, generate realistic examples of the type of posts that would be trending on LinkedIn about this topic, with empty URLs.
-
-IMPORTANT: Make the content realistic, insightful, and representative of high-engagement LinkedIn posts.`,
+Return ONLY the JSON array, no other text. Search the web for real LinkedIn posts. The content must be realistic and representative of high-engagement LinkedIn posts.`,
           },
           {
             role: "user",
