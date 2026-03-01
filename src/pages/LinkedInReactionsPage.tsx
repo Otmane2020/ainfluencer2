@@ -543,11 +543,17 @@ const DiscoveredPostsList = ({
   isLoading,
   onReact,
   generatingPostId,
+  postReplies,
+  onCopyAndOpen,
+  copiedKey,
 }: {
   posts: DiscoveredPost[];
   isLoading: boolean;
   onReact: (p: DiscoveredPost, idx: number) => void;
   generatingPostId: string | null;
+  postReplies: Record<string, string[]>;
+  onCopyAndOpen: (text: string, key: string, url?: string) => void;
+  copiedKey: string | null;
 }) => {
   if (isLoading) {
     return (
@@ -566,10 +572,11 @@ const DiscoveredPostsList = ({
       {posts.map((post, idx) => {
         const postId = `post-${idx}`;
         const isGenerating = generatingPostId === postId;
+        const replies = postReplies[postId] || [];
         return (
           <motion.div key={idx} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}>
             <Card className="hover:border-primary/30 transition-all">
-              <CardContent className="p-4">
+              <CardContent className="p-4 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     {post.author && (
@@ -618,6 +625,42 @@ const DiscoveredPostsList = ({
                     )}
                   </div>
                 </div>
+
+                {/* Inline replies under post */}
+                <AnimatePresence>
+                  {replies.length > 0 && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="space-y-2 border-t border-border pt-3">
+                      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                        <MessageSquareQuote className="h-3.5 w-3.5 text-primary" />
+                        AI Replies
+                      </p>
+                      {replies.map((reply, rIdx) => {
+                        const key = `${postId}-r${rIdx}`;
+                        return (
+                          <div key={rIdx} className="bg-muted/40 rounded-lg p-3 space-y-2">
+                            <div className="flex items-start gap-2">
+                              <span className="bg-primary/20 text-primary rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">{rIdx + 1}</span>
+                              <p className="text-xs flex-1 whitespace-pre-wrap">{reply}</p>
+                            </div>
+                            <div className="flex justify-end">
+                              <Button
+                                size="sm"
+                                className="gap-1.5 text-xs gradient-primary"
+                                onClick={() => onCopyAndOpen(reply, key, post.url || undefined)}
+                              >
+                                {copiedKey === key ? (
+                                  <><CheckCircle2 className="h-3 w-3" /> Copied!</>
+                                ) : (
+                                  <><Copy className="h-3 w-3" /> {post.url ? "Copy & Open" : "Copy"}</>
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </CardContent>
             </Card>
           </motion.div>
