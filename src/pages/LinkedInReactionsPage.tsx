@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -12,7 +12,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PaywallModal } from "@/components/PaywallModal";
 import { SEOHead } from "@/components/seo/SEOHead";
 import {
-  Zap,
   Copy,
   ExternalLink,
   Loader2,
@@ -65,6 +64,52 @@ const LinkedInReactionsPage = () => {
   const [discoveredPosts, setDiscoveredPosts] = useState<DiscoveredPost[]>([]);
   const [activeTab, setActiveTab] = useState("url");
 
+  // Project context suggestions
+  const [projectSuggestions, setProjectSuggestions] = useState<string[]>([]);
+
+  // Load project context for search suggestions
+  useEffect(() => {
+    const loadSuggestions = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: projects } = await supabase
+        .from("projects")
+        .select("name, description, marketing_context, detected_language")
+        .eq("user_id", user.id)
+        .limit(3);
+
+      if (!projects?.length) return;
+
+      const suggestions: string[] = [];
+      for (const p of projects) {
+        const ctx = p.marketing_context as any;
+        if (ctx?.services) {
+          (Array.isArray(ctx.services) ? ctx.services : []).forEach((s: string) => {
+            if (s && s.length > 3 && s.length < 60) suggestions.push(s);
+          });
+        }
+        if (ctx?.usp) {
+          (Array.isArray(ctx.usp) ? ctx.usp : []).forEach((u: string) => {
+            if (u && u.length > 5 && u.length < 60) suggestions.push(u);
+          });
+        }
+        if (ctx?.targetAudience) suggestions.push(ctx.targetAudience);
+        if (p.description && p.description.length > 10) {
+          // Extract key terms from description
+          const words = p.description.split(" ").slice(0, 4).join(" ");
+          if (words.length > 5) suggestions.push(words);
+        }
+      }
+
+      // Deduplicate and limit
+      const unique = [...new Set(suggestions)].filter(Boolean).slice(0, 6);
+      setProjectSuggestions(unique);
+    };
+
+    loadSuggestions();
+  }, []);
+
   const handleGenerate = async (url?: string, text?: string) => {
     if (!subscription.isSubscribed) {
       setShowPaywall(true);
@@ -107,15 +152,18 @@ const LinkedInReactionsPage = () => {
     }
   };
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
+  const handleSearch = async (topic?: string) => {
+    const q = topic || searchQuery;
+    if (!q.trim()) return;
+    if (topic) setSearchQuery(topic);
     setIsSearching(true);
     setDiscoveredPosts([]);
     try {
       const { data, error } = await supabase.functions.invoke("search-linkedin-topics", {
-        body: { query: searchQuery, mode: "search" },
+        body: { query: q, mode: "search" },
       });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       setDiscoveredPosts(data.results || []);
       if (!data.results?.length) {
         toast({ title: "No results", description: "Try a different keyword", variant: "destructive" });
@@ -135,6 +183,7 @@ const LinkedInReactionsPage = () => {
         body: { mode: "trending" },
       });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       setDiscoveredPosts(data.results || []);
       if (!data.results?.length) {
         toast({ title: "No results", description: "Try again in a moment", variant: "destructive" });
@@ -147,7 +196,7 @@ const LinkedInReactionsPage = () => {
   };
 
   const handleReactToPost = (post: DiscoveredPost) => {
-    handleGenerate(post.url, post.fullText);
+    handleGenerate(post.url || undefined, post.fullText);
   };
 
   const handleCopy = (text: string, idx: number) => {
@@ -256,11 +305,29 @@ const LinkedInReactionsPage = () => {
                     onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                     className="flex-1"
                   />
-                  <Button onClick={handleSearch} disabled={isSearching || !searchQuery.trim()} className="gap-1.5 shrink-0">
+                  <Button onClick={() => handleSearch()} disabled={isSearching || !searchQuery.trim()} className="gap-1.5 shrink-0">
                     {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                     Search
                   </Button>
                 </div>
+
+                {/* Project context suggestions */}
+                {projectSuggestions.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-muted-foreground font-medium">💡 From your projects:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {projectSuggestions.map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => handleSearch(s)}
+                          className="px-2.5 py-1 rounded-full text-xs border border-border bg-muted/50 hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-all truncate max-w-[200px]"
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <ToneSelector tone={tone} setTone={setTone} />
               </CardContent>
@@ -396,7 +463,7 @@ const DiscoveredPostsList = ({
     <div className="space-y-3">
       <p className="text-sm font-medium text-muted-foreground">{posts.length} posts found</p>
       {posts.map((post, idx) => (
-        <motion.div key={post.url} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}>
+        <motion.div key={idx} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}>
           <Card className="hover:border-primary/30 transition-all">
             <CardContent className="p-4">
               <div className="flex items-start justify-between gap-3">
@@ -423,15 +490,17 @@ const DiscoveredPostsList = ({
                     )}
                     React
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1 text-xs"
-                    onClick={() => window.open(post.url, "_blank")}
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    View
-                  </Button>
+                  {post.url && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1 text-xs"
+                      onClick={() => window.open(post.url, "_blank")}
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      View
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardContent>
