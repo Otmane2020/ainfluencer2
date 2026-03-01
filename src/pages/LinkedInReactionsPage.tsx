@@ -452,7 +452,7 @@ const LinkedInReactionsPage = () => {
               </CardContent>
             </Card>
 
-            <DiscoveredPostsList posts={discoveredPosts} isLoading={isSearching} onReact={handleReactToPost} generatingPostId={generatingPostId} />
+            <DiscoveredPostsList posts={discoveredPosts} isLoading={isSearching} onReact={handleReactToPost} generatingPostId={generatingPostId} postReplies={postReplies} onCopyAndOpen={handleCopyAndOpen} copiedKey={copiedKey} />
           </TabsContent>
         </Tabs>
 
