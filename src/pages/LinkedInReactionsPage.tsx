@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PaywallModal } from "@/components/PaywallModal";
 import { SEOHead } from "@/components/seo/SEOHead";
 import {
@@ -22,6 +23,8 @@ import {
   Search,
   TrendingUp,
   Link2,
+  ChevronsUpDown,
+  Briefcase,
 } from "lucide-react";
 import { FaLinkedinIn } from "react-icons/fa";
 
@@ -38,6 +41,15 @@ type DiscoveredPost = {
   author: string;
   preview: string;
   fullText: string;
+};
+
+type Project = {
+  id: string;
+  name: string;
+  description: string | null;
+  theme_color: string | null;
+  marketing_context: any;
+  detected_language: string | null;
 };
 
 const LinkedInReactionsPage = () => {
@@ -57,12 +69,18 @@ const LinkedInReactionsPage = () => {
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
   const [activeReplyUrl, setActiveReplyUrl] = useState("");
+  const [generatingPostId, setGeneratingPostId] = useState<string | null>(null);
 
   // Search/trending
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [discoveredPosts, setDiscoveredPosts] = useState<DiscoveredPost[]>([]);
   const [activeTab, setActiveTab] = useState("url");
+
+  // Project selector
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [projectSelectorOpen, setProjectSelectorOpen] = useState(false);
 
   // Project context suggestions
   const [projectSuggestions, setProjectSuggestions] = useState<string[]>([]);
