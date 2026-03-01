@@ -730,12 +730,12 @@ export const CampaignWizardModal = ({
           )}
 
           {/* Step 4: AI Prompt Generation */}
-          {step === 4 && selectedFormat && (
+          {step === 4 && selectedFormats.length > 0 && (
             <motion.div key="step4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
                <div>
                  <Label className="text-base">Generate Content</Label>
                  <p className="text-sm text-muted-foreground">
-                   AI-powered scripts and captions for {selectedPlatform?.name} {selectedFormat.label} — based on your project context
+                   AI-powered scripts and captions for {selectedPlatform?.name} {selectedFormats.map(f => f.label).join(", ")} — based on your project context
                  </p>
                </div>
 
