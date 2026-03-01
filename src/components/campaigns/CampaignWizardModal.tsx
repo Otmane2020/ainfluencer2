@@ -203,6 +203,7 @@ export const CampaignWizardModal = ({
       setProjectId("");
       setSelectedPlatformSlug("");
       setSelectedFormatId("");
+      setLinkedinMode("story");
       setTone("professional");
       setSubject("");
       setServiceTags([]);
