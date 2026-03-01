@@ -167,6 +167,7 @@ export const CampaignWizardModal = ({
   const [projectId, setProjectId] = useState("");
   const [selectedPlatformSlug, setSelectedPlatformSlug] = useState("");
   const [selectedFormatId, setSelectedFormatId] = useState("");
+  const [linkedinMode, setLinkedinMode] = useState<"story" | "reaction">("story");
   const [tone, setTone] = useState("professional");
   const [subject, setSubject] = useState("");
   const [serviceTags, setServiceTags] = useState<string[]>([]);
