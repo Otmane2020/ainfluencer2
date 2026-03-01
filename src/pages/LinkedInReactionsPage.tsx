@@ -254,10 +254,6 @@ const LinkedInReactionsPage = () => {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const openLinkedIn = () => {
-    const url = activeReplyUrl || postUrl;
-    if (url) window.open(url, "_blank");
-  };
 
   return (
     <>
