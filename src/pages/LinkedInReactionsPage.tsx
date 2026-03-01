@@ -577,7 +577,17 @@ const DiscoveredPostsList = ({
                       <p className="text-sm font-medium mb-1 line-clamp-1">{post.title}</p>
                     )}
                     <p className="text-xs text-muted-foreground line-clamp-3">{post.preview}</p>
-                    {/* URLs from AI search are often fake — don't show as clickable links */}
+                    {post.url && (
+                      <a
+                        href={post.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[10px] text-primary/70 hover:text-primary mt-1.5 transition-colors"
+                      >
+                        <Link2 className="h-3 w-3" />
+                        <span className="truncate max-w-[180px]">{post.url.replace("https://", "").slice(0, 50)}...</span>
+                      </a>
+                    )}
                   </div>
                   <div className="flex flex-col gap-1.5 shrink-0">
                     <Button
@@ -593,7 +603,20 @@ const DiscoveredPostsList = ({
                       )}
                       React
                     </Button>
-                    {/* No "Copy & Open" for discovered posts — URLs are AI-generated and often fake */}
+                    {post.url && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1 text-xs"
+                        onClick={() => {
+                          navigator.clipboard.writeText(post.fullText || post.preview || "");
+                          window.open(post.url, "_blank");
+                        }}
+                      >
+                        <Copy className="h-3 w-3" />
+                        Copy & Open
+                      </Button>
+                    )}
                   </div>
                 </div>
 
