@@ -85,22 +85,26 @@ const LinkedInReactionsPage = () => {
   // Project context suggestions
   const [projectSuggestions, setProjectSuggestions] = useState<string[]>([]);
 
-  // Load project context for search suggestions
+  // Load projects and suggestions
   useEffect(() => {
-    const loadSuggestions = async () => {
+    const loadProjects = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: projects } = await supabase
+      const { data: projectsData } = await supabase
         .from("projects")
-        .select("name, description, marketing_context, detected_language")
+        .select("id, name, description, marketing_context, detected_language, theme_color")
         .eq("user_id", user.id)
-        .limit(3);
+        .order("updated_at", { ascending: false })
+        .limit(10);
 
-      if (!projects?.length) return;
+      if (!projectsData?.length) return;
+      setProjects(projectsData);
+      if (!selectedProject) setSelectedProject(projectsData[0]);
 
+      // Build suggestions from all projects
       const suggestions: string[] = [];
-      for (const p of projects) {
+      for (const p of projectsData) {
         const ctx = p.marketing_context as any;
         if (ctx?.services) {
           (Array.isArray(ctx.services) ? ctx.services : []).forEach((s: string) => {
@@ -114,18 +118,16 @@ const LinkedInReactionsPage = () => {
         }
         if (ctx?.targetAudience) suggestions.push(ctx.targetAudience);
         if (p.description && p.description.length > 10) {
-          // Extract key terms from description
           const words = p.description.split(" ").slice(0, 4).join(" ");
           if (words.length > 5) suggestions.push(words);
         }
       }
 
-      // Deduplicate and limit
       const unique = [...new Set(suggestions)].filter(Boolean).slice(0, 6);
       setProjectSuggestions(unique);
     };
 
-    loadSuggestions();
+    loadProjects();
   }, []);
 
   const handleGenerate = async (url?: string, text?: string) => {
