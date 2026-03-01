@@ -531,7 +531,7 @@ export const CampaignWizardModal = ({
         ))}
       </div>
 
-      <ScrollArea className="flex-1 -mx-1 px-1" style={{ maxHeight: isMobile ? "60vh" : "55vh" }}>
+      <div className="flex-1 overflow-y-auto -mx-1 px-1 pb-2" style={{ maxHeight: isMobile ? "55vh" : "55vh" }}>
         <AnimatePresence mode="wait">
           {/* Step 1: Project Selection */}
           {step === 1 && (
