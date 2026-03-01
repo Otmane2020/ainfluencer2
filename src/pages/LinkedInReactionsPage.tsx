@@ -279,7 +279,7 @@ const LinkedInReactionsPage = () => {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: idx * 0.1 }}
                 >
-                  <Card className="group hover:border-primary/40 transition-all">
+                  <Card className="group hover:border-primary/40 transition-all border-border">
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
                         <span className="bg-primary/20 text-primary rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
