@@ -488,12 +488,13 @@ const LinkedInReactionsPage = () => {
                           <p className="text-sm flex-1 whitespace-pre-wrap">{reply}</p>
                         </div>
                         <div className="flex items-center gap-2 mt-3 justify-end">
-                          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => handleCopy(reply, key)}>
-                            {copiedKey === key ? <><CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> Copied!</> : <><Copy className="h-3.5 w-3.5" /> Copy</>}
-                          </Button>
-                          {replyUrl && (
+                          {replyUrl ? (
                             <Button size="sm" className="gap-1.5 text-xs gradient-primary" onClick={() => handleCopyAndOpen(reply, key, replyUrl)}>
-                              <ExternalLink className="h-3.5 w-3.5" /> Copy & Open
+                              {copiedKey === key ? <><CheckCircle2 className="h-3.5 w-3.5" /> Copied!</> : <><Copy className="h-3.5 w-3.5" /> Copy & Open</>}
+                            </Button>
+                          ) : (
+                            <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => handleCopy(reply, key)}>
+                              {copiedKey === key ? <><CheckCircle2 className="h-3.5 w-3.5" /> Copied!</> : <><Copy className="h-3.5 w-3.5" /> Copy</>}
                             </Button>
                           )}
                         </div>
