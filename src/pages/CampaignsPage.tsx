@@ -67,6 +67,7 @@ const campaignTypeConfig = {
   image: { icon: ImageIcon, label: "Image", gradient: "from-cyan-500 to-blue-600", bg: "bg-cyan-500/10 text-cyan-400" },
   mixed: { icon: Layers, label: "Mixed", gradient: "from-pink-500 to-rose-600", bg: "bg-pink-500/10 text-pink-400" },
   linkedin_story: { icon: Layers, label: "LinkedIn", gradient: "from-blue-600 to-blue-800", bg: "bg-blue-500/10 text-blue-400" },
+  linkedin_reaction: { icon: TrendingUp, label: "Reaction", gradient: "from-emerald-500 to-teal-600", bg: "bg-emerald-500/10 text-emerald-400" },
 };
 
 const statusConfig = {

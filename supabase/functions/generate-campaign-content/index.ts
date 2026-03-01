@@ -694,6 +694,10 @@ async function generateSinglePost(
   if (campaign.campaign_type === "linkedin_story") {
     return generateLinkedInStoryPost(idx, campaign, project, contextGuard, totalTarget, supabase, OPENROUTER_API_KEY);
   }
+  // Route to LinkedIn reaction/commentary generator
+  if (campaign.campaign_type === "linkedin_reaction") {
+    return generateLinkedInReactionPost(idx, campaign, project, contextGuard, totalTarget, supabase, OPENROUTER_API_KEY);
+  }
 
   const lang = project.detected_language || "en";
   const scene = VISUAL_SCENES[idx % VISUAL_SCENES.length];
