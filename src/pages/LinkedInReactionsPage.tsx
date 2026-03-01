@@ -116,7 +116,7 @@ const LinkedInReactionsPage = () => {
       <div className="space-y-6 max-w-2xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <div className="rounded-xl p-2.5 bg-gradient-to-br from-blue-600 to-blue-800 text-white">
+          <div className="rounded-xl p-2.5 bg-gradient-to-br from-primary to-primary/70 text-primary-foreground">
             <FaLinkedinIn className="h-6 w-6" />
           </div>
           <div>
