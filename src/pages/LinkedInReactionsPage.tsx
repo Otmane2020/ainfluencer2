@@ -66,10 +66,13 @@ const LinkedInReactionsPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [replies, setReplies] = useState<string[]>([]);
   const [scrapedPreview, setScrapedPreview] = useState("");
-  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
   const [activeReplyUrl, setActiveReplyUrl] = useState("");
   const [generatingPostId, setGeneratingPostId] = useState<string | null>(null);
+
+  // Per-post replies map (postId -> replies[])
+  const [postReplies, setPostReplies] = useState<Record<string, string[]>>({});
 
   // Search/trending
   const [searchQuery, setSearchQuery] = useState("");
