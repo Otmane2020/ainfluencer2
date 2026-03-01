@@ -577,17 +577,7 @@ const DiscoveredPostsList = ({
                       <p className="text-sm font-medium mb-1 line-clamp-1">{post.title}</p>
                     )}
                     <p className="text-xs text-muted-foreground line-clamp-3">{post.preview}</p>
-                    {post.url && (
-                      <a
-                        href={post.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[10px] text-primary/70 hover:text-primary mt-1.5 transition-colors"
-                      >
-                        <Link2 className="h-3 w-3" />
-                        <span className="truncate max-w-[180px]">{post.url.replace("https://", "").slice(0, 50)}...</span>
-                      </a>
-                    )}
+                    {/* URLs from AI search are often fake — don't show as clickable links */}
                   </div>
                   <div className="flex flex-col gap-1.5 shrink-0">
                     <Button
@@ -603,20 +593,7 @@ const DiscoveredPostsList = ({
                       )}
                       React
                     </Button>
-                    {post.url && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1 text-xs"
-                        onClick={() => {
-                          navigator.clipboard.writeText(post.fullText || post.preview || "");
-                          window.open(post.url, "_blank");
-                        }}
-                      >
-                        <Copy className="h-3 w-3" />
-                        Copy & Open
-                      </Button>
-                    )}
+                    {/* No "Copy & Open" for discovered posts — URLs are AI-generated and often fake */}
                   </div>
                 </div>
 
@@ -634,18 +611,22 @@ const DiscoveredPostsList = ({
                           <div key={rIdx} className="bg-muted/40 rounded-lg p-3 space-y-2">
                             <div className="flex items-start gap-2">
                               <span className="bg-primary/20 text-primary rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">{rIdx + 1}</span>
-                              <p className="text-xs flex-1 whitespace-pre-wrap">{reply}</p>
+                              <p className="text-xs flex-1 whitespace-pre-wrap select-all">{reply}</p>
                             </div>
                             <div className="flex justify-end">
                               <Button
+                                variant="outline"
                                 size="sm"
-                                className="gap-1.5 text-xs gradient-primary"
-                                onClick={() => onCopyAndOpen(reply, key, post.url || undefined)}
+                                className="gap-1.5 text-xs"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(reply);
+                                  onCopyAndOpen(reply, key);
+                                }}
                               >
                                 {copiedKey === key ? (
                                   <><CheckCircle2 className="h-3 w-3" /> Copied!</>
                                 ) : (
-                                  <><Copy className="h-3 w-3" /> {post.url ? "Copy & Open" : "Copy"}</>
+                                  <><Copy className="h-3 w-3" /> Copy</>
                                 )}
                               </Button>
                             </div>
