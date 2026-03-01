@@ -239,11 +239,19 @@ const LinkedInReactionsPage = () => {
     handleGenerate(post.url || undefined, post.fullText, postId);
   };
 
-  const handleCopy = (text: string, idx: number) => {
+  const handleCopyAndOpen = (text: string, key: string, url?: string) => {
     navigator.clipboard.writeText(text);
-    setCopiedIdx(idx);
+    setCopiedKey(key);
+    toast({ title: "Copied!", description: "Reply copied — paste it on LinkedIn!" });
+    setTimeout(() => setCopiedKey(null), 2000);
+    if (url) window.open(url, "_blank");
+  };
+
+  const handleCopy = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
     toast({ title: "Copied!", description: "Reply copied — go paste it on LinkedIn!" });
-    setTimeout(() => setCopiedIdx(null), 2000);
+    setTimeout(() => setCopiedKey(null), 2000);
   };
 
   const openLinkedIn = () => {
