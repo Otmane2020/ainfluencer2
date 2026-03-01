@@ -11,6 +11,7 @@ import Projects from "./pages/Projects";
 import ProjectNew from "./pages/ProjectNew";
 import ProjectDetail from "./pages/ProjectDetail";
 import CampaignsPage from "./pages/CampaignsPage";
+import LinkedInReactionsPage from "./pages/LinkedInReactionsPage";
 import CalendarPage from "./pages/CalendarPage";
 import Videos from "./pages/Videos";
 // AI Video page removed - consolidated into Videos page
@@ -102,6 +103,7 @@ const App = () => (
             <Route path="/projects/new" element={<ProjectNew />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/campaigns" element={<CampaignsPage />} />
+            <Route path="/linkedin-reactions" element={<LinkedInReactionsPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
             {/* ClipMotion route removed - consolidated into Videos */}
             <Route path="/videos" element={<Videos />} />
