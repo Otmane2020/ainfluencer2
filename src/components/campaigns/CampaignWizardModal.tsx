@@ -385,9 +385,12 @@ export const CampaignWizardModal = ({
     setProgressValue(10);
     setProgressError(undefined);
 
-    const campaignName = name || `${selectedPlatformSlug} ${linkedinMode === "reaction" ? "Reaction" : selectedFormat?.label || ""} Campaign`;
+    const formatLabels = selectedFormats.map(f => f.label).join(" + ");
+    const campaignName = name || `${selectedPlatformSlug} ${linkedinMode === "reaction" ? "Reaction" : formatLabels} Campaign`;
     const isLinkedInReaction = selectedPlatformSlug === "linkedin" && linkedinMode === "reaction";
-    const campaignType = isLinkedInReaction ? "linkedin_reaction" : selectedFormat?.content_type === "video" ? "video" : selectedFormat?.content_type === "text" || selectedFormat?.content_type === "article" ? "image" : "mixed";
+    const hasVideo = selectedFormats.some(f => f.content_type === "video");
+    const hasImage = selectedFormats.some(f => f.content_type === "image" || f.content_type === "carousel");
+    const campaignType = isLinkedInReaction ? "linkedin_reaction" : hasVideo && hasImage ? "mixed" : hasVideo ? "video" : "image";
 
     try {
       setProgressValue(20);
@@ -398,11 +401,11 @@ export const CampaignWizardModal = ({
           project_id: projectId,
           name: campaignName,
           campaign_type: campaignType,
-          platform_format_id: selectedFormatId,
-          videos_per_month: selectedFormat?.content_type === "video" ? contentVolume : 0,
-          images_per_month: selectedFormat?.content_type !== "video" ? contentVolume : 0,
+          platform_format_id: selectedFormatIds[0],
+          videos_per_month: hasVideo ? contentVolume : 0,
+          images_per_month: !hasVideo ? contentVolume : 0,
           posts_per_week: Math.ceil(contentVolume / 4),
-          format: selectedFormat?.aspect_ratio === "9:16" ? "reel" : selectedFormat?.aspect_ratio === "16:9" ? "landscape" : "reel",
+          format: selectedFormats.some(f => f.aspect_ratio === "9:16") ? "reel" : selectedFormats.some(f => f.aspect_ratio === "16:9") ? "landscape" : "reel",
           tone,
           subject,
           ai_context: serviceTags.length > 0 ? serviceTags.join(", ") : null,
