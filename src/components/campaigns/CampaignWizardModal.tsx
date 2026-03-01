@@ -885,10 +885,10 @@ export const CampaignWizardModal = ({
             </motion.div>
           )}
         </AnimatePresence>
-      </ScrollArea>
+      </div>
 
-      {/* Navigation */}
-      <div className="flex justify-between pt-4 border-t mt-4">
+      {/* Navigation - sticky bottom */}
+      <div className="flex justify-between pt-3 border-t border-border mt-auto shrink-0 bg-background sticky bottom-0">
         <Button variant="outline" onClick={() => step > 1 ? setStep(step - 1) : onClose()} size={isMobile ? "sm" : "default"}>
           <ChevronLeft className="h-4 w-4 mr-1" />
           {step === 1 ? "Cancel" : "Back"}
