@@ -321,9 +321,10 @@ export const CampaignWizardModal = ({
     finally { setIsSuggestingProduct(false); }
   };
 
-  // Get selected platform and format
+  // Get selected platform and formats
   const selectedPlatform = platforms.find(p => p.slug === selectedPlatformSlug);
-  const selectedFormat = selectedPlatform?.platform_formats.find(f => f.id === selectedFormatId);
+  const selectedFormats = selectedPlatform?.platform_formats.filter(f => selectedFormatIds.includes(f.id)) || [];
+  const selectedFormat = selectedFormats[0]; // Primary format for AI generation context
 
   // Generate AI content using project context
   const handleGenerateContent = async (type: "video_prompt" | "post_caption") => {
