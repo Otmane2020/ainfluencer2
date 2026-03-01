@@ -59,7 +59,7 @@ const LinkedInReactionsPage = () => {
   // URL/text mode
   const [postUrl, setPostUrl] = useState("");
   const [postText, setPostText] = useState("");
-  const [useManualText, setUseManualText] = useState(false);
+  
 
   // Common
   const [tone, setTone] = useState("expert");
@@ -139,8 +139,8 @@ const LinkedInReactionsPage = () => {
       return;
     }
 
-    const targetUrl = url || (useManualText ? undefined : postUrl);
-    const targetText = text || (useManualText ? postText : undefined);
+    const targetUrl = url || postUrl || undefined;
+    const targetText = text || postText || undefined;
 
     if (!targetUrl && !targetText) {
       toast({ title: "Missing input", description: "Paste a LinkedIn URL or the post text", variant: "destructive" });
@@ -171,7 +171,7 @@ const LinkedInReactionsPage = () => {
 
       if (data?.error) {
         toast({ title: "Error", description: data.error, variant: "destructive" });
-        if (data.error.includes("paste the text")) setUseManualText(true);
+        // error already shown via toast
         return;
       }
 
@@ -349,32 +349,26 @@ const LinkedInReactionsPage = () => {
           <TabsContent value="url" className="space-y-4 mt-4">
             <Card>
               <CardContent className="p-4 space-y-4">
-                {!useManualText ? (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">LinkedIn Post URL</label>
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="https://www.linkedin.com/posts/..."
-                        value={postUrl}
-                        onChange={(e) => setPostUrl(e.target.value)}
-                        className="flex-1"
-                      />
-                      <Button variant="ghost" size="sm" className="text-xs text-muted-foreground shrink-0" onClick={() => setUseManualText(true)}>
-                        Paste text instead
-                      </Button>
-                    </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">LinkedIn Post URL</label>
+                  <Input
+                    placeholder="https://www.linkedin.com/posts/..."
+                    value={postUrl}
+                    onChange={(e) => setPostUrl(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Post Text {postUrl ? <span className="text-xs text-muted-foreground font-normal">(recommended — LinkedIn blocks scraping)</span> : ""}</label>
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium">Post Text</label>
-                      <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={() => setUseManualText(false)}>
-                        Use URL instead
-                      </Button>
-                    </div>
-                    <Textarea placeholder="Paste the LinkedIn post text here..." value={postText} onChange={(e) => setPostText(e.target.value)} rows={4} />
-                  </div>
-                )}
+                  <Textarea
+                    placeholder="Paste the LinkedIn post text here for best results..."
+                    value={postText}
+                    onChange={(e) => setPostText(e.target.value)}
+                    rows={4}
+                  />
+                </div>
 
                 <ToneSelector tone={tone} setTone={setTone} />
 
