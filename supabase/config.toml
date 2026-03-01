@@ -175,3 +175,6 @@ verify_jwt = false
 
 [functions.generate-linkedin-reaction]
 verify_jwt = false
+
+[functions.search-linkedin-topics]
+verify_jwt = false
