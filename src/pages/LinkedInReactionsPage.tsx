@@ -226,8 +226,9 @@ const LinkedInReactionsPage = () => {
     }
   };
 
-  const handleReactToPost = (post: DiscoveredPost) => {
-    handleGenerate(post.url || undefined, post.fullText);
+  const handleReactToPost = (post: DiscoveredPost, idx: number) => {
+    const postId = `post-${idx}`;
+    handleGenerate(post.url || undefined, post.fullText, postId);
   };
 
   const handleCopy = (text: string, idx: number) => {
