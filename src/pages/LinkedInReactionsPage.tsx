@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PaywallModal } from "@/components/PaywallModal";
 import { SEOHead } from "@/components/seo/SEOHead";
 import {
@@ -22,6 +23,8 @@ import {
   Search,
   TrendingUp,
   Link2,
+  ChevronsUpDown,
+  Briefcase,
 } from "lucide-react";
 import { FaLinkedinIn } from "react-icons/fa";
 
@@ -38,6 +41,15 @@ type DiscoveredPost = {
   author: string;
   preview: string;
   fullText: string;
+};
+
+type Project = {
+  id: string;
+  name: string;
+  description: string | null;
+  theme_color: string | null;
+  marketing_context: any;
+  detected_language: string | null;
 };
 
 const LinkedInReactionsPage = () => {
@@ -57,6 +69,7 @@ const LinkedInReactionsPage = () => {
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
   const [activeReplyUrl, setActiveReplyUrl] = useState("");
+  const [generatingPostId, setGeneratingPostId] = useState<string | null>(null);
 
   // Search/trending
   const [searchQuery, setSearchQuery] = useState("");
@@ -64,25 +77,34 @@ const LinkedInReactionsPage = () => {
   const [discoveredPosts, setDiscoveredPosts] = useState<DiscoveredPost[]>([]);
   const [activeTab, setActiveTab] = useState("url");
 
+  // Project selector
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [projectSelectorOpen, setProjectSelectorOpen] = useState(false);
+
   // Project context suggestions
   const [projectSuggestions, setProjectSuggestions] = useState<string[]>([]);
 
-  // Load project context for search suggestions
+  // Load projects and suggestions
   useEffect(() => {
-    const loadSuggestions = async () => {
+    const loadProjects = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: projects } = await supabase
+      const { data: projectsData } = await supabase
         .from("projects")
-        .select("name, description, marketing_context, detected_language")
+        .select("id, name, description, marketing_context, detected_language, theme_color")
         .eq("user_id", user.id)
-        .limit(3);
+        .order("updated_at", { ascending: false })
+        .limit(10);
 
-      if (!projects?.length) return;
+      if (!projectsData?.length) return;
+      setProjects(projectsData);
+      if (!selectedProject) setSelectedProject(projectsData[0]);
 
+      // Build suggestions from all projects
       const suggestions: string[] = [];
-      for (const p of projects) {
+      for (const p of projectsData) {
         const ctx = p.marketing_context as any;
         if (ctx?.services) {
           (Array.isArray(ctx.services) ? ctx.services : []).forEach((s: string) => {
@@ -96,21 +118,19 @@ const LinkedInReactionsPage = () => {
         }
         if (ctx?.targetAudience) suggestions.push(ctx.targetAudience);
         if (p.description && p.description.length > 10) {
-          // Extract key terms from description
           const words = p.description.split(" ").slice(0, 4).join(" ");
           if (words.length > 5) suggestions.push(words);
         }
       }
 
-      // Deduplicate and limit
       const unique = [...new Set(suggestions)].filter(Boolean).slice(0, 6);
       setProjectSuggestions(unique);
     };
 
-    loadSuggestions();
+    loadProjects();
   }, []);
 
-  const handleGenerate = async (url?: string, text?: string) => {
+  const handleGenerate = async (url?: string, text?: string, postId?: string) => {
     if (!subscription.isSubscribed) {
       setShowPaywall(true);
       return;
@@ -128,10 +148,20 @@ const LinkedInReactionsPage = () => {
     setReplies([]);
     setScrapedPreview("");
     setActiveReplyUrl(targetUrl || "");
+    if (postId) setGeneratingPostId(postId);
+
+    // Build project context for better replies
+    const projectCtx = selectedProject?.marketing_context as any;
+    const brandContext = selectedProject ? {
+      brand: selectedProject.name,
+      services: projectCtx?.services || [],
+      usp: projectCtx?.usp || [],
+      language: selectedProject.detected_language || "en",
+    } : undefined;
 
     try {
       const { data, error } = await supabase.functions.invoke("generate-linkedin-reaction", {
-        body: { postUrl: targetUrl, postText: targetText, tone },
+        body: { postUrl: targetUrl, postText: targetText, tone, brandContext },
       });
 
       if (error) throw error;
@@ -149,6 +179,7 @@ const LinkedInReactionsPage = () => {
       toast({ title: "Error", description: e.message || "Generation failed", variant: "destructive" });
     } finally {
       setIsLoading(false);
+      setGeneratingPostId(null);
     }
   };
 
@@ -195,8 +226,9 @@ const LinkedInReactionsPage = () => {
     }
   };
 
-  const handleReactToPost = (post: DiscoveredPost) => {
-    handleGenerate(post.url || undefined, post.fullText);
+  const handleReactToPost = (post: DiscoveredPost, idx: number) => {
+    const postId = `post-${idx}`;
+    handleGenerate(post.url || undefined, post.fullText, postId);
   };
 
   const handleCopy = (text: string, idx: number) => {
@@ -235,7 +267,56 @@ const LinkedInReactionsPage = () => {
           </Badge>
         </div>
 
-        {/* Tabs */}
+        {/* Project Selector */}
+        {projects.length > 0 && (
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-3">
+                <Briefcase className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="text-sm font-medium shrink-0">Project context:</span>
+                <Popover open={projectSelectorOpen} onOpenChange={setProjectSelectorOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2 flex-1 justify-between min-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {selectedProject && (
+                          <div
+                            className="h-3 w-3 rounded-full shrink-0"
+                            style={{ backgroundColor: selectedProject.theme_color || "hsl(var(--primary))" }}
+                          />
+                        )}
+                        <span className="truncate text-xs">{selectedProject?.name || "Select project"}</span>
+                      </div>
+                      <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-1" align="start">
+                    {projects.map((p) => (
+                      <Button
+                        key={p.id}
+                        variant={selectedProject?.id === p.id ? "secondary" : "ghost"}
+                        className="w-full justify-start gap-2 text-xs"
+                        onClick={() => {
+                          setSelectedProject(p);
+                          setProjectSelectorOpen(false);
+                          // Rebuild suggestions from this project
+                          const ctx = p.marketing_context as any;
+                          const suggestions: string[] = [];
+                          if (ctx?.services) (Array.isArray(ctx.services) ? ctx.services : []).forEach((s: string) => { if (s && s.length > 3 && s.length < 60) suggestions.push(s); });
+                          if (ctx?.usp) (Array.isArray(ctx.usp) ? ctx.usp : []).forEach((u: string) => { if (u && u.length > 5 && u.length < 60) suggestions.push(u); });
+                          setProjectSuggestions([...new Set(suggestions)].slice(0, 6));
+                        }}
+                      >
+                        <div className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: p.theme_color || "hsl(var(--primary))" }} />
+                        <span className="truncate">{p.name}</span>
+                      </Button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="url" className="gap-1.5 text-xs sm:text-sm">
@@ -333,7 +414,7 @@ const LinkedInReactionsPage = () => {
               </CardContent>
             </Card>
 
-            <DiscoveredPostsList posts={discoveredPosts} isLoading={isSearching} onReact={handleReactToPost} generatingUrl={isLoading ? activeReplyUrl : null} />
+            <DiscoveredPostsList posts={discoveredPosts} isLoading={isSearching} onReact={handleReactToPost} generatingPostId={generatingPostId} />
           </TabsContent>
 
           {/* ── TAB 3: Trending ── */}
@@ -355,7 +436,7 @@ const LinkedInReactionsPage = () => {
               </CardContent>
             </Card>
 
-            <DiscoveredPostsList posts={discoveredPosts} isLoading={isSearching} onReact={handleReactToPost} generatingUrl={isLoading ? activeReplyUrl : null} />
+            <DiscoveredPostsList posts={discoveredPosts} isLoading={isSearching} onReact={handleReactToPost} generatingPostId={generatingPostId} />
           </TabsContent>
         </Tabs>
 
@@ -441,12 +522,12 @@ const DiscoveredPostsList = ({
   posts,
   isLoading,
   onReact,
-  generatingUrl,
+  generatingPostId,
 }: {
   posts: DiscoveredPost[];
   isLoading: boolean;
-  onReact: (p: DiscoveredPost) => void;
-  generatingUrl: string | null;
+  onReact: (p: DiscoveredPost, idx: number) => void;
+  generatingPostId: string | null;
 }) => {
   if (isLoading) {
     return (
@@ -462,51 +543,66 @@ const DiscoveredPostsList = ({
   return (
     <div className="space-y-3">
       <p className="text-sm font-medium text-muted-foreground">{posts.length} posts found</p>
-      {posts.map((post, idx) => (
-        <motion.div key={idx} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}>
-          <Card className="hover:border-primary/30 transition-all">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  {post.author && (
-                    <p className="text-xs font-medium text-primary mb-1 capitalize">{post.author}</p>
-                  )}
-                  {post.title && (
-                    <p className="text-sm font-medium mb-1 line-clamp-1">{post.title}</p>
-                  )}
-                  <p className="text-xs text-muted-foreground line-clamp-3">{post.preview}</p>
-                </div>
-                <div className="flex flex-col gap-1.5 shrink-0">
-                  <Button
-                    size="sm"
-                    className="gap-1.5 text-xs gradient-primary"
-                    onClick={() => onReact(post)}
-                    disabled={generatingUrl === post.url}
-                  >
-                    {generatingUrl === post.url ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-3.5 w-3.5" />
+      {posts.map((post, idx) => {
+        const postId = `post-${idx}`;
+        const isGenerating = generatingPostId === postId;
+        return (
+          <motion.div key={idx} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}>
+            <Card className="hover:border-primary/30 transition-all">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    {post.author && (
+                      <p className="text-xs font-medium text-primary mb-1 capitalize">{post.author}</p>
                     )}
-                    React
-                  </Button>
-                  {post.url && (
+                    {post.title && (
+                      <p className="text-sm font-medium mb-1 line-clamp-1">{post.title}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground line-clamp-3">{post.preview}</p>
+                    {post.url && (
+                      <a
+                        href={post.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[10px] text-primary/70 hover:text-primary mt-1.5 transition-colors"
+                      >
+                        <Link2 className="h-3 w-3" />
+                        <span className="truncate max-w-[180px]">{post.url.replace("https://", "").slice(0, 50)}...</span>
+                      </a>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1.5 shrink-0">
                     <Button
-                      variant="ghost"
                       size="sm"
-                      className="gap-1 text-xs"
-                      onClick={() => window.open(post.url, "_blank")}
+                      className="gap-1.5 text-xs gradient-primary"
+                      onClick={() => onReact(post, idx)}
+                      disabled={isGenerating}
                     >
-                      <ExternalLink className="h-3 w-3" />
-                      View
+                      {isGenerating ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5" />
+                      )}
+                      React
                     </Button>
-                  )}
+                    {post.url && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1 text-xs"
+                        onClick={() => window.open(post.url, "_blank")}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        View
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      ))}
+              </CardContent>
+            </Card>
+          </motion.div>
+        );
+      })}
     </div>
   );
 };
