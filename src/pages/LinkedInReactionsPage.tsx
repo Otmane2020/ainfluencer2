@@ -267,7 +267,56 @@ const LinkedInReactionsPage = () => {
           </Badge>
         </div>
 
-        {/* Tabs */}
+        {/* Project Selector */}
+        {projects.length > 0 && (
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-3">
+                <Briefcase className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="text-sm font-medium shrink-0">Project context:</span>
+                <Popover open={projectSelectorOpen} onOpenChange={setProjectSelectorOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2 flex-1 justify-between min-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {selectedProject && (
+                          <div
+                            className="h-3 w-3 rounded-full shrink-0"
+                            style={{ backgroundColor: selectedProject.theme_color || "hsl(var(--primary))" }}
+                          />
+                        )}
+                        <span className="truncate text-xs">{selectedProject?.name || "Select project"}</span>
+                      </div>
+                      <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-1" align="start">
+                    {projects.map((p) => (
+                      <Button
+                        key={p.id}
+                        variant={selectedProject?.id === p.id ? "secondary" : "ghost"}
+                        className="w-full justify-start gap-2 text-xs"
+                        onClick={() => {
+                          setSelectedProject(p);
+                          setProjectSelectorOpen(false);
+                          // Rebuild suggestions from this project
+                          const ctx = p.marketing_context as any;
+                          const suggestions: string[] = [];
+                          if (ctx?.services) (Array.isArray(ctx.services) ? ctx.services : []).forEach((s: string) => { if (s && s.length > 3 && s.length < 60) suggestions.push(s); });
+                          if (ctx?.usp) (Array.isArray(ctx.usp) ? ctx.usp : []).forEach((u: string) => { if (u && u.length > 5 && u.length < 60) suggestions.push(u); });
+                          setProjectSuggestions([...new Set(suggestions)].slice(0, 6));
+                        }}
+                      >
+                        <div className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: p.theme_color || "hsl(var(--primary))" }} />
+                        <span className="truncate">{p.name}</span>
+                      </Button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="url" className="gap-1.5 text-xs sm:text-sm">
