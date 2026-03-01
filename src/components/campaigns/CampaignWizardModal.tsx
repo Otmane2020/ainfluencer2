@@ -282,23 +282,64 @@ export const CampaignWizardModal = ({
     loadServicesFromCache(projectId, proj.url);
   }, [projectId, step, projects.length, serviceTags.length]);
 
+  const isValidService = (s: string) => s.length >= 2 && s.length <= 50 && !/^(deep research|write \d|get backlinks|watch traffic|your only|ai is|frequently|weekly plan)/i.test(s);
+
   const loadServicesFromCache = async (projId: string, url: string) => {
     if (isLoadingServicesRef.current) return;
     isLoadingServicesRef.current = true;
     setIsSuggestingProduct(true);
     try {
-      const { data: projectData } = await supabase.from("projects").select("scraped_markdown, scraped_data").eq("id", projId).single();
+      const { data: projectData } = await supabase.from("projects").select("scraped_markdown, scraped_data, marketing_context").eq("id", projId).single();
+      
+      // 1. Check cached services (filter junk)
       if (projectData?.scraped_data) {
         const scraped = projectData.scraped_data as { services?: string[] };
-        if (scraped.services?.length) {
-          setServiceTags(scraped.services.slice(0, 8));
+        const valid = scraped.services?.filter(isValidService) || [];
+        if (valid.length >= 2) {
+          setServiceTags(valid.slice(0, 8));
           setIsSuggestingProduct(false);
           return;
         }
       }
+
+      // 2. Try marketing_context services
+      if (projectData?.marketing_context) {
+        const mktCtx = projectData.marketing_context as Record<string, any>;
+        const mktServices = mktCtx.services || mktCtx.products || [];
+        if (Array.isArray(mktServices) && mktServices.filter(isValidService).length >= 2) {
+          setServiceTags(mktServices.filter(isValidService).slice(0, 8));
+          setIsSuggestingProduct(false);
+          return;
+        }
+      }
+
+      // 3. Use AI extraction from scraped markdown
+      if (projectData?.scraped_data) {
+        const scraped = projectData.scraped_data as { markdown?: string };
+        const md = scraped.markdown || (projectData as any).scraped_markdown;
+        if (md && md.length > 100) {
+          const { data: aiData } = await supabase.functions.invoke("extract-services-ai", { body: { markdown: md, url } });
+          if (aiData?.success && aiData.services?.length > 0) {
+            const validServices = aiData.services.filter(isValidService).slice(0, 8);
+            if (validServices.length > 0) {
+              setServiceTags(validServices);
+              // Update cache
+              const existingScraped = projectData.scraped_data as Record<string, any>;
+              await supabase.from("projects").update({ scraped_data: { ...existingScraped, services: validServices } }).eq("id", projId);
+              setIsSuggestingProduct(false);
+              return;
+            }
+          }
+        }
+      }
+
+      // 4. Fallback: scrape URL fresh
       const { data } = await supabase.functions.invoke("scrape-project-url", { body: { url } });
-      if (data?.success && data.services?.length > 0) {
-        setServiceTags(data.services.slice(0, 8));
+      if (data?.success && data.markdown) {
+        const { data: aiData } = await supabase.functions.invoke("extract-services-ai", { body: { markdown: data.markdown, url } });
+        if (aiData?.success && aiData.services?.length > 0) {
+          setServiceTags(aiData.services.filter(isValidService).slice(0, 8));
+        }
       }
     } catch { /* silent */ } finally {
       setIsSuggestingProduct(false);
@@ -311,12 +352,26 @@ export const CampaignWizardModal = ({
     if (!proj?.url) { toast({ title: "No URL", description: "This project has no URL", variant: "destructive" }); return; }
     setIsSuggestingProduct(true);
     try {
-      const { data, error } = await supabase.functions.invoke("scrape-project-url", { body: { url: proj.url } });
-      if (error) throw error;
-      if (data?.success && data.services?.length) {
-        setServiceTags(prev => [...new Set([...prev, ...data.services.slice(0, 8)])].slice(0, 8));
-        toast({ title: "Services detected!", description: `${data.services.length} services found` });
+      // Get markdown from project cache or scrape
+      const { data: projectData } = await supabase.from("projects").select("scraped_markdown, scraped_data").eq("id", projectId).single();
+      let md = (projectData?.scraped_data as any)?.markdown || projectData?.scraped_markdown;
+
+      if (!md || md.length < 100) {
+        const { data: scrapeData, error } = await supabase.functions.invoke("scrape-project-url", { body: { url: proj.url } });
+        if (error) throw error;
+        md = scrapeData?.markdown;
       }
+
+      if (md && md.length > 50) {
+        const { data: aiData } = await supabase.functions.invoke("extract-services-ai", { body: { markdown: md, url: proj.url } });
+        if (aiData?.success && aiData.services?.length) {
+          const valid = aiData.services.filter(isValidService).slice(0, 8);
+          setServiceTags(prev => [...new Set([...prev, ...valid])].slice(0, 8));
+          toast({ title: "Services detected!", description: `${valid.length} services found` });
+          return;
+        }
+      }
+      toast({ title: "No services found", description: "Enter services manually", variant: "destructive" });
     } catch { toast({ title: "Failed", description: "Enter services manually", variant: "destructive" }); }
     finally { setIsSuggestingProduct(false); }
   };
