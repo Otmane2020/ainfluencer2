@@ -167,7 +167,7 @@ export const CampaignWizardModal = ({
   const [name, setName] = useState("");
   const [projectId, setProjectId] = useState("");
   const [selectedPlatformSlug, setSelectedPlatformSlug] = useState("");
-  const [selectedFormatId, setSelectedFormatId] = useState("");
+  const [selectedFormatIds, setSelectedFormatIds] = useState<string[]>([]);
   const [linkedinMode, setLinkedinMode] = useState<"story" | "reaction">("story");
   const [tone, setTone] = useState("professional");
   const [subject, setSubject] = useState("");
@@ -202,7 +202,7 @@ export const CampaignWizardModal = ({
       setStep(1);
       setProjectId("");
       setSelectedPlatformSlug("");
-      setSelectedFormatId("");
+      setSelectedFormatIds([]);
       setLinkedinMode("story");
       setTone("professional");
       setSubject("");
@@ -321,9 +321,10 @@ export const CampaignWizardModal = ({
     finally { setIsSuggestingProduct(false); }
   };
 
-  // Get selected platform and format
+  // Get selected platform and formats
   const selectedPlatform = platforms.find(p => p.slug === selectedPlatformSlug);
-  const selectedFormat = selectedPlatform?.platform_formats.find(f => f.id === selectedFormatId);
+  const selectedFormats = selectedPlatform?.platform_formats.filter(f => selectedFormatIds.includes(f.id)) || [];
+  const selectedFormat = selectedFormats[0]; // Primary format for AI generation context
 
   // Generate AI content using project context
   const handleGenerateContent = async (type: "video_prompt" | "post_caption") => {
@@ -377,16 +378,19 @@ export const CampaignWizardModal = ({
   };
 
   const handleSubmit = async () => {
-    if (!user || !projectId || !selectedFormatId) return;
+    if (!user || !projectId || selectedFormatIds.length === 0) return;
     setIsSubmitting(true);
     setShowProgress(true);
     setProgressStatus("creating");
     setProgressValue(10);
     setProgressError(undefined);
 
-    const campaignName = name || `${selectedPlatformSlug} ${linkedinMode === "reaction" ? "Reaction" : selectedFormat?.label || ""} Campaign`;
+    const formatLabels = selectedFormats.map(f => f.label).join(" + ");
+    const campaignName = name || `${selectedPlatformSlug} ${linkedinMode === "reaction" ? "Reaction" : formatLabels} Campaign`;
     const isLinkedInReaction = selectedPlatformSlug === "linkedin" && linkedinMode === "reaction";
-    const campaignType = isLinkedInReaction ? "linkedin_reaction" : selectedFormat?.content_type === "video" ? "video" : selectedFormat?.content_type === "text" || selectedFormat?.content_type === "article" ? "image" : "mixed";
+    const hasVideo = selectedFormats.some(f => f.content_type === "video");
+    const hasImage = selectedFormats.some(f => f.content_type === "image" || f.content_type === "carousel");
+    const campaignType = isLinkedInReaction ? "linkedin_reaction" : hasVideo && hasImage ? "mixed" : hasVideo ? "video" : "image";
 
     try {
       setProgressValue(20);
@@ -397,11 +401,11 @@ export const CampaignWizardModal = ({
           project_id: projectId,
           name: campaignName,
           campaign_type: campaignType,
-          platform_format_id: selectedFormatId,
-          videos_per_month: selectedFormat?.content_type === "video" ? contentVolume : 0,
-          images_per_month: selectedFormat?.content_type !== "video" ? contentVolume : 0,
+          platform_format_id: selectedFormatIds[0],
+          videos_per_month: hasVideo ? contentVolume : 0,
+          images_per_month: !hasVideo ? contentVolume : 0,
           posts_per_week: Math.ceil(contentVolume / 4),
-          format: selectedFormat?.aspect_ratio === "9:16" ? "reel" : selectedFormat?.aspect_ratio === "16:9" ? "landscape" : "reel",
+          format: selectedFormats.some(f => f.aspect_ratio === "9:16") ? "reel" : selectedFormats.some(f => f.aspect_ratio === "16:9") ? "landscape" : "reel",
           tone,
           subject,
           ai_context: serviceTags.length > 0 ? serviceTags.join(", ") : null,
@@ -508,7 +512,7 @@ export const CampaignWizardModal = ({
     switch (step) {
       case 1: return projectId !== "";
       case 2: return selectedPlatformSlug !== "";
-      case 3: return selectedFormatId !== "";
+      case 3: return selectedFormatIds.length > 0;
       case 4: return true;
       case 5: return true;
       default: return true;
@@ -613,7 +617,7 @@ export const CampaignWizardModal = ({
                   return (
                     <button
                       key={platform.id}
-                      onClick={() => { setSelectedPlatformSlug(platform.slug); setSelectedFormatId(""); }}
+                      onClick={() => { setSelectedPlatformSlug(platform.slug); setSelectedFormatIds([]); }}
                       className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left ${
                         isSelected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
                       }`}
@@ -673,20 +677,20 @@ export const CampaignWizardModal = ({
           {step === 3 && selectedPlatform && (
             <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
               <div>
-                <Label className="text-base">Choose Format</Label>
+                <Label className="text-base">Choose Formats</Label>
                 <p className="text-sm text-muted-foreground">
-                  Select the content format for {selectedPlatform.name}
+                  Select one or more content formats for {selectedPlatform.name}
                 </p>
               </div>
 
               <div className="grid gap-3">
                 {selectedPlatform.platform_formats.map((format) => {
                   const TypeIcon = CONTENT_TYPE_ICONS[format.content_type] || Layers;
-                  const isSelected = selectedFormatId === format.id;
+                  const isSelected = selectedFormatIds.includes(format.id);
                   return (
                     <button
                       key={format.id}
-                      onClick={() => setSelectedFormatId(format.id)}
+                      onClick={() => setSelectedFormatIds(prev => prev.includes(format.id) ? prev.filter(id => id !== format.id) : [...prev, format.id])}
                       className={`p-4 rounded-xl border-2 transition-all text-left ${
                         isSelected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
                       }`}
@@ -726,12 +730,12 @@ export const CampaignWizardModal = ({
           )}
 
           {/* Step 4: AI Prompt Generation */}
-          {step === 4 && selectedFormat && (
+          {step === 4 && selectedFormats.length > 0 && (
             <motion.div key="step4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
                <div>
                  <Label className="text-base">Generate Content</Label>
                  <p className="text-sm text-muted-foreground">
-                   AI-powered scripts and captions for {selectedPlatform?.name} {selectedFormat.label} — based on your project context
+                   AI-powered scripts and captions for {selectedPlatform?.name} {selectedFormats.map(f => f.label).join(", ")} — based on your project context
                  </p>
                </div>
 
@@ -879,7 +883,7 @@ export const CampaignWizardModal = ({
               <div className="rounded-lg bg-muted/50 p-3 space-y-1">
                 <p className="text-sm font-medium">Summary</p>
                 <p className="text-xs text-muted-foreground">
-                  {selectedPlatform?.name} • {selectedFormat?.label} • {contentVolume} posts/month • {postingHour.toString().padStart(2, "0")}:00
+                  {selectedPlatform?.name} • {selectedFormats.map(f => f.label).join(", ")} • {contentVolume} posts/month • {postingHour.toString().padStart(2, "0")}:00
                 </p>
               </div>
             </motion.div>
