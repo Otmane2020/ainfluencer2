@@ -43,6 +43,7 @@ import {
   Loader2,
   Check,
   Linkedin,
+  TrendingUp,
   Clock,
   Music,
   Sparkles,
@@ -167,6 +168,7 @@ export const CampaignWizardModal = ({
   const [projectId, setProjectId] = useState("");
   const [selectedPlatformSlug, setSelectedPlatformSlug] = useState("");
   const [selectedFormatId, setSelectedFormatId] = useState("");
+  const [linkedinMode, setLinkedinMode] = useState<"story" | "reaction">("story");
   const [tone, setTone] = useState("professional");
   const [subject, setSubject] = useState("");
   const [serviceTags, setServiceTags] = useState<string[]>([]);
@@ -201,6 +203,7 @@ export const CampaignWizardModal = ({
       setProjectId("");
       setSelectedPlatformSlug("");
       setSelectedFormatId("");
+      setLinkedinMode("story");
       setTone("professional");
       setSubject("");
       setServiceTags([]);
@@ -381,8 +384,9 @@ export const CampaignWizardModal = ({
     setProgressValue(10);
     setProgressError(undefined);
 
-    const campaignName = name || `${selectedPlatformSlug} ${selectedFormat?.label || ""} Campaign`;
-    const campaignType = selectedFormat?.content_type === "video" ? "video" : selectedFormat?.content_type === "text" || selectedFormat?.content_type === "article" ? "image" : "mixed";
+    const campaignName = name || `${selectedPlatformSlug} ${linkedinMode === "reaction" ? "Reaction" : selectedFormat?.label || ""} Campaign`;
+    const isLinkedInReaction = selectedPlatformSlug === "linkedin" && linkedinMode === "reaction";
+    const campaignType = isLinkedInReaction ? "linkedin_reaction" : selectedFormat?.content_type === "video" ? "video" : selectedFormat?.content_type === "text" || selectedFormat?.content_type === "article" ? "image" : "mixed";
 
     try {
       setProgressValue(20);
@@ -629,6 +633,39 @@ export const CampaignWizardModal = ({
                   );
                 })}
               </div>
+
+              {/* LinkedIn Mode Selector */}
+              {selectedPlatformSlug === "linkedin" && (
+                <div className="space-y-2 mt-4">
+                  <Label className="text-sm font-medium">LinkedIn Campaign Mode</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setLinkedinMode("story")}
+                      className={`p-3 rounded-xl border-2 transition-all text-left ${
+                        linkedinMode === "story" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <Linkedin className="h-4 w-4 text-primary" />
+                        <span className="font-medium text-sm">Story Posts</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">Value-first storytelling posts based on your brand context</p>
+                    </button>
+                    <button
+                      onClick={() => setLinkedinMode("reaction")}
+                      className={`p-3 rounded-xl border-2 transition-all text-left ${
+                        linkedinMode === "reaction" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <TrendingUp className="h-4 w-4 text-primary" />
+                        <span className="font-medium text-sm">Reaction Posts</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">Short commentary on trending SEO/AI/AEO news — "Here's my take..."</p>
+                    </button>
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
 
