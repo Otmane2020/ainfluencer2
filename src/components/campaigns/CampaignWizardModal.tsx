@@ -631,6 +631,39 @@ export const CampaignWizardModal = ({
                   );
                 })}
               </div>
+
+              {/* LinkedIn Mode Selector */}
+              {selectedPlatformSlug === "linkedin" && (
+                <div className="space-y-2 mt-4">
+                  <Label className="text-sm font-medium">LinkedIn Campaign Mode</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setLinkedinMode("story")}
+                      className={`p-3 rounded-xl border-2 transition-all text-left ${
+                        linkedinMode === "story" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <Linkedin className="h-4 w-4 text-primary" />
+                        <span className="font-medium text-sm">Story Posts</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">Value-first storytelling posts based on your brand context</p>
+                    </button>
+                    <button
+                      onClick={() => setLinkedinMode("reaction")}
+                      className={`p-3 rounded-xl border-2 transition-all text-left ${
+                        linkedinMode === "reaction" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <TrendingUp className="h-4 w-4 text-primary" />
+                        <span className="font-medium text-sm">Reaction Posts</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">Short commentary on trending SEO/AI/AEO news — "Here's my take..."</p>
+                    </button>
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
 
