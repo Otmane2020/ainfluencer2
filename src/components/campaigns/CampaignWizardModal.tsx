@@ -382,8 +382,9 @@ export const CampaignWizardModal = ({
     setProgressValue(10);
     setProgressError(undefined);
 
-    const campaignName = name || `${selectedPlatformSlug} ${selectedFormat?.label || ""} Campaign`;
-    const campaignType = selectedFormat?.content_type === "video" ? "video" : selectedFormat?.content_type === "text" || selectedFormat?.content_type === "article" ? "image" : "mixed";
+    const campaignName = name || `${selectedPlatformSlug} ${linkedinMode === "reaction" ? "Reaction" : selectedFormat?.label || ""} Campaign`;
+    const isLinkedInReaction = selectedPlatformSlug === "linkedin" && linkedinMode === "reaction";
+    const campaignType = isLinkedInReaction ? "linkedin_reaction" : selectedFormat?.content_type === "video" ? "video" : selectedFormat?.content_type === "text" || selectedFormat?.content_type === "article" ? "image" : "mixed";
 
     try {
       setProgressValue(20);
