@@ -480,28 +480,32 @@ const LinkedInReactionsPage = () => {
                 </Button>
               </div>
 
-              {replies.map((reply, idx) => (
-                <motion.div key={idx} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.1 }}>
-                  <Card className="group hover:border-primary/40 transition-all border-border">
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <span className="bg-primary/20 text-primary rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">{idx + 1}</span>
-                        <p className="text-sm flex-1 whitespace-pre-wrap">{reply}</p>
-                      </div>
-                      <div className="flex items-center gap-2 mt-3 justify-end">
-                        <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => handleCopy(reply, idx)}>
-                          {copiedIdx === idx ? <><CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> Copied!</> : <><Copy className="h-3.5 w-3.5" /> Copy</>}
-                        </Button>
-                        {(activeReplyUrl || postUrl) && (
-                          <Button size="sm" className="gap-1.5 text-xs gradient-primary" onClick={openLinkedIn}>
-                            <ExternalLink className="h-3.5 w-3.5" /> Open on LinkedIn
+              {replies.map((reply, idx) => {
+                const key = `url-${idx}`;
+                const replyUrl = activeReplyUrl || postUrl;
+                return (
+                  <motion.div key={idx} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.1 }}>
+                    <Card className="group hover:border-primary/40 transition-all border-border">
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <span className="bg-primary/20 text-primary rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">{idx + 1}</span>
+                          <p className="text-sm flex-1 whitespace-pre-wrap">{reply}</p>
+                        </div>
+                        <div className="flex items-center gap-2 mt-3 justify-end">
+                          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => handleCopy(reply, key)}>
+                            {copiedKey === key ? <><CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> Copied!</> : <><Copy className="h-3.5 w-3.5" /> Copy</>}
                           </Button>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
+                          {replyUrl && (
+                            <Button size="sm" className="gap-1.5 text-xs gradient-primary" onClick={() => handleCopyAndOpen(reply, key, replyUrl)}>
+                              <ExternalLink className="h-3.5 w-3.5" /> Copy & Open
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                );
+              })}
             </motion.div>
           )}
         </AnimatePresence>
