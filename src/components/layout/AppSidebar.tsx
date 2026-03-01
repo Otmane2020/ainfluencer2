@@ -14,6 +14,7 @@ import {
   Image,
   Camera,
   Sparkles,
+  MessageSquareQuote,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { NavLink } from "@/components/NavLink";
