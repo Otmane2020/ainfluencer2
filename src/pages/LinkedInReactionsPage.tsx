@@ -329,7 +329,7 @@ const LinkedInReactionsPage = () => {
       <PaywallModal
         open={showPaywall}
         onOpenChange={setShowPaywall}
-        feature="linkedin_reactions"
+        feature="campaigns"
         requiredPlan="starter"
       />
     </>

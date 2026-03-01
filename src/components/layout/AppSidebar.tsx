@@ -40,6 +40,7 @@ const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderKanban },
   { title: "Campaigns", url: "/campaigns", icon: Megaphone },
+  { title: "LinkedIn React", url: "/linkedin-reactions", icon: MessageSquareQuote, label: "NEW" },
   { title: "AutoPost AI", url: "/calendar", icon: CalendarDays },
 ];
 

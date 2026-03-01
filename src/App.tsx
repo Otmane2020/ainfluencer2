@@ -103,6 +103,7 @@ const App = () => (
             <Route path="/projects/new" element={<ProjectNew />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/campaigns" element={<CampaignsPage />} />
+            <Route path="/linkedin-reactions" element={<LinkedInReactionsPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
             {/* ClipMotion route removed - consolidated into Videos */}
             <Route path="/videos" element={<Videos />} />
