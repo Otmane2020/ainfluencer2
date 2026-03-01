@@ -522,12 +522,12 @@ const DiscoveredPostsList = ({
   posts,
   isLoading,
   onReact,
-  generatingUrl,
+  generatingPostId,
 }: {
   posts: DiscoveredPost[];
   isLoading: boolean;
-  onReact: (p: DiscoveredPost) => void;
-  generatingUrl: string | null;
+  onReact: (p: DiscoveredPost, idx: number) => void;
+  generatingPostId: string | null;
 }) => {
   if (isLoading) {
     return (
@@ -543,51 +543,66 @@ const DiscoveredPostsList = ({
   return (
     <div className="space-y-3">
       <p className="text-sm font-medium text-muted-foreground">{posts.length} posts found</p>
-      {posts.map((post, idx) => (
-        <motion.div key={idx} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}>
-          <Card className="hover:border-primary/30 transition-all">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  {post.author && (
-                    <p className="text-xs font-medium text-primary mb-1 capitalize">{post.author}</p>
-                  )}
-                  {post.title && (
-                    <p className="text-sm font-medium mb-1 line-clamp-1">{post.title}</p>
-                  )}
-                  <p className="text-xs text-muted-foreground line-clamp-3">{post.preview}</p>
-                </div>
-                <div className="flex flex-col gap-1.5 shrink-0">
-                  <Button
-                    size="sm"
-                    className="gap-1.5 text-xs gradient-primary"
-                    onClick={() => onReact(post)}
-                    disabled={generatingUrl === post.url}
-                  >
-                    {generatingUrl === post.url ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-3.5 w-3.5" />
+      {posts.map((post, idx) => {
+        const postId = `post-${idx}`;
+        const isGenerating = generatingPostId === postId;
+        return (
+          <motion.div key={idx} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}>
+            <Card className="hover:border-primary/30 transition-all">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    {post.author && (
+                      <p className="text-xs font-medium text-primary mb-1 capitalize">{post.author}</p>
                     )}
-                    React
-                  </Button>
-                  {post.url && (
+                    {post.title && (
+                      <p className="text-sm font-medium mb-1 line-clamp-1">{post.title}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground line-clamp-3">{post.preview}</p>
+                    {post.url && (
+                      <a
+                        href={post.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[10px] text-primary/70 hover:text-primary mt-1.5 transition-colors"
+                      >
+                        <Link2 className="h-3 w-3" />
+                        <span className="truncate max-w-[180px]">{post.url.replace("https://", "").slice(0, 50)}...</span>
+                      </a>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1.5 shrink-0">
                     <Button
-                      variant="ghost"
                       size="sm"
-                      className="gap-1 text-xs"
-                      onClick={() => window.open(post.url, "_blank")}
+                      className="gap-1.5 text-xs gradient-primary"
+                      onClick={() => onReact(post, idx)}
+                      disabled={isGenerating}
                     >
-                      <ExternalLink className="h-3 w-3" />
-                      View
+                      {isGenerating ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5" />
+                      )}
+                      React
                     </Button>
-                  )}
+                    {post.url && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1 text-xs"
+                        onClick={() => window.open(post.url, "_blank")}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        View
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      ))}
+              </CardContent>
+            </Card>
+          </motion.div>
+        );
+      })}
     </div>
   );
 };
