@@ -43,6 +43,7 @@ import {
   Loader2,
   Check,
   Linkedin,
+  TrendingUp,
   Clock,
   Music,
   Sparkles,
