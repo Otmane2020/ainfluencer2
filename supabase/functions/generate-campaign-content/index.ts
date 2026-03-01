@@ -917,7 +917,7 @@ OUTPUT: Return ONLY valid JSON:
 // ============================================================
 // GENERATE A SINGLE POST (generic)
 // ============================================================
-
+async function generateSinglePost(
   idx: number,
   campaign: any,
   project: any,
