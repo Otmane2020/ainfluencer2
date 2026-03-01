@@ -870,15 +870,20 @@ ${formattedHashtags}`;
         const { data: sessionData2 } = await supabase.auth.getSession();
         const token = sessionData2?.session?.access_token;
 
+        // Use the actually selected model — respect user's duration choice
         const heygenModel = ugcMode
-          ? (VIDEO_MODELS.find(m => m.id === "heygen-avatar-30s") || selectedKieModel)
+          ? (isHeygenModel(selectedKieModel.id) ? selectedKieModel : (VIDEO_MODELS.find(m => m.id === "heygen-avatar-30s") || selectedKieModel))
           : selectedKieModel;
+
+        // Scale max script chars by duration: ~50 chars/sec of speech
+        const maxScriptChars = Math.max(1500, heygenModel.duration * 50);
+
         const { data, error } = await supabase.functions.invoke("generate-video-heygen", {
           body: {
             action: "create",
             script: segment.script.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]/gu, "")
               .replace(/^🎬.*$|^━+$|^📍.*$|^📊.*$|^📜.*$|^🎥.*$|^\[.*\]$|^Visual:.*$/gm, "")
-              .replace(/#\w+/g, "").replace(/\n{2,}/g, " ").trim().slice(0, 1500),
+              .replace(/#\w+/g, "").replace(/\n{2,}/g, " ").trim().slice(0, maxScriptChars),
             avatarId: heygenAvatarId,
             duration: heygenModel.duration,
             credits: heygenModel.credits,

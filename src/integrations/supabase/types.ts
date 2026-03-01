@@ -858,12 +858,15 @@ export type Database = {
         Row: {
           ai_prompt: string | null
           campaign_id: string | null
+          character_archetype: string | null
           content_type: string
           created_at: string
           error_message: string | null
           external_post_id: string | null
+          hook_style: string | null
           id: string
           media_url: string | null
+          narrative_structure: string | null
           platforms: string[] | null
           project_id: string
           published_at: string | null
@@ -877,12 +880,15 @@ export type Database = {
         Insert: {
           ai_prompt?: string | null
           campaign_id?: string | null
+          character_archetype?: string | null
           content_type: string
           created_at?: string
           error_message?: string | null
           external_post_id?: string | null
+          hook_style?: string | null
           id?: string
           media_url?: string | null
+          narrative_structure?: string | null
           platforms?: string[] | null
           project_id: string
           published_at?: string | null
@@ -896,12 +902,15 @@ export type Database = {
         Update: {
           ai_prompt?: string | null
           campaign_id?: string | null
+          character_archetype?: string | null
           content_type?: string
           created_at?: string
           error_message?: string | null
           external_post_id?: string | null
+          hook_style?: string | null
           id?: string
           media_url?: string | null
+          narrative_structure?: string | null
           platforms?: string[] | null
           project_id?: string
           published_at?: string | null
