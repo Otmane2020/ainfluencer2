@@ -512,7 +512,7 @@ export const CampaignWizardModal = ({
     switch (step) {
       case 1: return projectId !== "";
       case 2: return selectedPlatformSlug !== "";
-      case 3: return selectedFormatId !== "";
+      case 3: return selectedFormatIds.length > 0;
       case 4: return true;
       case 5: return true;
       default: return true;
