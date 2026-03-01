@@ -21,7 +21,7 @@ serve(async (req) => {
       );
     }
 
-    // Step 1: If only URL provided, scrape the post text
+    // Step 1: Use provided text first, fallback to scraping URL
     let scrapedText = postText || "";
 
     if (!scrapedText && postUrl) {
@@ -43,9 +43,11 @@ serve(async (req) => {
             }),
           });
 
-          const scrapeData = await scrapeRes.json();
-          scrapedText = scrapeData?.data?.markdown || scrapeData?.markdown || "";
-          console.log("Scraped text length:", scrapedText.length);
+          if (scrapeRes.ok) {
+            const scrapeData = await scrapeRes.json();
+            scrapedText = scrapeData?.data?.markdown || scrapeData?.markdown || "";
+            console.log("Scraped text length:", scrapedText.length);
+          }
         } catch (e) {
           console.error("Firecrawl scrape error:", e);
         }
@@ -60,7 +62,6 @@ serve(async (req) => {
             },
           });
           const html = await res.text();
-          // Extract text from meta tags or og:description
           const ogMatch = html.match(/<meta[^>]*property="og:description"[^>]*content="([^"]*)"/) ||
                           html.match(/<meta[^>]*name="description"[^>]*content="([^"]*)"/) ;
           if (ogMatch) {
@@ -74,7 +75,7 @@ serve(async (req) => {
       if (!scrapedText) {
         return new Response(
           JSON.stringify({
-            error: "Could not extract post content. Please paste the text manually.",
+            error: "Could not extract post content from this URL. Please paste the post text in the text field below the URL.",
           }),
           { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
