@@ -130,7 +130,7 @@ const LinkedInReactionsPage = () => {
     loadProjects();
   }, []);
 
-  const handleGenerate = async (url?: string, text?: string) => {
+  const handleGenerate = async (url?: string, text?: string, postId?: string) => {
     if (!subscription.isSubscribed) {
       setShowPaywall(true);
       return;
@@ -148,10 +148,20 @@ const LinkedInReactionsPage = () => {
     setReplies([]);
     setScrapedPreview("");
     setActiveReplyUrl(targetUrl || "");
+    if (postId) setGeneratingPostId(postId);
+
+    // Build project context for better replies
+    const projectCtx = selectedProject?.marketing_context as any;
+    const brandContext = selectedProject ? {
+      brand: selectedProject.name,
+      services: projectCtx?.services || [],
+      usp: projectCtx?.usp || [],
+      language: selectedProject.detected_language || "en",
+    } : undefined;
 
     try {
       const { data, error } = await supabase.functions.invoke("generate-linkedin-reaction", {
-        body: { postUrl: targetUrl, postText: targetText, tone },
+        body: { postUrl: targetUrl, postText: targetText, tone, brandContext },
       });
 
       if (error) throw error;
@@ -169,6 +179,7 @@ const LinkedInReactionsPage = () => {
       toast({ title: "Error", description: e.message || "Generation failed", variant: "destructive" });
     } finally {
       setIsLoading(false);
+      setGeneratingPostId(null);
     }
   };
 
