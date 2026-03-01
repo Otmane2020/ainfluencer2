@@ -915,13 +915,13 @@ export const CampaignWizardModal = ({
     return (
       <>
         <Drawer open={isOpen} onOpenChange={onClose}>
-          <DrawerContent className="max-h-[90vh]">
-            <DrawerHeader className="pb-2">
+          <DrawerContent className="max-h-[92vh] flex flex-col">
+            <DrawerHeader className="pb-2 shrink-0">
               <DrawerTitle className="flex items-center gap-2 text-base">
                 <Wand2 className="h-5 w-5 text-primary" /> Create Campaign
               </DrawerTitle>
             </DrawerHeader>
-            <div className="px-4 pb-6">{wizardContent}</div>
+            <div className="px-4 pb-4 flex flex-col flex-1 min-h-0">{wizardContent}</div>
           </DrawerContent>
         </Drawer>
         <CampaignProgressModal
