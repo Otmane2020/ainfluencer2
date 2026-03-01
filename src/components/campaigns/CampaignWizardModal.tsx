@@ -677,20 +677,20 @@ export const CampaignWizardModal = ({
           {step === 3 && selectedPlatform && (
             <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
               <div>
-                <Label className="text-base">Choose Format</Label>
+                <Label className="text-base">Choose Formats</Label>
                 <p className="text-sm text-muted-foreground">
-                  Select the content format for {selectedPlatform.name}
+                  Select one or more content formats for {selectedPlatform.name}
                 </p>
               </div>
 
               <div className="grid gap-3">
                 {selectedPlatform.platform_formats.map((format) => {
                   const TypeIcon = CONTENT_TYPE_ICONS[format.content_type] || Layers;
-                  const isSelected = selectedFormatId === format.id;
+                  const isSelected = selectedFormatIds.includes(format.id);
                   return (
                     <button
                       key={format.id}
-                      onClick={() => setSelectedFormatId(format.id)}
+                      onClick={() => setSelectedFormatIds(prev => prev.includes(format.id) ? prev.filter(id => id !== format.id) : [...prev, format.id])}
                       className={`p-4 rounded-xl border-2 transition-all text-left ${
                         isSelected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
                       }`}
