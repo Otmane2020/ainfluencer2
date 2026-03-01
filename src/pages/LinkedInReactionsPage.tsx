@@ -614,10 +614,13 @@ const DiscoveredPostsList = ({
                         variant="ghost"
                         size="sm"
                         className="gap-1 text-xs"
-                        onClick={() => window.open(post.url, "_blank")}
+                        onClick={() => {
+                          navigator.clipboard.writeText(post.fullText || post.preview || "");
+                          window.open(post.url, "_blank");
+                        }}
                       >
-                        <ExternalLink className="h-3 w-3" />
-                        View
+                        <Copy className="h-3 w-3" />
+                        Copy & Open
                       </Button>
                     )}
                   </div>
