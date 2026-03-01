@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 import { Badge } from "@/components/ui/badge";
 import { BrandOptions, BrandOptionsState } from "@/components/BrandOptions";
 import {
@@ -531,7 +531,7 @@ export const CampaignWizardModal = ({
         ))}
       </div>
 
-      <ScrollArea className="flex-1 -mx-1 px-1" style={{ maxHeight: isMobile ? "60vh" : "55vh" }}>
+      <div className="flex-1 overflow-y-auto -mx-1 px-1 pb-2" style={{ maxHeight: isMobile ? "55vh" : "55vh" }}>
         <AnimatePresence mode="wait">
           {/* Step 1: Project Selection */}
           {step === 1 && (
@@ -885,10 +885,10 @@ export const CampaignWizardModal = ({
             </motion.div>
           )}
         </AnimatePresence>
-      </ScrollArea>
+      </div>
 
-      {/* Navigation */}
-      <div className="flex justify-between pt-4 border-t mt-4">
+      {/* Navigation - sticky bottom */}
+      <div className="flex justify-between pt-3 border-t border-border mt-auto shrink-0 bg-background sticky bottom-0">
         <Button variant="outline" onClick={() => step > 1 ? setStep(step - 1) : onClose()} size={isMobile ? "sm" : "default"}>
           <ChevronLeft className="h-4 w-4 mr-1" />
           {step === 1 ? "Cancel" : "Back"}
@@ -915,13 +915,13 @@ export const CampaignWizardModal = ({
     return (
       <>
         <Drawer open={isOpen} onOpenChange={onClose}>
-          <DrawerContent className="max-h-[90vh]">
-            <DrawerHeader className="pb-2">
+          <DrawerContent className="max-h-[92vh] flex flex-col">
+            <DrawerHeader className="pb-2 shrink-0">
               <DrawerTitle className="flex items-center gap-2 text-base">
                 <Wand2 className="h-5 w-5 text-primary" /> Create Campaign
               </DrawerTitle>
             </DrawerHeader>
-            <div className="px-4 pb-6">{wizardContent}</div>
+            <div className="px-4 pb-4 flex flex-col flex-1 min-h-0">{wizardContent}</div>
           </DrawerContent>
         </Drawer>
         <CampaignProgressModal
