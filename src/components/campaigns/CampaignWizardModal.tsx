@@ -617,7 +617,7 @@ export const CampaignWizardModal = ({
                   return (
                     <button
                       key={platform.id}
-                      onClick={() => { setSelectedPlatformSlug(platform.slug); setSelectedFormatId(""); }}
+                      onClick={() => { setSelectedPlatformSlug(platform.slug); setSelectedFormatIds([]); }}
                       className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left ${
                         isSelected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
                       }`}
