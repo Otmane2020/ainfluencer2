@@ -871,9 +871,9 @@ ${formattedHashtags}`;
         const token = sessionData2?.session?.access_token;
 
         // Use the actually selected model — respect user's duration choice
-        const heygenModel = ugcMode
-          ? (isHeygenModel(selectedKieModel.id) ? selectedKieModel : (VIDEO_MODELS.find(m => m.id === "heygen-avatar-30s") || selectedKieModel))
-          : selectedKieModel;
+        const heygenModel = selectedKieModel.provider === "heygen"
+          ? selectedKieModel
+          : (VIDEO_MODELS.find(m => m.id === "heygen-avatar-30s") || selectedKieModel);
 
         // Scale max script chars by duration: ~50 chars/sec of speech
         const maxScriptChars = Math.max(1500, heygenModel.duration * 50);
@@ -1286,8 +1286,27 @@ ${formattedHashtags}`;
               </DialogContent>
             </Dialog>
           </div>
-          <p className="text-[10px] text-muted-foreground">
-            Exclusively uses HeyGen for UGC-style avatar videos. Select your avatar and write a script.
+
+          {/* HeyGen Duration Selector */}
+          <div className="mt-2 flex items-center gap-2">
+            <span className="text-[10px] text-muted-foreground font-medium">Duration:</span>
+            {VIDEO_MODELS.filter(m => m.provider === "heygen").map(m => (
+              <button
+                key={m.id}
+                onClick={() => setSelectedKieModel(m)}
+                className={`rounded-lg px-2.5 py-1 text-[11px] font-medium border transition-all ${
+                  selectedKieModel.id === m.id
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                }`}
+              >
+                {m.duration}s · {m.credits} cr
+              </button>
+            ))}
+          </div>
+
+          <p className="mt-2 text-[10px] text-muted-foreground">
+            Uses HeyGen for UGC-style avatar videos. Select your avatar, duration and write a script.
           </p>
         </motion.div>
       )}
@@ -1510,9 +1529,7 @@ ${formattedHashtags}`;
 
       {/* Generate Button with Credit Cost */}
       {(() => {
-        const activeModel = ugcMode
-          ? (VIDEO_MODELS.find(m => m.id === "heygen-avatar-30s") || selectedKieModel)
-          : selectedKieModel;
+        const activeModel = selectedKieModel;
         return (
           <Button onClick={generateContent} disabled={isGenerating || segments.every(s => !s.script.trim())} variant="gradient" className="w-full">
             {isGenerating ? <><Loader2 className="h-4 w-4 animate-spin" />Generating...</> : <><Wand2 className="h-4 w-4" />{ugcMode ? `Generate UGC (${activeModel.credits} credits)` : `Generate (${activeModel.credits} credits)`}</>}
