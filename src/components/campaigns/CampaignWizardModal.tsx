@@ -883,7 +883,7 @@ export const CampaignWizardModal = ({
               <div className="rounded-lg bg-muted/50 p-3 space-y-1">
                 <p className="text-sm font-medium">Summary</p>
                 <p className="text-xs text-muted-foreground">
-                  {selectedPlatform?.name} • {selectedFormat?.label} • {contentVolume} posts/month • {postingHour.toString().padStart(2, "0")}:00
+                  {selectedPlatform?.name} • {selectedFormats.map(f => f.label).join(", ")} • {contentVolume} posts/month • {postingHour.toString().padStart(2, "0")}:00
                 </p>
               </div>
             </motion.div>
