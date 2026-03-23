@@ -228,36 +228,32 @@ const Auth = () => {
     }
   };
 
-  const handleOAuthSignIn = async (provider: "google" | "apple" | "github") => {
+  const handleOAuthSignIn = async (provider: "google" | "apple") => {
     if (provider === "google") setIsGoogleLoading(true);
     if (provider === "apple") setIsAppleLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo,
-          queryParams: {
-            access_type: "offline",
-            prompt: "consent",
-          },
-        },
-      });
-      if (error) {
-        console.error(`[Auth] ${provider} OAuth error:`, error);
-        toast({
-          title: `${provider === "google" ? "Google" : provider === "apple" ? "Apple" : "GitHub"} Sign In Error`,
-          description: error.message || `Failed to authenticate with ${provider}`,
-          variant: "destructive",
+      if (provider === "apple") {
+        const { error } = await lovable.auth.signInWithOAuth("apple", {
+          redirect_uri: window.location.origin,
         });
+        if (error) {
+          toast({ title: "Apple Sign In Error", description: error.message, variant: "destructive" });
+        }
+      } else {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo,
+            queryParams: { access_type: "offline", prompt: "consent" },
+          },
+        });
+        if (error) {
+          toast({ title: "Google Sign In Error", description: error.message || "Failed to authenticate", variant: "destructive" });
+        }
       }
-      // On success Supabase redirects to provider then back to redirectTo
     } catch (error) {
       console.error(`[Auth] ${provider} OAuth exception:`, error);
-      toast({
-        title: "Error",
-        description: `Failed to sign in with ${provider}. Please try again.`,
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: `Failed to sign in with ${provider}. Please try again.`, variant: "destructive" });
     } finally {
       setIsGoogleLoading(false);
       setIsAppleLoading(false);
