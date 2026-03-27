@@ -176,8 +176,8 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
         }
         logCheckoutDebug("session failed", { sessionError, hasSession: false });
         const msg = isInvalidToken
-          ? "Session invalide (ancien projet ?). Tu as été déconnecté. Reconnecte-toi."
-          : "Session expirée. Reconnecte-toi.";
+          ? "Invalid session. You have been signed out. Please sign in again."
+          : "Session expired. Please sign in again.";
         return {
           success: false,
           error: new Error(msg),
@@ -211,7 +211,7 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (error) {
-        let msg = "Échec du démarrage du checkout.";
+        let msg = "Failed to start checkout.";
         try {
           const err = error as { message?: string; context?: { json?: () => Promise<{ error?: string }> } };
           if (typeof err?.context?.json === "function") {
@@ -224,14 +224,14 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
           msg = (error as { message?: string })?.message ?? msg;
           console.warn("[checkout] failed to parse error body:", parseErr);
         }
-        if (!msg || msg.trim() === "") msg = `Erreur invoquant create-checkout (${String((error as { name?: string })?.name ?? "unknown")})`;
+        if (!msg || msg.trim() === "") msg = `Error invoking create-checkout (${String((error as { name?: string })?.name ?? "unknown")})`;
         const hint = String(msg).includes("STRIPE_SECRET_KEY")
-          ? " → Supabase Dashboard → Edge Functions → Secrets : STRIPE_SECRET_KEY (sk_...)"
+          ? " → Configure STRIPE_SECRET_KEY in your backend secrets."
           : "";
         const errStr = String(msg).toLowerCase();
         const isUnreachable = errStr.includes("failed") || errStr.includes("network") || errStr.includes("cors") || errStr.includes("load") || errStr.includes("not_found") || errStr.includes("404");
         const friendlyMsg = isUnreachable
-          ? "Checkout indisponible. VITE_SUPABASE_URL doit être https://axwwpawvezqsybttulyo.supabase.co et create-checkout déployé."
+          ? "Checkout is currently unavailable. Please try again later."
           : msg + hint;
         return {
           success: false,
@@ -241,8 +241,7 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (data?.url) {
-        const opened = window.open(data.url, "_blank", "noopener,noreferrer");
-        if (!opened) window.location.href = data.url;
+        window.location.href = data.url;
         return { success: true };
       }
 
@@ -252,11 +251,11 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
         debug: debug({ step: "no url", hasSession: true, responseData: data, errorMessage: "No checkout URL returned" }),
       };
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Échec du démarrage du checkout.";
+      const msg = err instanceof Error ? err.message : "Failed to start checkout.";
       logCheckoutDebug("catch", err);
       return {
         success: false,
-        error: err instanceof Error ? err : new Error("Échec du démarrage du checkout."),
+        error: err instanceof Error ? err : new Error("Failed to start checkout."),
         debug: debug({ step: "catch", hasSession: true, responseError: err, errorMessage: msg }),
       };
     }
