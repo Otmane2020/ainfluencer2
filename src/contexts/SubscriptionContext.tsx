@@ -241,8 +241,7 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (data?.url) {
-        const opened = window.open(data.url, "_blank", "noopener,noreferrer");
-        if (!opened) window.location.href = data.url;
+        window.location.href = data.url;
         return { success: true };
       }
 
