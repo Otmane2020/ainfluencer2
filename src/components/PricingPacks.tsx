@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Check, Award, Zap, Building2, Wand2, Image, Video, Loader2, Tag, Clock, Coins } from "lucide-react";
+import { Check, Award, Zap, Building2, Wand2, Image, Video, Loader2, Tag, Clock, Coins, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { PRICING_PLANS, PricingPlan } from "@/lib/commercialProducts";
