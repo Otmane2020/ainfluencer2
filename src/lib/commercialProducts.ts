@@ -137,6 +137,27 @@ export const CREDIT_UNIT_PRICE = 0.65; // $0.65 per credit
 
 export const PRICING_PLANS: PricingPlan[] = [
   {
+    id: "lite",
+    name: "Lite",
+    price: 9,
+    priceUnit: "/month",
+    description: "Try ClipMotion risk-free",
+    credits: 10,
+    creditValue: CREDIT_UNIT_PRICE,
+    features: [
+      "10 credits included",
+      "1 credit per image · 4 per video",
+      "1 project",
+      "1 campaign",
+      "AutoPost scheduling",
+      "Email support",
+    ],
+    limits: {
+      projects: 1,
+      campaigns: 1,
+    },
+  },
+  {
     id: "starter",
     name: "Starter",
     price: 19,
@@ -295,6 +316,13 @@ export interface PlanAccess {
 }
 
 export const PLAN_ACCESS: Record<string, PlanAccess> = {
+  lite: {
+    maxProjects: 1,
+    maxCampaigns: 1,
+    canAutopost: true,
+    hasPriorityQueue: false,
+    hasApiAccess: false,
+  },
   starter: {
     maxProjects: 3,
     maxCampaigns: 1,
@@ -334,6 +362,14 @@ export const getPlanAccess = (planId: string): PlanAccess => {
 
 // Legacy quality access - now all tiers available to all subscribers
 export const PLAN_QUALITY_ACCESS: Record<string, { image: string[]; video: string[]; maxProjects: number; maxCampaigns: number; autopostImagesPerDay: number; autopostVideosPerDay: number }> = {
+  lite: {
+    image: ["standard-image", "pro-image", "cinema-image"],
+    video: ["standard-video", "pro-video", "cinema-video"],
+    maxProjects: 1,
+    maxCampaigns: 1,
+    autopostImagesPerDay: -1,
+    autopostVideosPerDay: -1,
+  },
   starter: {
     image: ["standard-image", "pro-image", "cinema-image"],
     video: ["standard-video", "pro-video", "cinema-video"],

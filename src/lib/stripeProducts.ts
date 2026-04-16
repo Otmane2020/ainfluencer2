@@ -4,6 +4,10 @@
 // ============================================================
 
 export const STRIPE_PLAN_PRICES: Record<string, { priceId: string; productId: string }> = {
+  lite: {
+    priceId: "price_1TMwtQEfti9t9nN9HetPnsz4",
+    productId: "prod_ULeBvHlfgefvYc",
+  },
   starter: {
     priceId: "price_1SuiszEfti9t9nN9qEGnwrdT",
     productId: "prod_TsTqynweuSksG3",
