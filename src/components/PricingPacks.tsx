@@ -14,6 +14,7 @@ import { useState, useEffect } from "react";
 
 // Flash sale discount configuration
 const FLASH_SALE_DISCOUNTS: Record<string, { discount: number; originalPrice: number }> = {
+  lite: { discount: 25, originalPrice: 12 },      // 25% off - was $12, now $9
   starter: { discount: 20, originalPrice: 24 },   // 20% off - was $24, now $19
   pro: { discount: 50, originalPrice: 98 },       // 50% off - was $98, now $49
   business: { discount: 30, originalPrice: 142 }, // 30% off - was $142, now $99
@@ -28,6 +29,8 @@ interface PricingPacksProps {
 
 const getPlanIcon = (planId: string) => {
   switch (planId) {
+    case "lite":
+      return Sparkles;
     case "starter":
       return Wand2;
     case "pro":
@@ -41,6 +44,8 @@ const getPlanIcon = (planId: string) => {
 
 const getPlanGradient = (planId: string) => {
   switch (planId) {
+    case "lite":
+      return "from-emerald-500 to-teal-500";
     case "starter":
       return "from-blue-500 to-cyan-500";
     case "pro":
@@ -205,7 +210,7 @@ export const PricingPacks = ({
 
       <div className={cn(
         "grid gap-6",
-        compact ? "grid-cols-1 md:grid-cols-3" : "grid-cols-1 lg:grid-cols-3"
+        compact ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
       )}>
         {PRICING_PLANS.map((plan, index) => {
           const Icon = getPlanIcon(plan.id);

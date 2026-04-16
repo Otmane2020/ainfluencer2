@@ -310,7 +310,7 @@ async function uploadImageToLinkedInDirect(
         "Authorization": `Bearer ${accessToken}`,
         "Content-Type": "application/octet-stream",
       },
-      body: imageBytes,
+      body: new Uint8Array(imageBytes) as unknown as BodyInit,
     });
 
     if (!uploadRes.ok) {

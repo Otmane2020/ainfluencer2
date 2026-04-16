@@ -41,16 +41,30 @@ serve(async (req) => {
       },
     });
 
-    const { data: userData, error: userError } = await supabase.auth.admin.getUserByEmail(email);
+    // Look up user by email via listUsers (paginated). getUserByEmail is not in the SDK.
+    let foundUser: { id: string; email?: string | null } | null = null;
+    let page = 1;
+    while (page <= 20 && !foundUser) {
+      const { data: listed, error: listErr } = await supabase.auth.admin.listUsers({ page, perPage: 200 });
+      if (listErr) {
+        return new Response(JSON.stringify({ ok: false, error: listErr.message }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      foundUser = listed.users.find((u) => (u.email || "").toLowerCase() === email.toLowerCase()) ?? null;
+      if (listed.users.length < 200) break;
+      page += 1;
+    }
 
-    if (userError || !userData?.user) {
+    if (!foundUser) {
       return new Response(JSON.stringify({ ok: false, error: "User not found" }), {
         status: 404,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    const userId = userData.user.id;
+    const userId = foundUser.id;
 
     const { data: member, error: memberError } = await supabase
       .from("organization_members")
