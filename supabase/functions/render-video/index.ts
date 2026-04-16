@@ -107,13 +107,12 @@ Deno.serve(async (req) => {
     const generationId = generationRecord?.id;
     console.log(`[RENDER-VIDEO] Generation: ${generationId}`);
 
-    // POST to Remotion server — /render endpoint
-    // Determine composition/template based on aspect ratio
+    // POST to Remotion server
     const renderWidth = quality === "cinema" ? 1920 : 1280;
     const renderHeight = quality === "cinema" ? 1080 : 720;
-    const isVertical = renderHeight > renderWidth;
-    const isSquare = Math.abs(renderWidth - renderHeight) < 50;
-    const templateId = "template-prompt-to-video";
+    const templateId = "KenBurnsVideo";
+    // Si le prompt est fourni, utiliser le pipeline AI (FLUX + Remotion)
+    const useAiPipeline = !!(body.prompt && body.prompt.trim().length > 0);
     const renderCrf = quality === "cinema" ? 23 : 28;
     const renderConcurrency = 2;
     const renderThreads = 2;
@@ -139,26 +138,37 @@ Deno.serve(async (req) => {
         throw new Error(`Worker unreachable (health check): ${msg}`);
       }
 
-      const workerRes = await fetch(`${baseWorkerUrl}/render`, {
+      // Choisir l'endpoint selon si un prompt IA est fourni
+      const endpoint = useAiPipeline ? `${baseWorkerUrl}/generate-ai-video` : `${baseWorkerUrl}/render`;
+      const workerBody = useAiPipeline
+        ? {
+            prompt: body.prompt,
+            title: cleanText || body.prompt,
+            style: props.style || "cinematic",
+            accentColor: props.accentColor || "#6c47ff",
+            brandName: "clipmotion.ai",
+            webhookUrl,
+            generationId,
+          }
+        : {
+            templateId,
+            titleText: cleanText,
+            audioUrl: audioUrl || null,
+            duration,
+            imageUrl: props.image || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1920&q=80",
+            width: renderWidth,
+            height: renderHeight,
+            webhookUrl,
+            generationId,
+          };
+
+      const workerRes = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${Deno.env.get("RENDER_WORKER_SECRET") || ""}`,
         },
-        body: JSON.stringify({
-          templateId,
-          titleText: cleanText,
-          audioUrl: audioUrl || null,
-          duration,
-          imageUrl: props.image || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1920&q=80",
-          width: renderWidth,
-          height: renderHeight,
-          crf: renderCrf,
-          concurrency: renderConcurrency,
-          ffmpegThreads: renderThreads,
-          webhookUrl,
-          generationId,
-        }),
+        body: JSON.stringify(workerBody),
         signal: AbortSignal.timeout(30_000),
       });
 
