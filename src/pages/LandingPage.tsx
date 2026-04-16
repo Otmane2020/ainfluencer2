@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SocialProofToast } from "@/components/nudges/SocialProofToast";
 import { MobileLandingPage } from "@/components/landing/MobileLandingPage";
+import { VideoShowcase } from "@/components/landing/VideoShowcase";
 
 import { MobileStickyCta } from "@/components/MobileStickyeCTA";
 import {
@@ -282,6 +283,9 @@ const LandingPage = () => {
           </motion.div>
         </div>
       </section>
+
+      {/* Video Showcase — real Remotion-generated videos */}
+      <VideoShowcase />
 
       {/* AI Showcase Gallery */}
       <section className="py-12 md:py-16 overflow-hidden bg-muted/20">
