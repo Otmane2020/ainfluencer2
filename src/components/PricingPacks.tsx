@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Check, Award, Zap, Building2, Wand2, Image, Video, Loader2, Tag, Clock, Coins } from "lucide-react";
+import { Check, Award, Zap, Building2, Wand2, Image, Video, Loader2, Tag, Clock, Coins, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { PRICING_PLANS, PricingPlan } from "@/lib/commercialProducts";
@@ -287,6 +287,14 @@ export const PricingPacks = ({
                   </div>
                 )}
               </div>
+
+              {/* 7-day free trial badge — boosts conversion */}
+              {!subscription.isSubscribed && (
+                <div className="mb-3 flex items-center justify-center gap-1.5 rounded-lg bg-green-500/10 border border-green-500/20 px-3 py-2 text-xs font-semibold text-green-600 dark:text-green-400">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  7-day free trial — cancel anytime
+                </div>
+              )}
 
             {/* Credits included badge */}
               <div className="mb-4 flex items-center justify-center gap-2 rounded-xl bg-primary/5 border border-primary/10 px-4 py-3">
