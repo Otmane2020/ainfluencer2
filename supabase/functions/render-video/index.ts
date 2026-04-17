@@ -123,10 +123,10 @@ Deno.serve(async (req) => {
 
     let jobId: string | undefined;
     try {
-      // Pre-flight health check with generous cold-start timeout
+      // Pre-flight health check — allow up to 90s for free-tier cold-start (50s+)
       try {
         const healthRes = await fetch(`${baseWorkerUrl}/health`, {
-          signal: AbortSignal.timeout(30_000),
+          signal: AbortSignal.timeout(90_000),
         });
         if (!healthRes.ok) {
           throw new Error(`Health check failed: ${healthRes.status}`);
