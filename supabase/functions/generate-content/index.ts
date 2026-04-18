@@ -59,23 +59,17 @@ serve(async (req) => {
     // Generate text content using Claude API
     let generatedText = "";
     if (type === "text" || type === "both") {
-      const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-      if (!ANTHROPIC_API_KEY) {
-        throw new Error("ANTHROPIC_API_KEY is not configured");
-      }
-
-      const textResponse = await fetch("https://api.anthropic.com/v1/messages", {
+      const textResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          "x-api-key": ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: "anthropic/claude-3.5-sonnet",
           max_tokens: 1024,
-          system: systemPrompt,
           messages: [
+            { role: "system", content: systemPrompt },
             {
               role: "user",
               content: `Create a viral post about: ${prompt}.
@@ -88,7 +82,7 @@ IMPORTANT: Write ONLY in ${languageName}. Do not use any other language.`,
       if (!textResponse.ok) {
         const status = textResponse.status;
         const errorBody = await textResponse.text();
-        console.error("Claude API error:", status, errorBody);
+        console.error("OpenRouter API error:", status, errorBody);
         if (status === 429) {
           return new Response(
             JSON.stringify({ error: "Rate limits exceeded, please try again later." }),
@@ -97,7 +91,7 @@ IMPORTANT: Write ONLY in ${languageName}. Do not use any other language.`,
         }
         if (status === 402 || status === 400) {
           return new Response(
-            JSON.stringify({ error: "Claude API error, please check your API key and credits." }),
+            JSON.stringify({ error: "AI API error, please check your API key and credits." }),
             { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
@@ -105,8 +99,8 @@ IMPORTANT: Write ONLY in ${languageName}. Do not use any other language.`,
       }
 
       const textData = await textResponse.json();
-      generatedText = textData.content?.[0]?.text || "";
-      console.log("Generated text (Claude):", generatedText.substring(0, 100) + "...");
+      generatedText = textData.choices?.[0]?.message?.content || "";
+      console.log("Generated text (OpenRouter):", generatedText.substring(0, 100) + "...");
     }
 
     // Generate image if requested
