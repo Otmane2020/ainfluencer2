@@ -138,29 +138,24 @@ Deno.serve(async (req) => {
         throw new Error(`Worker unreachable (health check): ${msg}`);
       }
 
-      // Choisir l'endpoint selon si un prompt IA est fourni
-      const endpoint = useAiPipeline ? `${baseWorkerUrl}/generate-ai-video` : `${baseWorkerUrl}/render`;
-      const workerBody = useAiPipeline
-        ? {
-            prompt: body.prompt,
-            title: cleanText || body.prompt,
-            style: props.style || "cinematic",
-            accentColor: props.accentColor || "#6c47ff",
-            brandName: "clipmotion.ai",
-            webhookUrl,
-            generationId,
-          }
-        : {
-            templateId,
-            titleText: cleanText,
-            audioUrl: audioUrl || null,
-            duration,
-            imageUrl: props.image || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1920&q=80",
-            width: renderWidth,
-            height: renderHeight,
-            webhookUrl,
-            generationId,
-          };
+      // Always use /generate-promo-video: stock videos + voiceover + music (no Chrome)
+      const endpoint = `${baseWorkerUrl}/generate-promo-video`;
+      const workerBody = {
+        prompt: body.prompt || cleanText,
+        script: cleanText,
+        title: cleanText || body.prompt,
+        subtitle: "",
+        voice: props.voice || "en-female",
+        mood: props.mood || "cinematic",
+        style: props.style || "cinematic",
+        accentColor: props.accentColor || "#6c47ff",
+        brandName: "clipmotion.ai",
+        useAiImages: false,
+        videoFormat: quality === "cinema" ? "landscape" : "landscape",
+        quality,
+        webhookUrl,
+        generationId,
+      };
 
       const workerRes = await fetch(endpoint, {
         method: "POST",
