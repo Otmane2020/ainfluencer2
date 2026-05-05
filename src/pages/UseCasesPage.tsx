@@ -5,86 +5,92 @@ import { PublicPageLayout } from "@/components/seo/PublicPageLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { seoPages, softwareApplicationSchema, organizationSchema } from "@/lib/seo-data";
-import { ArrowRight, Sparkles, ShoppingBag, Megaphone, Users, Building2, GraduationCap, Briefcase } from "lucide-react";
+import { ArrowRight, Sparkles, ShoppingBag, Store, Briefcase, Camera, Layers, Globe } from "lucide-react";
 
 const useCases = [
   {
-    icon: Users,
-    title: "Content Creators",
-    subtitle: "Scale your content output 10x",
-    description: "Create more TikToks, Reels, and Shorts without spending hours editing. Let AI handle the heavy lifting while you focus on creativity.",
-    benefits: [
-      "Generate 10+ videos per day",
-      "Consistent brand aesthetic",
-      "AI voiceovers in your style",
-      "Automatic caption generation",
-    ],
-    cta: "Perfect for YouTubers, TikTokers, and Instagram creators",
-  },
-  {
     icon: ShoppingBag,
-    title: "E-commerce Brands",
-    subtitle: "Product videos that convert",
-    description: "Turn product photos into engaging video ads. Create demo videos, unboxings, and promotional content automatically.",
+    title: "Shopify Sellers",
+    subtitle: "Pro photos for every product page",
+    description:
+      "Refresh your full catalog without booking a studio. Upload a phone shot and get clean, on-brand images that lift conversion.",
     benefits: [
-      "Product demo videos",
-      "UGC-style testimonials",
-      "Dynamic ad creatives",
-      "Multi-platform formats",
+      "Square + portrait formats",
+      "Background removal in 1 click",
+      "On-brand consistent style",
+      "Bulk catalog refresh",
     ],
-    cta: "Trusted by 5,000+ e-commerce brands",
+    cta: "Loved by Shopify and WooCommerce sellers",
   },
   {
-    icon: Megaphone,
-    title: "Marketing Agencies",
-    subtitle: "Scale client deliverables",
-    description: "Deliver more video content to clients without expanding your team. White-label solution with team collaboration features.",
+    icon: Store,
+    title: "Amazon & Etsy Merchants",
+    subtitle: "Marketplace-ready images that convert",
+    description:
+      "Generate marketplace-compliant product photos: white background hero shots plus lifestyle variants for the gallery.",
     benefits: [
-      "10x content output",
+      "Pure white background hero",
+      "Lifestyle gallery shots",
+      "Multi-angle variations",
+      "High-res export",
+    ],
+    cta: "Built for Amazon, Etsy and eBay listings",
+  },
+  {
+    icon: Layers,
+    title: "DTC Brands",
+    subtitle: "Scale your visual identity",
+    description:
+      "Stay consistent across hundreds of SKUs. Lock your brand colours, mood and lighting once — apply them everywhere.",
+    benefits: [
+      "Brand kit (colors + style)",
+      "Seasonal campaign moods",
+      "Consistent lighting",
+      "Team workspaces",
+    ],
+    cta: "Trusted by DTC brands worldwide",
+  },
+  {
+    icon: Camera,
+    title: "Content Creators",
+    subtitle: "Pro-looking shots without a studio",
+    description:
+      "Influencers and small creators can produce polished product photos for affiliate posts and brand collabs in minutes.",
+    benefits: [
+      "Phone photo → pro shot",
+      "Lifestyle scenes",
+      "Instagram + TikTok formats",
+      "Free trial credits",
+    ],
+    cta: "Perfect for affiliate creators",
+  },
+  {
+    icon: Briefcase,
+    title: "Marketing Agencies",
+    subtitle: "Deliver more shoots, faster",
+    description:
+      "Replace expensive product photoshoots. Spin up dozens of variations for A/B testing static ads on Meta, TikTok and Google.",
+    benefits: [
+      "Unlimited ad variations",
       "Client workspaces",
       "Brand kit management",
       "Approval workflows",
     ],
-    cta: "Enterprise pricing available for agencies",
+    cta: "Agency pricing available",
   },
   {
-    icon: Building2,
-    title: "Small Businesses",
-    subtitle: "Professional videos, no budget needed",
-    description: "Create professional marketing videos without hiring expensive agencies. Perfect for local businesses and startups.",
+    icon: Globe,
+    title: "Marketplaces & Catalogs",
+    subtitle: "Standardise thousands of SKUs",
+    description:
+      "Normalise product imagery across vendors and categories. Same lighting, same crop, same background — at scale.",
     benefits: [
-      "No design skills required",
-      "Affordable pricing",
-      "Quick turnaround",
-      "Professional results",
+      "API access",
+      "Bulk catalog ingestion",
+      "Consistent crop & lighting",
+      "Automated QA",
     ],
-    cta: "Start with our free plan",
-  },
-  {
-    icon: GraduationCap,
-    title: "Educators & Coaches",
-    subtitle: "Engaging educational content",
-    description: "Transform lessons into engaging video content. Create course materials, tutorials, and educational shorts automatically.",
-    benefits: [
-      "Educational templates",
-      "Multi-language support",
-      "Animated explanations",
-      "Course video series",
-    ],
-    cta: "Special pricing for educators",
-  },
-  {
-    icon: Briefcase,
-    title: "Enterprise Teams",
-    subtitle: "Scale video production globally",
-    description: "Enterprise-grade video automation with SSO, advanced security, and dedicated support. Perfect for large organizations.",
-    benefits: [
-      "SSO & security",
-      "Dedicated account manager",
-      "Custom integrations",
-      "SLA guarantees",
-    ],
-    cta: "Contact sales for enterprise pricing",
+    cta: "Enterprise / API plan",
   },
 ];
 
@@ -102,22 +108,20 @@ const UseCasesPage = () => {
         structuredData={[softwareApplicationSchema, organizationSchema]}
       />
 
-      {/* Hero */}
       <section className="relative py-20 md:py-32 overflow-hidden">
         <div className="absolute inset-0 gradient-hero opacity-10" />
         <div className="container relative mx-auto px-4 text-center">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}>
             <h1 className="font-display text-4xl md:text-6xl font-bold mb-6">
-              AI Video for <span className="text-gradient">Every Industry</span>
+              AI Product Shots for <span className="text-gradient">Every Seller</span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-              See how creators, brands, and businesses use ClipMotion to automate their video content and grow their audience.
+              See how Shopify stores, marketplaces, DTC brands and agencies use ClipMotion to produce pro product photography at scale.
             </p>
           </motion.div>
         </div>
       </section>
 
-      {/* Use Cases Grid */}
       <section className="py-20">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -138,10 +142,10 @@ const UseCasesPage = () => {
                     <p className="text-primary text-sm mb-3">{useCase.subtitle}</p>
                     <p className="text-muted-foreground mb-4">{useCase.description}</p>
                     <ul className="space-y-2 mb-4">
-                      {useCase.benefits.map((benefit) => (
-                        <li key={benefit} className="flex items-center gap-2 text-sm">
+                      {useCase.benefits.map((b) => (
+                        <li key={b} className="flex items-center gap-2 text-sm">
                           <Sparkles className="h-4 w-4 text-primary" />
-                          {benefit}
+                          {b}
                         </li>
                       ))}
                     </ul>
@@ -154,17 +158,16 @@ const UseCasesPage = () => {
         </div>
       </section>
 
-      {/* CTA */}
       <section className="py-20 bg-muted/30">
         <div className="container mx-auto px-4 text-center">
           <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">
-            Ready to Transform Your Video Workflow?
+            Ready to Transform Your Product Photos?
           </h2>
           <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-            Join 50,000+ creators and brands already using ClipMotion to automate their video content.
+            Join thousands of sellers using ClipMotion to ship pro product imagery — without a studio.
           </p>
           <Button size="lg" onClick={() => navigate("/auth")} className="gradient-primary">
-            Get Started Free <ArrowRight className="ml-2 h-5 w-5" />
+            Try Free <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
         </div>
       </section>

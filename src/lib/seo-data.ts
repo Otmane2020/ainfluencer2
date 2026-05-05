@@ -1,4 +1,4 @@
-// ClipMotion SEO Data - All structured data and meta information
+// ClipMotion · Product Shot AI — SEO Data
 
 export const SITE_URL = "https://clipmotion.ai";
 export const SITE_NAME = "ClipMotion";
@@ -23,26 +23,26 @@ export const organizationSchema = {
   },
 };
 
-// Software Application Schema with AggregateRating
+// Software Application Schema
 export const softwareApplicationSchema = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  name: "ClipMotion AI Video Generator",
-  applicationCategory: "MultimediaApplication",
+  name: "ClipMotion – Product Shot AI",
+  applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
   url: SITE_URL,
   description:
-    "ClipMotion is an AI-powered video generation platform that creates stunning motion design videos, AI influencer content, and social media videos in seconds.",
+    "ClipMotion is an AI product photography platform for e-commerce. Turn one product photo into 10 high-converting visuals for Shopify, Amazon, Instagram and TikTok in 2 minutes.",
   offers: {
     "@type": "Offer",
     price: "0",
     priceCurrency: "USD",
-    description: "Free plan available",
+    description: "Free trial available",
   },
   aggregateRating: {
     "@type": "AggregateRating",
     ratingValue: "4.9",
-    ratingCount: "189000",
+    ratingCount: "1280",
     bestRating: "5",
     worstRating: "1",
   },
@@ -56,9 +56,9 @@ export const softwareApplicationSchema = {
 export const productSchema = {
   "@context": "https://schema.org",
   "@type": "Product",
-  name: "ClipMotion Pro",
+  name: "ClipMotion Product Shot AI",
   description:
-    "Professional AI video generation platform for content creators, marketers, and agencies.",
+    "Professional AI product photography for online sellers, Shopify stores, marketplaces and DTC brands.",
   brand: {
     "@type": "Brand",
     name: "ClipMotion",
@@ -67,24 +67,24 @@ export const productSchema = {
     {
       "@type": "Offer",
       name: "Starter Plan",
-      price: "49",
-      priceCurrency: "EUR",
+      price: "29",
+      priceCurrency: "USD",
       priceValidUntil: "2027-12-31",
       availability: "https://schema.org/InStock",
     },
     {
       "@type": "Offer",
       name: "Pro Plan",
-      price: "149",
-      priceCurrency: "EUR",
+      price: "79",
+      priceCurrency: "USD",
       priceValidUntil: "2027-12-31",
       availability: "https://schema.org/InStock",
     },
     {
       "@type": "Offer",
       name: "Agency Plan",
-      price: "299",
-      priceCurrency: "EUR",
+      price: "199",
+      priceCurrency: "USD",
       priceValidUntil: "2027-12-31",
       availability: "https://schema.org/InStock",
     },
@@ -92,13 +92,13 @@ export const productSchema = {
   aggregateRating: {
     "@type": "AggregateRating",
     ratingValue: "4.9",
-    ratingCount: "189000",
+    ratingCount: "1280",
     bestRating: "5",
     worstRating: "1",
   },
 };
 
-// FAQ Schema
+// FAQ Schema (Product Shot AI)
 export const faqSchema = {
   "@context": "https://schema.org",
   "@type": "FAQPage",
@@ -108,69 +108,53 @@ export const faqSchema = {
       name: "What is ClipMotion?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "ClipMotion is an AI-powered video generation platform that enables users to create professional motion design videos, AI influencer content, and social media videos in seconds. It automates the entire content creation workflow from script generation to multi-platform publishing.",
+        text: "ClipMotion is an AI product photography platform. Upload a single product photo and we generate 10 professional, high-converting product images — clean studio shots, lifestyle scenes and multi-platform formats — in about 2 minutes.",
       },
     },
     {
       "@type": "Question",
-      name: "How does AI video generation work?",
+      name: "What kind of photos can I upload?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "ClipMotion uses advanced AI models to generate videos from text prompts. Simply describe your video concept, select your preferred style and AI voice, and our platform generates professional-quality videos with motion graphics, animations, and voiceovers automatically.",
+        text: "Any photo of your product works — a phone snap, a white-background shot or even an existing catalog image. Our AI removes the background, fixes lighting and recreates the product in new pro scenes.",
       },
     },
     {
       "@type": "Question",
-      name: "Can I create AI influencer videos?",
+      name: "Does it work for Shopify, Amazon and Etsy?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Yes! ClipMotion features AI avatar generation that creates realistic virtual influencers for your brand. You can generate custom AI spokespersons that deliver your message consistently across all your content.",
+        text: "Yes. ClipMotion exports HD images in the formats required by Shopify, Amazon, Etsy, WooCommerce and social platforms (square, portrait 9:16, landscape).",
       },
     },
     {
       "@type": "Question",
-      name: "What platforms can I publish to?",
+      name: "How long does it take?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "ClipMotion supports direct publishing to Instagram, Facebook, TikTok, LinkedIn, and YouTube. You can schedule and automate posts across all platforms from a single dashboard.",
+        text: "Most product galleries are ready in under 2 minutes per product. Batch mode lets you process up to 20 products at once.",
       },
     },
     {
       "@type": "Question",
-      name: "Is there a free plan?",
+      name: "Is there a free trial?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Yes, ClipMotion offers a free plan that lets you try the platform with limited video generations. Paid plans start at €49/month for the Starter plan with 10 images and 2 videos per month.",
+        text: "Yes. New users get free credits to generate their first product shots, no credit card required.",
       },
     },
     {
       "@type": "Question",
-      name: "How is ClipMotion different from other AI video tools?",
+      name: "Are the generated images mine?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "ClipMotion is an all-in-one platform that combines AI video generation, motion design, AI avatars, and social media automation. Unlike point solutions, we handle the entire workflow from content ideation to scheduled publishing across multiple platforms.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "What video formats and resolutions are supported?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "ClipMotion generates videos up to 1080p HD resolution in formats optimized for each social platform: 9:16 for TikTok/Reels, 1:1 for Instagram feed, 16:9 for YouTube, and custom aspect ratios for ads.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Can I use my own voice or brand assets?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Yes, you can upload custom brand assets, logos, and colors. For voiceovers, we offer 30+ AI voices in multiple languages, or you can record your own voice.",
+        text: "Yes, you own a full commercial license on every image you generate, including for paid ads on Meta, TikTok and Google.",
       },
     },
   ],
 };
 
-// WebSite Schema for search
+// WebSite Schema
 export const websiteSchema = {
   "@context": "https://schema.org",
   "@type": "WebSite",
@@ -189,11 +173,11 @@ export const websiteSchema = {
 // SEO Page Metadata
 export const seoPages = {
   home: {
-    title: "ClipMotion – AI Video Generator for Social Media | Create Videos in Seconds",
+    title: "ClipMotion – Product Shot AI | 1 Photo, 10 Pro Product Images in 2 Minutes",
     description:
-      "Create stunning AI-powered videos for TikTok, Instagram, and YouTube. ClipMotion generates motion design videos, AI influencers, and social content automatically.",
+      "Turn one product photo into 10 high-converting visuals for Shopify, Amazon, Instagram and TikTok. AI product photography in 2 minutes — no studio, no photographer.",
     keywords:
-      "AI video generator, motion design AI, text to video AI, AI video for social media, create videos with AI, AI animation tool",
+      "product shot AI, AI product photography, ecommerce product photos, Shopify product images, AI background removal, lifestyle product images, ClipMotion",
     canonical: SITE_URL,
   },
   features: {
@@ -205,203 +189,95 @@ export const seoPages = {
     canonical: `${SITE_URL}/features`,
   },
   pricing: {
-    title: "Pricing – Affordable AI Video Plans from $49/mo | ClipMotion",
+    title: "Pricing – Affordable AI Product Photography Plans | ClipMotion",
     description:
-      "Simple, transparent pricing for AI video generation. Start free, then upgrade to Starter ($49), Pro ($149), or Agency ($299) plans. No hidden fees.",
+      "Simple, transparent pricing for AI product shots. Start free, then upgrade to Starter ($29), Pro ($79) or Agency ($199). No hidden fees, cancel anytime.",
     keywords:
-      "AI video pricing, video generator cost, motion design pricing, AI video subscription",
+      "AI product photography pricing, product shot AI cost, Shopify photo plan, ecommerce image subscription",
     canonical: `${SITE_URL}/pricing`,
   },
   useCases: {
-    title: "Use Cases – AI Videos for Marketing, E-commerce & Creators | ClipMotion",
+    title: "Use Cases – AI Product Shots for E-commerce, Brands & Creators | ClipMotion",
     description:
-      "See how marketers, e-commerce brands, and content creators use ClipMotion to generate viral AI videos, product demos, and social media content.",
+      "See how Shopify sellers, DTC brands, marketplaces and agencies use ClipMotion to produce pro product photos at scale — without a studio or a photographer.",
     keywords:
-      "AI video use cases, marketing videos AI, ecommerce video, content creator tools",
+      "product shot use cases, Shopify product photos, ecommerce photography AI, DTC brand photos, marketplace images",
     canonical: `${SITE_URL}/use-cases`,
   },
-  aiVideoGenerator: {
-    title: "AI Video Generator – Create Professional Videos from Text | ClipMotion",
-    description:
-      "Transform text into stunning videos with ClipMotion's AI video generator. Create TikToks, Reels, YouTube Shorts, and ads in seconds with AI.",
-    keywords:
-      "AI video generator, text to video, video from text AI, AI video maker, automated video creation",
-    canonical: `${SITE_URL}/ai-video-generator`,
-  },
-  motionDesignAI: {
-    title: "Motion Design AI – Automated Animation & Motion Graphics | ClipMotion",
-    description:
-      "Create professional motion design videos with AI. Automated animations, kinetic typography, and motion graphics without design skills required.",
-    keywords:
-      "motion design AI, AI animation, motion graphics generator, automated animation, kinetic typography AI",
-    canonical: `${SITE_URL}/motion-design-ai`,
-  },
   faq: {
-    title: "FAQ – Frequently Asked Questions About AI Video Generation | ClipMotion",
+    title: "FAQ – Frequently Asked Questions About AI Product Photography | ClipMotion",
     description:
-      "Get answers to common questions about ClipMotion's AI video generator, pricing, features, and how to create professional videos with artificial intelligence.",
-    keywords: "AI video FAQ, ClipMotion help, video generator questions, AI video support",
+      "Answers to common questions about ClipMotion's AI product photography platform: how it works, supported platforms, pricing, licensing and image quality.",
+    keywords: "AI product shot FAQ, ClipMotion help, product photography questions, AI photo support",
     canonical: `${SITE_URL}/faq`,
   },
   blog: {
-    title: "Blog – AI Video Tips, Tutorials & Industry Insights | ClipMotion",
+    title: "Blog – AI Product Photography Tips, Tutorials & E-commerce Insights | ClipMotion",
     description:
-      "Learn AI video creation strategies, motion design tips, and social media best practices from ClipMotion's expert blog. Updated weekly.",
+      "Learn how to create scroll-stopping product photos with AI. Guides on Shopify, Amazon, lifestyle scenes, background removal and batch product imaging.",
     keywords:
-      "AI video blog, motion design tutorials, video marketing tips, social media video strategy",
+      "AI product photography blog, product shot tutorials, ecommerce photo tips, Shopify image guide",
     canonical: `${SITE_URL}/blog`,
   },
   privacyPolicy: {
     title: "Privacy Policy | ClipMotion",
     description:
-      "Read ClipMotion's privacy policy. Learn how we collect, use, and protect your personal data when using our AI video generation platform.",
+      "Read ClipMotion's privacy policy. Learn how we collect, use and protect your data when using our AI product photography platform.",
     keywords: "privacy policy, data protection, GDPR, ClipMotion privacy",
     canonical: `${SITE_URL}/privacy-policy`,
   },
   terms: {
     title: "Terms of Service | ClipMotion",
     description:
-      "Review ClipMotion's terms of service. Understand your rights and responsibilities when using our AI video generation platform.",
+      "Review ClipMotion's terms of service. Understand your rights and responsibilities when using our AI product photography platform.",
     keywords: "terms of service, user agreement, ClipMotion terms",
     canonical: `${SITE_URL}/terms`,
   },
   contact: {
     title: "Contact Us – Get in Touch with ClipMotion Support",
     description:
-      "Have questions about ClipMotion? Contact our support team for help with AI video generation, account issues, or partnership inquiries.",
-    keywords: "contact ClipMotion, AI video support, customer service",
+      "Have questions about ClipMotion? Contact our team for help with AI product photography, account questions or partnership inquiries.",
+    keywords: "contact ClipMotion, AI product shot support, customer service",
     canonical: `${SITE_URL}/contact`,
-  },
-  nanoBananaVideo: {
-    title: "Nano Banana Video – Ultra-Fast AI Video Generator for TikTok & Reels | ClipMotion",
-    description:
-      "Nano Banana Video creates AI-powered short-form videos in seconds. Generate TikTok videos, Instagram Reels, and YouTube Shorts 10x faster with advanced neural network technology.",
-    keywords:
-      "nano banana video, AI video generator, TikTok video maker, Instagram Reels generator, YouTube Shorts AI, fast video creation, short-form video AI, text to video, AI video maker, vertical video generator",
-    canonical: `${SITE_URL}/nanobananavideo`,
   },
 };
 
-// Blog article ideas for SEO
+// Blog article ideas — Product Shot AI / e-commerce SEO
 export const blogArticleIdeas = [
   {
-    slug: "best-ai-video-generators-2026",
-    title: "10 Best AI Video Generators in 2026 (Comprehensive Comparison)",
-    h1: "Best AI Video Generators in 2026",
-    keywords: ["AI video generator", "best video AI tools", "AI video comparison"],
+    slug: "ai-product-photography-guide",
+    title: "AI Product Photography in 2026: The Complete Guide",
+    h1: "AI Product Photography: Complete 2026 Guide",
+    keywords: ["AI product photography", "product shot AI", "ecommerce photos"],
   },
   {
-    slug: "how-to-create-motion-design-videos-with-ai",
-    title: "How to Create Motion Design Videos with AI (Step-by-Step Guide)",
-    h1: "Create Stunning Motion Design Videos with AI",
-    keywords: ["motion design AI", "AI animation tutorial", "motion graphics guide"],
+    slug: "shopify-product-photos-with-ai",
+    title: "How to Create Shopify Product Photos with AI (Step-by-Step)",
+    h1: "Shopify Product Photos with AI",
+    keywords: ["Shopify product photos", "AI Shopify images", "ecommerce photography"],
   },
   {
-    slug: "ai-video-vs-traditional-motion-design",
-    title: "AI Video vs Traditional Motion Design: Which is Better in 2026?",
-    h1: "AI Video vs Traditional Motion Design",
-    keywords: ["AI vs traditional video", "motion design comparison", "video production cost"],
+    slug: "lifestyle-product-shots-ai",
+    title: "Lifestyle Product Shots with AI (Without a Studio)",
+    h1: "Lifestyle Product Shots Powered by AI",
+    keywords: ["lifestyle product shots", "AI lifestyle photos", "product scenes"],
   },
   {
-    slug: "text-to-video-ai-complete-guide",
-    title: "Text to Video AI: The Complete 2026 Guide for Beginners",
-    h1: "Text to Video AI: Complete Beginner's Guide",
-    keywords: ["text to video", "AI video from text", "automated video creation"],
+    slug: "background-removal-ai",
+    title: "AI Background Removal for E-commerce Product Photos",
+    h1: "AI Background Removal: A Practical Guide",
+    keywords: ["AI background removal", "remove background", "product cutout"],
   },
   {
-    slug: "ai-video-ads-generator",
-    title: "How to Create High-Converting Video Ads with AI in Minutes",
-    h1: "Generate Video Ads with AI That Actually Convert",
-    keywords: ["AI video ads", "ad generator", "automated ad creation"],
+    slug: "batch-product-images-ai",
+    title: "Generate 100s of Product Images in Minutes with AI",
+    h1: "Batch Product Image Generation with AI",
+    keywords: ["batch product images", "bulk product photos", "catalog photos AI"],
   },
   {
-    slug: "tiktok-videos-with-ai",
-    title: "Create Viral TikTok Videos with AI: 2026 Strategy Guide",
-    h1: "How to Make Viral TikTok Videos with AI",
-    keywords: ["TikTok AI videos", "viral content AI", "TikTok automation"],
-  },
-  {
-    slug: "ai-influencer-marketing",
-    title: "AI Influencers: The Future of Digital Marketing in 2026",
-    h1: "AI Influencers: Complete Marketing Guide",
-    keywords: ["AI influencer", "virtual influencer", "digital avatar marketing"],
-  },
-  {
-    slug: "instagram-reels-ai-generator",
-    title: "Instagram Reels AI Generator: Automate Your Content in 2026",
-    h1: "Generate Instagram Reels with AI Automatically",
-    keywords: ["Instagram Reels AI", "Reels generator", "automated Instagram content"],
-  },
-  {
-    slug: "ai-video-for-ecommerce",
-    title: "AI Video for E-commerce: Boost Sales with Automated Product Videos",
-    h1: "AI Video for E-commerce: Increase Conversions",
-    keywords: ["ecommerce video AI", "product video generator", "AI product demos"],
-  },
-  {
-    slug: "youtube-shorts-ai",
-    title: "YouTube Shorts AI: How to Generate Shorts That Get Views",
-    h1: "Create YouTube Shorts with AI That Go Viral",
-    keywords: ["YouTube Shorts AI", "Shorts generator", "AI video for YouTube"],
-  },
-  {
-    slug: "ai-voice-for-videos",
-    title: "AI Voice Generators for Video: Best Text-to-Speech in 2026",
-    h1: "Best AI Voice Generators for Video Content",
-    keywords: ["AI voice", "text to speech video", "voiceover AI"],
-  },
-  {
-    slug: "social-media-video-automation",
-    title: "Social Media Video Automation: Complete 2026 Playbook",
-    h1: "Automate Your Social Media Videos",
-    keywords: ["video automation", "social media automation", "content automation"],
-  },
-  {
-    slug: "ai-video-editing-tools",
-    title: "AI Video Editing Tools: Edit Videos 10x Faster with AI",
-    h1: "AI Video Editing: Work Smarter, Not Harder",
-    keywords: ["AI video editing", "automated editing", "video editing tools"],
-  },
-  {
-    slug: "motion-graphics-templates-ai",
-    title: "AI Motion Graphics Templates: No Design Skills Required",
-    h1: "Motion Graphics Made Easy with AI Templates",
-    keywords: ["motion graphics templates", "AI templates", "animated templates"],
-  },
-  {
-    slug: "ai-video-scripts",
-    title: "How to Write Video Scripts with AI (That Actually Work)",
-    h1: "AI Video Script Writing: Complete Guide",
-    keywords: ["AI video scripts", "script generator", "video copywriting AI"],
-  },
-  {
-    slug: "faceless-youtube-channel",
-    title: "Start a Faceless YouTube Channel with AI in 2026",
-    h1: "Build a Faceless YouTube Channel Using AI",
-    keywords: ["faceless YouTube", "AI YouTube channel", "automated YouTube"],
-  },
-  {
-    slug: "ai-video-localization",
-    title: "AI Video Localization: Translate Videos to 50+ Languages",
-    h1: "Localize Your Videos with AI Translation",
-    keywords: ["video localization", "AI translation", "multilingual video"],
-  },
-  {
-    slug: "repurpose-content-with-ai",
-    title: "Repurpose Content with AI: Turn 1 Video into 10 Pieces",
-    h1: "Content Repurposing with AI: Multiply Your Reach",
-    keywords: ["content repurposing", "AI content", "video repurposing"],
-  },
-  {
-    slug: "ai-video-analytics",
-    title: "AI Video Analytics: Optimize Performance with Data",
-    h1: "Master Video Analytics with AI Insights",
-    keywords: ["video analytics AI", "performance optimization", "video metrics"],
-  },
-  {
-    slug: "future-of-ai-video",
-    title: "The Future of AI Video: Predictions for 2027 and Beyond",
-    h1: "AI Video: What's Coming Next?",
-    keywords: ["future AI video", "video AI trends", "video technology predictions"],
+    slug: "best-ai-product-shot-tools-2026",
+    title: "10 Best AI Product Shot Generators in 2026 (Comparison)",
+    h1: "Best AI Product Shot Generators in 2026",
+    keywords: ["best product shot AI", "AI photo tools", "product photography software"],
   },
 ];
