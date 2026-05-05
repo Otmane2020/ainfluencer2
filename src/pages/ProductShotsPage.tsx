@@ -22,18 +22,24 @@ import {
   Loader2,
   ImageIcon,
   Trash2,
+  Box,
+  ArrowUpFromLine,
+  ArrowDownFromLine,
+  Maximize2,
+  Move3d,
+  Palette,
 } from "lucide-react";
 import { toast } from "sonner";
 
-// Shot types configuration
+// Shot types configuration with distinct icons & gradients
 const SHOT_TYPES = [
-  { id: "front", label: "Front View", icon: Camera, description: "Direct front-facing shot" },
-  { id: "angle45", label: "45° Angle", icon: RotateCcw, description: "Three-quarter angle view" },
-  { id: "profile", label: "Side Profile", icon: RotateCcw, description: "Side view of product" },
-  { id: "back", label: "Back View", icon: RotateCcw, description: "Rear view of product" },
-  { id: "top", label: "Top View", icon: Eye, description: "Bird's eye view" },
-  { id: "low_angle", label: "Low Angle", icon: Camera, description: "Dramatic upward angle" },
-  { id: "zoom_detail", label: "Detail Close-up", icon: Focus, description: "Macro detail shot" },
+  { id: "front", label: "Front View", icon: Camera, description: "Direct front-facing shot", gradient: "from-blue-500 to-cyan-500" },
+  { id: "angle45", label: "45° Angle", icon: Move3d, description: "Three-quarter angle view", gradient: "from-violet-500 to-purple-500" },
+  { id: "profile", label: "Side Profile", icon: ArrowUpFromLine, description: "Side view of product", gradient: "from-pink-500 to-rose-500" },
+  { id: "back", label: "Back View", icon: RotateCcw, description: "Rear view of product", gradient: "from-orange-500 to-amber-500" },
+  { id: "top", label: "Top View", icon: Eye, description: "Bird's eye view", gradient: "from-emerald-500 to-teal-500" },
+  { id: "low_angle", label: "Low Angle", icon: ArrowDownFromLine, description: "Dramatic upward angle", gradient: "from-indigo-500 to-blue-600" },
+  { id: "zoom_detail", label: "Detail Close-up", icon: Maximize2, description: "Macro detail shot", gradient: "from-fuchsia-500 to-pink-600" },
 ];
 
 interface GeneratedImage {
