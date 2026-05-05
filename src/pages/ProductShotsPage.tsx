@@ -143,16 +143,16 @@ export default function ProductShotsPage() {
   const canNext = step === 1 ? !!sourceImage : step === 2 ? selectedShotTypes.size > 0 : false;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4 animate-fade-in">
+    <div className="max-w-4xl mx-auto px-3 sm:px-0 space-y-3 sm:space-y-4 animate-fade-in">
       {/* Compact header */}
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="font-display text-xl md:text-2xl font-bold leading-tight">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className="font-display text-lg sm:text-xl md:text-2xl font-bold leading-tight truncate">
             1 photo → <span className="text-gradient">10 pro shots</span>
           </h1>
-          <p className="text-xs text-muted-foreground">Upload, pick angles, let AI handle the studio.</p>
+          <p className="text-[11px] sm:text-xs text-muted-foreground truncate">Upload, pick angles, AI handles the studio.</p>
         </div>
-        <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-medium">
+        <div className="hidden sm:inline-flex shrink-0 items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-medium">
           <Sparkles className="h-3 w-3" /> AI Studio
         </div>
       </div>
