@@ -15,6 +15,7 @@ interface Message {
 type View = "menu" | "chat" | "email";
 
 export const SupportWidget = () => {
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [view, setView] = useState<View>("menu");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -23,6 +24,9 @@ export const SupportWidget = () => {
   const [emailForm, setEmailForm] = useState({ subject: "", message: "" });
   const [emailSending, setEmailSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Hide widget on wizard pages
+  if (location.pathname.startsWith("/product-shots")) return null;
 
   useEffect(() => {
     if (scrollRef.current) {
