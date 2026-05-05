@@ -385,25 +385,36 @@ export default function Demo3Page() {
               {/* Glow */}
               <div className="absolute -inset-8 bg-gradient-to-tr from-fuchsia-500/30 via-transparent to-orange-400/20 blur-3xl rounded-full" />
 
-              {/* iPhone shell */}
+              {/* iPhone shell — mobile 9:16 video */}
               <div className="relative w-[300px] h-[620px] rounded-[48px] bg-neutral-950 p-3 shadow-2xl ring-1 ring-white/10">
-                {/* Background music */}
-                <audio ref={audioRef} src="/audio/demo3-music.mp3" loop muted preload="auto" />
+                {/* Notch */}
+                <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 h-7 w-28 rounded-b-2xl bg-black" />
                 {/* Sound toggle */}
                 <button
                   type="button"
                   onClick={toggleSound}
-                  aria-label={muted ? "Unmute music" : "Mute music"}
+                  aria-label={muted ? "Unmute video" : "Mute video"}
                   className="absolute -right-3 top-16 z-40 h-10 w-10 rounded-full bg-white text-black shadow-xl flex items-center justify-center hover:scale-110 transition-transform"
                 >
                   {muted ? "🔇" : "🔊"}
                 </button>
-                {/* Notch */}
-                <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 h-7 w-28 rounded-b-2xl bg-black" />
                 {/* Screen */}
                 <div className="relative h-full w-full rounded-[36px] overflow-hidden bg-black">
-                  {/* Active scene */}
-                  {active.render(localProgress)}
+                  {/* Real MP4 demo — vertical 9:16 */}
+                  <video
+                    ref={(el) => { audioRef.current = el as unknown as HTMLAudioElement; }}
+                    src="/videos/demo3.mp4"
+                    className="absolute inset-0 h-full w-full object-cover"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="auto"
+                  />
+                  {/* Animated overlay scene (lighter, behind UI) */}
+                  <div className="absolute inset-0 opacity-0 pointer-events-none">
+                    {active.render(localProgress)}
+                  </div>
 
                   {/* Persistent TikTok UI overlay */}
                   <div className="absolute inset-x-0 bottom-0 z-20 pointer-events-none">
