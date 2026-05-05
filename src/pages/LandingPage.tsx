@@ -2,107 +2,184 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { PricingPacks } from "@/components/PricingPacks";
+import { TrustedByCarousel } from "@/components/TrustedByCarousel";
+import { SocialPlatformIcons } from "@/components/SocialPlatformIcons";
 import { supabase } from "@/integrations/supabase/client";
-import { SEOHead } from "@/components/seo/SEOHead";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { SocialProofToast } from "@/components/nudges/SocialProofToast";
+import { MobileLandingPage } from "@/components/landing/MobileLandingPage";
+import { VideoShowcase } from "@/components/landing/VideoShowcase";
+
+import { MobileStickyCta } from "@/components/MobileStickyeCTA";
 import {
-  Camera,
-  Upload,
+  Play,
   Wand2,
-  Download,
+  Video,
+  Calendar,
+  TrendingUp,
+  Zap,
+  Users,
+  Globe,
   ArrowRight,
   Check,
   Star,
   Sparkles,
+  Image,
+  Camera,
+  Megaphone,
+  Mic,
+  User,
+  Layers,
+  Share2,
   Clock,
-  ShoppingBag,
-  Zap,
-  Shield,
+  Target,
+  Film,
 } from "lucide-react";
 
-const steps = [
+// Core product features
+const coreProducts = [
   {
-    icon: Upload,
-    title: "Upload 1 product photo",
-    desc: "Drop any product shot — even a basic phone picture on a white background.",
+    icon: Sparkles,
+    title: "ClipMotion Videos",
+    description: "Create viral vertical videos optimized for TikTok, Reels & Shorts with AI voiceovers and dynamic animations.",
+    badge: "FLAGSHIP",
+    link: "/clipmotion",
   },
   {
-    icon: Wand2,
-    title: "AI generates 10 pro variations",
-    desc: "Lifestyle scenes, colored backdrops, close-ups, ambient shots — all in your brand style.",
+    icon: Zap,
+    title: "Nano Banana Video",
+    description: "Ultra-fast AI video generation for short-form content. Create TikTok & Reels videos in seconds.",
+    badge: "FAST",
+    link: "/nanobananavideo",
   },
   {
-    icon: Download,
-    title: "Download & boost sales",
-    desc: "Ready in 2 minutes. Plug them into Shopify, Amazon, Etsy, Instagram or your ads.",
+    icon: Image,
+    title: "Smart Images",
+    description: "Generate stunning AI images in seconds with our Smart, High, and Studio quality tiers.",
+    badge: "AI SMART",
+    link: "/images",
+  },
+  {
+    icon: Camera,
+    title: "Product Shots",
+    description: "Transform a single product photo into multiple professional angles and lifestyle scenes.",
+    badge: "AI SMART",
+    link: "/product-shots",
+  },
+  {
+    icon: Video,
+    title: "Cinema Videos",
+    description: "Create cinematic AI videos with Sora 2 quality for professional brand content.",
+    badge: "PREMIUM",
+    link: "/videos",
+  },
+  {
+    icon: Megaphone,
+    title: "AI Campaigns",
+    description: "Automate your content calendar with AI-generated posts, images, and videos published on autopilot.",
+    badge: "NEW",
+    link: "/campaigns",
   },
 ];
 
-const benefits = [
-  "No photographer, no studio, no Photoshop",
-  "10 high-resolution pro shots per product",
-  "Lifestyle, packshot & ad-ready scenes",
-  "Keeps your product 100% accurate",
-  "Commercial license included",
-  "Results in under 2 minutes",
+// Platform features
+const platformFeatures = [
+  {
+    icon: Calendar,
+    title: "Smart Scheduling",
+    description: "Plan and automate your content calendar across all social platforms with timezone-aware publishing.",
+  },
+  {
+    icon: Globe,
+    title: "Multi-Platform Publishing",
+    description: "Publish to Instagram, Facebook, TikTok, and LinkedIn simultaneously with one click.",
+  },
+  {
+    icon: Mic,
+    title: "AI Voiceovers",
+    description: "Choose from 50+ natural voices in multiple languages for your video content.",
+  },
+  {
+    icon: Layers,
+    title: "Scenario System",
+    description: "Select from business sectors, video styles, and emotional tones to guide AI generation.",
+  },
+  {
+    icon: Target,
+    title: "Brand Context",
+    description: "Your brand identity is automatically injected into all generated content.",
+  },
+  {
+    icon: Zap,
+    title: "Instant Generation",
+    description: "Generate content in seconds, not hours. Scale your output 10x faster.",
+  },
 ];
 
 const testimonials = [
   {
-    name: "Léa M.",
-    role: "Shopify store owner",
-    avatar: "L",
-    content: "I doubled my add-to-cart rate after switching my product images. Game changer for small brands.",
+    name: "Sarah Johnson",
+    role: "Content Creator",
+    avatar: "S",
+    content: "ClipMotion transformed my content workflow. I create 10x more content in half the time!",
     rating: 5,
   },
   {
-    name: "Marcus B.",
-    role: "Amazon seller",
+    name: "Mike Chen",
+    role: "Marketing Agency Owner",
     avatar: "M",
-    content: "I was paying $80 per photo. Now I get 10 pro shots in 2 minutes for the price of a coffee.",
+    content: "Our clients love the AI-generated content. It's indistinguishable from professional productions.",
     rating: 5,
   },
   {
-    name: "Aïcha D.",
-    role: "Instagram boutique",
-    avatar: "A",
-    content: "My feed finally looks like a real brand. Customers think I hired a professional photographer.",
+    name: "Emma Wilson",
+    role: "E-commerce Brand",
+    avatar: "E",
+    content: "The AI influencer feature is a game-changer. We created a virtual brand ambassador instantly.",
     rating: 5,
   },
 ];
 
 const stats = [
-  { value: "1 photo", label: "All you need" },
-  { value: "10 shots", label: "Per generation" },
-  { value: "2 min", label: "Average wait" },
-  { value: "+87%", label: "Avg conversion lift" },
+  { value: "10M+", label: "Videos Generated" },
+  { value: "50K+", label: "Happy Users" },
+  { value: "98%", label: "Satisfaction Rate" },
+  { value: "24/7", label: "AI Availability" },
 ];
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   // Redirect authenticated users to dashboard (handles OAuth callback)
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (session?.user) navigate("/dashboard");
+      (event, session) => {
+        if (session?.user) {
+          navigate("/dashboard");
+        }
       }
     );
+
+    // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) navigate("/dashboard");
+      if (session?.user) {
+        navigate("/dashboard");
+      }
     });
+
     return () => subscription.unsubscribe();
   }, [navigate]);
 
+  // Show mobile-optimized landing page on mobile devices
+  if (isMobile) {
+    return <MobileLandingPage />;
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      <SEOHead
-        title="ClipMotion — Turn 1 product photo into 10 pro shots in 2 minutes"
-        description="AI product photography for e-commerce sellers. Upload one product picture, get 10 professional, ad-ready images for Shopify, Amazon, Etsy, Instagram & Facebook ads."
-        canonical="https://clipmotion.ai/"
-        keywords="ai product photography, product shots ai, ecommerce photo generator, shopify product images, amazon product photos"
-      />
-
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 glass">
         <div className="container mx-auto flex h-14 md:h-16 items-center justify-between px-3 md:px-4">
@@ -113,28 +190,29 @@ const LandingPage = () => {
             <span className="font-display text-lg md:text-xl font-bold text-gradient">ClipMotion</span>
           </Link>
           <div className="hidden md:flex items-center gap-8">
-            <a href="#how" className="text-sm text-muted-foreground hover:text-foreground transition-colors">How it works</a>
-            <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
+            <Link to="/features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</Link>
+            <Link to="/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</Link>
+            <Link to="/use-cases" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Use Cases</Link>
             <Link to="/faq" className="text-sm text-muted-foreground hover:text-foreground transition-colors">FAQ</Link>
             <Link to="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Blog</Link>
           </div>
           <div className="flex items-center gap-2 md:gap-3">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/auth")} className="text-xs md:text-sm">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/auth")} className="text-xs md:text-sm px-2 md:px-4">
               Sign In
             </Button>
-            <Button size="sm" onClick={() => navigate("/auth")} className="gradient-primary text-xs md:text-sm">
-              Try Free
+            <Button size="sm" onClick={() => navigate("/auth")} className="gradient-primary text-xs md:text-sm px-3 md:px-4">
+              Get Started
             </Button>
           </div>
         </div>
       </nav>
 
-      {/* Hero */}
-      <section className="relative pt-28 md:pt-36 pb-12 md:pb-20 overflow-hidden">
+      {/* Hero Section */}
+      <section className="relative pt-24 md:pt-32 pb-12 md:pb-20 overflow-hidden">
         <div className="absolute inset-0 gradient-hero opacity-10" />
-        <div className="absolute top-1/4 left-1/4 w-72 md:w-96 h-72 md:h-96 bg-primary/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-72 md:w-96 h-72 md:h-96 bg-secondary/20 rounded-full blur-3xl" />
-
+        <div className="absolute top-1/4 left-1/4 w-48 md:w-96 h-48 md:h-96 bg-primary/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-48 md:w-96 h-48 md:h-96 bg-secondary/20 rounded-full blur-3xl" />
+        
         <div className="container relative mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -142,50 +220,38 @@ const LandingPage = () => {
             transition={{ duration: 0.6 }}
             className="max-w-4xl mx-auto text-center"
           >
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-4 py-2 mb-6">
-              <Camera className="h-4 w-4 text-primary" />
-              <span className="text-xs md:text-sm font-medium">AI Product Photography for E-commerce</span>
+            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 md:px-4 py-1.5 md:py-2 mb-6 md:mb-8">
+              <Wand2 className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
+              <span className="text-xs md:text-sm font-medium">AI-Powered Content Creation</span>
             </div>
-
-            <h1 className="font-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-tight mb-6">
-              1 product photo →{" "}
-              <span className="text-gradient">10 pro shots</span>{" "}
-              in 2 minutes
+            
+            <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold leading-tight mb-4 md:mb-6">
+              Create <span className="text-gradient">AI-Powered</span> Videos That Go{" "}
+              <span className="text-gradient">Viral</span>
             </h1>
-
-            <p className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-              Stop losing sales because of bad photos. Upload one product picture and get a full gallery of professional, ad-ready images for your Shopify, Amazon, Instagram or Facebook ads.
+            
+            <p className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 md:mb-10 px-2">
+              Generate stunning AI influencer videos, automate your social media presence, and grow your audience 10x faster with ClipMotion.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 mb-10">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 mb-8 md:mb-12">
               <Button
                 size="lg"
                 onClick={() => navigate("/auth")}
-                className="w-full sm:w-auto h-14 px-8 text-lg gradient-primary shadow-glow hover:opacity-90"
+                className="w-full sm:w-auto h-12 md:h-14 px-6 md:px-8 text-base md:text-lg gradient-primary shadow-glow hover:opacity-90 transition-opacity"
               >
-                <Sparkles className="mr-2 h-5 w-5" />
-                Try 5 product shots free
+                <Play className="mr-2 h-4 w-4 md:h-5 md:w-5" />
+                Start Creating Free
               </Button>
               <Button
                 size="lg"
                 variant="outline"
-                className="w-full sm:w-auto h-14 px-8 text-lg"
-                onClick={() => {
-                  document.getElementById("how")?.scrollIntoView({ behavior: "smooth" });
-                }}
+                className="w-full sm:w-auto h-12 md:h-14 px-6 md:px-8 text-base md:text-lg"
+                onClick={() => navigate("/auth")}
               >
-                See how it works
-                <ArrowRight className="ml-2 h-5 w-5" />
+                Watch Demo
+                <ArrowRight className="ml-2 h-4 w-4 md:h-5 md:w-5" />
               </Button>
-            </div>
-
-            <div className="flex items-center justify-center gap-2 mb-12 text-sm text-muted-foreground">
-              <div className="flex">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <Star key={i} className="h-4 w-4 fill-primary text-primary" />
-                ))}
-              </div>
-              <span>4.9/5 — loved by 12,000+ e-commerce sellers</span>
             </div>
 
             {/* Stats */}
@@ -195,7 +261,7 @@ const LandingPage = () => {
                   key={stat.label}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 + index * 0.1 }}
+                  transition={{ delay: 0.4 + index * 0.1 }}
                   className="text-center"
                 >
                   <div className="font-display text-2xl md:text-3xl lg:text-4xl font-bold text-gradient">{stat.value}</div>
@@ -203,238 +269,409 @@ const LandingPage = () => {
                 </motion.div>
               ))}
             </div>
+
+            {/* Auto-Post Platforms */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8 }}
+              className="mt-12 md:mt-16"
+            >
+              <p className="text-sm text-muted-foreground mb-6">Auto-publish to all major platforms</p>
+              <SocialPlatformIcons />
+            </motion.div>
           </motion.div>
         </div>
       </section>
 
-      {/* Before / After – real ClipMotion outputs */}
-      <section className="py-12 md:py-16 bg-muted/20">
+      {/* Video Showcase — real Remotion-generated videos */}
+      <VideoShowcase />
+
+      {/* AI Showcase Gallery */}
+      <section className="py-12 md:py-16 overflow-hidden bg-muted/20">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-10">
-            <h2 className="font-display text-3xl md:text-4xl font-bold mb-3">
-              From <span className="text-muted-foreground line-through">1 photo</span> to{" "}
-              <span className="text-gradient">a full pro gallery</span>
-            </h2>
-            <p className="text-muted-foreground">Real outputs generated by ClipMotion AI — same product, 5 angles.</p>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-display text-xl md:text-2xl font-bold">AI Generations</h3>
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-primary border border-primary/20 rounded-full px-3 py-1">
+              <Zap className="h-3.5 w-3.5" /> Live Examples
+            </span>
           </div>
-
-          {/* Watch example */}
-          <div className="max-w-6xl mx-auto mb-10">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3 text-center">Example 1 — Watch</div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-              {[
-                { label: "45° angle", img: "/showcase/watch-angle45.png" },
-                { label: "Side profile", img: "/showcase/watch-profile.png" },
-                { label: "Close-up", img: "/showcase/watch-zoom.png" },
-                { label: "Lifestyle", img: "/showcase/watch-lifestyle.png" },
-              ].map((item, i) => (
-                <motion.div
-                  key={`watch-${i}`}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.08 }}
-                  className="relative aspect-square rounded-2xl overflow-hidden border border-border bg-white"
-                >
-                  <img src={item.img} alt={`Watch ${item.label}`} className="w-full h-full object-cover" loading="lazy" />
-                  <div className="absolute top-2 left-2">
-                    <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-primary text-primary-foreground">
-                      {item.label}
-                    </span>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-
-          {/* Sofa example */}
-          <div className="max-w-6xl mx-auto">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3 text-center">Example 2 — Sofa</div>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
-              {[
-                { label: "45° angle", img: "/showcase/sofa-angle45.png" },
-                { label: "Side", img: "/showcase/sofa-profile.png" },
-                { label: "Top view", img: "/showcase/sofa-top.png" },
-                { label: "Detail", img: "/showcase/sofa-zoom.png" },
-                { label: "Lifestyle", img: "/showcase/sofa-lifestyle.png" },
-              ].map((item, i) => (
-                <motion.div
-                  key={`sofa-${i}`}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.08 }}
-                  className="relative aspect-square rounded-2xl overflow-hidden border border-border bg-white"
-                >
-                  <img src={item.img} alt={`Sofa ${item.label}`} className="w-full h-full object-cover" loading="lazy" />
-                  <div className="absolute top-2 left-2">
-                    <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-primary text-primary-foreground">
-                      {item.label}
-                    </span>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
+        </div>
+        <div className="flex gap-4 animate-marquee hover:[animation-play-state:paused]">
+          {[
+            { img: "/showcase/kling-fashion.png", label: "Kling Fashion", type: "video", gradient: "from-pink-400/70", badge: "Kling" },
+            { img: "/showcase/kling-glamour.png", label: "Kling Glamour", type: "video", gradient: "from-rose-400/70", badge: "Kling" },
+            { img: "/showcase/kling-jewelry.png", label: "Kling Jewelry", type: "video", gradient: "from-amber-600/70", badge: "Kling" },
+            { img: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=400&h=500&fit=crop", label: "Motion Video", type: "video", gradient: "from-violet-500/60" },
+            { img: "/showcase/kling-cinematic.png", label: "Kling Cinema", type: "video", gradient: "from-red-600/70", badge: "Kling" },
+            { img: "/showcase/kling-stage.png", label: "Kling Stage", type: "video", gradient: "from-red-500/70", badge: "Kling" },
+            { img: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=500&fit=crop", label: "Cinematic AI", type: "video", gradient: "from-blue-500/60" },
+            { img: "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=400&h=500&fit=crop", label: "Abstract FX", type: "image", gradient: "from-emerald-500/60" },
+            { img: "https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?w=400&h=500&fit=crop", label: "Reels Ready", type: "video", gradient: "from-rose-500/60" },
+            { img: "https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=400&h=500&fit=crop", label: "AI Art", type: "image", gradient: "from-indigo-500/60" },
+            { img: "https://images.unsplash.com/photo-1535223289827-42f1e9919769?w=400&h=500&fit=crop", label: "Tech Demo", type: "video", gradient: "from-cyan-500/60" },
+            // Duplicate for seamless loop
+            { img: "/showcase/kling-fashion.png", label: "Kling Fashion", type: "video", gradient: "from-pink-400/70", badge: "Kling" },
+            { img: "/showcase/kling-glamour.png", label: "Kling Glamour", type: "video", gradient: "from-rose-400/70", badge: "Kling" },
+            { img: "/showcase/kling-jewelry.png", label: "Kling Jewelry", type: "video", gradient: "from-amber-600/70", badge: "Kling" },
+            { img: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=400&h=500&fit=crop", label: "Motion Video", type: "video", gradient: "from-violet-500/60" },
+            { img: "/showcase/kling-cinematic.png", label: "Kling Cinema", type: "video", gradient: "from-red-600/70", badge: "Kling" },
+            { img: "/showcase/kling-stage.png", label: "Kling Stage", type: "video", gradient: "from-red-500/70", badge: "Kling" },
+            { img: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=500&fit=crop", label: "Cinematic AI", type: "video", gradient: "from-blue-500/60" },
+            { img: "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=400&h=500&fit=crop", label: "Abstract FX", type: "image", gradient: "from-emerald-500/60" },
+            { img: "https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?w=400&h=500&fit=crop", label: "Reels Ready", type: "video", gradient: "from-rose-500/60" },
+            { img: "https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=400&h=500&fit=crop", label: "AI Art", type: "image", gradient: "from-indigo-500/60" },
+            { img: "https://images.unsplash.com/photo-1535223289827-42f1e9919769?w=400&h=500&fit=crop", label: "Tech Demo", type: "video", gradient: "from-cyan-500/60" },
+          ].map((item, index) => (
+            <motion.div
+              key={`showcase-${index}`}
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: Math.min(index * 0.05, 0.4) }}
+              className="flex-shrink-0 w-52 aspect-[3/4] rounded-2xl overflow-hidden relative cursor-pointer group"
+              onClick={() => navigate("/auth")}
+            >
+              <img
+                src={item.img}
+                alt={item.label}
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                loading="lazy"
+              />
+              <div className={`absolute inset-0 bg-gradient-to-t ${item.gradient} to-transparent`} />
+              {"badge" in item && item.badge && (
+                <div className="absolute top-2 left-2">
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-blue-500/90 text-white backdrop-blur-sm">
+                    {item.badge}
+                  </span>
+                </div>
+              )}
+              <div className="absolute bottom-0 left-0 right-0 p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  {item.type === "video" ? (
+                    <Play className="h-3.5 w-3.5 text-white/90" />
+                  ) : (
+                    <Image className="h-3.5 w-3.5 text-white/90" />
+                  )}
+                  <span className="text-[10px] text-white/70 uppercase tracking-wider font-medium">
+                    {item.type}
+                  </span>
+                </div>
+                <p className="font-semibold text-white text-sm">{item.label}</p>
+              </div>
+            </motion.div>
+          ))}
         </div>
       </section>
 
-      {/* How it works */}
-      <section id="how" className="py-16 md:py-24">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="font-display text-3xl md:text-5xl font-bold mb-3">3 steps. 2 minutes.</h2>
-            <p className="text-muted-foreground text-lg">No skills. No software. Just better photos.</p>
-          </div>
+      {/* Trusted By Carousel */}
+      <TrustedByCarousel />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {steps.map((s, i) => (
+      {/* Core Products Section */}
+      <section id="products" className="py-12 md:py-20 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-10 md:mb-16"
+          >
+            <h2 className="font-display text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
+              AI-Powered <span className="text-gradient">Content Suite</span>
+            </h2>
+            <p className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto px-2">
+              Everything you need to create, automate, and publish stunning content at scale.
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {coreProducts.map((product, index) => (
               <motion.div
-                key={s.title}
+                key={product.title}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: i * 0.15 }}
-                className="relative bg-card border border-border rounded-2xl p-6 text-center hover:border-primary/50 transition-colors"
+                transition={{ delay: index * 0.1 }}
               >
-                <div className="absolute -top-3 -left-3 h-8 w-8 rounded-full gradient-primary flex items-center justify-center text-white font-bold text-sm shadow-glow">
-                  {i + 1}
-                </div>
-                <div className="mx-auto mb-4 h-14 w-14 rounded-2xl gradient-primary flex items-center justify-center shadow-glow">
-                  <s.icon className="h-7 w-7 text-white" />
-                </div>
-                <h3 className="font-display text-xl font-bold mb-2">{s.title}</h3>
-                <p className="text-muted-foreground text-sm">{s.desc}</p>
+                <Card 
+                  className="h-full hover:shadow-glow transition-all hover:border-primary/30 bg-card/50 cursor-pointer group"
+                  onClick={() => navigate(product.link)}
+                >
+                  <CardContent className="p-4 md:p-6 relative">
+                    {product.badge && (
+                      <div className="absolute top-3 right-3">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          product.badge === "FLAGSHIP" 
+                            ? "bg-gradient-to-r from-primary to-secondary text-white" 
+                            : product.badge === "FAST"
+                            ? "bg-yellow-500/20 text-yellow-400"
+                            : product.badge === "AI SMART"
+                            ? "bg-accent/20 text-accent"
+                            : product.badge === "PREMIUM"
+                            ? "bg-amber-500/20 text-amber-400"
+                            : "bg-primary/20 text-primary"
+                        }`}>
+                          {product.badge}
+                        </span>
+                      </div>
+                    )}
+                    <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl gradient-primary flex items-center justify-center mb-3 md:mb-4 shadow-primary group-hover:scale-110 transition-transform">
+                      <product.icon className="h-5 w-5 md:h-6 md:w-6 text-white" />
+                    </div>
+                    <h3 className="font-display text-lg md:text-xl font-semibold mb-2">{product.title}</h3>
+                    <p className="text-sm md:text-base text-muted-foreground">{product.description}</p>
+                    <div className="mt-4 flex items-center gap-1 text-primary text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                      Try now <ArrowRight className="h-4 w-4" />
+                    </div>
+                  </CardContent>
+                </Card>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Benefits */}
-      <section className="py-16 md:py-20 bg-muted/30">
+      {/* Platform Features Section */}
+      <section id="features" className="py-12 md:py-20">
         <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-10">
-              <h2 className="font-display text-3xl md:text-4xl font-bold mb-3">
-                Built for <span className="text-gradient">e-commerce sellers</span>
-              </h2>
-              <p className="text-muted-foreground">Shopify, Amazon, Etsy, WooCommerce, Instagram Shop, TikTok Shop.</p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {benefits.map((b) => (
-                <div key={b} className="flex items-center gap-3 bg-card p-4 rounded-xl border border-border">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/20">
-                    <Check className="h-4 w-4 text-primary" />
-                  </div>
-                  <span className="text-sm md:text-base">{b}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[
-                { icon: Clock, title: "Save 10+ hours/week", desc: "vs. shooting & editing manually" },
-                { icon: Zap, title: "Save $500+/month", desc: "vs. hiring a product photographer" },
-                { icon: Shield, title: "Commercial license", desc: "Use anywhere — ads, store, social" },
-              ].map((item, i) => (
-                <div key={i} className="bg-card border border-border rounded-xl p-5 text-center">
-                  <item.icon className="h-6 w-6 text-primary mx-auto mb-2" />
-                  <div className="font-bold mb-1">{item.title}</div>
-                  <div className="text-xs text-muted-foreground">{item.desc}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section className="py-16 md:py-20">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="font-display text-3xl md:text-4xl font-bold mb-3">
-              Sellers are <span className="text-gradient">crushing it</span>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-10 md:mb-16"
+          >
+            <h2 className="font-display text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
+              Everything You Need to <span className="text-gradient">Dominate</span> Social Media
             </h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {testimonials.map((t, i) => (
+            <p className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto px-2">
+              Powerful features designed to help creators and brands scale their content effortlessly.
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {platformFeatures.map((feature, index) => (
               <motion.div
-                key={t.name}
+                key={feature.title}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="bg-card border border-border rounded-2xl p-6"
+                transition={{ delay: index * 0.1 }}
               >
-                <div className="flex mb-3">
-                  {[...Array(t.rating)].map((_, k) => (
-                    <Star key={k} className="h-4 w-4 fill-primary text-primary" />
-                  ))}
-                </div>
-                <p className="text-sm mb-4 text-muted-foreground">"{t.content}"</p>
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full gradient-primary flex items-center justify-center text-white font-bold">
-                    {t.avatar}
-                  </div>
-                  <div>
-                    <div className="font-semibold text-sm">{t.name}</div>
-                    <div className="text-xs text-muted-foreground">{t.role}</div>
-                  </div>
-                </div>
+                <Card className="h-full hover:shadow-glow transition-all hover:border-primary/30 bg-card/50">
+                  <CardContent className="p-4 md:p-6">
+                    <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-muted flex items-center justify-center mb-3 md:mb-4">
+                      <feature.icon className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+                    </div>
+                    <h3 className="font-display text-lg md:text-xl font-semibold mb-2">{feature.title}</h3>
+                    <p className="text-sm md:text-base text-muted-foreground">{feature.description}</p>
+                  </CardContent>
+                </Card>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Pricing */}
-      <section id="pricing" className="py-16 md:py-24 bg-muted/30">
+      {/* How It Works */}
+      <section className="py-20">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-10 md:mb-14">
-            <h2 className="font-display text-3xl md:text-5xl font-bold mb-3">
-              Simple <span className="text-gradient">pricing</span>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
+              Create Content in <span className="text-gradient">3 Simple Steps</span>
             </h2>
-            <p className="text-muted-foreground text-lg">Start free. Scale when you sell more.</p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {[
+              { step: "1", title: "Describe Your Vision", desc: "Tell our AI what kind of content you want to create" },
+              { step: "2", title: "AI Generates Content", desc: "Our proprietary AI engine creates stunning visuals and videos" },
+              { step: "3", title: "Publish & Grow", desc: "Schedule and publish across all platforms with one click" },
+            ].map((item, index) => (
+              <motion.div
+                key={item.step}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.2 }}
+                className="relative text-center"
+              >
+                <div className="h-20 w-20 rounded-full gradient-primary flex items-center justify-center mx-auto mb-6 shadow-glow">
+                  <span className="font-display text-3xl font-bold text-white">{item.step}</span>
+                </div>
+                <h3 className="font-display text-xl font-semibold mb-2">{item.title}</h3>
+                <p className="text-muted-foreground">{item.desc}</p>
+                {index < 2 && (
+                  <div className="hidden md:block absolute top-10 left-[60%] w-[80%] h-[2px] bg-gradient-to-r from-primary/50 to-transparent" />
+                )}
+              </motion.div>
+            ))}
           </div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section id="pricing" className="py-20 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
+              Simple, <span className="text-gradient">Transparent</span> Pricing
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Choose the plan that fits your needs. Start free, upgrade anytime.
+            </p>
+          </motion.div>
+
           <PricingPacks />
         </div>
       </section>
 
-      {/* Final CTA */}
-      <section className="py-20 md:py-28">
-        <div className="container mx-auto px-4 text-center">
-          <ShoppingBag className="h-12 w-12 text-primary mx-auto mb-4" />
-          <h2 className="font-display text-3xl md:text-5xl font-bold mb-4">
-            Ready to make every product <span className="text-gradient">look premium</span>?
-          </h2>
-          <p className="text-muted-foreground text-lg mb-8 max-w-xl mx-auto">
-            Join 12,000+ sellers turning ordinary product photos into ad-ready visuals.
-          </p>
-          <Button
-            size="lg"
-            onClick={() => navigate("/auth")}
-            className="h-14 px-8 text-lg gradient-primary shadow-glow"
+      {/* Testimonials */}
+      <section id="testimonials" className="py-20">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
           >
-            <Sparkles className="mr-2 h-5 w-5" />
-            Try 5 product shots free
-          </Button>
-          <p className="text-xs text-muted-foreground mt-4">No credit card required • Results in 2 minutes</p>
+            <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
+              Loved by <span className="text-gradient">50,000+</span> Creators
+            </h2>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            {testimonials.map((testimonial, index) => (
+              <motion.div
+                key={testimonial.name}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <Card className="h-full bg-card/50">
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-1 mb-4">
+                      {Array.from({ length: testimonial.rating }).map((_, i) => (
+                        <Star key={i} className="h-4 w-4 fill-primary text-primary" />
+                      ))}
+                    </div>
+                    <p className="text-muted-foreground mb-6">"{testimonial.content}"</p>
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full gradient-primary flex items-center justify-center">
+                        <span className="font-bold text-white">{testimonial.avatar}</span>
+                      </div>
+                      <div>
+                        <p className="font-semibold">{testimonial.name}</p>
+                        <p className="text-sm text-muted-foreground">{testimonial.role}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="relative rounded-3xl overflow-hidden"
+          >
+            <div className="absolute inset-0 gradient-hero" />
+            <div className="absolute inset-0 bg-black/20" />
+            <div className="relative z-10 py-16 px-8 text-center text-white">
+              <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
+                Ready to Transform Your Content?
+              </h2>
+              <p className="text-xl text-white/80 max-w-2xl mx-auto mb-8">
+                Join 50,000+ creators who are already using ClipMotion to grow their audience and save time.
+              </p>
+              <Button
+                size="lg"
+                onClick={() => navigate("/auth")}
+                className="h-14 px-8 text-lg bg-white text-foreground hover:bg-white/90"
+              >
+                <Wand2 className="mr-2 h-5 w-5" />
+                Get Started Free
+              </Button>
+              <p className="text-sm text-white/60 mt-4">No credit card required • Free forever plan available</p>
+            </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border py-8">
-        <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-          <div>© {new Date().getFullYear()} ClipMotion — AI Product Photography</div>
-          <div className="flex gap-6">
-            <Link to="/privacy-policy" className="hover:text-foreground">Privacy</Link>
-            <Link to="/terms" className="hover:text-foreground">Terms</Link>
-            <Link to="/contact" className="hover:text-foreground">Contact</Link>
+      <footer className="py-12 border-t border-border bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+            <div>
+              <h4 className="font-display font-semibold mb-4">Product</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><Link to="/features" className="hover:text-foreground transition-colors">Features</Link></li>
+                <li><Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link></li>
+                <li><Link to="/ai-video-generator" className="hover:text-foreground transition-colors">AI Video Generator</Link></li>
+                <li><Link to="/motion-design-ai" className="hover:text-foreground transition-colors">Motion Design AI</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-display font-semibold mb-4">Resources</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><Link to="/blog" className="hover:text-foreground transition-colors">Blog</Link></li>
+                <li><Link to="/use-cases" className="hover:text-foreground transition-colors">Use Cases</Link></li>
+                <li><Link to="/faq" className="hover:text-foreground transition-colors">FAQ</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-display font-semibold mb-4">Company</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><Link to="/contact" className="hover:text-foreground transition-colors">Contact</Link></li>
+                <li><a href="https://twitter.com/clipmotion" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">Twitter</a></li>
+                <li><a href="https://linkedin.com/company/clipmotion" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">LinkedIn</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-display font-semibold mb-4">Legal</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><Link to="/privacy-policy" className="hover:text-foreground transition-colors">Privacy Policy</Link></li>
+                <li><Link to="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link></li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-8 border-t border-border">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl overflow-hidden">
+                <img src="/logo.png" alt="ClipMotion" className="h-full w-full object-contain" />
+              </div>
+              <span className="font-display text-lg font-bold">ClipMotion</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              © {new Date().getFullYear()} ClipMotion. All rights reserved.
+            </p>
           </div>
         </div>
       </footer>
+
+      {/* Mobile Sticky CTA */}
+      <MobileStickyCta showFlashSale={true} />
+
+      {/* Social proof nudge toasts */}
+      <SocialProofToast initialDelay={6000} interval={18000} />
     </div>
   );
 };
