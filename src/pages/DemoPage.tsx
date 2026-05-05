@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import { Upload, Sparkles, Images as ImagesIcon, ArrowRight, Heart, MessageCircle, Share2, Music2, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
