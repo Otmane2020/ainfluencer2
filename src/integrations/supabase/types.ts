@@ -938,6 +938,119 @@ export type Database = {
           },
         ]
       }
+      store_connections: {
+        Row: {
+          access_token: string | null
+          api_key: string | null
+          api_secret: string | null
+          created_at: string
+          id: string
+          last_sync_at: string | null
+          metadata: Json | null
+          platform: string
+          project_id: string | null
+          shop_name: string
+          status: string
+          store_url: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token?: string | null
+          api_key?: string | null
+          api_secret?: string | null
+          created_at?: string
+          id?: string
+          last_sync_at?: string | null
+          metadata?: Json | null
+          platform: string
+          project_id?: string | null
+          shop_name: string
+          status?: string
+          store_url: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string | null
+          api_key?: string | null
+          api_secret?: string | null
+          created_at?: string
+          id?: string
+          last_sync_at?: string | null
+          metadata?: Json | null
+          platform?: string
+          project_id?: string | null
+          shop_name?: string
+          status?: string
+          store_url?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      store_products: {
+        Row: {
+          connection_id: string
+          currency: string | null
+          description: string | null
+          external_id: string
+          id: string
+          image_urls: Json | null
+          imported_at: string
+          price: number | null
+          primary_image_url: string | null
+          product_url: string | null
+          raw: Json | null
+          title: string
+          updated_at: string
+          user_id: string
+          variants: Json | null
+        }
+        Insert: {
+          connection_id: string
+          currency?: string | null
+          description?: string | null
+          external_id: string
+          id?: string
+          image_urls?: Json | null
+          imported_at?: string
+          price?: number | null
+          primary_image_url?: string | null
+          product_url?: string | null
+          raw?: Json | null
+          title: string
+          updated_at?: string
+          user_id: string
+          variants?: Json | null
+        }
+        Update: {
+          connection_id?: string
+          currency?: string | null
+          description?: string | null
+          external_id?: string
+          id?: string
+          image_urls?: Json | null
+          imported_at?: string
+          price?: number | null
+          primary_image_url?: string | null
+          product_url?: string | null
+          raw?: Json | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+          variants?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_products_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "store_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
           created_at: string
