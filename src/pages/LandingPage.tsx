@@ -6,6 +6,7 @@ import { PricingPacks } from "@/components/PricingPacks";
 import { supabase } from "@/integrations/supabase/client";
 import { SocialProofToast } from "@/components/nudges/SocialProofToast";
 import { MobileStickyCta } from "@/components/MobileStickyeCTA";
+import { SEOHead } from "@/components/seo/SEOHead";
 import {
   Upload,
   Wand2,
