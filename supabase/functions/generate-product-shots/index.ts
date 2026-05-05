@@ -71,11 +71,12 @@ async function fetchWithTimeout(url: string, init: RequestInit, ms = 60_000): Pr
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
-  // Chunked encoding to avoid "Maximum call stack size exceeded" on large images
+  // Per-byte loop in 8KB windows — avoids "Maximum call stack size exceeded"
   let binary = "";
-  const CHUNK = 0x8000;
+  const CHUNK = 8192;
   for (let i = 0; i < bytes.length; i += CHUNK) {
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK) as unknown as number[]);
+    const end = Math.min(i + CHUNK, bytes.length);
+    for (let j = i; j < end; j++) binary += String.fromCharCode(bytes[j]);
   }
   return btoa(binary);
 }
