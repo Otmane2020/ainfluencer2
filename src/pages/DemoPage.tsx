@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Upload, Sparkles, Images as ImagesIcon, ArrowRight, Heart, MessageCircle, Share2, Music2, Play } from "lucide-react";
+import { Upload, Sparkles, Images as ImagesIcon, ArrowRight, Heart, MessageCircle, Share2, Music2, Play, Hand, MousePointer2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import sofaOriginal from "@/assets/demo/sofa-original.jpg";
@@ -8,11 +8,15 @@ import sofa1 from "@/assets/demo/sofa-1.jpg";
 import sofa2 from "@/assets/demo/sofa-2.jpg";
 import sofa3 from "@/assets/demo/sofa-3.jpg";
 import sofa4 from "@/assets/demo/sofa-4.jpg";
+import sofa5 from "@/assets/demo/sofa-5.jpg";
+import sofa6 from "@/assets/demo/sofa-6.jpg";
 import watchOriginal from "@/assets/demo/watch-original.jpg";
 import watch1 from "@/assets/demo/watch-1.jpg";
 import watch2 from "@/assets/demo/watch-2.jpg";
 import watch3 from "@/assets/demo/watch-3.jpg";
 import watch4 from "@/assets/demo/watch-4.jpg";
+import watch5 from "@/assets/demo/watch-5.jpg";
+import watch6 from "@/assets/demo/watch-6.jpg";
 
 type DemoItem = {
   name: string;
@@ -20,6 +24,7 @@ type DemoItem = {
   original: string;
   generated: string[];
   angles: string[];
+  kinds: ("Studio" | "Lifestyle")[];
   caption: string;
 };
 
@@ -28,24 +33,27 @@ const DEMOS: DemoItem[] = [
     name: "Sofa",
     hashtag: "#InteriorDesign",
     original: sofaOriginal,
-    generated: [sofa1, sofa2, sofa3, sofa4],
-    angles: ["Front view", "Lifestyle", "Editorial", "Side profile"],
-    caption: "From plain studio shot → 4 angles & scenes 🛋️✨",
+    // 3 studio (white bg) + 3 lifestyle (ambiance)
+    generated: [sofa2, sofa4, sofa5, sofa1, sofa3, sofa6],
+    angles: ["Detail", "Side", "Back", "Lifestyle", "Boho", "Loft"],
+    kinds: ["Studio", "Studio", "Studio", "Lifestyle", "Lifestyle", "Lifestyle"],
+    caption: "1 photo → 3 studio + 3 lifestyle scenes 🛋️✨",
   },
   {
     name: "Watch",
     hashtag: "#LuxuryWatch",
     original: watchOriginal,
-    generated: [watch1, watch2, watch3, watch4],
-    angles: ["Front view", "On wrist", "Cinematic", "Top-down"],
-    caption: "One product photo → full editorial mosaic ⌚🔥",
+    generated: [watch1, watch4, watch5, watch2, watch3, watch6],
+    angles: ["Detail", "Profile", "Caseback", "Lifestyle", "On wrist", "Cinematic"],
+    kinds: ["Studio", "Studio", "Studio", "Lifestyle", "Lifestyle", "Lifestyle"],
+    caption: "1 photo → 3 studio + 3 ambiance shots ⌚🔥",
   },
 ];
 
 const STEPS = [
   { icon: Upload, title: "1. Upload", text: "Drop a single product photo" },
   { icon: Sparkles, title: "2. Generate", text: "Our AI re-imagines it" },
-  { icon: ImagesIcon, title: "3. Multiply", text: "Get dozens of stunning shots" },
+  { icon: ImagesIcon, title: "3. Multiply", text: "Get studio + lifestyle shots" },
 ];
 
 function TikTokPhone({ demo }: { demo: DemoItem }) {
