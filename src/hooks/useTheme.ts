@@ -1,26 +1,23 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 
 export type Theme = "dark" | "light";
 
-const THEME_KEY = "app_theme";
-
+// App is dark-only across all pages. Theme is forced to "dark".
 export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    return (localStorage.getItem(THEME_KEY) as Theme) || "light";
-  });
-
   useEffect(() => {
     const root = document.documentElement;
-    if (theme === "light") {
-      root.classList.add("light");
-    } else {
-      root.classList.remove("light");
-    }
-    localStorage.setItem(THEME_KEY, theme);
-  }, [theme]);
+    root.classList.remove("light");
+    try {
+      localStorage.setItem("app_theme", "dark");
+    } catch {}
+  }, []);
 
-  const setTheme = (t: Theme) => setThemeState(t);
-  const toggleTheme = () => setThemeState(prev => prev === "dark" ? "light" : "dark");
+  const setTheme = (_t: Theme) => {
+    document.documentElement.classList.remove("light");
+  };
+  const toggleTheme = () => {
+    document.documentElement.classList.remove("light");
+  };
 
-  return { theme, setTheme, toggleTheme };
+  return { theme: "dark" as Theme, setTheme, toggleTheme };
 }
