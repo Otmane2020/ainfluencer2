@@ -339,27 +339,83 @@ export default function Demo3ReelPage() {
     <div
       data-reel-canvas
       data-total-duration={totalDuration}
-      className="fixed inset-0 bg-black overflow-hidden"
-      style={{ width: "100vw", height: "100vh" }}
+      className="fixed inset-0 overflow-hidden"
+      style={{
+        width: "100vw",
+        height: "100vh",
+        background:
+          "radial-gradient(ellipse at top, hsl(292 60% 12%) 0%, #06080A 60%, #000 100%)",
+      }}
     >
-      {active.render(localProgress)}
-
-      {/* TikTok-style sticky footer */}
-      <div className="absolute inset-x-0 bottom-0 z-20 pointer-events-none">
-        <div className="bg-gradient-to-t from-black/80 to-transparent p-10 pb-12">
-          <div className="text-white space-y-3">
-            <p className="text-4xl font-bold">@clipmotion.ai</p>
-            <p className="text-3xl opacity-95 leading-snug">
-              1 photo → 6 pro shots ✨ Studio + lifestyle, instantly.
-            </p>
-            <p className="text-2xl opacity-80 flex items-center gap-2">
-              <Music className="h-6 w-6" /> original sound · viral remix
-            </p>
-            <p className="text-2xl text-cyan-300">#ProductShotAI #Shopify #AIads</p>
-          </div>
+      {/* Header */}
+      <header className="absolute top-0 inset-x-0 z-30 flex items-center justify-between px-12 py-10">
+        <p className="text-white text-3xl font-bold">
+          ClipMotion<span className="text-fuchsia-400">.ai</span>
+        </p>
+        <div className="rounded-full bg-white px-8 py-3 text-2xl font-bold text-black">
+          Try free
         </div>
-        <div className="h-2 bg-white/15">
-          <div className="h-full bg-white" style={{ width: `${(t / totalDuration) * 100}%` }} />
+      </header>
+
+      {/* Phone shell — centered */}
+      <div className="absolute inset-0 flex items-center justify-center pt-32 pb-10">
+        <div className="relative">
+          <div className="absolute -inset-12 bg-gradient-to-tr from-fuchsia-500/30 via-transparent to-orange-400/20 blur-3xl rounded-full" />
+          <div className="relative w-[820px] h-[1640px] rounded-[120px] bg-neutral-950 p-6 shadow-2xl ring-1 ring-white/10">
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30 h-20 w-72 rounded-b-[40px] bg-black" />
+            <div className="absolute right-2 top-44 z-40 h-20 w-20 rounded-full bg-white/95 shadow-xl flex items-center justify-center text-3xl">
+              🔇
+            </div>
+            <div className="relative h-full w-full rounded-[96px] overflow-hidden bg-black">
+              {active.render(localProgress)}
+
+              <div className="absolute inset-x-0 bottom-0 z-20 pointer-events-none">
+                <div className="bg-gradient-to-t from-black/85 to-transparent p-8 pb-10">
+                  <div className="flex items-end justify-between text-white">
+                    <div className="max-w-[70%] space-y-2">
+                      <p className="text-3xl font-bold">@clipmotion.ai</p>
+                      <p className="text-2xl leading-snug opacity-95">
+                        1 photo → 6 pro shots ✨ Studio + lifestyle, instantly.
+                      </p>
+                      <p className="text-xl opacity-80 flex items-center gap-2">
+                        <Music className="h-5 w-5" /> original sound · viral remix
+                      </p>
+                      <p className="text-xl text-cyan-300">
+                        #ProductShotAI #Shopify #AIads
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-center gap-5">
+                      <div className="flex flex-col items-center">
+                        <div className="text-5xl">❤</div>
+                        <span className="text-lg font-semibold">12.3K</span>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <div className="text-5xl">💬</div>
+                        <span className="text-lg font-semibold">842</span>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <div className="text-5xl">↗</div>
+                        <span className="text-lg font-semibold">Share</span>
+                      </div>
+                      <div className="h-14 w-14 rounded-full bg-gradient-to-br from-fuchsia-500 to-cyan-400 ring-2 ring-white" />
+                    </div>
+                  </div>
+                </div>
+                <div className="h-1 bg-white/15">
+                  <div className="h-full bg-white" style={{ width: `${(t / totalDuration) * 100}%` }} />
+                </div>
+              </div>
+
+              <div className="absolute top-32 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+                {scenes.map((s, i) => (
+                  <div
+                    key={s.id}
+                    className={`h-1 rounded-full ${i === activeIdx ? "w-12 bg-white" : "w-6 bg-white/30"}`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
