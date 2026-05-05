@@ -28,6 +28,8 @@ import {
   ChevronRight,
   Sun,
   Moon,
+  Store,
+  Camera,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSubscription } from "@/hooks/useSubscription";
