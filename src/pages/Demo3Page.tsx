@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Heart, MessageCircle, Share2, Music, Sparkles, Zap, Camera, Wand2 } from "lucide-react";
 
