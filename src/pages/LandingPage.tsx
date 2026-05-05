@@ -94,12 +94,29 @@ const testimonials = [
   },
 ];
 
-const beforeImg = "/showcase/sofa-profile.png";
-const afterImgs = [
-  "/showcase/sofa-lifestyle.png",
-  "/showcase/sofa-angle45.png",
-  "/showcase/sofa-zoom.png",
-  "/showcase/sofa-top.png",
+const showcases = [
+  {
+    label: "Furniture",
+    before: "/showcase/sofa-profile.png",
+    after: [
+      "/showcase/sofa-lifestyle.png",
+      "/showcase/sofa-angle45.png",
+      "/showcase/sofa-zoom.png",
+      "/showcase/sofa-top.png",
+    ],
+    caption: "Lifestyle · Studio mood · Multi-color · Detail zoom · Square & portrait",
+  },
+  {
+    label: "Watches & accessories",
+    before: "/showcase/watch-front.png",
+    after: [
+      "/showcase/watch-angle45.png",
+      "/showcase/watch-profile.png",
+      "/showcase/watch-zoom.png",
+      "/showcase/watch-front.png",
+    ],
+    caption: "Front · 45° angle · Side profile · Macro detail — every angle a buyer wants",
+  },
 ];
 
 const LandingPage = () => {
