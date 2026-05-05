@@ -94,9 +94,9 @@ export function MobileHeader() {
       {/* Logo */}
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden ring-1 ring-border/50 shadow-lg shadow-primary/20">
-          <img src="/logo.png" alt="ClipMotion" className="h-full w-full object-contain scale-125" />
+          <img src="/logo.png" alt="Product Shot AI" className="h-full w-full object-contain scale-125" />
         </div>
-        <span className="font-display text-lg font-bold text-gradient">ClipMotion</span>
+        <span className="font-display text-lg font-bold text-gradient">Product Shot AI</span>
       </div>
 
       {/* Credits + Menu */}
