@@ -571,13 +571,44 @@ const Integrations = () => {
         </CardContent>
       </Card>
 
+      {/* E-commerce Integrations */}
+      <div>
+        <h2 className="font-display text-lg font-bold mb-1">E-commerce platforms</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Push your AI product shots straight to your store catalog.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {[
+            { name: "Shopify", desc: "Sync product images to your store", color: "from-[#95BF47] to-[#5E8E3E]", letter: "S" },
+            { name: "WooCommerce", desc: "Update WordPress product galleries", color: "from-[#7F54B3] to-[#5A2D82]", letter: "W" },
+            { name: "Amazon Seller", desc: "Bulk-export A+ ready images", color: "from-[#FF9900] to-[#E47911]", letter: "A" },
+            { name: "Etsy", desc: "Refresh listing photos in 1 click", color: "from-[#F1641E] to-[#D44B0F]", letter: "E" },
+          ].map((p) => (
+            <Card key={p.name} className="border-dashed">
+              <CardContent className="p-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${p.color} text-white font-bold`}>
+                    {p.letter}
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">{p.name}</p>
+                    <p className="text-xs text-muted-foreground">{p.desc}</p>
+                  </div>
+                </div>
+                <Badge variant="outline" className="text-[10px]">Coming soon</Badge>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
       {/* More Integrations Coming */}
       <Card className="border-dashed">
         <CardContent className="p-4 flex items-center gap-3">
           <Plug className="h-5 w-5 text-muted-foreground shrink-0" />
           <div>
             <p className="text-sm text-muted-foreground">
-              More integrations coming soon: Twitter/X, Pinterest, Snapchat...
+              More integrations coming soon: BigCommerce, Wix, Squarespace, Twitter/X, Pinterest...
             </p>
             <a 
               href="mailto:support@clipmotion.ai" 
