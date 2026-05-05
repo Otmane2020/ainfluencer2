@@ -188,7 +188,7 @@ CRITICAL REQUIREMENTS:
         if (!r.ok) throw new Error(`fetch source ${r.status}`);
         srcMime = r.headers.get("content-type") || "image/png";
         const buf = new Uint8Array(await r.arrayBuffer());
-        srcB64 = btoa(String.fromCharCode(...buf));
+        srcB64 = bytesToBase64(buf);
       };
 
       for (const provider of PROVIDERS) {
