@@ -58,6 +58,47 @@ export default function ProductShotsPage() {
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Catalog integration
+  const [hasIntegration, setHasIntegration] = useState<boolean | null>(null);
+  const [catalogProducts, setCatalogProducts] = useState<Array<{ id: string; title: string; primary_image_url: string | null }>>([]);
+  const [loadingCatalog, setLoadingCatalog] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      setLoadingCatalog(true);
+      const { data: conns } = await supabase.from("store_connections").select("id").limit(1);
+      const connected = !!conns && conns.length > 0;
+      setHasIntegration(connected);
+      if (connected) {
+        const { data: prods } = await supabase
+          .from("store_products")
+          .select("id, title, primary_image_url")
+          .order("imported_at", { ascending: false })
+          .limit(60);
+        setCatalogProducts(prods || []);
+      }
+      setLoadingCatalog(false);
+    })();
+  }, []);
+
+  const pickCatalogProduct = async (p: { id: string; title: string; primary_image_url: string | null }) => {
+    if (!p.primary_image_url) return toast.error("This product has no image");
+    try {
+      const res = await fetch(p.primary_image_url);
+      const blob = await res.blob();
+      const ext = (blob.type.split("/")[1] || "png").replace("jpeg", "jpg");
+      const file = new File([blob], `${p.title}.${ext}`, { type: blob.type });
+      setSourceFile(file);
+      const reader = new FileReader();
+      reader.onload = (e) => setSourceImage(e.target?.result as string);
+      reader.readAsDataURL(file);
+      setProductTitle(p.title);
+      toast.success(`Loaded "${p.title}"`);
+    } catch {
+      toast.error("Could not load this product image");
+    }
+  };
+
   const totalShots = selectedShotTypes.size + (includeLifestyle ? 1 : 0);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
