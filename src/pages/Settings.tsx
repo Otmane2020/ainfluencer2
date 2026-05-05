@@ -192,26 +192,15 @@ const Settings = () => {
             </div>
           </div>
 
-          {/* AutoPost Info - Credits-based */}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-lg bg-muted/50 p-3 text-center">
-              <div className="flex items-center justify-center gap-1.5">
-                <Image className="h-4 w-4 text-primary" />
-                <span className="text-lg font-bold">
-                  {isSubscribed ? "∞" : 0}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">Images (credits)</p>
+          {/* Product Shot quota */}
+          <div className="rounded-lg bg-muted/50 p-3 text-center">
+            <div className="flex items-center justify-center gap-1.5">
+              <Camera className="h-4 w-4 text-primary" />
+              <span className="text-lg font-bold">
+                {isSubscribed ? "Unlimited" : 0}
+              </span>
             </div>
-            <div className="rounded-lg bg-muted/50 p-3 text-center">
-              <div className="flex items-center justify-center gap-1.5">
-                <Video className="h-4 w-4 text-secondary" />
-                <span className="text-lg font-bold">
-                  {isSubscribed ? "∞" : 0}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">Videos (credits)</p>
-            </div>
+            <p className="text-xs text-muted-foreground">Pro product shots / month</p>
           </div>
 
           {/* Recent Transactions */}
