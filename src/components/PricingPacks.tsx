@@ -95,6 +95,12 @@ export const PricingPacks = ({
     const isCurrentPlan = subscription.isSubscribed && effectiveCurrentPlanId === plan.id;
     if (isCurrentPlan) return;
 
+    // Free plan (Starter, $0) — no Stripe checkout. Send users to signup/dashboard.
+    if (plan.price === 0) {
+      window.location.href = subscription.isSubscribed ? "/dashboard" : "/auth?plan=starter";
+      return;
+    }
+
     // If user has an active subscription, open customer portal to manage/upgrade
     if (subscription.isSubscribed) {
       setLoadingPlanId(plan.id);
