@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import { Heart, MessageCircle, Share2, Music, Sparkles, Zap, Camera, Wand2 } from "lucide-react";
 
 import sofaOriginal from "@/assets/demo/sofa-original.jpg";
