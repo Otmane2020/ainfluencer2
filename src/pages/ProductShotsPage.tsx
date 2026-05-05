@@ -352,25 +352,26 @@ export default function ProductShotsPage() {
           )}
         </CardContent>
 
-        {/* Wizard footer nav — clean inline layout */}
+        {/* Wizard footer nav — clean inline layout, mobile-friendly */}
         {step < 3 && (
-          <div className="border-t bg-muted/30 px-4 py-3 flex items-center justify-between gap-3">
+          <div className="border-t bg-muted/30 px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setStep((s) => Math.max(1, s - 1))}
               disabled={step === 1}
-              className="min-w-[90px]"
+              className="h-9 px-2.5 sm:px-3 shrink-0"
             >
-              <ArrowLeft className="h-4 w-4 mr-1" /> Back
+              <ArrowLeft className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Back</span>
             </Button>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               {STEPS.map((s) => (
                 <span
                   key={s.id}
                   className={`h-1.5 rounded-full transition-all ${
-                    step === s.id ? "w-6 bg-primary" : step > s.id ? "w-3 bg-primary/60" : "w-3 bg-muted-foreground/20"
+                    step === s.id ? "w-5 sm:w-6 bg-primary" : step > s.id ? "w-2.5 sm:w-3 bg-primary/60" : "w-2.5 sm:w-3 bg-muted-foreground/20"
                   }`}
                 />
               ))}
@@ -380,19 +381,21 @@ export default function ProductShotsPage() {
               <Button
                 onClick={handleGenerate}
                 disabled={!canNext || isGenerating}
-                className="gradient-primary min-w-[160px]"
+                className="gradient-primary h-9 px-3 sm:px-4 shrink-0"
                 size="sm"
               >
-                <Sparkles className="h-4 w-4 mr-1.5" /> Generate {totalShots}
+                <Sparkles className="h-4 w-4 mr-1 sm:mr-1.5" />
+                <span className="text-xs sm:text-sm">Generate {totalShots}</span>
               </Button>
             ) : (
               <Button
                 onClick={() => setStep((s) => Math.min(4, s + 1))}
                 disabled={!canNext}
                 size="sm"
-                className="min-w-[90px]"
+                className="h-9 px-3 sm:px-4 shrink-0"
               >
-                Next <ArrowRight className="h-4 w-4 ml-1" />
+                <span className="text-xs sm:text-sm">Next</span>
+                <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             )}
           </div>
