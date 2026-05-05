@@ -351,35 +351,53 @@ export default function ProductShotsPage() {
             </div>
           )}
         </CardContent>
-      </Card>
 
-      {/* Spacer so sticky bar doesn't cover content */}
-      {step < 3 && <div className="h-24" />}
+        {/* Wizard footer nav — clean inline layout */}
+        {step < 3 && (
+          <div className="border-t bg-muted/30 px-4 py-3 flex items-center justify-between gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setStep((s) => Math.max(1, s - 1))}
+              disabled={step === 1}
+              className="min-w-[90px]"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" /> Back
+            </Button>
 
-      {/* Sticky wizard nav — leaves room for the support chat widget on the right */}
-      {step < 3 && (
-        <div className="fixed inset-x-0 bottom-4 z-40 pl-4 pr-20 pointer-events-none">
-          <div className="max-w-5xl mx-auto pointer-events-auto">
-            <div className="flex items-center justify-between gap-3 rounded-2xl border bg-background/90 backdrop-blur-md shadow-lg p-3">
-              <Button variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1}>
-                <ArrowLeft className="h-4 w-4 mr-1" /> Back
-              </Button>
-              <p className="hidden sm:block text-xs text-muted-foreground">
-                Step {step} of {STEPS.length}
-              </p>
-              {step === 2 ? (
-                <Button onClick={handleGenerate} disabled={!canNext || isGenerating} className="gradient-primary" size="lg">
-                  <Sparkles className="h-4 w-4 mr-2" /> Generate {totalShots} shots
-                </Button>
-              ) : (
-                <Button onClick={() => setStep((s) => Math.min(4, s + 1))} disabled={!canNext} size="lg">
-                  Next <ArrowRight className="h-4 w-4 ml-1" />
-                </Button>
-              )}
+            <div className="flex items-center gap-1.5">
+              {STEPS.map((s) => (
+                <span
+                  key={s.id}
+                  className={`h-1.5 rounded-full transition-all ${
+                    step === s.id ? "w-6 bg-primary" : step > s.id ? "w-3 bg-primary/60" : "w-3 bg-muted-foreground/20"
+                  }`}
+                />
+              ))}
             </div>
+
+            {step === 2 ? (
+              <Button
+                onClick={handleGenerate}
+                disabled={!canNext || isGenerating}
+                className="gradient-primary min-w-[160px]"
+                size="sm"
+              >
+                <Sparkles className="h-4 w-4 mr-1.5" /> Generate {totalShots}
+              </Button>
+            ) : (
+              <Button
+                onClick={() => setStep((s) => Math.min(4, s + 1))}
+                disabled={!canNext}
+                size="sm"
+                className="min-w-[90px]"
+              >
+                Next <ArrowRight className="h-4 w-4 ml-1" />
+              </Button>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </Card>
     </div>
   );
 }
