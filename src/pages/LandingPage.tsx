@@ -383,7 +383,7 @@ const LandingPage = () => {
       </section>
 
       {/* FOOTER */}
-      <footer className="border-t border-border py-10 text-center text-sm text-muted-foreground">
+      <footer className="border-t border-border py-10 pb-32 md:pb-10 text-center text-sm text-muted-foreground">
         <Link to="/" className="inline-flex items-center gap-2 mb-3">
           <span className="font-display font-bold text-foreground">ClipMotion</span>
           <span className="text-xs">· Product Shot AI</span>
