@@ -143,16 +143,16 @@ export default function ProductShotsPage() {
   const canNext = step === 1 ? !!sourceImage : step === 2 ? selectedShotTypes.size > 0 : false;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4 animate-fade-in">
+    <div className="max-w-4xl mx-auto px-3 sm:px-0 space-y-3 sm:space-y-4 animate-fade-in">
       {/* Compact header */}
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="font-display text-xl md:text-2xl font-bold leading-tight">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className="font-display text-lg sm:text-xl md:text-2xl font-bold leading-tight truncate">
             1 photo → <span className="text-gradient">10 pro shots</span>
           </h1>
-          <p className="text-xs text-muted-foreground">Upload, pick angles, let AI handle the studio.</p>
+          <p className="text-[11px] sm:text-xs text-muted-foreground truncate">Upload, pick angles, AI handles the studio.</p>
         </div>
-        <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-medium">
+        <div className="hidden sm:inline-flex shrink-0 items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-medium">
           <Sparkles className="h-3 w-3" /> AI Studio
         </div>
       </div>
@@ -189,7 +189,7 @@ export default function ProductShotsPage() {
 
       {/* Step content */}
       <Card className="overflow-hidden border-2">
-        <CardContent className="p-4 md:p-5">
+        <CardContent className="p-3 sm:p-4 md:p-5">
           {/* STEP 1: Upload */}
           {step === 1 && (
             <div className="space-y-3 animate-fade-in">
@@ -352,25 +352,26 @@ export default function ProductShotsPage() {
           )}
         </CardContent>
 
-        {/* Wizard footer nav — clean inline layout */}
+        {/* Wizard footer nav — clean inline layout, mobile-friendly */}
         {step < 3 && (
-          <div className="border-t bg-muted/30 px-4 py-3 flex items-center justify-between gap-3">
+          <div className="border-t bg-muted/30 px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setStep((s) => Math.max(1, s - 1))}
               disabled={step === 1}
-              className="min-w-[90px]"
+              className="h-9 px-2.5 sm:px-3 shrink-0"
             >
-              <ArrowLeft className="h-4 w-4 mr-1" /> Back
+              <ArrowLeft className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Back</span>
             </Button>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               {STEPS.map((s) => (
                 <span
                   key={s.id}
                   className={`h-1.5 rounded-full transition-all ${
-                    step === s.id ? "w-6 bg-primary" : step > s.id ? "w-3 bg-primary/60" : "w-3 bg-muted-foreground/20"
+                    step === s.id ? "w-5 sm:w-6 bg-primary" : step > s.id ? "w-2.5 sm:w-3 bg-primary/60" : "w-2.5 sm:w-3 bg-muted-foreground/20"
                   }`}
                 />
               ))}
@@ -380,19 +381,21 @@ export default function ProductShotsPage() {
               <Button
                 onClick={handleGenerate}
                 disabled={!canNext || isGenerating}
-                className="gradient-primary min-w-[160px]"
+                className="gradient-primary h-9 px-3 sm:px-4 shrink-0"
                 size="sm"
               >
-                <Sparkles className="h-4 w-4 mr-1.5" /> Generate {totalShots}
+                <Sparkles className="h-4 w-4 mr-1 sm:mr-1.5" />
+                <span className="text-xs sm:text-sm">Generate {totalShots}</span>
               </Button>
             ) : (
               <Button
                 onClick={() => setStep((s) => Math.min(4, s + 1))}
                 disabled={!canNext}
                 size="sm"
-                className="min-w-[90px]"
+                className="h-9 px-3 sm:px-4 shrink-0"
               >
-                Next <ArrowRight className="h-4 w-4 ml-1" />
+                <span className="text-xs sm:text-sm">Next</span>
+                <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             )}
           </div>
