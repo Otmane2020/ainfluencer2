@@ -57,7 +57,7 @@ export function MobileHeader() {
     setOpen(false);
   };
 
-  const NavSection = ({ title, items }: { title: string; items: typeof mainNavItems }) => (
+  const NavSection = ({ title, items }: { title: string; items: Array<{ title: string; url: string; icon: typeof Camera; label?: string }> }) => (
     <div className="space-y-1">
       <p className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
         {title}
