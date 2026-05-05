@@ -25,41 +25,13 @@ const features: Feature[] = [
     badge: "FLAGSHIP",
   },
   {
-    id: "images",
-    title: "AI Image",
-    description: "Smart visuals on demand",
-    icon: ImageIcon,
-    gradient: "from-orange-500 via-amber-500 to-yellow-500",
-    shadowColor: "shadow-orange-500/30",
-    route: "/images",
-    badge: "AI",
-  },
-  {
-    id: "campaigns",
-    title: "Campaigns",
-    description: "Auto-generate content series",
-    icon: Megaphone,
-    gradient: "from-rose-500 via-pink-500 to-fuchsia-500",
-    shadowColor: "shadow-rose-500/30",
-    route: "/campaigns",
-  },
-  {
-    id: "calendar",
-    title: "Calendar",
-    description: "Plan your posts",
-    icon: Calendar,
-    gradient: "from-sky-500 via-blue-500 to-indigo-500",
-    shadowColor: "shadow-sky-500/30",
-    route: "/calendar",
-  },
-  {
-    id: "projects",
-    title: "Projects",
-    description: "Brand kits & catalogs",
+    id: "history",
+    title: "History",
+    description: "Browse your generations",
     icon: Layers,
     gradient: "from-violet-500 via-purple-500 to-fuchsia-500",
     shadowColor: "shadow-violet-500/30",
-    route: "/projects",
+    route: "/history",
   },
 ];
 
@@ -74,6 +46,8 @@ export function FeatureShowcase() {
           Product Shot Studio
         </h2>
       </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
         {features.map((feature, index) => (
