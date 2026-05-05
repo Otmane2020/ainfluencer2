@@ -188,8 +188,8 @@ export default function ProductShotsPage() {
       </div>
 
       {/* Step content */}
-      <Card className="overflow-hidden border-2">
-        <CardContent className="p-3 sm:p-4 md:p-5">
+      <Card className="overflow-hidden border-2 flex-1 flex flex-col">
+        <CardContent className="p-3 sm:p-4 md:p-5 flex-1 overflow-y-auto">
           {/* STEP 1: Upload */}
           {step === 1 && (
             <div className="space-y-3 animate-fade-in">
