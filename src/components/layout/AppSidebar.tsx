@@ -83,7 +83,7 @@ export function AppSidebar() {
                 ClipMotion
               </span>
               <span className="text-xs text-muted-foreground truncate">
-                AI Studio
+                Product Shot AI
               </span>
             </div>
           )}
