@@ -7,76 +7,40 @@ import { Link } from "react-router-dom";
 
 const blogArticles = [
   {
-    slug: "kling-video-ai",
-    title: "Kling 2.6 Video AI: The Ultimate Guide to AI Video Generation",
-    description: "Master Kling 2.6 for text-to-video, image-to-video, and video-to-video generation.",
-    category: "AI Model Deep Dive",
+    slug: "ai-product-photography-guide",
+    title: "AI Product Photography in 2026: The Complete Guide",
+    description: "Everything you need to know to replace expensive product shoots with AI.",
+    category: "Ultimate Guide",
   },
   {
-    slug: "kling-image-ai",
-    title: "Kling Image AI: Create Stunning Visuals with AI",
-    description: "Generate professional AI images for product photography, social media, and branding.",
-    category: "AI Model Deep Dive",
+    slug: "shopify-product-photos-with-ai",
+    title: "How to Create Shopify Product Photos with AI",
+    description: "A step-by-step playbook for Shopify sellers — formats, lighting, conversion tips.",
+    category: "Shopify Strategy",
   },
   {
-    slug: "sora-ai-video-generator",
-    title: "Sora AI Video Generator by OpenAI: Complete Guide",
-    description: "Everything about OpenAI Sora 2—capabilities, tips, and how to use it on ClipMotion.",
-    category: "AI Model Deep Dive",
-  },
-  {
-    slug: "nano-banana-video-guide",
-    title: "Nano Banana Video: Ultra-Fast AI Video Creation",
-    description: "Create TikTok, Reels, and Shorts in seconds with Nano Banana's lightning-fast pipeline.",
-    category: "Product Guide",
-  },
-  {
-    slug: "nano-banana-pro",
-    title: "Nano Banana Pro: Professional-Grade AI Video for Brands",
-    description: "Multi-scene storytelling, brand consistency, and premium AI models for agencies.",
-    category: "Product Guide",
-  },
-  {
-    slug: "best-ai-video-generators-2026",
-    title: "10 Best AI Video Generators in 2026 (Comprehensive Comparison)",
-    description: "Compare ClipMotion, Sora, Kling, Runway, and more—ranked and reviewed.",
-    category: "Comparison Guide",
-  },
-  {
-    slug: "text-to-video-ai-complete-guide",
-    title: "Text to Video AI: The Complete 2026 Guide for Beginners",
-    description: "Learn to write effective prompts and choose the right AI model for your videos.",
+    slug: "lifestyle-product-shots-ai",
+    title: "Lifestyle Product Shots with AI (Without a Studio)",
+    description: "Drop your product into kitchens, beaches, lofts — realistic AI lifestyle scenes.",
     category: "Tutorial",
   },
   {
-    slug: "ai-video-ads-generator",
-    title: "AI Video Ads Generator: Create High-Converting Ads in Minutes",
-    description: "Generate Facebook, Instagram, and TikTok video ads at a fraction of the cost.",
-    category: "Marketing Strategy",
+    slug: "background-removal-ai",
+    title: "AI Background Removal for E-commerce",
+    description: "Clean cutouts, sharp edges, marketplace-ready white-background shots.",
+    category: "How-to",
   },
   {
-    slug: "tiktok-videos-with-ai",
-    title: "Create Viral TikTok Videos with AI: 2026 Strategy Guide",
-    description: "Automate your TikTok content with AI—formats, schedules, and viral strategies.",
-    category: "Social Media Strategy",
+    slug: "batch-product-images-ai",
+    title: "Generate 100s of Product Images in Minutes with AI",
+    description: "Bulk process your full catalog with brand-consistent, on-brand product photos.",
+    category: "Workflow",
   },
   {
-    slug: "instagram-reels-ai-generator",
-    title: "Instagram Reels AI Generator: Automate Your Content",
-    description: "Generate and schedule Instagram Reels at scale with AI automation.",
-    category: "Social Media Strategy",
-  },
-  {
-    slug: "ai-video-for-ecommerce",
-    title: "AI Video for E-commerce: Boost Sales with Product Videos",
-    description: "Product demos, unboxing content, and shoppable videos powered by AI.",
-    category: "E-commerce Strategy",
-  },
-  {
-    slug: "clip-motion",
-    title: "Clip Motion: The Complete Guide to AI Video Creation",
-    description: "Everything you need to know about ClipMotion's AI-powered platform.",
-    category: "Ultimate Guide",
+    slug: "best-ai-product-shot-tools-2026",
+    title: "10 Best AI Product Shot Generators in 2026 (Comparison)",
+    description: "We compare the leading product shot tools — features, pricing, image quality.",
+    category: "Comparison",
   },
 ];
 
@@ -92,7 +56,7 @@ const BlogPage = () => {
             ClipMotion <span className="text-gradient">Blog</span>
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto text-center mb-12">
-            Learn AI video creation strategies, motion design tips, and social media best practices.
+            Tips, tutorials and strategies to ship better product photos — and sell more.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
             {blogArticles.map((article) => (
