@@ -34,6 +34,8 @@ export default function Demo3ReelPage() {
 
   useEffect(() => {
     document.title = "ClipMotion.ai — Reel";
+    (window as any).__setReelTick = (ms: number) => setTick(ms);
+    if ((window as any).__reelDeterministic) return;
     const start = performance.now();
     let raf = 0;
     const loop = (now: number) => {
