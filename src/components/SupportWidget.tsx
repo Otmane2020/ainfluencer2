@@ -25,14 +25,14 @@ export const SupportWidget = () => {
   const [emailSending, setEmailSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Hide widget on wizard pages
-  if (location.pathname.startsWith("/product-shots")) return null;
-
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Hide widget on wizard pages
+  if (location.pathname.startsWith("/product-shots")) return null;
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
