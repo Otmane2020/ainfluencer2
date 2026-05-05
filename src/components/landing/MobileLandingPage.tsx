@@ -237,7 +237,7 @@ export function MobileLandingPage() {
           <Smartphone className="w-8 h-8 text-white mx-auto mb-2" />
           <h3 className="font-display text-lg font-bold text-white mb-1">Ready to sell more?</h3>
           <p className="text-white/80 text-xs mb-4">Get pro product shots without a studio</p>
-          <Button onClick={() => navigate("/auth")} className="bg-white text-foreground hover:bg-white/90 w-full">
+          <Button onClick={() => navigate("/auth")} className="gradient-primary text-primary-foreground hover:opacity-90 w-full">
             Try Free
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>

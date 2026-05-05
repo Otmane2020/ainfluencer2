@@ -496,17 +496,17 @@ const CalendarPage = () => {
       {/* Removed info banner for minimalism - project context shows via filter */}
 
       {/* Calendar - Light Facebook-style theme */}
-      <Card className="overflow-hidden bg-[#F0F2F5] border-0 shadow-sm">
-        <CardHeader className="pb-2 px-4 pt-4 bg-white border-b">
+      <Card className="overflow-hidden bg-card border-0 shadow-sm">
+        <CardHeader className="pb-2 px-4 pt-4 bg-card border-b">
           <div className="flex items-center justify-between">
-            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-gray-100" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
-              <ChevronLeft className="h-4 w-4 text-gray-600" />
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+              <ChevronLeft className="h-4 w-4 text-muted-foreground" />
             </Button>
-            <CardTitle className="text-base font-semibold text-gray-900 capitalize">
+            <CardTitle className="text-base font-semibold text-foreground capitalize">
               {format(currentMonth, "MMMM yyyy", { locale: enUS })}
             </CardTitle>
-            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-gray-100" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
-              <ChevronRight className="h-4 w-4 text-gray-600" />
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </Button>
           </div>
         </CardHeader>
@@ -515,7 +515,7 @@ const CalendarPage = () => {
           {!isCurrentMonth && (
             <div className="grid grid-cols-7 gap-1 mb-2">
               {weekDays.map((day) => (
-                <div key={day} className="text-center text-xs font-semibold text-gray-500 py-2 bg-white rounded">
+                <div key={day} className="text-center text-xs font-semibold text-muted-foreground py-2 bg-card rounded">
                   {day}
                 </div>
               ))}
@@ -539,8 +539,8 @@ const CalendarPage = () => {
                     isToday(day)
                       ? "bg-gradient-to-br from-blue-50 to-purple-50 border-blue-400 shadow-lg shadow-blue-200/50"
                       : isPast
-                      ? "bg-gray-50 border-gray-200 opacity-60"
-                      : "bg-white border-gray-100 hover:border-purple-300 hover:shadow-lg hover:shadow-purple-100/50 hover:scale-[1.02]"
+                      ? "bg-muted border-border opacity-60"
+                      : "bg-card border-border hover:border-purple-300 hover:shadow-lg hover:shadow-purple-100/50 hover:scale-[1.02]"
                   }`}
                 >
                   {/* Day header with gradient */}
@@ -549,14 +549,14 @@ const CalendarPage = () => {
                       ? "bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500" 
                       : dayPosts.length > 0 
                       ? "bg-gradient-to-r from-violet-100 to-pink-100" 
-                      : "bg-gray-50 border-b border-gray-100"
+                      : "bg-muted border-b border-border"
                   }`}>
-                    <span className={`text-xs font-bold ${isToday(day) ? "text-white" : "text-gray-700"}`}>
+                    <span className={`text-xs font-bold ${isToday(day) ? "text-white" : "text-foreground"}`}>
                       {format(day, "d")}
                     </span>
                     {dayPosts.length > 0 && (
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                        isToday(day) ? "bg-white/30 text-white" : "bg-gradient-to-r from-violet-500 to-pink-500 text-white"
+                        isToday(day) ? "bg-card/30 text-white" : "bg-gradient-to-r from-violet-500 to-pink-500 text-white"
                       }`}>
                         {dayPosts.length}
                       </span>
@@ -621,7 +621,7 @@ const CalendarPage = () => {
                               )}
                             </div>
                           ) : (
-                            <div className="text-[8px] text-gray-600 line-clamp-2 leading-tight bg-white/50 rounded p-1">
+                            <div className="text-[8px] text-muted-foreground line-clamp-2 leading-tight bg-card/50 rounded p-1">
                               {post.text_content?.slice(0, 40) || post.ai_prompt?.slice(0, 40) || "Post scheduled"}
                             </div>
                           )}
@@ -652,9 +652,9 @@ const CalendarPage = () => {
 
       {/* Day Posts Modal - Facebook style */}
       <Dialog open={isDayModalOpen} onOpenChange={setIsDayModalOpen}>
-        <DialogContent className="sm:max-w-lg bg-[#F0F2F5] border-0">
-          <DialogHeader className="bg-white -mx-6 -mt-6 px-4 py-3 border-b rounded-t-lg">
-            <DialogTitle className="text-gray-900 font-semibold">
+        <DialogContent className="sm:max-w-lg bg-card border-0">
+          <DialogHeader className="bg-card -mx-6 -mt-6 px-4 py-3 border-b rounded-t-lg">
+            <DialogTitle className="text-foreground font-semibold">
               {selectedDate && format(selectedDate, "EEEE, MMMM d", { locale: enUS })}
             </DialogTitle>
           </DialogHeader>
@@ -670,10 +670,10 @@ const CalendarPage = () => {
                     setSelectedPost(post);
                     setIsModalOpen(true);
                   }}
-                  className="bg-white rounded-lg shadow-sm hover:shadow-md cursor-pointer transition-all overflow-hidden"
+                  className="bg-card rounded-lg shadow-sm hover:shadow-md cursor-pointer transition-all overflow-hidden"
                 >
                   {/* Facebook-style post header */}
-                  <div className="flex items-center gap-3 p-3 border-b border-gray-100">
+                  <div className="flex items-center gap-3 p-3 border-b border-border">
                     <div 
                       className="h-10 w-10 rounded-full flex items-center justify-center text-white shadow"
                       style={{ background: (post.platforms?.[0] && PLATFORM_STYLES[post.platforms[0]]?.bg) || getProjectColor(post.project_id) }}
@@ -685,17 +685,17 @@ const CalendarPage = () => {
                       )}
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-semibold text-gray-900">
+                      <p className="text-sm font-semibold text-foreground">
                         {projects.find(p => p.id === post.project_id)?.name || "Post"}
                       </p>
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />
                         <span>{format(new Date(post.scheduled_for), "HH:mm")}</span>
                         <span>•</span>
                         <span className={`font-medium ${
                           post.status === "scheduled" ? "text-blue-500" :
                           post.status === "published" ? "text-green-500" :
-                          "text-gray-400"
+                          "text-muted-foreground"
                         }`}>
                           {post.status || "Draft"}
                         </span>
@@ -721,14 +721,14 @@ const CalendarPage = () => {
                   
                   {/* Post content preview */}
                   {post.text_content && (
-                    <p className="px-3 py-2 text-sm text-gray-700 line-clamp-2">
+                    <p className="px-3 py-2 text-sm text-foreground line-clamp-2">
                       {post.text_content}
                     </p>
                   )}
                   
                   {/* Media preview */}
                   {(post.thumbnail_url || post.media_url) && (
-                    <div className="relative aspect-video bg-gray-100">
+                    <div className="relative aspect-video bg-muted">
                       <img 
                         src={post.thumbnail_url || post.media_url || ""} 
                         alt="" 
@@ -736,7 +736,7 @@ const CalendarPage = () => {
                       />
                       {post.content_type === "video" && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                          <div className="h-12 w-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                          <div className="h-12 w-12 rounded-full bg-card/90 flex items-center justify-center shadow-lg">
                             <div className="w-0 h-0 border-l-[16px] border-l-gray-800 border-y-[10px] border-y-transparent ml-1" />
                           </div>
                         </div>
@@ -745,7 +745,7 @@ const CalendarPage = () => {
                   )}
                   
                   {/* Facebook-style action bar */}
-                  <div className="flex items-center justify-around px-3 py-2 border-t border-gray-100 text-gray-500 text-xs font-medium">
+                  <div className="flex items-center justify-around px-3 py-2 border-t border-border text-muted-foreground text-xs font-medium">
                     <div className="flex items-center gap-1 hover:text-blue-500 transition-colors">
                       <CheckCircle2 className="h-4 w-4" />
                       <span>View</span>
@@ -758,10 +758,10 @@ const CalendarPage = () => {
                 </motion.div>
               ))
             ) : (
-              <div className="text-center py-8 bg-white rounded-lg">
-                <CalendarIcon className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                <p className="text-gray-500 font-medium">No posts scheduled</p>
-                <p className="text-xs text-gray-400 mt-1">Create a campaign to auto-generate content</p>
+              <div className="text-center py-8 bg-card rounded-lg">
+                <CalendarIcon className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
+                <p className="text-muted-foreground font-medium">No posts scheduled</p>
+                <p className="text-xs text-muted-foreground mt-1">Create a campaign to auto-generate content</p>
                 <Button
                   variant="outline"
                   size="sm"
@@ -784,11 +784,11 @@ const CalendarPage = () => {
       </Dialog>
 
       {/* Colorful Legend with Platform Icons */}
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+      <div className="bg-card rounded-xl p-4 shadow-sm border border-border">
         <div className="flex flex-wrap items-center justify-between gap-4">
           {/* Platforms */}
           <div className="flex items-center gap-3">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Platforms</span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Platforms</span>
             <div className="flex items-center gap-2">
               {Object.entries(PLATFORM_STYLES).map(([name, style]) => (
                 <div key={name} className="flex items-center gap-1.5 px-2 py-1 rounded-full" style={{ background: `${style.color}15` }}>
@@ -808,19 +808,19 @@ const CalendarPage = () => {
           
           {/* Status */}
           <div className="flex items-center gap-3">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</span>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5">
                 <div className="h-2.5 w-2.5 rounded-full bg-gray-300" />
-                <span className="text-xs text-gray-500">Draft</span>
+                <span className="text-xs text-muted-foreground">Draft</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-blue-500 to-purple-500" />
-                <span className="text-xs text-gray-500">Scheduled</span>
+                <span className="text-xs text-muted-foreground">Scheduled</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-green-400 to-emerald-500" />
-                <span className="text-xs text-gray-500">Published</span>
+                <span className="text-xs text-muted-foreground">Published</span>
               </div>
             </div>
           </div>
