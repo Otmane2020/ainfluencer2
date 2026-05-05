@@ -1133,7 +1133,126 @@ BANNED: generic stock photo, clipart, blurry background, low quality, stars as l
         }
       }
 
-      // OpenRouter excluded from image generation pipeline
+      // Step 5: OpenRouter FREE models (no Lovable credit cost)
+      if (!imageData) {
+        const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+        if (OPENROUTER_API_KEY) {
+          const freeModels = [
+            "google/gemini-2.5-flash-image-preview:free",
+            "black-forest-labs/flux-1-schnell:free",
+          ];
+          for (const orModel of freeModels) {
+            if (imageData) break;
+            console.log(`[Fallback] Step 5: Trying OpenRouter ${orModel}...`);
+            try {
+              const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+                  "Content-Type": "application/json",
+                  "HTTP-Referer": "https://clipmotion.ai",
+                  "X-Title": "ClipMotion",
+                },
+                body: JSON.stringify({
+                  model: orModel,
+                  messages: [{
+                    role: "user",
+                    content: sourceImage
+                      ? [
+                          { type: "text", text: finalPrompt.slice(0, 2000) },
+                          { type: "image_url", image_url: { url: sourceImage } },
+                        ]
+                      : finalPrompt.slice(0, 2000),
+                  }],
+                  modalities: ["image", "text"],
+                }),
+              });
+              if (orRes.ok) {
+                const orData = await orRes.json();
+                const img =
+                  orData.choices?.[0]?.message?.images?.[0]?.image_url?.url ||
+                  orData.choices?.[0]?.message?.content?.match?.(/data:image[^"\s)]+/)?.[0];
+                if (img) {
+                  imageData = img.startsWith("data:") ? img : `data:image/png;base64,${img}`;
+                  error = undefined;
+                  provider = `openrouter-free:${orModel}`;
+                  console.log(`[Fallback] ✓ OpenRouter ${orModel} succeeded`);
+                }
+              } else {
+                console.error(`[Fallback] ✗ OpenRouter ${orModel} failed: ${orRes.status}`);
+              }
+            } catch (orErr) {
+              console.error(`[Fallback] ✗ OpenRouter ${orModel} exception:`, String(orErr));
+            }
+          }
+        }
+      }
+
+      // Step 6: Pollinations.ai — public, free, no key required
+      if (!imageData) {
+        console.log(`[Fallback] Step 6: Trying Pollinations.ai (free, no key)...`);
+        try {
+          const w = effectiveAspect === "9:16" ? 720 : effectiveAspect === "16:9" ? 1280 : 1024;
+          const h = effectiveAspect === "9:16" ? 1280 : effectiveAspect === "16:9" ? 720 : 1024;
+          const seed = Math.floor(Math.random() * 1_000_000);
+          const polUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(
+            (prompt + ". Professional commercial photography, cinematic lighting, no text").slice(0, 1500)
+          )}?width=${w}&height=${h}&nologo=true&seed=${seed}&model=flux`;
+          const polRes = await fetch(polUrl);
+          if (polRes.ok) {
+            const polBuf = await polRes.arrayBuffer();
+            if (polBuf.byteLength > 1000) {
+              imageData = `data:image/jpeg;base64,${arrayBufferToBase64(polBuf)}`;
+              error = undefined;
+              provider = "pollinations-free";
+              console.log(`[Fallback] ✓ Pollinations.ai succeeded`);
+            }
+          } else {
+            console.error(`[Fallback] ✗ Pollinations failed: ${polRes.status}`);
+          }
+        } catch (polErr) {
+          console.error(`[Fallback] ✗ Pollinations exception:`, String(polErr));
+        }
+      }
+
+      // Step 7: Hugging Face Inference API (optional, requires HF_TOKEN)
+      if (!imageData) {
+        const HF_TOKEN = Deno.env.get("HF_TOKEN");
+        if (HF_TOKEN) {
+          const hfModels = [
+            "black-forest-labs/FLUX.1-schnell",
+            "stabilityai/stable-diffusion-xl-base-1.0",
+          ];
+          for (const hfModel of hfModels) {
+            if (imageData) break;
+            console.log(`[Fallback] Step 7: Trying HuggingFace ${hfModel}...`);
+            try {
+              const hfRes = await fetch(`https://api-inference.huggingface.co/models/${hfModel}`, {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${HF_TOKEN}`,
+                  "Content-Type": "application/json",
+                  Accept: "image/png",
+                },
+                body: JSON.stringify({ inputs: prompt.slice(0, 1500) }),
+              });
+              if (hfRes.ok) {
+                const hfBuf = await hfRes.arrayBuffer();
+                if (hfBuf.byteLength > 1000) {
+                  imageData = `data:image/png;base64,${arrayBufferToBase64(hfBuf)}`;
+                  error = undefined;
+                  provider = `huggingface:${hfModel}`;
+                  console.log(`[Fallback] ✓ HuggingFace ${hfModel} succeeded`);
+                }
+              } else {
+                console.error(`[Fallback] ✗ HF ${hfModel} failed: ${hfRes.status}`);
+              }
+            } catch (hfErr) {
+              console.error(`[Fallback] ✗ HF ${hfModel} exception:`, String(hfErr));
+            }
+          }
+        }
+      }
     }
 
     if (!imageData) {
