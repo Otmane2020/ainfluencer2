@@ -12,6 +12,7 @@ import { useLinkedInOAuth } from "@/hooks/useLinkedInOAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { enUS } from "date-fns/locale";
+import { StoreIntegrations } from "@/components/integrations/StoreIntegrations";
 
 // TikTok icon component
 const TikTokIcon = ({ className }: { className?: string }) => (
