@@ -81,6 +81,33 @@ export function MobileHeader() {
   );
 
   return (
+    <div className="space-y-1">
+      {items.map((item) => (
+        <NavLink
+          key={item.title}
+          to={item.url}
+          end
+          onClick={handleNavClick}
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+            isActive(item.url)
+              ? "bg-primary/10 text-primary font-medium"
+              : "text-foreground hover:bg-muted"
+          }`}
+          activeClassName="bg-primary/10 text-primary font-medium"
+        >
+          <item.icon className="h-5 w-5" />
+          <span className="flex flex-1 items-center justify-between gap-2">
+            <span>{item.title}</span>
+            {item.label && (
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-primary/20 text-primary border-0">
+                {item.label}
+              </Badge>
+            )}
+          </span>
+        </NavLink>
+      ))}
+    </div>
+  );
     <header className="md:hidden h-14 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50 flex items-center justify-between px-4">
       {/* Logo */}
       <NavLink to="/" className="flex items-center gap-3 cursor-pointer">
