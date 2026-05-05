@@ -350,31 +350,40 @@ export const ImageDetailModal = ({
         url = `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}&quote=${shareText}`;
         break;
       case "linkedin":
-        // LinkedIn often blocks direct image URLs.
-        // Open composer and guide the user with copy + download.
-        url = `https://www.linkedin.com/feed/?shareActive=true`;
+        url = imageUrl
+          ? `https://www.linkedin.com/sharing/share-offsite/?url=${shareUrl}`
+          : `https://www.linkedin.com/feed/?shareActive=true`;
         break;
       case "instagram":
+        url = "https://www.instagram.com/";
+        break;
       case "tiktok":
-        url = platform === "instagram" ? "https://www.instagram.com/" : "https://www.tiktok.com/";
+        url = "https://www.tiktok.com/upload";
         break;
     }
+    if (!url) return;
 
-    if (url) {
-      // Manual share workflow
-      if (imageUrl) {
-        void navigator.clipboard.writeText(caption ? `${caption}\n\n${imageUrl}` : imageUrl);
-      } else {
-        void navigator.clipboard.writeText(caption);
-      }
-      void handleDownload();
-      openPopupOrRedirect(url, "width=900,height=700");
-      toast({
-        title: "Share",
-        description: "Caption + link copied. Download starts so you can upload in the platform.",
-      });
+    // 1) Open popup SYNCHRONOUSLY (preserve user gesture, avoid popup blockers)
+    const result = openPopupOrRedirect(url, "width=900,height=700");
+
+    // 2) Then run async helpers (clipboard + download)
+    const textToCopy = imageUrl ? (caption ? `${caption}\n\n${imageUrl}` : imageUrl) : caption;
+    if (textToCopy) {
+      navigator.clipboard?.writeText(textToCopy).catch(() => {});
     }
+    if (platform === "instagram" || platform === "tiktok") {
+      void handleDownload();
+    }
+
+    toast({
+      title: result.opened ? "Share window opened" : "Redirecting…",
+      description:
+        platform === "instagram" || platform === "tiktok"
+          ? "Caption copied & image downloaded — upload it in the app."
+          : "Caption + link copied to your clipboard.",
+    });
   };
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
