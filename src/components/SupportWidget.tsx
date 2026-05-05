@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageCircle, X, Send, Mail, Bot, Loader2, ChevronLeft } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -14,6 +15,7 @@ interface Message {
 type View = "menu" | "chat" | "email";
 
 export const SupportWidget = () => {
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [view, setView] = useState<View>("menu");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -28,6 +30,9 @@ export const SupportWidget = () => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Hide widget on wizard pages
+  if (location.pathname.startsWith("/product-shots")) return null;
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
