@@ -22,18 +22,24 @@ import {
   Loader2,
   ImageIcon,
   Trash2,
+  Box,
+  ArrowUpFromLine,
+  ArrowDownFromLine,
+  Maximize2,
+  Move3d,
+  Palette,
 } from "lucide-react";
 import { toast } from "sonner";
 
-// Shot types configuration
+// Shot types configuration with distinct icons & gradients
 const SHOT_TYPES = [
-  { id: "front", label: "Front View", icon: Camera, description: "Direct front-facing shot" },
-  { id: "angle45", label: "45° Angle", icon: RotateCcw, description: "Three-quarter angle view" },
-  { id: "profile", label: "Side Profile", icon: RotateCcw, description: "Side view of product" },
-  { id: "back", label: "Back View", icon: RotateCcw, description: "Rear view of product" },
-  { id: "top", label: "Top View", icon: Eye, description: "Bird's eye view" },
-  { id: "low_angle", label: "Low Angle", icon: Camera, description: "Dramatic upward angle" },
-  { id: "zoom_detail", label: "Detail Close-up", icon: Focus, description: "Macro detail shot" },
+  { id: "front", label: "Front View", icon: Camera, description: "Direct front-facing shot", gradient: "from-blue-500 to-cyan-500" },
+  { id: "angle45", label: "45° Angle", icon: Move3d, description: "Three-quarter angle view", gradient: "from-violet-500 to-purple-500" },
+  { id: "profile", label: "Side Profile", icon: ArrowUpFromLine, description: "Side view of product", gradient: "from-pink-500 to-rose-500" },
+  { id: "back", label: "Back View", icon: RotateCcw, description: "Rear view of product", gradient: "from-orange-500 to-amber-500" },
+  { id: "top", label: "Top View", icon: Eye, description: "Bird's eye view", gradient: "from-emerald-500 to-teal-500" },
+  { id: "low_angle", label: "Low Angle", icon: ArrowDownFromLine, description: "Dramatic upward angle", gradient: "from-indigo-500 to-blue-600" },
+  { id: "zoom_detail", label: "Detail Close-up", icon: Maximize2, description: "Macro detail shot", gradient: "from-fuchsia-500 to-pink-600" },
 ];
 
 interface GeneratedImage {
@@ -336,55 +342,66 @@ export default function ProductShotsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-2">
-                {SHOT_TYPES.map((type) => (
-                  <div
-                    key={type.id}
-                    onClick={() => toggleShotType(type.id)}
-                    className={`
-                      flex items-center gap-3 p-3 rounded-lg border cursor-pointer
-                      transition-all hover:border-primary/50
-                      ${selectedShotTypes.has(type.id)
-                        ? "border-primary bg-primary/10"
-                        : "border-border"
-                      }
-                    `}
-                  >
-                    <Checkbox
-                      checked={selectedShotTypes.has(type.id)}
-                      onCheckedChange={() => toggleShotType(type.id)}
-                    />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{type.label}</p>
-                      <p className="text-xs text-muted-foreground truncate">
+              <div className="grid grid-cols-2 gap-2.5">
+                {SHOT_TYPES.map((type) => {
+                  const Icon = type.icon;
+                  const active = selectedShotTypes.has(type.id);
+                  return (
+                    <button
+                      key={type.id}
+                      type="button"
+                      onClick={() => toggleShotType(type.id)}
+                      className={`group relative overflow-hidden rounded-xl border p-3 text-left transition-all hover:scale-[1.02] hover:shadow-md ${
+                        active
+                          ? "border-primary/60 bg-primary/5 shadow-sm"
+                          : "border-border bg-card hover:border-primary/30"
+                      }`}
+                    >
+                      {active && (
+                        <div className="absolute right-2 top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
+                          <Check className="h-3 w-3" strokeWidth={3} />
+                        </div>
+                      )}
+                      <div className={`mb-2 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br ${type.gradient} shadow-sm transition-transform group-hover:scale-110`}>
+                        <Icon className="h-4 w-4 text-white" strokeWidth={2.5} />
+                      </div>
+                      <p className="text-sm font-semibold leading-tight">{type.label}</p>
+                      <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground line-clamp-2">
                         {type.description}
                       </p>
-                    </div>
-                  </div>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* Lifestyle Option */}
-              <div
+              {/* Lifestyle Option — full width accent card */}
+              <button
+                type="button"
                 onClick={() => setIncludeLifestyle(!includeLifestyle)}
-                className={`
-                  flex items-center gap-3 p-3 rounded-lg border cursor-pointer
-                  transition-all hover:border-primary/50
-                  ${includeLifestyle ? "border-primary bg-primary/10" : "border-border"}
-                `}
+                className={`group relative w-full overflow-hidden rounded-xl border p-4 text-left transition-all hover:shadow-md ${
+                  includeLifestyle
+                    ? "border-primary/60 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent"
+                    : "border-dashed border-border hover:border-primary/40"
+                }`}
               >
-                <Checkbox
-                  checked={includeLifestyle}
-                  onCheckedChange={(checked) => setIncludeLifestyle(!!checked)}
-                />
-                <Home className="h-4 w-4 shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Lifestyle Scene</p>
-                  <p className="text-xs text-muted-foreground">
-                    Product in realistic environment
-                  </p>
+                {includeLifestyle && (
+                  <div className="absolute right-3 top-3 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
+                    <Check className="h-3 w-3" strokeWidth={3} />
+                  </div>
+                )}
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 shadow-md transition-transform group-hover:scale-110">
+                    <Palette className="h-5 w-5 text-white" strokeWidth={2.5} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold">Lifestyle Scene</p>
+                      <Badge variant="secondary" className="h-4 px-1.5 text-[9px] bg-amber-500/15 text-amber-600 border-0">PREMIUM</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Product in a realistic, on-brand environment</p>
+                  </div>
                 </div>
-              </div>
+              </button>
             </CardContent>
           </Card>
 
