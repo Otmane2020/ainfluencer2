@@ -367,9 +367,10 @@ const LandingPage = () => {
       {/* FOOTER */}
       <footer className="border-t border-border py-10 text-center text-sm text-muted-foreground">
         <Link to="/" className="inline-flex items-center gap-2 mb-3">
-          <span className="font-display font-bold text-foreground">Product Shot AI</span>
+          <span className="font-display font-bold text-foreground">ClipMotion</span>
+          <span className="text-xs">· Product Shot AI</span>
         </Link>
-        <p>© {new Date().getFullYear()} Product Shot AI. All rights reserved.</p>
+        <p>© {new Date().getFullYear()} ClipMotion. All rights reserved.</p>
         <div className="mt-3 flex justify-center gap-5 text-xs">
           <Link to="/privacy-policy" className="hover:text-foreground">Privacy</Link>
           <Link to="/terms" className="hover:text-foreground">Terms</Link>
