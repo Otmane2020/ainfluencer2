@@ -70,10 +70,19 @@ async function fetchWithTimeout(url: string, init: RequestInit, ms = 60_000): Pr
   }
 }
 
+function bytesToBase64(bytes: Uint8Array): string {
+  // Chunked encoding to avoid "Maximum call stack size exceeded" on large images
+  let binary = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK) as unknown as number[]);
+  }
+  return btoa(binary);
+}
+
 function dataUrlToBytes(dataUrl: string): Uint8Array {
   const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, "");
   if (!base64 || base64.length < 100) throw new Error("Invalid image data");
-  // Guard: avoid huge allocations
   if (base64.length > 15_000_000) throw new Error("Image too large");
   return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
 }
