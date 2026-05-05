@@ -53,8 +53,8 @@ export const PublicPageLayout = ({ children }: PublicPageLayoutProps) => {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><Link to="/features" className="hover:text-foreground transition-colors">Features</Link></li>
                 <li><Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link></li>
-                <li><Link to="/ai-video-generator" className="hover:text-foreground transition-colors">AI Video Generator</Link></li>
-                <li><Link to="/motion-design-ai" className="hover:text-foreground transition-colors">Motion Design AI</Link></li>
+                <li><Link to="/use-cases" className="hover:text-foreground transition-colors">Use Cases</Link></li>
+                <li><Link to="/blog" className="hover:text-foreground transition-colors">Blog</Link></li>
               </ul>
             </div>
             <div>
