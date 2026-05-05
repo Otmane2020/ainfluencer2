@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Upload, Sparkles, Images as ImagesIcon, ArrowRight, Heart, MessageCircle, Share2, Music2, Play, Hand, MousePointer2 } from "lucide-react";
+import { Upload, Sparkles, Images as ImagesIcon, ArrowRight, Heart, MessageCircle, Share2, Music2, Play, MousePointer2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import sofaOriginal from "@/assets/demo/sofa-original.jpg";
