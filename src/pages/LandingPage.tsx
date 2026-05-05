@@ -137,6 +137,23 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <SEOHead
+        title="ClipMotion – Product Shot AI | 1 photo, 10 pro product images in 2 minutes"
+        description="ClipMotion turns one product photo into 10 high-converting visuals for Shopify, Amazon, Instagram and TikTok. No photographer, no studio. Try free."
+        canonical="https://clipmotion.ai"
+        keywords="product shot AI, AI product photography, ecommerce photos, Shopify product images, AI background removal, lifestyle product images, ClipMotion"
+        structuredData={{
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          name: "ClipMotion – Product Shot AI",
+          applicationCategory: "BusinessApplication",
+          operatingSystem: "Web",
+          url: "https://clipmotion.ai",
+          description: "AI product photography for e-commerce. Generate 10 high-converting product images from a single photo.",
+          offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+          aggregateRating: { "@type": "AggregateRating", ratingValue: "4.9", ratingCount: "1280", bestRating: "5" },
+        }}
+      />
       {/* NAV */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 backdrop-blur-xl bg-background/80">
         <div className="container mx-auto flex h-14 md:h-16 items-center justify-between px-4">
