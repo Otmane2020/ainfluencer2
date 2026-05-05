@@ -7,16 +7,19 @@ import sofaOriginal from "@/assets/demo/sofa-original.jpg";
 import sofa1 from "@/assets/demo/sofa-1.jpg";
 import sofa2 from "@/assets/demo/sofa-2.jpg";
 import sofa3 from "@/assets/demo/sofa-3.jpg";
+import sofa4 from "@/assets/demo/sofa-4.jpg";
 import watchOriginal from "@/assets/demo/watch-original.jpg";
 import watch1 from "@/assets/demo/watch-1.jpg";
 import watch2 from "@/assets/demo/watch-2.jpg";
 import watch3 from "@/assets/demo/watch-3.jpg";
+import watch4 from "@/assets/demo/watch-4.jpg";
 
 type DemoItem = {
   name: string;
   hashtag: string;
   original: string;
   generated: string[];
+  angles: string[];
   caption: string;
 };
 
@@ -25,15 +28,17 @@ const DEMOS: DemoItem[] = [
     name: "Sofa",
     hashtag: "#InteriorDesign",
     original: sofaOriginal,
-    generated: [sofa1, sofa2, sofa3],
-    caption: "From plain studio shot → 3 lifestyle scenes in seconds 🛋️✨",
+    generated: [sofa1, sofa2, sofa3, sofa4],
+    angles: ["Front view", "Lifestyle", "Editorial", "Side profile"],
+    caption: "From plain studio shot → 4 angles & scenes 🛋️✨",
   },
   {
     name: "Watch",
     hashtag: "#LuxuryWatch",
     original: watchOriginal,
-    generated: [watch1, watch2, watch3],
-    caption: "One product photo → editorial campaign ready ⌚🔥",
+    generated: [watch1, watch2, watch3, watch4],
+    angles: ["Front view", "On wrist", "Cinematic", "Top-down"],
+    caption: "One product photo → full editorial mosaic ⌚🔥",
   },
 ];
 
@@ -45,7 +50,7 @@ const STEPS = [
 
 function TikTokPhone({ demo }: { demo: DemoItem }) {
   const [stage, setStage] = useState<"upload" | "generating" | "result">("upload");
-  const [resultIdx, setResultIdx] = useState(0);
+  const [revealCount, setRevealCount] = useState(0);
   const [liked, setLiked] = useState(false);
 
   useEffect(() => {
@@ -53,15 +58,19 @@ function TikTokPhone({ demo }: { demo: DemoItem }) {
     const cycle = async () => {
       while (mounted) {
         setStage("upload");
+        setRevealCount(0);
         await new Promise((r) => setTimeout(r, 2200));
+        if (!mounted) return;
         setStage("generating");
         await new Promise((r) => setTimeout(r, 2400));
+        if (!mounted) return;
         setStage("result");
-        for (let i = 0; i < demo.generated.length; i++) {
+        for (let i = 1; i <= demo.generated.length; i++) {
           if (!mounted) return;
-          setResultIdx(i);
-          await new Promise((r) => setTimeout(r, 1800));
+          setRevealCount(i);
+          await new Promise((r) => setTimeout(r, 450));
         }
+        await new Promise((r) => setTimeout(r, 3500));
       }
     };
     cycle();
@@ -106,15 +115,31 @@ function TikTokPhone({ demo }: { demo: DemoItem }) {
             </div>
           )}
           {stage === "result" && (
-            <div key={`res-${resultIdx}`} className="absolute inset-0 animate-fade-in">
-              <img
-                src={demo.generated[resultIdx]}
-                alt={`${demo.name} AI generated scene ${resultIdx + 1}`}
-                className="h-full w-full object-cover animate-scale-in"
-                loading="lazy"
-              />
+            <div key="res" className="absolute inset-0 animate-fade-in bg-black">
+              <div className="grid grid-cols-2 grid-rows-2 gap-1 h-full w-full p-1">
+                {demo.generated.map((g, i) => (
+                  <div
+                    key={i}
+                    className={`relative overflow-hidden rounded-lg transition-all duration-500 ${
+                      i < revealCount ? "opacity-100 scale-100" : "opacity-0 scale-90"
+                    }`}
+                  >
+                    <img
+                      src={g}
+                      alt={`${demo.name} AI ${demo.angles[i]}`}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                    <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-white">
+                      {demo.angles[i]}
+                    </span>
+                  </div>
+                ))}
+              </div>
               <div className="absolute top-3 left-3 right-3 flex items-center justify-between text-[10px] font-semibold text-white">
-                <span className="rounded-full bg-gradient-to-r from-pink-500 to-cyan-400 px-2 py-0.5">AI Shot {resultIdx + 1}/{demo.generated.length}</span>
+                <span className="rounded-full bg-gradient-to-r from-pink-500 to-cyan-400 px-2 py-0.5">
+                  ✨ {revealCount}/{demo.generated.length} AI shots
+                </span>
                 <span className="rounded-full bg-black/50 px-2 py-0.5 backdrop-blur">For You</span>
               </div>
             </div>
@@ -235,12 +260,22 @@ export default function DemoPage() {
                   <p className="text-sm text-muted-foreground max-w-xs">{d.caption}</p>
                 </div>
                 {/* Generated thumbnails */}
-                <div className="flex gap-2">
-                  <img src={d.original} alt={`${d.name} input`} className="h-16 w-16 rounded-lg object-cover ring-2 ring-primary/40" loading="lazy" />
-                  <ArrowRight className="self-center h-5 w-5 text-muted-foreground" />
-                  {d.generated.map((g, i) => (
-                    <img key={i} src={g} alt={`${d.name} generated ${i + 1}`} className="h-16 w-16 rounded-lg object-cover" loading="lazy" />
-                  ))}
+                <div className="flex items-center gap-3 flex-wrap justify-center">
+                  <div className="text-center">
+                    <img src={d.original} alt={`${d.name} input`} className="h-20 w-20 rounded-lg object-cover ring-2 ring-primary/40" loading="lazy" />
+                    <span className="block mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">Original</span>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-muted-foreground" />
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {d.generated.map((g, i) => (
+                      <div key={i} className="relative">
+                        <img src={g} alt={`${d.name} ${d.angles[i]}`} className="h-16 w-16 rounded-lg object-cover" loading="lazy" />
+                        <span className="absolute bottom-0.5 left-0.5 right-0.5 rounded bg-black/70 px-1 py-0.5 text-[8px] font-semibold text-white text-center truncate">
+                          {d.angles[i]}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             ))}
