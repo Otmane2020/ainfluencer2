@@ -307,7 +307,7 @@ const LandingPage = () => {
             </h2>
             <p className="text-muted-foreground">No credit card required for the free trial.</p>
           </div>
-          <PricingPacks />
+          <PricingPacks onSelectPack={(plan) => navigate(`/auth?plan=${plan.id}`)} />
         </div>
       </section>
 
