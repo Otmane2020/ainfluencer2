@@ -283,7 +283,7 @@ CRITICAL REQUIREMENTS:
             continue;
           }
           const buf = new Uint8Array(await imgResp.arrayBuffer());
-          const b64 = btoa(String.fromCharCode(...buf));
+          const b64 = bytesToBase64(buf);
           dataUrl = `data:image/png;base64,${b64}`;
         }
 
