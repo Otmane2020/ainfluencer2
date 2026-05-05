@@ -104,10 +104,11 @@ Deno.serve(async (req) => {
 
     const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!LOVABLE_API_KEY && !OPENROUTER_API_KEY) {
+    if (!LOVABLE_API_KEY && !OPENROUTER_API_KEY && !GEMINI_API_KEY) {
       return new Response(JSON.stringify({ error: "AI service not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -142,66 +143,116 @@ CRITICAL REQUIREMENTS:
 - No text, watermarks, or borders
 - Ultra high resolution, sharp focus on the product`;
 
-      // Provider chain: Lovable AI Gateway (free Gemini image) → OpenRouter paid fallback
-      type Provider = { name: string; url: string; key: string | undefined; model: string };
+      // Provider chain: Lovable AI Gateway → OpenRouter → Google Gemini direct (free tier)
+      type Provider = { name: string; type: "openai" | "gemini"; url: string; key: string | undefined; model: string };
       const PROVIDERS: Provider[] = [
         ...(LOVABLE_API_KEY ? [{
-          name: "lovable-ai",
+          name: "lovable-ai", type: "openai" as const,
           url: "https://ai.gateway.lovable.dev/v1/chat/completions",
           key: LOVABLE_API_KEY,
           model: "google/gemini-2.5-flash-image-preview",
         }] : []),
         ...(OPENROUTER_API_KEY ? [{
-          name: "openrouter",
+          name: "openrouter", type: "openai" as const,
           url: "https://openrouter.ai/api/v1/chat/completions",
           key: OPENROUTER_API_KEY,
           model: "google/gemini-2.5-flash-image",
         }] : []),
+        ...(GEMINI_API_KEY ? [{
+          name: "gemini-direct", type: "gemini" as const,
+          url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent",
+          key: GEMINI_API_KEY,
+          model: "gemini-2.5-flash-image-preview",
+        }] : []),
       ];
 
-      let response: Response | null = null;
+      let imageData: string | undefined;
       let lastStatus = 0;
       let lastError = "";
 
+      // Pre-fetch source image as base64 (for gemini direct)
+      let srcB64: string | null = null;
+      let srcMime = "image/png";
+      const ensureSrcB64 = async () => {
+        if (srcB64) return;
+        const r = await fetchWithTimeout(sourceImageUrl, { method: "GET" }, 30_000);
+        if (!r.ok) throw new Error(`fetch source ${r.status}`);
+        srcMime = r.headers.get("content-type") || "image/png";
+        const buf = new Uint8Array(await r.arrayBuffer());
+        srcB64 = btoa(String.fromCharCode(...buf));
+      };
+
       for (const provider of PROVIDERS) {
         try {
-          const r = await fetchWithTimeout(
-            provider.url,
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${provider.key}`,
-                "Content-Type": "application/json",
+          let r: Response;
+          if (provider.type === "gemini") {
+            await ensureSrcB64();
+            r = await fetchWithTimeout(
+              `${provider.url}?key=${provider.key}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  contents: [{
+                    parts: [
+                      { text: imagePrompt },
+                      { inline_data: { mime_type: srcMime, data: srcB64 } },
+                    ],
+                  }],
+                  generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+                }),
               },
-              body: JSON.stringify({
-                model: provider.model,
-                messages: [
-                  {
+              90_000
+            );
+          } else {
+            r = await fetchWithTimeout(
+              provider.url,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${provider.key}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  model: provider.model,
+                  messages: [{
                     role: "user",
                     content: [
                       { type: "text", text: imagePrompt },
                       { type: "image_url", image_url: { url: sourceImageUrl } },
                     ],
-                  },
-                ],
-                modalities: ["image", "text"],
-              }),
-            },
-            90_000
-          );
+                  }],
+                  modalities: ["image", "text"],
+                }),
+              },
+              90_000
+            );
+          }
 
           if (r.ok) {
-            response = r;
-            console.log(`[generate-product-shots] ${shotType} via ${provider.name}`);
-            break;
+            const data = await r.json();
+            if (provider.type === "gemini") {
+              const parts = data?.candidates?.[0]?.content?.parts || [];
+              for (const p of parts) {
+                if (p?.inline_data?.data) {
+                  imageData = `data:${p.inline_data.mime_type || "image/png"};base64,${p.inline_data.data}`;
+                  break;
+                }
+              }
+            } else {
+              imageData = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+            }
+            if (imageData) {
+              console.log(`[generate-product-shots] ${shotType} via ${provider.name}`);
+              break;
+            }
+            lastError = "no image in response";
+            continue;
           }
 
           lastStatus = r.status;
           lastError = (await r.text()).slice(0, 200);
           console.warn(`[generate-product-shots] ${provider.name} failed [${lastStatus}]: ${lastError}`);
-
-          // Try next provider on credits/rate-limit/unavailable
-          if (lastStatus !== 402 && lastStatus !== 404 && lastStatus !== 429 && lastStatus !== 503) break;
         } catch (e) {
           lastError = e instanceof Error ? e.message : String(e);
           console.warn(`[generate-product-shots] ${provider.name} exception:`, lastError);
@@ -209,28 +260,8 @@ CRITICAL REQUIREMENTS:
       }
 
       try {
-        if (!response) {
+        if (!imageData) {
           console.error(`[generate-product-shots] All providers failed for ${shotType}: ${lastStatus} ${lastError}`);
-          if (lastStatus === 429) {
-            return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), {
-              status: 429,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          }
-          if (lastStatus === 402) {
-            return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits in workspace settings." }), {
-              status: 402,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          }
-          continue;
-        }
-
-        const data = await response.json();
-        const imageData: string | undefined = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-
-        if (!imageData || typeof imageData !== "string") {
-          console.error(`[generate-product-shots] No image in response for ${shotType}`);
           continue;
         }
 
