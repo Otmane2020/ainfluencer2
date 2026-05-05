@@ -150,7 +150,7 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>History</SidebarGroupLabel>
+          
           <SidebarGroupContent>
             <SidebarMenu>
               {historyNavItems.map((item) => (
