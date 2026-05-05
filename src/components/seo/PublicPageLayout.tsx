@@ -29,7 +29,7 @@ export const PublicPageLayout = ({ children }: PublicPageLayoutProps) => {
             <Link to="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Blog</Link>
           </div>
           <div className="flex items-center gap-2 md:gap-3">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/auth")} className="text-xs md:text-sm px-2 md:px-4">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/auth?mode=signin")} className="text-xs md:text-sm px-2 md:px-4">
               Sign In
             </Button>
             <Button size="sm" onClick={() => navigate("/auth")} className="gradient-primary text-xs md:text-sm px-3 md:px-4">

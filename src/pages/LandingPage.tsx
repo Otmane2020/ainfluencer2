@@ -165,7 +165,7 @@ const LandingPage = () => {
             <span className="hidden sm:inline text-xs text-muted-foreground">· Product Shot AI</span>
           </Link>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/auth")}>Sign In</Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/auth?mode=signin")}>Sign In</Button>
             <Button size="sm" onClick={() => navigate("/auth")} className="gradient-primary">
               Start Free →
             </Button>

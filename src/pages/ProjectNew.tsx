@@ -526,7 +526,7 @@ const ProjectNew = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <p className="text-muted-foreground">You must be logged in to create a project</p>
-        <Button onClick={() => navigate("/auth")}>Log in</Button>
+        <Button onClick={() => navigate("/auth?mode=signin")}>Log in</Button>
       </div>
     );
   }
