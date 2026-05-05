@@ -141,9 +141,10 @@ const LandingPage = () => {
         <div className="container mx-auto flex h-14 md:h-16 items-center justify-between px-4">
           <Link to="/" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl overflow-hidden shadow-glow">
-              <img src="/logo.png" alt="Product Shot AI" className="h-full w-full object-contain scale-125" />
+              <img src="/logo.png" alt="ClipMotion – Product Shot AI" className="h-full w-full object-contain scale-125" />
             </div>
-            <span className="font-display text-lg md:text-xl font-bold text-gradient">Product Shot AI</span>
+            <span className="font-display text-lg md:text-xl font-bold text-gradient">ClipMotion</span>
+            <span className="hidden sm:inline text-xs text-muted-foreground">· Product Shot AI</span>
           </Link>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => navigate("/auth")}>Sign In</Button>
