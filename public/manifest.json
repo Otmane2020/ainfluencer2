@@ -1,7 +1,7 @@
 {
-  "name": "ClipMotion – AI Video Generator",
+  "name": "ClipMotion – Product Shot AI",
   "short_name": "ClipMotion",
-  "description": "Create stunning AI-powered videos for TikTok, Instagram, and YouTube. Generate motion design videos, AI influencers, and social content automatically.",
+  "description": "Turn one product photo into 10 pro images for Shopify, Amazon, Instagram and TikTok. AI product photography in 2 minutes.",
   "theme_color": "#0B1118",
   "background_color": "#0B1118",
   "display": "standalone",
@@ -12,48 +12,30 @@
   "lang": "en",
   "dir": "ltr",
   "icons": [
-    {
-      "src": "/favicon-16x16.png",
-      "sizes": "16x16",
-      "type": "image/png"
-    },
-    {
-      "src": "/favicon-32x32.png",
-      "sizes": "32x32",
-      "type": "image/png"
-    },
-    {
-      "src": "/favicon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/logo.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    { "src": "/favicon-16x16.png", "sizes": "16x16", "type": "image/png" },
+    { "src": "/favicon-32x32.png", "sizes": "32x32", "type": "image/png" },
+    { "src": "/favicon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ],
-  "categories": ["social", "productivity", "business", "entertainment"],
+  "categories": ["shopping", "photo", "business", "productivity"],
   "screenshots": [
     {
       "src": "/logo.png",
       "sizes": "512x512",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "ClipMotion AI Video Generator"
+      "label": "ClipMotion – Product Shot AI"
     }
   ],
   "shortcuts": [
     {
-      "name": "Create Video",
-      "short_name": "Video",
-      "url": "/videos",
+      "name": "Product Shots",
+      "short_name": "Shots",
+      "url": "/product-shots",
       "icons": [{ "src": "/favicon-192.png", "sizes": "192x192" }]
     },
     {
-      "name": "Create Image",
+      "name": "AI Image",
       "short_name": "Image",
       "url": "/images",
       "icons": [{ "src": "/favicon-192.png", "sizes": "192x192" }]
@@ -68,7 +50,5 @@
   "related_applications": [],
   "prefer_related_applications": false,
   "handle_links": "preferred",
-  "launch_handler": {
-    "client_mode": "navigate-existing"
-  }
+  "launch_handler": { "client_mode": "navigate-existing" }
 }
