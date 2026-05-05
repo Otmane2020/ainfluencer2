@@ -260,12 +260,22 @@ export default function DemoPage() {
                   <p className="text-sm text-muted-foreground max-w-xs">{d.caption}</p>
                 </div>
                 {/* Generated thumbnails */}
-                <div className="flex gap-2">
-                  <img src={d.original} alt={`${d.name} input`} className="h-16 w-16 rounded-lg object-cover ring-2 ring-primary/40" loading="lazy" />
-                  <ArrowRight className="self-center h-5 w-5 text-muted-foreground" />
-                  {d.generated.map((g, i) => (
-                    <img key={i} src={g} alt={`${d.name} generated ${i + 1}`} className="h-16 w-16 rounded-lg object-cover" loading="lazy" />
-                  ))}
+                <div className="flex items-center gap-3 flex-wrap justify-center">
+                  <div className="text-center">
+                    <img src={d.original} alt={`${d.name} input`} className="h-20 w-20 rounded-lg object-cover ring-2 ring-primary/40" loading="lazy" />
+                    <span className="block mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">Original</span>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-muted-foreground" />
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {d.generated.map((g, i) => (
+                      <div key={i} className="relative">
+                        <img src={g} alt={`${d.name} ${d.angles[i]}`} className="h-16 w-16 rounded-lg object-cover" loading="lazy" />
+                        <span className="absolute bottom-0.5 left-0.5 right-0.5 rounded bg-black/70 px-1 py-0.5 text-[8px] font-semibold text-white text-center truncate">
+                          {d.angles[i]}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             ))}
