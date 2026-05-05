@@ -32,6 +32,26 @@ type Scene = {
 const SOFA_SHOTS = [sofa1, sofa2, sofa3, sofa4, sofa5, sofa6];
 const WATCH_SHOTS = [watch1, watch2, watch3, watch4, watch5, watch6];
 
+function SeoHead() {
+  useEffect(() => {
+    document.title = "Live demo — AI product shots in 30s | ClipMotion.ai";
+    const ensure = (sel: string, create: () => HTMLElement) => {
+      let el = document.head.querySelector(sel) as HTMLElement | null;
+      if (!el) { el = create(); document.head.appendChild(el); }
+      return el;
+    };
+    const desc = ensure('meta[name="description"]', () => {
+      const m = document.createElement("meta"); m.setAttribute("name", "description"); return m;
+    });
+    desc.setAttribute("content", "Watch ClipMotion.ai turn one phone photo into 6 pro product shots — studio + lifestyle. Built for Shopify, Amazon and social ads.");
+    const canon = ensure('link[rel="canonical"]', () => {
+      const l = document.createElement("link"); l.setAttribute("rel", "canonical"); return l;
+    });
+    canon.setAttribute("href", "https://clipmotion.ai/demo3");
+  }, []);
+  return null;
+}
+
 export default function Demo3Page() {
   const [tick, setTick] = useState(0);
 
