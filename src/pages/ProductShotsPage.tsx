@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   Upload, Sparkles, Camera, RotateCcw, Eye, Download, Check, X, Loader2,
   ImageIcon, Trash2, ArrowUpFromLine, ArrowDownFromLine, Maximize2, Move3d,
-  Palette, ArrowRight, ArrowLeft, Wand2, Aperture,
+  Palette, ArrowRight, ArrowLeft, Wand2, Aperture, Smartphone, Square, Monitor,
 } from "lucide-react";
 import { toast } from "sonner";
 
