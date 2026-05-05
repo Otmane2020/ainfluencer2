@@ -163,15 +163,23 @@ function TikTokPhone({ demo }: { demo: DemoItem }) {
 }
 
 export default function DemoPage() {
+  useEffect(() => {
+    document.title = "Live Demo: AI Product Shots from One Photo | ClipMotion";
+    const setMeta = (name: string, content: string, attr: "name" | "property" = "name") => {
+      let el = document.querySelector(`meta[${attr}="${name}"]`) as HTMLMetaElement | null;
+      if (!el) { el = document.createElement("meta"); el.setAttribute(attr, name); document.head.appendChild(el); }
+      el.setAttribute("content", content);
+    };
+    setMeta("description", "See how ClipMotion turns a single product image into dozens of scroll-stopping AI product shots — sofa & watch examples in TikTok-style preview.");
+    setMeta("og:title", "Live Demo — One image, infinite product shots", "property");
+    setMeta("og:description", "Upload → AI Generate → Get multiple stunning product photos. Try the live demo.", "property");
+    let canon = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+    if (!canon) { canon = document.createElement("link"); canon.rel = "canonical"; document.head.appendChild(canon); }
+    canon.href = "https://clipmotion.ai/demo";
+  }, []);
+
   return (
     <>
-      <Helmet>
-        <title>Live Demo: AI Product Shots from One Photo | ClipMotion</title>
-        <meta name="description" content="See how ClipMotion turns a single product image into dozens of scroll-stopping AI product shots — sofa & watch examples in TikTok-style preview." />
-        <link rel="canonical" href="https://clipmotion.ai/demo" />
-        <meta property="og:title" content="Live Demo — One image, infinite product shots" />
-        <meta property="og:description" content="Upload → AI Generate → Get multiple stunning product photos. Try the live demo." />
-      </Helmet>
 
       <main className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30">
         {/* Hero */}
