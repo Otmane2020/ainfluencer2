@@ -10,7 +10,10 @@ import {
   Upload, Sparkles, Camera, RotateCcw, Eye, Download, Check, X, Loader2,
   ImageIcon, Trash2, ArrowUpFromLine, ArrowDownFromLine, Maximize2, Move3d,
   Palette, ArrowRight, ArrowLeft, Wand2, Aperture, Smartphone, Square, Monitor,
+  Store, Package, Plug,
 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 const SHOT_TYPES = [
