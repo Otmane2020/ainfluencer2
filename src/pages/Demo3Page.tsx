@@ -387,6 +387,17 @@ export default function Demo3Page() {
 
               {/* iPhone shell */}
               <div className="relative w-[300px] h-[620px] rounded-[48px] bg-neutral-950 p-3 shadow-2xl ring-1 ring-white/10">
+                {/* Background music */}
+                <audio ref={audioRef} src="/audio/demo3-music.mp3" loop muted preload="auto" />
+                {/* Sound toggle */}
+                <button
+                  type="button"
+                  onClick={toggleSound}
+                  aria-label={muted ? "Unmute music" : "Mute music"}
+                  className="absolute -right-3 top-16 z-40 h-10 w-10 rounded-full bg-white text-black shadow-xl flex items-center justify-center hover:scale-110 transition-transform"
+                >
+                  {muted ? "🔇" : "🔊"}
+                </button>
                 {/* Notch */}
                 <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 h-7 w-28 rounded-b-2xl bg-black" />
                 {/* Screen */}
