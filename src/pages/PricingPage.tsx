@@ -1,56 +1,10 @@
-import { useNavigate } from "react-router-dom";
 import { SEOHead } from "@/components/seo/SEOHead";
 import { PublicPageLayout } from "@/components/seo/PublicPageLayout";
 import { PricingPacks } from "@/components/PricingPacks";
-import { CreditPacks } from "@/components/CreditPacks";
 import { seoPages, productSchema, organizationSchema } from "@/lib/seo-data";
-import { Separator } from "@/components/ui/separator";
-import { IMAGE_PACKS, VIDEO_PACKS } from "@/lib/commercialProducts";
-import { CLIPMOTION_PACKS } from "@/lib/clipMotionConfig";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Image, Film, Star, Coins, Sparkles } from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
 
 const PricingPage = () => {
-  const navigate = useNavigate();
-  const { toast } = useToast();
   const seo = seoPages.pricing;
-
-  const getQualityLabel = (quality: string) => {
-    switch (quality) {
-      case "smart-image":
-        return "Smart / High";
-      case "high-image":
-        return "Smart / High";
-      case "studio-image":
-        return "Studio";
-      case "smart-video":
-        return "Smart";
-      case "high-video":
-        return "Smart / High";
-      case "cinema-video":
-        return "Cinema";
-      default:
-        return quality;
-    }
-  };
-
-  const handleBuyPack = (packName: string) => {
-    toast({
-      title: "Coming Soon",
-      description: `${packName} purchase will be available soon via Stripe.`,
-    });
-  };
 
   return (
     <PublicPageLayout>
