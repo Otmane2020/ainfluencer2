@@ -70,10 +70,19 @@ async function fetchWithTimeout(url: string, init: RequestInit, ms = 60_000): Pr
   }
 }
 
+function bytesToBase64(bytes: Uint8Array): string {
+  // Chunked encoding to avoid "Maximum call stack size exceeded" on large images
+  let binary = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK) as unknown as number[]);
+  }
+  return btoa(binary);
+}
+
 function dataUrlToBytes(dataUrl: string): Uint8Array {
   const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, "");
   if (!base64 || base64.length < 100) throw new Error("Invalid image data");
-  // Guard: avoid huge allocations
   if (base64.length > 15_000_000) throw new Error("Image too large");
   return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
 }
@@ -86,6 +95,13 @@ Deno.serve(async (req) => {
     const sourceImageUrl = body?.sourceImageUrl as string | undefined;
     const productTitle = (body?.productTitle as string | undefined) || "Product";
     const includeLifestyle = Boolean(body?.includeLifestyle);
+    const formatRaw = String(body?.format || "square").toLowerCase();
+    const FORMAT_MAP: Record<string, { label: string; ratio: string; px: string; orient: string }> = {
+      square: { label: "Square", ratio: "1:1", px: "2048x2048", orient: "balanced centered framing" },
+      portrait: { label: "Portrait (Mobile / Reels)", ratio: "9:16", px: "1080x1920", orient: "vertical mobile-first composition with subject filling the vertical frame" },
+      landscape: { label: "Landscape", ratio: "16:9", px: "1920x1080", orient: "horizontal cinematic composition" },
+    };
+    const format = FORMAT_MAP[formatRaw] || FORMAT_MAP.square;
 
     if (!sourceImageUrl || typeof sourceImageUrl !== "string") {
       return new Response(JSON.stringify({ error: "Source image URL is required" }), {
@@ -135,6 +151,11 @@ Deno.serve(async (req) => {
 
 Product: ${productTitle}
 
+OUTPUT FORMAT:
+- Aspect ratio: ${format.ratio} (${format.label}, ${format.px})
+- Composition: ${format.orient}
+- For mobile/portrait: keep the product fully visible, avoid cropping at edges, leave safe space top & bottom
+
 CRITICAL REQUIREMENTS:
 - Maintain EXACT product identity, colors, materials, and proportions from the source image
 - Only change the viewing angle as specified
@@ -179,7 +200,7 @@ CRITICAL REQUIREMENTS:
         if (!r.ok) throw new Error(`fetch source ${r.status}`);
         srcMime = r.headers.get("content-type") || "image/png";
         const buf = new Uint8Array(await r.arrayBuffer());
-        srcB64 = btoa(String.fromCharCode(...buf));
+        srcB64 = bytesToBase64(buf);
       };
 
       for (const provider of PROVIDERS) {
@@ -274,7 +295,7 @@ CRITICAL REQUIREMENTS:
             continue;
           }
           const buf = new Uint8Array(await imgResp.arrayBuffer());
-          const b64 = btoa(String.fromCharCode(...buf));
+          const b64 = bytesToBase64(buf);
           dataUrl = `data:image/png;base64,${b64}`;
         }
 

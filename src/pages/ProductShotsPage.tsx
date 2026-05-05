@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   Upload, Sparkles, Camera, RotateCcw, Eye, Download, Check, X, Loader2,
   ImageIcon, Trash2, ArrowUpFromLine, ArrowDownFromLine, Maximize2, Move3d,
-  Palette, ArrowRight, ArrowLeft, Wand2, Aperture,
+  Palette, ArrowRight, ArrowLeft, Wand2, Aperture, Smartphone, Square, Monitor,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -22,6 +22,13 @@ const SHOT_TYPES = [
   { id: "low_angle", label: "Low Angle", icon: ArrowDownFromLine, description: "Dramatic upward angle", gradient: "from-indigo-500 to-blue-600" },
   { id: "zoom_detail", label: "Detail Close-up", icon: Maximize2, description: "Macro detail shot", gradient: "from-fuchsia-500 to-pink-600" },
 ];
+
+const FORMATS = [
+  { id: "portrait", label: "Mobile / Reels", ratio: "9:16", icon: Smartphone, hint: "TikTok, Reels, Shorts" },
+  { id: "square", label: "Square", ratio: "1:1", icon: Square, hint: "Instagram feed, catalog" },
+  { id: "landscape", label: "Landscape", ratio: "16:9", icon: Monitor, hint: "YouTube, web banners" },
+] as const;
+type FormatId = typeof FORMATS[number]["id"];
 
 interface GeneratedImage { type: string; label: string; url: string; selected: boolean; }
 
@@ -41,6 +48,7 @@ export default function ProductShotsPage() {
     new Set(["front", "angle45", "profile", "zoom_detail"])
   );
   const [includeLifestyle, setIncludeLifestyle] = useState(true);
+  const [format, setFormat] = useState<FormatId>("portrait");
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [generatingLabel, setGeneratingLabel] = useState("");
@@ -96,7 +104,7 @@ export default function ProductShotsPage() {
       toast.loading("Generating product shots...", { id: toastId });
       const interval = setInterval(() => setProgress((p) => Math.min(p + 4, 92)), 600);
       const { data, error } = await supabase.functions.invoke("generate-product-shots", {
-        body: { sourceImageUrl: pub.publicUrl, shotTypes: Array.from(selectedShotTypes), productTitle: productTitle || "Product", includeLifestyle },
+        body: { sourceImageUrl: pub.publicUrl, shotTypes: Array.from(selectedShotTypes), productTitle: productTitle || "Product", includeLifestyle, format },
       });
       clearInterval(interval);
       if (error) throw error;
@@ -280,6 +288,36 @@ export default function ProductShotsPage() {
                   </div>
                 </div>
               </button>
+
+              {/* Format / Orientation selector */}
+              <div className="space-y-1.5 pt-1">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Output format</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {FORMATS.map((f) => {
+                    const Icon = f.icon;
+                    const active = format === f.id;
+                    return (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setFormat(f.id)}
+                        className={`group relative rounded-lg border-2 p-2 text-center transition-all hover:scale-[1.03] hover:shadow-md ${
+                          active ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-card hover:border-primary/40"
+                        }`}
+                      >
+                        {active && (
+                          <div className="absolute right-1 top-1 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
+                            <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                          </div>
+                        )}
+                        <Icon className={`mx-auto h-5 w-5 mb-1 ${active ? "text-primary" : "text-muted-foreground"}`} strokeWidth={2} />
+                        <p className="text-[11px] font-semibold leading-tight">{f.label}</p>
+                        <p className="text-[9px] text-muted-foreground">{f.ratio} · {f.hint}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
 
