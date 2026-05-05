@@ -23,18 +23,11 @@ import {
   Settings,
 } from "lucide-react";
 
-const mainNavItems = [
+const navItems: { title: string; url: string; icon: typeof Camera; label?: string }[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Product Shots", url: "/product-shots", icon: Camera, label: "Flagship" },
-];
-
-const contentNavItems: { title: string; url: string; icon: typeof Camera; label?: string }[] = [];
-
-const historyNavItems = [
+  { title: "Product Shots", url: "/product-shots", icon: Camera, label: "FLAGSHIP" },
+  { title: "Integrations", url: "/integrations", icon: Plug },
   { title: "History", url: "/history", icon: Clock },
-];
-
-const accountNavItems = [
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
