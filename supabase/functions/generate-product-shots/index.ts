@@ -210,10 +210,16 @@ CRITICAL REQUIREMENTS:
 
       try {
         if (!response) {
-          console.error(`[generate-product-shots] All models failed for ${shotType}: ${lastStatus} ${lastError}`);
+          console.error(`[generate-product-shots] All providers failed for ${shotType}: ${lastStatus} ${lastError}`);
           if (lastStatus === 429) {
             return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), {
               status: 429,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          if (lastStatus === 402) {
+            return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits in workspace settings." }), {
+              status: 402,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
           }
