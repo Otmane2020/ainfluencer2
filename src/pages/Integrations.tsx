@@ -12,6 +12,7 @@ import { useLinkedInOAuth } from "@/hooks/useLinkedInOAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { enUS } from "date-fns/locale";
+import { StoreIntegrations } from "@/components/integrations/StoreIntegrations";
 
 // TikTok icon component
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -162,8 +163,10 @@ const Integrations = () => {
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
         <h1 className="font-display text-xl md:text-2xl font-bold">Integrations</h1>
-        <p className="text-sm text-muted-foreground">Manage your connected social media accounts</p>
+        <p className="text-sm text-muted-foreground">Connect your stores and social accounts</p>
       </div>
+
+      <StoreIntegrations />
 
       {/* Meta (Facebook & Instagram) Connection */}
       <Card>
