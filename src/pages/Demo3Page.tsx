@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Heart, MessageCircle, Share2, Music, Sparkles, Zap, Camera, Wand2 } from "lucide-react";
 
@@ -54,6 +54,8 @@ function SeoHead() {
 
 export default function Demo3Page() {
   const [tick, setTick] = useState(0);
+  const [muted, setMuted] = useState(true);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const start = performance.now();
@@ -65,6 +67,20 @@ export default function Demo3Page() {
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
   }, []);
+
+  const toggleSound = async () => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (muted) {
+      a.muted = false;
+      a.volume = 0.6;
+      try { await a.play(); } catch { /* ignore */ }
+      setMuted(false);
+    } else {
+      a.muted = true;
+      setMuted(true);
+    }
+  };
 
   // Build the storyboard (two products)
   const scenes: Scene[] = [
@@ -348,6 +364,13 @@ export default function Demo3Page() {
               >
                 See more examples
               </Link>
+              <a
+                href="/videos/demo3.mp4"
+                download="clipmotion-demo.mp4"
+                className="rounded-full border border-white/20 px-5 py-3 font-semibold text-sm hover:bg-white/5"
+              >
+                ⬇ Download MP4
+              </a>
             </div>
             <div className="flex gap-6 pt-4 text-xs text-white/50">
               <div><span className="text-white text-lg font-bold block">30s</span>per generation</div>
@@ -364,6 +387,17 @@ export default function Demo3Page() {
 
               {/* iPhone shell */}
               <div className="relative w-[300px] h-[620px] rounded-[48px] bg-neutral-950 p-3 shadow-2xl ring-1 ring-white/10">
+                {/* Background music */}
+                <audio ref={audioRef} src="/audio/demo3-music.mp3" loop muted preload="auto" />
+                {/* Sound toggle */}
+                <button
+                  type="button"
+                  onClick={toggleSound}
+                  aria-label={muted ? "Unmute music" : "Mute music"}
+                  className="absolute -right-3 top-16 z-40 h-10 w-10 rounded-full bg-white text-black shadow-xl flex items-center justify-center hover:scale-110 transition-transform"
+                >
+                  {muted ? "🔇" : "🔊"}
+                </button>
                 {/* Notch */}
                 <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 h-7 w-28 rounded-b-2xl bg-black" />
                 {/* Screen */}
