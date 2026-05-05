@@ -38,18 +38,12 @@ import {
 
 const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Product Shots", url: "/product-shots", icon: Camera, label: "FLAGSHIP" },
   { title: "Projects", url: "/projects", icon: FolderKanban },
-  { title: "Campaigns", url: "/campaigns", icon: Megaphone },
-  
-  { title: "AutoPost AI", url: "/calendar", icon: CalendarDays },
 ];
 
 const contentNavItems = [
-  { title: "AI Video", url: "/videos", icon: Video },
   { title: "AI Image", url: "/images", icon: Image },
-  { title: "Smart AI Image", url: "/smart-image", icon: Sparkles, label: "NEW" },
-  { title: "Product Shots", url: "/product-shots", icon: Camera, label: "AI Smart" },
-  { title: "Posts", url: "/posts", icon: ImageIcon },
 ];
 
 const historyNavItems = [
