@@ -41,6 +41,7 @@ import TikTokCallbackPage from "./pages/TikTokCallbackPage";
 import ChoosePlanPage from "./pages/ChoosePlanPage";
 import DemoPage from "./pages/DemoPage";
 import Demo2Page from "./pages/Demo2Page";
+import Demo3Page from "./pages/Demo3Page";
 
 import { SubscriptionProvider } from "./contexts/SubscriptionContext";
 import { OrgProvider } from "./contexts/OrgContext";
