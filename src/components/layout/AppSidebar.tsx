@@ -42,7 +42,7 @@ const mainNavItems = [
   { title: "Projects", url: "/projects", icon: FolderKanban },
 ];
 
-const contentNavItems = [
+const contentNavItems: { title: string; url: string; icon: typeof Image; label?: string }[] = [
   { title: "AI Image", url: "/images", icon: Image },
 ];
 
