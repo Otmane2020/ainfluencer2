@@ -10,6 +10,7 @@ const corsHeaders: Record<string, string> = {
 
 // Stripe price mappings (USD)
 const PLAN_PRICES: Record<string, string> = {
+  starter: "price_1SuiszEfti9t9nN9qEGnwrdT",
   pro: "price_1Sw4JNEfti9t9nN9Z88uua20",
   business: "price_1TToZ8Efti9t9nN9kA3w0Myp",
 };
