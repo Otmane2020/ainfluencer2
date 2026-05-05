@@ -6,82 +6,82 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { seoPages, softwareApplicationSchema, organizationSchema } from "@/lib/seo-data";
 import {
-  Video, Wand2, Calendar, TrendingUp, Globe, Zap, Mic, Users, Palette,
-  Clock, Languages, Shield, ArrowRight, Check
+  Camera, Scissors, Layers, Smartphone, Globe, Palette, Wand2,
+  Image as ImageIcon, Sparkles, Zap, Download, Shield, ArrowRight, Check
 } from "lucide-react";
 
 const features = [
   {
-    icon: Video,
-    title: "AI Video Generation",
-    description: "Transform text prompts into stunning videos in seconds. Our AI understands context, tone, and visual style to create professional-quality videos.",
-    benefits: ["1080p HD quality", "Multiple aspect ratios", "30+ video styles"],
+    icon: Camera,
+    title: "1 photo → 10 pro product shots",
+    description: "Upload one ordinary product photo. Our AI generates 10 high-converting visuals ready for your store, ads and social.",
+    benefits: ["HD output", "Multiple angles", "Instant variations"],
   },
   {
-    icon: Wand2,
-    title: "AI Influencer Avatars",
-    description: "Create realistic AI avatars that represent your brand. Generate virtual influencers that speak in your voice and style.",
-    benefits: ["Photorealistic quality", "Custom appearances", "Lip-sync technology"],
-  },
-  {
-    icon: Palette,
-    title: "Motion Design AI",
-    description: "Professional motion graphics without design skills. Kinetic typography, animated transitions, and dynamic visual effects.",
-    benefits: ["100+ motion templates", "Custom animations", "Brand kit support"],
-  },
-  {
-    icon: Mic,
-    title: "AI Voice Generation",
-    description: "Natural-sounding voiceovers in 30+ languages. Clone voices or choose from our library of professional AI voices.",
-    benefits: ["30+ languages", "Voice cloning", "Emotion control"],
-  },
-  {
-    icon: Calendar,
-    title: "Smart Scheduling",
-    description: "AI-powered content calendar that suggests optimal posting times. Automate your entire publishing workflow.",
-    benefits: ["Optimal timing", "Bulk scheduling", "Auto-posting"],
+    icon: Scissors,
+    title: "Automatic background removal",
+    description: "AI detects your product and removes the background in one click. Clean cutouts with sharp, natural edges.",
+    benefits: ["One-click cutout", "Sharp edges", "Transparent PNG"],
   },
   {
     icon: Globe,
-    title: "Multi-Platform Publishing",
-    description: "Publish to Instagram, Facebook, TikTok, LinkedIn, and YouTube from one dashboard. Format-optimized for each platform.",
-    benefits: ["5+ platforms", "Auto-formatting", "Cross-posting"],
+    title: "Lifestyle scene placement",
+    description: "Place your product into realistic lifestyle scenes: living room, beach, office, kitchen and 20+ more environments.",
+    benefits: ["20+ scenes", "Realistic lighting", "Brand-consistent mood"],
   },
   {
-    icon: TrendingUp,
-    title: "Analytics & Insights",
-    description: "Track performance across all platforms. AI-powered insights to optimize your content strategy.",
-    benefits: ["Real-time metrics", "AI recommendations", "ROI tracking"],
+    icon: Smartphone,
+    title: "Multi-platform formats",
+    description: "Square for Instagram, portrait for TikTok, landscape for banners — every shot is auto-formatted for the platform you sell on.",
+    benefits: ["Square / 9:16 / 16:9", "Shopify-ready", "Amazon-compliant"],
   },
   {
-    icon: Languages,
-    title: "Multi-Language Support",
-    description: "Create content in 50+ languages. Automatic translation and localization for global reach.",
-    benefits: ["50+ languages", "Auto-translation", "Cultural adaptation"],
+    icon: Layers,
+    title: "Batch — full catalog at once",
+    description: "Upload up to 20 products in a single session and generate hundreds of images while you focus on selling.",
+    benefits: ["Up to 20 products", "Bulk export", "Consistent style"],
   },
   {
-    icon: Users,
-    title: "Team Collaboration",
-    description: "Work together with your team. Role-based permissions, approval workflows, and shared asset libraries.",
-    benefits: ["Unlimited members", "Approval flows", "Shared assets"],
+    icon: Palette,
+    title: "20+ professional styles",
+    description: "Studio shot, lifestyle, colored backdrop, seasonal mood, minimalist… choose the look that matches your brand.",
+    benefits: ["Studio & lifestyle", "Seasonal moods", "Brand presets"],
   },
   {
-    icon: Clock,
-    title: "Instant Generation",
-    description: "Get your videos in seconds, not hours. Our optimized AI pipeline delivers results faster than any competitor.",
-    benefits: ["< 30s generation", "Priority queue", "Batch processing"],
+    icon: Wand2,
+    title: "Smart angle generation",
+    description: "Front, 45°, side profile, top-down and macro detail. Every angle a buyer needs to make the decision.",
+    benefits: ["Front / 45° / profile", "Macro detail", "Top-down view"],
   },
   {
-    icon: Shield,
-    title: "Brand Safety",
-    description: "Content moderation and brand guidelines enforcement. Ensure every video meets your quality standards.",
-    benefits: ["Content filtering", "Brand guidelines", "Quality control"],
+    icon: ImageIcon,
+    title: "Color & material variations",
+    description: "Show every color, finish or material variation of your product without re-shooting it.",
+    benefits: ["Color swaps", "Material edits", "Same composition"],
+  },
+  {
+    icon: Sparkles,
+    title: "AI light & shadow correction",
+    description: "Fix bad phone lighting and harsh shadows automatically. Your product looks like it came out of a real studio.",
+    benefits: ["Auto re-lighting", "Shadow cleanup", "True colors"],
   },
   {
     icon: Zap,
-    title: "API Access",
-    description: "Integrate ClipMotion into your workflow. Full REST API with SDKs for popular programming languages.",
-    benefits: ["REST API", "Webhooks", "SDKs"],
+    title: "Result in under 2 minutes",
+    description: "From upload to final images in less than two minutes — no photographer, no studio, no editing skills required.",
+    benefits: ["< 2 min generation", "No setup", "Priority queue"],
+  },
+  {
+    icon: Download,
+    title: "Ready to publish",
+    description: "Export directly in the formats your storefront expects: Shopify, WooCommerce, Amazon, Instagram, TikTok and more.",
+    benefits: ["HD downloads", "Storefront formats", "One-click export"],
+  },
+  {
+    icon: Shield,
+    title: "Brand safety & consistency",
+    description: "Lock your brand colors, mood and composition so every product image feels like it belongs to the same gallery.",
+    benefits: ["Brand presets", "Style lock", "Consistent gallery"],
   },
 ];
 
@@ -109,17 +109,17 @@ const FeaturesPage = () => {
             className="max-w-4xl mx-auto text-center"
           >
             <h1 className="font-display text-4xl md:text-6xl font-bold mb-6">
-              Powerful <span className="text-gradient">AI Features</span> for Video Creation
+              Powerful <span className="text-gradient">AI features</span> for product photography
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-              ClipMotion combines cutting-edge AI with intuitive tools to help you create professional videos 10x faster than traditional methods.
+              ClipMotion · Product Shot AI turns one ordinary product photo into a full gallery of high-converting visuals — no photographer, no studio.
             </p>
             <Button
               size="lg"
               onClick={() => navigate("/auth")}
               className="gradient-primary shadow-glow"
             >
-              Start Creating Free <ArrowRight className="ml-2 h-5 w-5" />
+              Try Free <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </motion.div>
         </div>
@@ -140,7 +140,7 @@ const FeaturesPage = () => {
                 <Card className="h-full hover:shadow-glow transition-all hover:border-primary/30">
                   <CardContent className="p-6">
                     <div className="h-12 w-12 rounded-xl gradient-primary flex items-center justify-center mb-4 shadow-primary">
-                      <feature.icon className="h-6 w-6 text-white" />
+                      <feature.icon className="h-6 w-6 text-primary-foreground" />
                     </div>
                     <h3 className="font-display text-xl font-semibold mb-2">{feature.title}</h3>
                     <p className="text-muted-foreground mb-4">{feature.description}</p>
@@ -164,13 +164,13 @@ const FeaturesPage = () => {
       <section className="py-20">
         <div className="container mx-auto px-4 text-center">
           <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">
-            Ready to Experience These Features?
+            Ready to refresh your product gallery?
           </h2>
           <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-            Start your free trial today and see how ClipMotion can transform your content creation workflow.
+            Start free today and see how ClipMotion · Product Shot AI can transform your e-commerce visuals in minutes.
           </p>
           <Button size="lg" onClick={() => navigate("/auth")} className="gradient-primary">
-            <Wand2 className="mr-2 h-5 w-5" /> Get Started Free
+            <Wand2 className="mr-2 h-5 w-5" /> Get started free
           </Button>
         </div>
       </section>

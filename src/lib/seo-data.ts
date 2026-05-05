@@ -197,11 +197,11 @@ export const seoPages = {
     canonical: SITE_URL,
   },
   features: {
-    title: "Features – AI Video Generation & Motion Design Tools | ClipMotion",
+    title: "Features – AI Product Photography & Lifestyle Shots | ClipMotion",
     description:
-      "Explore ClipMotion's powerful AI features: video generation, motion design, AI avatars, smart scheduling, and one-click publishing to all social platforms.",
+      "Explore ClipMotion · Product Shot AI features: 1 photo → 10 pro product shots, background removal, lifestyle scenes, multi-platform formats and batch generation for e-commerce.",
     keywords:
-      "AI video features, motion design tools, AI avatar generator, social media automation, video scheduling",
+      "AI product photography features, product shot AI, background removal, lifestyle product images, Shopify product photos, batch product images",
     canonical: `${SITE_URL}/features`,
   },
   pricing: {
