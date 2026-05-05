@@ -7,16 +7,19 @@ import sofaOriginal from "@/assets/demo/sofa-original.jpg";
 import sofa1 from "@/assets/demo/sofa-1.jpg";
 import sofa2 from "@/assets/demo/sofa-2.jpg";
 import sofa3 from "@/assets/demo/sofa-3.jpg";
+import sofa4 from "@/assets/demo/sofa-4.jpg";
 import watchOriginal from "@/assets/demo/watch-original.jpg";
 import watch1 from "@/assets/demo/watch-1.jpg";
 import watch2 from "@/assets/demo/watch-2.jpg";
 import watch3 from "@/assets/demo/watch-3.jpg";
+import watch4 from "@/assets/demo/watch-4.jpg";
 
 type DemoItem = {
   name: string;
   hashtag: string;
   original: string;
   generated: string[];
+  angles: string[];
   caption: string;
 };
 
@@ -25,15 +28,17 @@ const DEMOS: DemoItem[] = [
     name: "Sofa",
     hashtag: "#InteriorDesign",
     original: sofaOriginal,
-    generated: [sofa1, sofa2, sofa3],
-    caption: "From plain studio shot → 3 lifestyle scenes in seconds 🛋️✨",
+    generated: [sofa1, sofa2, sofa3, sofa4],
+    angles: ["Front view", "Lifestyle", "Editorial", "Side profile"],
+    caption: "From plain studio shot → 4 angles & scenes 🛋️✨",
   },
   {
     name: "Watch",
     hashtag: "#LuxuryWatch",
     original: watchOriginal,
-    generated: [watch1, watch2, watch3],
-    caption: "One product photo → editorial campaign ready ⌚🔥",
+    generated: [watch1, watch2, watch3, watch4],
+    angles: ["Front view", "On wrist", "Cinematic", "Top-down"],
+    caption: "One product photo → full editorial mosaic ⌚🔥",
   },
 ];
 
