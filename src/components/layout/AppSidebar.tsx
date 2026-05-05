@@ -87,7 +87,7 @@ export function AppSidebar() {
 
       <SidebarContent className="px-2">
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          
           <SidebarGroupContent>
             <SidebarMenu>
               {mainNavItems.map((item) => (
