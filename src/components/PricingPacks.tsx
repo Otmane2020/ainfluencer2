@@ -12,12 +12,10 @@ import { ToastAction } from "@/components/ui/toast";
 import { formatDebugForClipboard } from "@/lib/checkoutDebug";
 import { useState, useEffect } from "react";
 
-// Flash sale discount configuration
+// Flash sale: highlight savings vs. equivalent stock photography costs
 const FLASH_SALE_DISCOUNTS: Record<string, { discount: number; originalPrice: number }> = {
-  lite: { discount: 25, originalPrice: 12 },      // 25% off - was $12, now $9
-  starter: { discount: 20, originalPrice: 24 },   // 20% off - was $24, now $19
-  pro: { discount: 50, originalPrice: 98 },       // 50% off - was $98, now $49
-  business: { discount: 30, originalPrice: 142 }, // 30% off - was $142, now $99
+  pro: { discount: 50, originalPrice: 58 },
+  business: { discount: 30, originalPrice: 113 },
 };
 
 interface PricingPacksProps {
@@ -29,10 +27,8 @@ interface PricingPacksProps {
 
 const getPlanIcon = (planId: string) => {
   switch (planId) {
-    case "lite":
-      return Sparkles;
     case "starter":
-      return Wand2;
+      return Sparkles;
     case "pro":
       return Zap;
     case "business":
@@ -44,10 +40,8 @@ const getPlanIcon = (planId: string) => {
 
 const getPlanGradient = (planId: string) => {
   switch (planId) {
-    case "lite":
-      return "from-emerald-500 to-teal-500";
     case "starter":
-      return "from-blue-500 to-cyan-500";
+      return "from-emerald-500 to-teal-500";
     case "pro":
       return "from-primary to-secondary";
     case "business":
