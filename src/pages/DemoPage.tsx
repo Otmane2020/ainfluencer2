@@ -272,9 +272,10 @@ function TikTokPhone({ demo }: { demo: DemoItem }) {
 
         {/* Stage indicator dots */}
         <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-1">
-          {(["upload", "generating", "result"] as const).map((s) => (
-            <span key={s} className={`h-1 w-6 rounded-full ${stage === s ? "bg-white" : "bg-white/30"}`} />
-          ))}
+          {(["intro", "uploading", "generating", "result"] as const).map((s) => {
+            const active = stage === s || (s === "uploading" && stage === "uploaded");
+            return <span key={s} className={`h-1 w-5 rounded-full ${active ? "bg-white" : "bg-white/30"}`} />;
+          })}
         </div>
       </div>
     </div>
