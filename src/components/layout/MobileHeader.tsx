@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, LogOut } from "lucide-react";
+import { Menu, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -17,7 +17,6 @@ import { CreditsDisplay } from "@/components/CreditsDisplay";
 import {
   LayoutDashboard,
   Camera,
-  Image,
   Clock,
   Plug,
   Settings,
@@ -44,80 +43,17 @@ export function MobileHeader() {
     navigate("/auth");
   };
 
-  const handleNavClick = () => {
-    setOpen(false);
-  };
-
-  const NavSection = ({ title, items }: { title: string; items: Array<{ title: string; url: string; icon: typeof Camera; label?: string }> }) => (
-    <div className="space-y-1">
-      <p className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-        {title}
-      </p>
-      {items.map((item) => (
-        <NavLink
-          key={item.title}
-          to={item.url}
-          end
-          onClick={handleNavClick}
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-            isActive(item.url)
-              ? "bg-primary/10 text-primary font-medium"
-              : "text-foreground hover:bg-muted"
-          }`}
-          activeClassName="bg-primary/10 text-primary font-medium"
-        >
-          <item.icon className="h-5 w-5" />
-          <span className="flex items-center gap-2">
-            {item.title}
-            {"label" in item && (item as { label?: string }).label && (
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-primary/20 text-primary border-0">
-                {(item as { label?: string }).label}
-              </Badge>
-            )}
-          </span>
-        </NavLink>
-      ))}
-    </div>
-  );
+  const handleNavClick = () => setOpen(false);
 
   return (
-    <div className="space-y-1">
-      {items.map((item) => (
-        <NavLink
-          key={item.title}
-          to={item.url}
-          end
-          onClick={handleNavClick}
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-            isActive(item.url)
-              ? "bg-primary/10 text-primary font-medium"
-              : "text-foreground hover:bg-muted"
-          }`}
-          activeClassName="bg-primary/10 text-primary font-medium"
-        >
-          <item.icon className="h-5 w-5" />
-          <span className="flex flex-1 items-center justify-between gap-2">
-            <span>{item.title}</span>
-            {item.label && (
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-primary/20 text-primary border-0">
-                {item.label}
-              </Badge>
-            )}
-          </span>
-        </NavLink>
-      ))}
-    </div>
-  );
     <header className="md:hidden h-14 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50 flex items-center justify-between px-4">
-      {/* Logo */}
       <NavLink to="/" className="flex items-center gap-3 cursor-pointer">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden ring-1 ring-border/50 shadow-lg shadow-primary/20">
-          <img src="/logo.png" alt="Product Shot AI" className="h-full w-full object-contain scale-125" />
+          <img src="/logo.png" alt="ClipMotion" className="h-full w-full object-contain scale-125" />
         </div>
-        <span className="font-display text-lg font-bold text-gradient">Product Shot AI</span>
+        <span className="font-display text-lg font-bold text-gradient">ClipMotion</span>
       </NavLink>
 
-      {/* Credits + Menu */}
       <div className="flex items-center gap-2">
         <CreditsDisplay compact />
         <Sheet open={open} onOpenChange={setOpen}>
@@ -131,24 +67,45 @@ export function MobileHeader() {
             <SheetHeader className="p-4 border-b border-border">
               <SheetTitle className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden">
-                  <img src="/logo.png" alt="Product Shot AI" className="h-full w-full object-contain scale-125" />
+                  <img src="/logo.png" alt="ClipMotion" className="h-full w-full object-contain scale-125" />
                 </div>
-                <div>
-                  <span className="font-display text-lg font-bold text-gradient">Product Shot AI</span>
-                  <p className="text-xs text-muted-foreground">Pro Edition</p>
+                <div className="flex flex-col text-left">
+                  <span className="font-display text-lg font-bold text-gradient">ClipMotion</span>
+                  <span className="text-xs text-muted-foreground">Product Shot AI</span>
                 </div>
               </SheetTitle>
             </SheetHeader>
 
             <div className="flex flex-col h-[calc(100%-80px)]">
-              <div className="flex-1 overflow-y-auto py-4 px-2 space-y-6">
-                <NavSection title="Navigation" items={mainNavItems} />
-                {contentNavItems.length > 0 && <NavSection title="Create" items={contentNavItems} />}
-                <NavSection title="History" items={historyNavItems} />
-                <NavSection title="Account" items={accountNavItems} />
+              <div className="flex-1 overflow-y-auto py-4 px-2">
+                <div className="space-y-1">
+                  {navItems.map((item) => (
+                    <NavLink
+                      key={item.title}
+                      to={item.url}
+                      end
+                      onClick={handleNavClick}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                        isActive(item.url)
+                          ? "bg-primary/10 text-primary font-medium"
+                          : "text-foreground hover:bg-muted"
+                      }`}
+                      activeClassName="bg-primary/10 text-primary font-medium"
+                    >
+                      <item.icon className="h-5 w-5 shrink-0" />
+                      <span className="flex flex-1 items-center justify-between gap-2">
+                        <span>{item.title}</span>
+                        {item.label && (
+                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 bg-primary/20 text-primary border-0">
+                            {item.label}
+                          </Badge>
+                        )}
+                      </span>
+                    </NavLink>
+                  ))}
+                </div>
               </div>
 
-              {/* Footer */}
               <div className="p-4 border-t border-border space-y-3">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full gradient-primary p-[2px]">
@@ -162,7 +119,7 @@ export function MobileHeader() {
                     <p className="font-medium text-sm truncate">
                       {profile?.display_name || "User"}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate">Pro Plan</p>
+                    <p className="text-xs text-muted-foreground truncate">Creator</p>
                   </div>
                   <Button
                     variant="ghost"
