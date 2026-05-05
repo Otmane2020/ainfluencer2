@@ -5,6 +5,30 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 
+const magazineArticles = [
+  {
+    href: "/magazine/ai-product-photography-no-studio.html",
+    title: "How to Take Professional Product Photos with AI (No Studio Needed)",
+    description: "Step-by-step guide to replace your photographer with AI in 2025 — no studio, no DSLR.",
+    category: "Magazine · Photography",
+    readTime: "6 min read",
+  },
+  {
+    href: "/magazine/best-ai-background-remover.html",
+    title: "Best AI Tools to Remove Background from Product Photos in 2025",
+    description: "Honest comparison of the top AI background removers for e-commerce — free options included.",
+    category: "Magazine · Tools",
+    readTime: "7 min read",
+  },
+  {
+    href: "/magazine/boost-shopify-sales-product-images.html",
+    title: "How to Boost Shopify Sales with Better Product Images in 2025",
+    description: "Practical tactics and AI tools to upgrade Shopify product photos and lift conversion.",
+    category: "Magazine · Shopify",
+    readTime: "6 min read",
+  },
+];
+
 const blogArticles = [
   {
     slug: "ai-product-photography-guide",
