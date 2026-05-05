@@ -131,31 +131,6 @@ const Dashboard = () => {
       </motion.div>
 
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        {statCards.map((stat, index) => (
-          <motion.div
-            key={stat.title}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 + index * 0.1 }}
-          >
-            <Card className="hover:shadow-lg transition-shadow">
-              <CardContent className="p-4 md:p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs md:text-sm text-muted-foreground">{stat.title}</p>
-                    <p className="text-2xl md:text-3xl font-bold mt-1">{stat.value}</p>
-                  </div>
-                  <div className={`h-10 w-10 md:h-12 md:w-12 rounded-xl ${stat.bgColor} flex items-center justify-center shrink-0`}>
-                    <stat.icon className={`h-5 w-5 md:h-6 md:w-6 ${stat.color}`} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
 
       {/* Recent Projects */}
       <motion.div
@@ -238,14 +213,6 @@ const Dashboard = () => {
         )}
       </motion.div>
 
-      {/* Notification Settings */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.8 }}
-      >
-        <NotificationSettings />
-      </motion.div>
     </div>
   );
 };
