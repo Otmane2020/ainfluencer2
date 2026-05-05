@@ -125,7 +125,7 @@ export function MobileHeader() {
             <div className="flex flex-col h-[calc(100%-80px)]">
               <div className="flex-1 overflow-y-auto py-4 px-2 space-y-6">
                 <NavSection title="Navigation" items={mainNavItems} />
-                <NavSection title="Create" items={contentNavItems} />
+                {contentNavItems.length > 0 && <NavSection title="Create" items={contentNavItems} />}
                 <NavSection title="History" items={historyNavItems} />
                 <NavSection title="Account" items={accountNavItems} />
               </div>
