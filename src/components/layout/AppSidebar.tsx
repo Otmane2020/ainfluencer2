@@ -177,7 +177,7 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Account</SidebarGroupLabel>
+          
           <SidebarGroupContent>
             <SidebarMenu>
               {accountNavItems.map((item) => (
