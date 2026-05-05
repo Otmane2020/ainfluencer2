@@ -189,7 +189,7 @@ export default function ProductShotsPage() {
 
       {/* Step content */}
       <Card className="overflow-hidden border-2">
-        <CardContent className="p-4 md:p-5">
+        <CardContent className="p-3 sm:p-4 md:p-5">
           {/* STEP 1: Upload */}
           {step === 1 && (
             <div className="space-y-3 animate-fade-in">
