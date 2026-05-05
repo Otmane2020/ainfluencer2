@@ -39,6 +39,7 @@ import {
 const navItems: { title: string; url: string; icon: typeof LayoutDashboard; label?: string }[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Product Shots", url: "/product-shots", icon: Camera, label: "FLAGSHIP" },
+  { title: "Integrations", url: "/integrations", icon: Plug },
   { title: "History", url: "/history", icon: Clock },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
