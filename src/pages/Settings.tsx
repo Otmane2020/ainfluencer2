@@ -28,6 +28,8 @@ import {
   ChevronRight,
   Sun,
   Moon,
+  Store,
+  Camera,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -342,6 +344,55 @@ const Settings = () => {
                 checked={notifications.weekly}
                 onCheckedChange={(checked) => setNotifications((prev) => ({ ...prev, weekly: checked }))}
               />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Connected Stores */}
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Store className="h-4 w-4 text-primary" />
+            Connected stores
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Push generated product shots straight to your storefront.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate("/integrations")} className="h-9">
+              Shopify
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate("/integrations")} className="h-9">
+              WooCommerce
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Product Shot defaults */}
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Camera className="h-4 w-4 text-primary" />
+            Product Shot defaults
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Square format (1:1)</span>
+              <Switch defaultChecked />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Portrait format (9:16)</span>
+              <Switch defaultChecked />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Landscape format (16:9)</span>
+              <Switch />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Auto background removal</span>
+              <Switch defaultChecked />
             </div>
           </div>
         </CardContent>

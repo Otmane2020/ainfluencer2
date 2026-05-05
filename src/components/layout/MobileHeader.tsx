@@ -16,36 +16,23 @@ import { Badge } from "@/components/ui/badge";
 import { CreditsDisplay } from "@/components/CreditsDisplay";
 import {
   LayoutDashboard,
-  FolderKanban,
-  Calendar,
-  Video,
-  ImageIcon,
-  Settings,
-  Clock,
-  FileText,
-  Plug,
-  Image,
-  Megaphone,
   Camera,
+  Image,
+  Clock,
+  Plug,
+  Settings,
 } from "lucide-react";
 
 const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Projects", url: "/projects", icon: FolderKanban },
-  { title: "Campaigns", url: "/campaigns", icon: Megaphone },
-  { title: "AutoPost AI", url: "/calendar", icon: Calendar },
+  { title: "Product Shots", url: "/product-shots", icon: Camera, label: "Flagship" },
+  { title: "AI Image", url: "/images", icon: Image },
 ];
 
-const contentNavItems = [
-  { title: "Videos", url: "/videos", icon: Video },
-  { title: "Images", url: "/images", icon: Image },
-  { title: "Product Shots", url: "/product-shots", icon: Camera, label: "AI Smart" },
-  { title: "Posts", url: "/posts", icon: ImageIcon },
-];
+const contentNavItems: { title: string; url: string; icon: typeof Camera; label?: string }[] = [];
 
 const historyNavItems = [
-  { title: "History", url: "/history", icon: Clock },
-  { title: "Post History", url: "/history/posts", icon: FileText },
+  { title: "Post History", url: "/history/posts", icon: Clock },
 ];
 
 const accountNavItems = [
@@ -70,7 +57,7 @@ export function MobileHeader() {
     setOpen(false);
   };
 
-  const NavSection = ({ title, items }: { title: string; items: typeof mainNavItems }) => (
+  const NavSection = ({ title, items }: { title: string; items: Array<{ title: string; url: string; icon: typeof Camera; label?: string }> }) => (
     <div className="space-y-1">
       <p className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
         {title}
@@ -107,9 +94,9 @@ export function MobileHeader() {
       {/* Logo */}
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden ring-1 ring-border/50 shadow-lg shadow-primary/20">
-          <img src="/logo.png" alt="ClipMotion" className="h-full w-full object-contain scale-125" />
+          <img src="/logo.png" alt="Product Shot AI" className="h-full w-full object-contain scale-125" />
         </div>
-        <span className="font-display text-lg font-bold text-gradient">ClipMotion</span>
+        <span className="font-display text-lg font-bold text-gradient">Product Shot AI</span>
       </div>
 
       {/* Credits + Menu */}
@@ -126,10 +113,10 @@ export function MobileHeader() {
             <SheetHeader className="p-4 border-b border-border">
               <SheetTitle className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden">
-                  <img src="/logo.png" alt="ClipMotion" className="h-full w-full object-contain scale-125" />
+                  <img src="/logo.png" alt="Product Shot AI" className="h-full w-full object-contain scale-125" />
                 </div>
                 <div>
-                  <span className="font-display text-lg font-bold text-gradient">ClipMotion</span>
+                  <span className="font-display text-lg font-bold text-gradient">Product Shot AI</span>
                   <p className="text-xs text-muted-foreground">Pro Edition</p>
                 </div>
               </SheetTitle>
@@ -138,7 +125,7 @@ export function MobileHeader() {
             <div className="flex flex-col h-[calc(100%-80px)]">
               <div className="flex-1 overflow-y-auto py-4 px-2 space-y-6">
                 <NavSection title="Navigation" items={mainNavItems} />
-                <NavSection title="Create" items={contentNavItems} />
+                {contentNavItems.length > 0 && <NavSection title="Create" items={contentNavItems} />}
                 <NavSection title="History" items={historyNavItems} />
                 <NavSection title="Account" items={accountNavItems} />
               </div>
