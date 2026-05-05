@@ -54,6 +54,8 @@ function SeoHead() {
 
 export default function Demo3Page() {
   const [tick, setTick] = useState(0);
+  const [muted, setMuted] = useState(true);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const start = performance.now();
@@ -65,6 +67,20 @@ export default function Demo3Page() {
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
   }, []);
+
+  const toggleSound = async () => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (muted) {
+      a.muted = false;
+      a.volume = 0.6;
+      try { await a.play(); } catch { /* ignore */ }
+      setMuted(false);
+    } else {
+      a.muted = true;
+      setMuted(true);
+    }
+  };
 
   // Build the storyboard (two products)
   const scenes: Scene[] = [
