@@ -364,6 +364,13 @@ export default function Demo3Page() {
               >
                 See more examples
               </Link>
+              <a
+                href="/videos/demo3.mp4"
+                download="clipmotion-demo.mp4"
+                className="rounded-full border border-white/20 px-5 py-3 font-semibold text-sm hover:bg-white/5"
+              >
+                ⬇ Download MP4
+              </a>
             </div>
             <div className="flex gap-6 pt-4 text-xs text-white/50">
               <div><span className="text-white text-lg font-bold block">30s</span>per generation</div>
