@@ -143,7 +143,7 @@ export default function ProductShotsPage() {
   const canNext = step === 1 ? !!sourceImage : step === 2 ? selectedShotTypes.size > 0 : false;
 
   return (
-    <div className="max-w-4xl mx-auto px-3 sm:px-0 space-y-3 sm:space-y-4 animate-fade-in">
+    <div className="max-w-4xl mx-auto w-full flex flex-col min-h-[calc(100dvh-5rem)] sm:min-h-0 px-3 sm:px-0 gap-3 sm:gap-4 animate-fade-in">
       {/* Compact header */}
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
@@ -188,8 +188,8 @@ export default function ProductShotsPage() {
       </div>
 
       {/* Step content */}
-      <Card className="overflow-hidden border-2">
-        <CardContent className="p-3 sm:p-4 md:p-5">
+      <Card className="overflow-hidden border-2 flex-1 flex flex-col">
+        <CardContent className="p-3 sm:p-4 md:p-5 flex-1 overflow-y-auto">
           {/* STEP 1: Upload */}
           {step === 1 && (
             <div className="space-y-3 animate-fade-in">
