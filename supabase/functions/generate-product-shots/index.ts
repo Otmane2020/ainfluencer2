@@ -142,28 +142,39 @@ CRITICAL REQUIREMENTS:
 - No text, watermarks, or borders
 - Ultra high resolution, sharp focus on the product`;
 
-      // Model fallback chain: free tier first (Gemini 2.0 Flash Exp Free), then paid Kimi-K2 vision text fallback, then paid Gemini Image
-      const MODEL_CHAIN = [
-        "google/gemini-2.0-flash-exp:free",
-        "google/gemini-2.5-flash-image",
+      // Provider chain: Lovable AI Gateway (free Gemini image) → OpenRouter paid fallback
+      type Provider = { name: string; url: string; key: string | undefined; model: string };
+      const PROVIDERS: Provider[] = [
+        ...(LOVABLE_API_KEY ? [{
+          name: "lovable-ai",
+          url: "https://ai.gateway.lovable.dev/v1/chat/completions",
+          key: LOVABLE_API_KEY,
+          model: "google/gemini-2.5-flash-image-preview",
+        }] : []),
+        ...(OPENROUTER_API_KEY ? [{
+          name: "openrouter",
+          url: "https://openrouter.ai/api/v1/chat/completions",
+          key: OPENROUTER_API_KEY,
+          model: "google/gemini-2.5-flash-image",
+        }] : []),
       ];
 
       let response: Response | null = null;
       let lastStatus = 0;
       let lastError = "";
 
-      for (const model of MODEL_CHAIN) {
+      for (const provider of PROVIDERS) {
         try {
           const r = await fetchWithTimeout(
-            "https://openrouter.ai/api/v1/chat/completions",
+            provider.url,
             {
               method: "POST",
               headers: {
-                Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+                Authorization: `Bearer ${provider.key}`,
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                model,
+                model: provider.model,
                 messages: [
                   {
                     role: "user",
@@ -181,19 +192,19 @@ CRITICAL REQUIREMENTS:
 
           if (r.ok) {
             response = r;
-            console.log(`[generate-product-shots] ${shotType} via ${model}`);
+            console.log(`[generate-product-shots] ${shotType} via ${provider.name}`);
             break;
           }
 
           lastStatus = r.status;
           lastError = (await r.text()).slice(0, 200);
-          console.warn(`[generate-product-shots] ${model} failed [${lastStatus}]: ${lastError}`);
+          console.warn(`[generate-product-shots] ${provider.name} failed [${lastStatus}]: ${lastError}`);
 
-          // Try next model on 402 (credits) or 404 (model unavailable)
-          if (lastStatus !== 402 && lastStatus !== 404 && lastStatus !== 429) break;
+          // Try next provider on credits/rate-limit/unavailable
+          if (lastStatus !== 402 && lastStatus !== 404 && lastStatus !== 429 && lastStatus !== 503) break;
         } catch (e) {
           lastError = e instanceof Error ? e.message : String(e);
-          console.warn(`[generate-product-shots] ${model} exception:`, lastError);
+          console.warn(`[generate-product-shots] ${provider.name} exception:`, lastError);
         }
       }
 
