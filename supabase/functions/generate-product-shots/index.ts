@@ -151,6 +151,11 @@ Deno.serve(async (req) => {
 
 Product: ${productTitle}
 
+OUTPUT FORMAT:
+- Aspect ratio: ${format.ratio} (${format.label}, ${format.px})
+- Composition: ${format.orient}
+- For mobile/portrait: keep the product fully visible, avoid cropping at edges, leave safe space top & bottom
+
 CRITICAL REQUIREMENTS:
 - Maintain EXACT product identity, colors, materials, and proportions from the source image
 - Only change the viewing angle as specified
