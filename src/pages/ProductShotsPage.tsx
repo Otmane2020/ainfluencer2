@@ -360,9 +360,9 @@ export default function ProductShotsPage() {
       {/* Spacer so sticky bar doesn't cover content */}
       {step < 3 && <div className="h-24" />}
 
-      {/* Sticky wizard nav — sits above the support chat widget */}
+      {/* Sticky wizard nav — leaves room for the support chat widget on the right */}
       {step < 3 && (
-        <div className="fixed inset-x-0 bottom-20 z-40 px-4 pointer-events-none">
+        <div className="fixed inset-x-0 bottom-4 z-40 pl-4 pr-20 pointer-events-none">
           <div className="max-w-5xl mx-auto pointer-events-auto">
             <div className="flex items-center justify-between gap-3 rounded-2xl border bg-background/90 backdrop-blur-md shadow-lg p-3">
               <Button variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1}>
