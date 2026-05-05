@@ -6,6 +6,7 @@ import { PricingPacks } from "@/components/PricingPacks";
 import { supabase } from "@/integrations/supabase/client";
 import { SocialProofToast } from "@/components/nudges/SocialProofToast";
 import { MobileStickyCta } from "@/components/MobileStickyeCTA";
+import { SEOHead } from "@/components/seo/SEOHead";
 import {
   Upload,
   Wand2,
@@ -136,14 +137,32 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <SEOHead
+        title="ClipMotion – Product Shot AI | 1 photo, 10 pro product images in 2 minutes"
+        description="ClipMotion turns one product photo into 10 high-converting visuals for Shopify, Amazon, Instagram and TikTok. No photographer, no studio. Try free."
+        canonical="https://clipmotion.ai"
+        keywords="product shot AI, AI product photography, ecommerce photos, Shopify product images, AI background removal, lifestyle product images, ClipMotion"
+        structuredData={{
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          name: "ClipMotion – Product Shot AI",
+          applicationCategory: "BusinessApplication",
+          operatingSystem: "Web",
+          url: "https://clipmotion.ai",
+          description: "AI product photography for e-commerce. Generate 10 high-converting product images from a single photo.",
+          offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+          aggregateRating: { "@type": "AggregateRating", ratingValue: "4.9", ratingCount: "1280", bestRating: "5" },
+        }}
+      />
       {/* NAV */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 backdrop-blur-xl bg-background/80">
         <div className="container mx-auto flex h-14 md:h-16 items-center justify-between px-4">
           <Link to="/" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl overflow-hidden shadow-glow">
-              <img src="/logo.png" alt="Product Shot AI" className="h-full w-full object-contain scale-125" />
+              <img src="/logo.png" alt="ClipMotion – Product Shot AI" className="h-full w-full object-contain scale-125" />
             </div>
-            <span className="font-display text-lg md:text-xl font-bold text-gradient">Product Shot AI</span>
+            <span className="font-display text-lg md:text-xl font-bold text-gradient">ClipMotion</span>
+            <span className="hidden sm:inline text-xs text-muted-foreground">· Product Shot AI</span>
           </Link>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => navigate("/auth")}>Sign In</Button>
@@ -306,7 +325,7 @@ const LandingPage = () => {
             </h2>
             <p className="text-muted-foreground">No credit card required for the free trial.</p>
           </div>
-          <PricingPacks />
+          <PricingPacks onSelectPack={(plan) => navigate(`/auth?plan=${plan.id}`)} />
         </div>
       </section>
 
@@ -366,9 +385,10 @@ const LandingPage = () => {
       {/* FOOTER */}
       <footer className="border-t border-border py-10 text-center text-sm text-muted-foreground">
         <Link to="/" className="inline-flex items-center gap-2 mb-3">
-          <span className="font-display font-bold text-foreground">Product Shot AI</span>
+          <span className="font-display font-bold text-foreground">ClipMotion</span>
+          <span className="text-xs">· Product Shot AI</span>
         </Link>
-        <p>© {new Date().getFullYear()} Product Shot AI. All rights reserved.</p>
+        <p>© {new Date().getFullYear()} ClipMotion. All rights reserved.</p>
         <div className="mt-3 flex justify-center gap-5 text-xs">
           <Link to="/privacy-policy" className="hover:text-foreground">Privacy</Link>
           <Link to="/terms" className="hover:text-foreground">Terms</Link>
