@@ -141,50 +141,70 @@ CRITICAL REQUIREMENTS:
 - No text, watermarks, or borders
 - Ultra high resolution, sharp focus on the product`;
 
-      try {
-        const response = await fetchWithTimeout(
-          "https://openrouter.ai/api/v1/chat/completions",
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-              "Content-Type": "application/json",
+      // Model fallback chain: free tier first (Gemini 2.0 Flash Exp Free), then paid Kimi-K2 vision text fallback, then paid Gemini Image
+      const MODEL_CHAIN = [
+        "google/gemini-2.0-flash-exp:free",
+        "google/gemini-2.5-flash-image",
+      ];
+
+      let response: Response | null = null;
+      let lastStatus = 0;
+      let lastError = "";
+
+      for (const model of MODEL_CHAIN) {
+        try {
+          const r = await fetchWithTimeout(
+            "https://openrouter.ai/api/v1/chat/completions",
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model,
+                messages: [
+                  {
+                    role: "user",
+                    content: [
+                      { type: "text", text: imagePrompt },
+                      { type: "image_url", image_url: { url: sourceImageUrl } },
+                    ],
+                  },
+                ],
+                modalities: ["image", "text"],
+              }),
             },
-            body: JSON.stringify({
-              model: "google/gemini-2.5-flash-image",
-              messages: [
-                {
-                  role: "user",
-                  content: [
-                    { type: "text", text: imagePrompt },
-                    { type: "image_url", image_url: { url: sourceImageUrl } },
-                  ],
-                },
-              ],
-              modalities: ["image", "text"],
-            }),
-          },
-          90_000
-        );
+            90_000
+          );
 
-        if (!response.ok) {
-          const status = response.status;
-          const errorText = await response.text();
-          console.error(`[generate-product-shots] AI error for ${shotType}:`, status, errorText.slice(0, 200));
+          if (r.ok) {
+            response = r;
+            console.log(`[generate-product-shots] ${shotType} via ${model}`);
+            break;
+          }
 
-          if (status === 429) {
+          lastStatus = r.status;
+          lastError = (await r.text()).slice(0, 200);
+          console.warn(`[generate-product-shots] ${model} failed [${lastStatus}]: ${lastError}`);
+
+          // Try next model on 402 (credits) or 404 (model unavailable)
+          if (lastStatus !== 402 && lastStatus !== 404 && lastStatus !== 429) break;
+        } catch (e) {
+          lastError = e instanceof Error ? e.message : String(e);
+          console.warn(`[generate-product-shots] ${model} exception:`, lastError);
+        }
+      }
+
+      try {
+        if (!response) {
+          console.error(`[generate-product-shots] All models failed for ${shotType}: ${lastStatus} ${lastError}`);
+          if (lastStatus === 429) {
             return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), {
               status: 429,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
           }
-          if (status === 402) {
-            return new Response(JSON.stringify({ error: "Credits required. Please add credits to continue." }), {
-              status: 402,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          }
-          // continue other shots
           continue;
         }
 
