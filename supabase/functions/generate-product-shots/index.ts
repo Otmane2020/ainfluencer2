@@ -95,6 +95,13 @@ Deno.serve(async (req) => {
     const sourceImageUrl = body?.sourceImageUrl as string | undefined;
     const productTitle = (body?.productTitle as string | undefined) || "Product";
     const includeLifestyle = Boolean(body?.includeLifestyle);
+    const formatRaw = String(body?.format || "square").toLowerCase();
+    const FORMAT_MAP: Record<string, { label: string; ratio: string; px: string; orient: string }> = {
+      square: { label: "Square", ratio: "1:1", px: "2048x2048", orient: "balanced centered framing" },
+      portrait: { label: "Portrait (Mobile / Reels)", ratio: "9:16", px: "1080x1920", orient: "vertical mobile-first composition with subject filling the vertical frame" },
+      landscape: { label: "Landscape", ratio: "16:9", px: "1920x1080", orient: "horizontal cinematic composition" },
+    };
+    const format = FORMAT_MAP[formatRaw] || FORMAT_MAP.square;
 
     if (!sourceImageUrl || typeof sourceImageUrl !== "string") {
       return new Response(JSON.stringify({ error: "Source image URL is required" }), {
