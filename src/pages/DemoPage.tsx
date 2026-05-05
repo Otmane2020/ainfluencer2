@@ -300,7 +300,20 @@ export default function DemoPage() {
 
   return (
     <>
-
+      <style>{`
+        @keyframes tap-hand {
+          0%, 100% { transform: translate(0, 0) rotate(-15deg); opacity: 1; }
+          50% { transform: translate(-8px, -8px) rotate(-25deg); opacity: 0.7; }
+        }
+        @keyframes sparkle-float {
+          0%, 100% { transform: translateY(0) scale(0.6); opacity: 0; }
+          50% { transform: translateY(-20px) scale(1.2); opacity: 1; }
+        }
+        @keyframes dot-bounce {
+          0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+          40% { transform: translateY(-6px); opacity: 1; }
+        }
+      `}</style>
       <main className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30">
         {/* Hero */}
         <section className="container mx-auto px-4 pt-16 pb-10 text-center">
