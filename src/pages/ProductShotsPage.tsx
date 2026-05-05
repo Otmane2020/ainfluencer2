@@ -192,28 +192,28 @@ export default function ProductShotsPage() {
         <CardContent className="p-3 sm:p-4 md:p-5 flex-1 overflow-y-auto">
           {/* STEP 1: Upload */}
           {step === 1 && (
-            <div className="space-y-3 animate-fade-in">
+            <div className="space-y-3 animate-fade-in flex flex-col h-full">
               <div className="text-center">
                 <h2 className="text-base font-bold">Upload your product photo</h2>
                 <p className="text-xs text-muted-foreground">Clear photo, white background recommended.</p>
               </div>
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className={`relative border-2 border-dashed rounded-xl p-4 cursor-pointer transition-all hover:border-primary/60 hover:bg-primary/5 ${sourceImage ? "border-primary bg-primary/5" : "border-border"}`}
+                className={`relative border-2 border-dashed rounded-xl p-4 cursor-pointer transition-all hover:border-primary/60 hover:bg-primary/5 flex-1 min-h-[260px] flex items-center justify-center ${sourceImage ? "border-primary bg-primary/5" : "border-border"}`}
               >
                 <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
                 {sourceImage ? (
-                  <div className="relative animate-scale-in">
-                    <img src={sourceImage} alt="Source" className="max-h-56 mx-auto rounded-lg object-contain" />
+                  <div className="relative animate-scale-in w-full h-full flex items-center justify-center">
+                    <img src={sourceImage} alt="Source" className="max-h-full max-w-full mx-auto rounded-lg object-contain" />
                     <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-7 w-7"
                       onClick={(e) => { e.stopPropagation(); handleReset(); }}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 ) : (
-                  <div className="text-center py-6">
-                    <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 mb-2">
-                      <ImageIcon className="h-6 w-6 text-primary" />
+                  <div className="text-center">
+                    <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 mb-3">
+                      <ImageIcon className="h-7 w-7 text-primary" />
                     </div>
                     <p className="font-medium text-sm">Click to upload or drag & drop</p>
                     <p className="text-[11px] text-muted-foreground mt-0.5">PNG, JPG up to 10MB</p>
