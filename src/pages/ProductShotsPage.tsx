@@ -48,6 +48,7 @@ export default function ProductShotsPage() {
     new Set(["front", "angle45", "profile", "zoom_detail"])
   );
   const [includeLifestyle, setIncludeLifestyle] = useState(true);
+  const [format, setFormat] = useState<FormatId>("portrait");
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [generatingLabel, setGeneratingLabel] = useState("");
