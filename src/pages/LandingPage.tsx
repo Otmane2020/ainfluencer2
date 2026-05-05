@@ -373,9 +373,14 @@ const LandingPage = () => {
           <p className="relative text-muted-foreground mb-9">
             Join hundreds of sellers using Product Shot AI to create visuals that convert.
           </p>
-          <Button size="lg" onClick={() => navigate("/auth")} className="relative h-12 px-8 gradient-primary shadow-glow">
-            <Sparkles className="mr-2 h-4 w-4" /> Start free
-          </Button>
+          <div className="relative flex flex-wrap gap-3 justify-center">
+            <Button size="lg" onClick={() => navigate("/auth")} className="h-12 px-8 gradient-primary shadow-glow">
+              <Sparkles className="mr-2 h-4 w-4" /> Start free
+            </Button>
+            <Button size="lg" variant="outline" onClick={() => navigate("/demo")} className="h-12 px-8">
+              ▶ Watch live demo
+            </Button>
+          </div>
           <p className="relative mt-4 text-xs text-muted-foreground">
             5 free products · No credit card · Result in 2 minutes
           </p>

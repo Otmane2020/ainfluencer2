@@ -40,6 +40,7 @@ import BestProductShotToolsPage from "./pages/blog/BestProductShotToolsPage";
 import TikTokCallbackPage from "./pages/TikTokCallbackPage";
 import ChoosePlanPage from "./pages/ChoosePlanPage";
 import DemoPage from "./pages/DemoPage";
+import Demo2Page from "./pages/Demo2Page";
 
 import { SubscriptionProvider } from "./contexts/SubscriptionContext";
 import { OrgProvider } from "./contexts/OrgContext";
@@ -63,6 +64,7 @@ const App = () => (
           <Route path="/faq" element={<FAQPage />} />
           <Route path="/blog" element={<BlogPage />} />
           <Route path="/demo" element={<DemoPage />} />
+          <Route path="/demo2" element={<Demo2Page />} />
           <Route path="/blog/ai-product-photography-guide" element={<AIProductPhotographyGuidePage />} />
           <Route path="/blog/shopify-product-photos-with-ai" element={<ShopifyProductPhotosPage />} />
           <Route path="/blog/lifestyle-product-shots-ai" element={<LifestyleProductShotsPage />} />
