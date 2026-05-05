@@ -246,32 +246,120 @@ export default function ProductShotsPage() {
           {step === 1 && (
             <div className="space-y-3 animate-fade-in flex flex-col h-full">
               <div className="text-center">
-                <h2 className="text-base font-bold">Upload your product photo</h2>
-                <p className="text-xs text-muted-foreground">Clear photo, white background recommended.</p>
+                <h2 className="text-base font-bold">Add your product</h2>
+                <p className="text-xs text-muted-foreground">Upload a photo or pick one from your store catalog.</p>
               </div>
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className={`relative border-2 border-dashed rounded-xl p-4 cursor-pointer transition-all hover:border-primary/60 hover:bg-primary/5 flex-1 min-h-[260px] flex items-center justify-center ${sourceImage ? "border-primary bg-primary/5" : "border-border"}`}
-              >
-                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
-                {sourceImage ? (
-                  <div className="relative animate-scale-in w-full h-full flex items-center justify-center">
-                    <img src={sourceImage} alt="Source" className="max-h-full max-w-full mx-auto rounded-lg object-contain" />
-                    <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-7 w-7"
-                      onClick={(e) => { e.stopPropagation(); handleReset(); }}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+
+              <Tabs defaultValue="upload" className="flex-1 flex flex-col">
+                <TabsList className="grid w-full grid-cols-2 h-9">
+                  <TabsTrigger value="upload" className="text-xs gap-1.5">
+                    <Upload className="h-3.5 w-3.5" /> Upload
+                  </TabsTrigger>
+                  <TabsTrigger value="catalog" className="text-xs gap-1.5">
+                    <Package className="h-3.5 w-3.5" /> From Catalog
+                    {hasIntegration && catalogProducts.length > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-[9px]">{catalogProducts.length}</Badge>
+                    )}
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* UPLOAD TAB */}
+                <TabsContent value="upload" className="flex-1 mt-3 data-[state=inactive]:hidden">
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`relative border-2 border-dashed rounded-xl p-4 cursor-pointer transition-all hover:border-primary/60 hover:bg-primary/5 h-full min-h-[240px] flex items-center justify-center ${sourceImage ? "border-primary bg-primary/5" : "border-border"}`}
+                  >
+                    <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
+                    {sourceImage ? (
+                      <div className="relative animate-scale-in w-full h-full flex items-center justify-center">
+                        <img src={sourceImage} alt="Source" className="max-h-full max-w-full mx-auto rounded-lg object-contain" />
+                        <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-7 w-7"
+                          onClick={(e) => { e.stopPropagation(); handleReset(); }}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 mb-3">
+                          <ImageIcon className="h-7 w-7 text-primary" />
+                        </div>
+                        <p className="font-medium text-sm">Click to upload or drag & drop</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">PNG, JPG up to 10MB</p>
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="text-center">
-                    <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 mb-3">
-                      <ImageIcon className="h-7 w-7 text-primary" />
+                </TabsContent>
+
+                {/* CATALOG TAB */}
+                <TabsContent value="catalog" className="flex-1 mt-3 data-[state=inactive]:hidden">
+                  {loadingCatalog ? (
+                    <div className="flex items-center justify-center h-full min-h-[240px]">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
                     </div>
-                    <p className="font-medium text-sm">Click to upload or drag & drop</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">PNG, JPG up to 10MB</p>
-                  </div>
-                )}
-              </div>
+                  ) : !hasIntegration ? (
+                    <div className="border-2 border-dashed rounded-xl p-6 h-full min-h-[240px] flex flex-col items-center justify-center text-center gap-3">
+                      <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5">
+                        <Plug className="h-7 w-7 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm">No store connected yet</p>
+                        <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+                          Connect your Shopify, WooCommerce or PrestaShop store to import products and generate shots in one click.
+                        </p>
+                      </div>
+                      <Button asChild size="sm" className="gap-1.5">
+                        <Link to="/integrations">
+                          <Store className="h-3.5 w-3.5" /> Add your store
+                        </Link>
+                      </Button>
+                    </div>
+                  ) : catalogProducts.length === 0 ? (
+                    <div className="border-2 border-dashed rounded-xl p-6 h-full min-h-[240px] flex flex-col items-center justify-center text-center gap-3">
+                      <Package className="h-10 w-10 text-muted-foreground" />
+                      <div>
+                        <p className="font-semibold text-sm">No products imported</p>
+                        <p className="text-xs text-muted-foreground mt-1">Sync your store from the Integrations page.</p>
+                      </div>
+                      <Button asChild size="sm" variant="outline">
+                        <Link to="/integrations">Go to Integrations</Link>
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-[340px] overflow-y-auto pr-1">
+                      {catalogProducts.map((p) => {
+                        const isSelected = productTitle === p.title && !!sourceImage;
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => pickCatalogProduct(p)}
+                            className={`group relative aspect-square rounded-lg border-2 overflow-hidden transition-all hover:scale-[1.03] hover:shadow-md ${
+                              isSelected ? "border-primary shadow-glow" : "border-border hover:border-primary/40"
+                            }`}
+                          >
+                            {p.primary_image_url ? (
+                              <img src={p.primary_image_url} alt={p.title} className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="h-full w-full flex items-center justify-center bg-muted">
+                                <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-1.5">
+                              <p className="text-[10px] font-medium text-white truncate">{p.title}</p>
+                            </div>
+                            {isSelected && (
+                              <div className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
+                                <Check className="h-3 w-3" strokeWidth={3} />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+
               {sourceImage && (
                 <div className="space-y-1.5 animate-fade-in">
                   <Label className="text-xs">Product name (optional)</Label>
