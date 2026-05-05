@@ -82,13 +82,56 @@ const BlogPage = () => {
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto text-center mb-12">
             Tips, tutorials and strategies to ship better product photos — and sell more.
           </p>
+
+          {/* Magazine — featured longform */}
+          <div className="max-w-6xl mx-auto mb-16">
+            <div className="flex items-end justify-between mb-6">
+              <h2 className="font-display text-2xl md:text-3xl font-bold">
+                Featured <span className="text-gradient">Magazine</span>
+              </h2>
+              <span className="text-xs text-muted-foreground hidden sm:block">Longform editorial · open in new tab</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {magazineArticles.map((a) => (
+                <a
+                  key={a.href}
+                  href={a.href}
+                  target="_blank"
+                  rel="noopener"
+                  className="group block"
+                >
+                  <Card className="h-full hover:shadow-glow transition-all hover:border-primary/40 bg-gradient-to-br from-primary/5 to-transparent border-primary/20">
+                    <CardContent className="p-6">
+                      <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-full">
+                        {a.category}
+                      </span>
+                      <h3 className="font-display text-lg font-semibold mb-2 mt-3 line-clamp-3 group-hover:text-primary transition-colors">
+                        {a.title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{a.description}</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-muted-foreground">{a.readTime}</span>
+                        <span className="text-primary text-sm flex items-center gap-1">
+                          Read <ArrowRight className="h-4 w-4" />
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <h2 className="font-display text-2xl md:text-3xl font-bold max-w-6xl mx-auto mb-6">
+            All articles
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
             {blogArticles.map((article) => (
               <Link key={article.slug} to={`/blog/${article.slug}`}>
                 <Card className="hover:shadow-glow transition-all hover:border-primary/30 h-full">
                   <CardContent className="p-6">
                     <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-full">{article.category}</span>
-                    <h2 className="font-display text-lg font-semibold mb-2 mt-3 line-clamp-2">{article.title}</h2>
+                    <h3 className="font-display text-lg font-semibold mb-2 mt-3 line-clamp-2">{article.title}</h3>
                     <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{article.description}</p>
                     <span className="text-primary text-sm flex items-center gap-1">Read article <ArrowRight className="h-4 w-4" /></span>
                   </CardContent>
