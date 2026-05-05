@@ -36,18 +36,10 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const mainNavItems = [
+const navItems: { title: string; url: string; icon: typeof LayoutDashboard; label?: string }[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Product Shots", url: "/product-shots", icon: Camera, label: "FLAGSHIP" },
-];
-
-const contentNavItems: { title: string; url: string; icon: typeof Image; label?: string }[] = [];
-
-const historyNavItems = [
   { title: "History", url: "/history", icon: Clock },
-];
-
-const accountNavItems = [
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
