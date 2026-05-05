@@ -374,15 +374,23 @@ export default function DemoPage() {
                     <span className="block mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">Original</span>
                   </div>
                   <ArrowRight className="h-5 w-5 text-muted-foreground" />
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {d.generated.map((g, i) => (
-                      <div key={i} className="relative">
-                        <img src={g} alt={`${d.name} ${d.angles[i]}`} className="h-16 w-16 rounded-lg object-cover" loading="lazy" />
-                        <span className="absolute bottom-0.5 left-0.5 right-0.5 rounded bg-black/70 px-1 py-0.5 text-[8px] font-semibold text-white text-center truncate">
-                          {d.angles[i]}
-                        </span>
-                      </div>
-                    ))}
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {d.generated.map((g, i) => {
+                      const isStudio = d.kinds[i] === "Studio";
+                      return (
+                        <div key={i} className={`relative rounded-lg overflow-hidden ${isStudio ? "bg-white ring-1 ring-border" : ""}`}>
+                          <img
+                            src={g}
+                            alt={`${d.name} ${d.angles[i]}`}
+                            className={`h-16 w-16 ${isStudio ? "object-contain p-0.5" : "object-cover"}`}
+                            loading="lazy"
+                          />
+                          <span className={`absolute top-0.5 left-0.5 rounded px-1 text-[7px] font-bold uppercase ${isStudio ? "bg-foreground text-background" : "bg-gradient-to-r from-pink-500 to-cyan-400 text-white"}`}>
+                            {isStudio ? "Studio" : "Live"}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
