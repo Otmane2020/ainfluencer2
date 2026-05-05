@@ -25,14 +25,14 @@ export const CreditsDisplay = ({ compact = false }: CreditsDisplayProps) => {
   const [loadingPackId, setLoadingPackId] = useState<string | null>(null);
 
   const planName = isSubscribed ? (currentPlan?.name || "Starter") : "No Plan";
-  const isStarterPlan = subscription.planId === "starter";
+  const isStarterPlan = subscription.planId === "n";
   const isLowCredits = balance <= 5;
   const isZeroCredits = balance === 0;
 
   const handleUpgrade = async () => {
     setUpgradeLoading(true);
     try {
-      const nextPlan = !isSubscribed ? "starter" : (isStarterPlan ? "pro" : "business");
+      const nextPlan = !isSubscribed || isStarterPlan ? "pro" : "business";
       await startCheckout("subscription", { planId: nextPlan });
     } catch (error) {
       console.error("Upgrade error:", error);
