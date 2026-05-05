@@ -357,21 +357,31 @@ export default function ProductShotsPage() {
         </CardContent>
       </Card>
 
-      {/* Wizard nav */}
+      {/* Spacer so sticky bar doesn't cover content */}
+      {step < 3 && <div className="h-24" />}
+
+      {/* Sticky wizard nav — sits above the support chat widget */}
       {step < 3 && (
-        <div className="flex items-center justify-between">
-          <Button variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1}>
-            <ArrowLeft className="h-4 w-4 mr-1" /> Back
-          </Button>
-          {step === 2 ? (
-            <Button onClick={handleGenerate} disabled={!canNext || isGenerating} className="gradient-primary" size="lg">
-              <Sparkles className="h-4 w-4 mr-2" /> Generate {totalShots} shots
-            </Button>
-          ) : (
-            <Button onClick={() => setStep((s) => Math.min(4, s + 1))} disabled={!canNext} size="lg">
-              Next <ArrowRight className="h-4 w-4 ml-1" />
-            </Button>
-          )}
+        <div className="fixed inset-x-0 bottom-20 z-40 px-4 pointer-events-none">
+          <div className="max-w-5xl mx-auto pointer-events-auto">
+            <div className="flex items-center justify-between gap-3 rounded-2xl border bg-background/90 backdrop-blur-md shadow-lg p-3">
+              <Button variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1}>
+                <ArrowLeft className="h-4 w-4 mr-1" /> Back
+              </Button>
+              <p className="hidden sm:block text-xs text-muted-foreground">
+                Step {step} of {STEPS.length}
+              </p>
+              {step === 2 ? (
+                <Button onClick={handleGenerate} disabled={!canNext || isGenerating} className="gradient-primary" size="lg">
+                  <Sparkles className="h-4 w-4 mr-2" /> Generate {totalShots} shots
+                </Button>
+              ) : (
+                <Button onClick={() => setStep((s) => Math.min(4, s + 1))} disabled={!canNext} size="lg">
+                  Next <ArrowRight className="h-4 w-4 ml-1" />
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
