@@ -193,7 +193,37 @@ export default function ProductShotsPage() {
             );
           })}
         </div>
-      </div>
+              </div>
+
+              {/* Format / Orientation selector */}
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Output format</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {FORMATS.map((f) => {
+                    const Icon = f.icon;
+                    const active = format === f.id;
+                    return (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setFormat(f.id)}
+                        className={`group relative rounded-lg border-2 p-2 text-center transition-all hover:scale-[1.03] hover:shadow-md ${
+                          active ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-card hover:border-primary/40"
+                        }`}
+                      >
+                        {active && (
+                          <div className="absolute right-1 top-1 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
+                            <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                          </div>
+                        )}
+                        <Icon className={`mx-auto h-5 w-5 mb-1 ${active ? "text-primary" : "text-muted-foreground"}`} strokeWidth={2} />
+                        <p className="text-[11px] font-semibold leading-tight">{f.label}</p>
+                        <p className="text-[9px] text-muted-foreground">{f.ratio} · {f.hint}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
       {/* Step content */}
       <Card className="overflow-hidden border-2 flex-1 flex flex-col">
