@@ -95,9 +95,11 @@ export const PricingPacks = ({
     const isCurrentPlan = subscription.isSubscribed && effectiveCurrentPlanId === plan.id;
     if (isCurrentPlan) return;
 
-    // Free plan (Starter, $0) — no Stripe checkout. Send users to signup/dashboard.
+    // Free plan (Starter, $0) — no Stripe checkout. Send to dashboard if logged in, else signup.
     if (plan.price === 0) {
-      window.location.href = subscription.isSubscribed ? "/dashboard" : "/auth?plan=starter";
+      const { data } = await import("@/integrations/supabase/client").then(m => m.supabase.auth.getSession());
+      const isAuthed = !!data?.session?.user;
+      window.location.href = isAuthed ? "/dashboard" : "/auth?plan=starter";
       return;
     }
 
