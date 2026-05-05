@@ -50,7 +50,7 @@ const STEPS = [
 
 function TikTokPhone({ demo }: { demo: DemoItem }) {
   const [stage, setStage] = useState<"upload" | "generating" | "result">("upload");
-  const [resultIdx, setResultIdx] = useState(0);
+  const [revealCount, setRevealCount] = useState(0);
   const [liked, setLiked] = useState(false);
 
   useEffect(() => {
@@ -58,15 +58,19 @@ function TikTokPhone({ demo }: { demo: DemoItem }) {
     const cycle = async () => {
       while (mounted) {
         setStage("upload");
+        setRevealCount(0);
         await new Promise((r) => setTimeout(r, 2200));
+        if (!mounted) return;
         setStage("generating");
         await new Promise((r) => setTimeout(r, 2400));
+        if (!mounted) return;
         setStage("result");
-        for (let i = 0; i < demo.generated.length; i++) {
+        for (let i = 1; i <= demo.generated.length; i++) {
           if (!mounted) return;
-          setResultIdx(i);
-          await new Promise((r) => setTimeout(r, 1800));
+          setRevealCount(i);
+          await new Promise((r) => setTimeout(r, 450));
         }
+        await new Promise((r) => setTimeout(r, 3500));
       }
     };
     cycle();
@@ -111,15 +115,31 @@ function TikTokPhone({ demo }: { demo: DemoItem }) {
             </div>
           )}
           {stage === "result" && (
-            <div key={`res-${resultIdx}`} className="absolute inset-0 animate-fade-in">
-              <img
-                src={demo.generated[resultIdx]}
-                alt={`${demo.name} AI generated scene ${resultIdx + 1}`}
-                className="h-full w-full object-cover animate-scale-in"
-                loading="lazy"
-              />
+            <div key="res" className="absolute inset-0 animate-fade-in bg-black">
+              <div className="grid grid-cols-2 grid-rows-2 gap-1 h-full w-full p-1">
+                {demo.generated.map((g, i) => (
+                  <div
+                    key={i}
+                    className={`relative overflow-hidden rounded-lg transition-all duration-500 ${
+                      i < revealCount ? "opacity-100 scale-100" : "opacity-0 scale-90"
+                    }`}
+                  >
+                    <img
+                      src={g}
+                      alt={`${demo.name} AI ${demo.angles[i]}`}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                    <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-white">
+                      {demo.angles[i]}
+                    </span>
+                  </div>
+                ))}
+              </div>
               <div className="absolute top-3 left-3 right-3 flex items-center justify-between text-[10px] font-semibold text-white">
-                <span className="rounded-full bg-gradient-to-r from-pink-500 to-cyan-400 px-2 py-0.5">AI Shot {resultIdx + 1}/{demo.generated.length}</span>
+                <span className="rounded-full bg-gradient-to-r from-pink-500 to-cyan-400 px-2 py-0.5">
+                  ✨ {revealCount}/{demo.generated.length} AI shots
+                </span>
                 <span className="rounded-full bg-black/50 px-2 py-0.5 backdrop-blur">For You</span>
               </div>
             </div>
