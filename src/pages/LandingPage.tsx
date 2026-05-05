@@ -397,7 +397,7 @@ const LandingPage = () => {
       </footer>
 
       <MobileStickyCta showFlashSale={false} />
-      <SocialProofToast initialDelay={6000} interval={18000} />
+      
     </div>
   );
 };
