@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Upload, Sparkles, Images as ImagesIcon, ArrowRight, Heart, MessageCircle, Share2, Music2, Play } from "lucide-react";
+import { Upload, Sparkles, Images as ImagesIcon, ArrowRight, Heart, MessageCircle, Share2, Music2, Play, MousePointer2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import sofaOriginal from "@/assets/demo/sofa-original.jpg";
@@ -8,11 +8,15 @@ import sofa1 from "@/assets/demo/sofa-1.jpg";
 import sofa2 from "@/assets/demo/sofa-2.jpg";
 import sofa3 from "@/assets/demo/sofa-3.jpg";
 import sofa4 from "@/assets/demo/sofa-4.jpg";
+import sofa5 from "@/assets/demo/sofa-5.jpg";
+import sofa6 from "@/assets/demo/sofa-6.jpg";
 import watchOriginal from "@/assets/demo/watch-original.jpg";
 import watch1 from "@/assets/demo/watch-1.jpg";
 import watch2 from "@/assets/demo/watch-2.jpg";
 import watch3 from "@/assets/demo/watch-3.jpg";
 import watch4 from "@/assets/demo/watch-4.jpg";
+import watch5 from "@/assets/demo/watch-5.jpg";
+import watch6 from "@/assets/demo/watch-6.jpg";
 
 type DemoItem = {
   name: string;
@@ -20,6 +24,7 @@ type DemoItem = {
   original: string;
   generated: string[];
   angles: string[];
+  kinds: ("Studio" | "Lifestyle")[];
   caption: string;
 };
 
@@ -28,38 +33,57 @@ const DEMOS: DemoItem[] = [
     name: "Sofa",
     hashtag: "#InteriorDesign",
     original: sofaOriginal,
-    generated: [sofa1, sofa2, sofa3, sofa4],
-    angles: ["Front view", "Lifestyle", "Editorial", "Side profile"],
-    caption: "From plain studio shot → 4 angles & scenes 🛋️✨",
+    // 3 studio (white bg) + 3 lifestyle (ambiance)
+    generated: [sofa2, sofa4, sofa5, sofa1, sofa3, sofa6],
+    angles: ["Detail", "Side", "Back", "Lifestyle", "Boho", "Loft"],
+    kinds: ["Studio", "Studio", "Studio", "Lifestyle", "Lifestyle", "Lifestyle"],
+    caption: "1 photo → 3 studio + 3 lifestyle scenes 🛋️✨",
   },
   {
     name: "Watch",
     hashtag: "#LuxuryWatch",
     original: watchOriginal,
-    generated: [watch1, watch2, watch3, watch4],
-    angles: ["Front view", "On wrist", "Cinematic", "Top-down"],
-    caption: "One product photo → full editorial mosaic ⌚🔥",
+    generated: [watch1, watch4, watch5, watch2, watch3, watch6],
+    angles: ["Detail", "Profile", "Caseback", "Lifestyle", "On wrist", "Cinematic"],
+    kinds: ["Studio", "Studio", "Studio", "Lifestyle", "Lifestyle", "Lifestyle"],
+    caption: "1 photo → 3 studio + 3 ambiance shots ⌚🔥",
   },
 ];
 
 const STEPS = [
   { icon: Upload, title: "1. Upload", text: "Drop a single product photo" },
   { icon: Sparkles, title: "2. Generate", text: "Our AI re-imagines it" },
-  { icon: ImagesIcon, title: "3. Multiply", text: "Get dozens of stunning shots" },
+  { icon: ImagesIcon, title: "3. Multiply", text: "Get studio + lifestyle shots" },
 ];
 
 function TikTokPhone({ demo }: { demo: DemoItem }) {
-  const [stage, setStage] = useState<"upload" | "generating" | "result">("upload");
+  const [stage, setStage] = useState<"intro" | "uploading" | "uploaded" | "generating" | "result">("intro");
   const [revealCount, setRevealCount] = useState(0);
+  const [progress, setProgress] = useState(0);
   const [liked, setLiked] = useState(false);
 
   useEffect(() => {
     let mounted = true;
+    let progressInterval: ReturnType<typeof setInterval> | null = null;
     const cycle = async () => {
       while (mounted) {
-        setStage("upload");
+        setStage("intro");
         setRevealCount(0);
+        setProgress(0);
+        await new Promise((r) => setTimeout(r, 1600));
+        if (!mounted) return;
+        setStage("uploading");
+        // animate progress 0 -> 100 in ~1.8s
+        let p = 0;
+        progressInterval = setInterval(() => {
+          p += 6;
+          if (p >= 100) { p = 100; if (progressInterval) clearInterval(progressInterval); }
+          setProgress(p);
+        }, 110);
         await new Promise((r) => setTimeout(r, 2200));
+        if (!mounted) return;
+        setStage("uploaded");
+        await new Promise((r) => setTimeout(r, 900));
         if (!mounted) return;
         setStage("generating");
         await new Promise((r) => setTimeout(r, 2400));
@@ -68,14 +92,15 @@ function TikTokPhone({ demo }: { demo: DemoItem }) {
         for (let i = 1; i <= demo.generated.length; i++) {
           if (!mounted) return;
           setRevealCount(i);
-          await new Promise((r) => setTimeout(r, 450));
+          await new Promise((r) => setTimeout(r, 380));
         }
-        await new Promise((r) => setTimeout(r, 3500));
+        await new Promise((r) => setTimeout(r, 4000));
       }
     };
     cycle();
     return () => {
       mounted = false;
+      if (progressInterval) clearInterval(progressInterval);
     };
   }, [demo]);
 
@@ -86,21 +111,74 @@ function TikTokPhone({ demo }: { demo: DemoItem }) {
       <div className="relative h-full w-full overflow-hidden rounded-[32px] bg-gradient-to-b from-zinc-900 to-black">
         {/* Media */}
         <div className="absolute inset-0">
-          {stage === "upload" && (
-            <div key="upload" className="absolute inset-0 animate-fade-in">
-              <img src={demo.original} alt={`${demo.name} original product`} className="h-full w-full object-cover opacity-90" loading="lazy" />
-              <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3">
-                <div className="rounded-full bg-white/15 backdrop-blur-md p-5 ring-1 ring-white/30 animate-scale-in">
-                  <Upload className="h-8 w-8 text-white" />
+          {/* INTRO — empty drop zone with hand pointer */}
+          {stage === "intro" && (
+            <div key="intro" className="absolute inset-0 animate-fade-in bg-gradient-to-br from-zinc-900 to-black flex flex-col items-center justify-center gap-4 p-6">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-cyan-300/80">Step 1</div>
+              <div className="relative w-44 h-44 rounded-2xl border-2 border-dashed border-white/30 flex flex-col items-center justify-center gap-2 bg-white/5 backdrop-blur-sm">
+                <Upload className="h-8 w-8 text-white/70" />
+                <span className="text-[11px] text-white/70 text-center px-2">Drop your product photo</span>
+                {/* Animated hand pointer */}
+                <div
+                  className="absolute -right-4 -bottom-4 text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.7)]"
+                  style={{ animation: "tap-hand 1.4s ease-in-out infinite" }}
+                >
+                  <MousePointer2 className="h-8 w-8 fill-white" />
                 </div>
-                <span className="rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white">Uploading {demo.name}…</span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-white/60">
+                <span>Tap to upload</span>
+                <ArrowRight className="h-3 w-3 animate-pulse" />
               </div>
             </div>
           )}
+
+          {/* UPLOADING — progress bar over original */}
+          {stage === "uploading" && (
+            <div key="uploading" className="absolute inset-0 animate-fade-in bg-white">
+              <img src={demo.original} alt={`${demo.name} original`} className="h-full w-full object-contain" loading="lazy" />
+              <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
+                <div className="flex items-center justify-between text-[11px] text-white mb-2">
+                  <span className="flex items-center gap-1.5"><Upload className="h-3 w-3" /> Uploading {demo.name}.jpg</span>
+                  <span className="font-mono">{progress}%</span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-white/20 overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-pink-500 to-cyan-400 transition-all duration-150" style={{ width: `${progress}%` }} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* UPLOADED — checkmark */}
+          {stage === "uploaded" && (
+            <div key="uploaded" className="absolute inset-0 animate-fade-in bg-white">
+              <img src={demo.original} alt="" className="h-full w-full object-contain" loading="lazy" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="rounded-full bg-green-500 p-3 animate-scale-in shadow-2xl">
+                  <svg className="h-8 w-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* GENERATING — magical sparkles */}
           {stage === "generating" && (
             <div key="gen" className="absolute inset-0 animate-fade-in">
               <img src={demo.original} alt="" className="h-full w-full object-cover blur-md scale-110" loading="lazy" />
-              <div className="absolute inset-0 bg-gradient-to-br from-pink-500/30 via-fuchsia-500/20 to-cyan-400/30" />
+              <div className="absolute inset-0 bg-gradient-to-br from-pink-500/40 via-fuchsia-500/30 to-cyan-400/40" />
+              {/* Floating sparkle particles */}
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="absolute h-1.5 w-1.5 rounded-full bg-white"
+                  style={{
+                    left: `${(i * 37) % 100}%`,
+                    top: `${(i * 53) % 100}%`,
+                    animation: `sparkle-float ${2 + (i % 3) * 0.5}s ease-in-out ${i * 0.15}s infinite`,
+                    boxShadow: "0 0 8px rgba(255,255,255,0.9)",
+                  }}
+                />
+              ))}
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
                 <div className="relative">
                   <div className="absolute inset-0 animate-ping rounded-full bg-pink-500/40" />
@@ -108,37 +186,53 @@ function TikTokPhone({ demo }: { demo: DemoItem }) {
                     <Sparkles className="h-8 w-8 text-white animate-pulse" />
                   </div>
                 </div>
-                <span className="rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white">AI Generating ✨</span>
+                <span className="rounded-full bg-black/70 px-3 py-1 text-xs font-medium text-white backdrop-blur">AI generating 6 shots ✨</span>
+                <div className="flex gap-1">
+                  {[0,1,2].map((i) => (
+                    <span key={i} className="h-1.5 w-1.5 rounded-full bg-white/80" style={{ animation: `dot-bounce 1s ${i * 0.15}s ease-in-out infinite` }} />
+                  ))}
+                </div>
               </div>
-              {/* Scan line */}
               <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-cyan-300 to-transparent animate-[slide-in-right_2.4s_ease-in-out_infinite]" />
             </div>
           )}
+
+          {/* RESULT — 3x2 mosaic, mixing studio (white bg label) + lifestyle */}
           {stage === "result" && (
             <div key="res" className="absolute inset-0 animate-fade-in bg-black">
-              <div className="grid grid-cols-2 grid-rows-2 gap-1 h-full w-full p-1">
-                {demo.generated.map((g, i) => (
-                  <div
-                    key={i}
-                    className={`relative overflow-hidden rounded-lg transition-all duration-500 ${
-                      i < revealCount ? "opacity-100 scale-100" : "opacity-0 scale-90"
-                    }`}
-                  >
-                    <img
-                      src={g}
-                      alt={`${demo.name} AI ${demo.angles[i]}`}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
-                    <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-white">
-                      {demo.angles[i]}
-                    </span>
-                  </div>
-                ))}
+              <div className="grid grid-cols-2 grid-rows-3 gap-1 h-full w-full p-1 pt-10 pb-20">
+                {demo.generated.map((g, i) => {
+                  const isStudio = demo.kinds[i] === "Studio";
+                  return (
+                    <div
+                      key={i}
+                      className={`relative overflow-hidden rounded-md transition-all duration-500 ${
+                        i < revealCount ? "opacity-100 scale-100" : "opacity-0 scale-90"
+                      } ${isStudio ? "bg-white" : "bg-black"}`}
+                    >
+                      <img
+                        src={g}
+                        alt={`${demo.name} AI ${demo.angles[i]}`}
+                        className={`h-full w-full ${isStudio ? "object-contain p-1" : "object-cover"}`}
+                        loading="lazy"
+                      />
+                      <span
+                        className={`absolute top-0.5 left-0.5 rounded px-1 py-0.5 text-[7px] font-bold uppercase tracking-wider ${
+                          isStudio ? "bg-white text-black" : "bg-gradient-to-r from-pink-500 to-cyan-400 text-white"
+                        }`}
+                      >
+                        {isStudio ? "Studio" : "Lifestyle"}
+                      </span>
+                      <span className="absolute bottom-0.5 right-0.5 rounded bg-black/70 px-1 py-0.5 text-[7px] font-semibold uppercase tracking-wider text-white">
+                        {demo.angles[i]}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
               <div className="absolute top-3 left-3 right-3 flex items-center justify-between text-[10px] font-semibold text-white">
                 <span className="rounded-full bg-gradient-to-r from-pink-500 to-cyan-400 px-2 py-0.5">
-                  ✨ {revealCount}/{demo.generated.length} AI shots
+                  ✨ {revealCount}/{demo.generated.length} shots
                 </span>
                 <span className="rounded-full bg-black/50 px-2 py-0.5 backdrop-blur">For You</span>
               </div>
@@ -178,9 +272,10 @@ function TikTokPhone({ demo }: { demo: DemoItem }) {
 
         {/* Stage indicator dots */}
         <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-1">
-          {(["upload", "generating", "result"] as const).map((s) => (
-            <span key={s} className={`h-1 w-6 rounded-full ${stage === s ? "bg-white" : "bg-white/30"}`} />
-          ))}
+          {(["intro", "uploading", "generating", "result"] as const).map((s) => {
+            const active = stage === s || (s === "uploading" && stage === "uploaded");
+            return <span key={s} className={`h-1 w-5 rounded-full ${active ? "bg-white" : "bg-white/30"}`} />;
+          })}
         </div>
       </div>
     </div>
@@ -205,7 +300,20 @@ export default function DemoPage() {
 
   return (
     <>
-
+      <style>{`
+        @keyframes tap-hand {
+          0%, 100% { transform: translate(0, 0) rotate(-15deg); opacity: 1; }
+          50% { transform: translate(-8px, -8px) rotate(-25deg); opacity: 0.7; }
+        }
+        @keyframes sparkle-float {
+          0%, 100% { transform: translateY(0) scale(0.6); opacity: 0; }
+          50% { transform: translateY(-20px) scale(1.2); opacity: 1; }
+        }
+        @keyframes dot-bounce {
+          0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+          40% { transform: translateY(-6px); opacity: 1; }
+        }
+      `}</style>
       <main className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30">
         {/* Hero */}
         <section className="container mx-auto px-4 pt-16 pb-10 text-center">
@@ -266,15 +374,23 @@ export default function DemoPage() {
                     <span className="block mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">Original</span>
                   </div>
                   <ArrowRight className="h-5 w-5 text-muted-foreground" />
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {d.generated.map((g, i) => (
-                      <div key={i} className="relative">
-                        <img src={g} alt={`${d.name} ${d.angles[i]}`} className="h-16 w-16 rounded-lg object-cover" loading="lazy" />
-                        <span className="absolute bottom-0.5 left-0.5 right-0.5 rounded bg-black/70 px-1 py-0.5 text-[8px] font-semibold text-white text-center truncate">
-                          {d.angles[i]}
-                        </span>
-                      </div>
-                    ))}
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {d.generated.map((g, i) => {
+                      const isStudio = d.kinds[i] === "Studio";
+                      return (
+                        <div key={i} className={`relative rounded-lg overflow-hidden ${isStudio ? "bg-white ring-1 ring-border" : ""}`}>
+                          <img
+                            src={g}
+                            alt={`${d.name} ${d.angles[i]}`}
+                            className={`h-16 w-16 ${isStudio ? "object-contain p-0.5" : "object-cover"}`}
+                            loading="lazy"
+                          />
+                          <span className={`absolute top-0.5 left-0.5 rounded px-1 text-[7px] font-bold uppercase ${isStudio ? "bg-foreground text-background" : "bg-gradient-to-r from-pink-500 to-cyan-400 text-white"}`}>
+                            {isStudio ? "Studio" : "Live"}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
