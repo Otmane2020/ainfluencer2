@@ -287,15 +287,7 @@ export const PricingPacks = ({
                 )}
               </div>
 
-              {/* 7-day free trial badge — boosts conversion */}
-              {!subscription.isSubscribed && (
-                <div className="mb-3 flex items-center justify-center gap-1.5 rounded-lg bg-green-500/10 border border-green-500/20 px-3 py-2 text-xs font-semibold text-green-600 dark:text-green-400">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  7-day free trial — cancel anytime
-                </div>
-              )}
-
-            {/* Credits included badge */}
+              {/* Credits included badge */}
               <div className="mb-4 flex items-center justify-center gap-2 rounded-xl bg-primary/5 border border-primary/10 px-4 py-3">
                 <Coins className="h-5 w-5 text-primary" />
                 <span className="text-lg font-bold text-primary">{plan.credits} credits</span>
@@ -303,9 +295,7 @@ export const PricingPacks = ({
               </div>
 
               <div className="mb-2 text-center text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1"><Image className="h-3 w-3" /> ≈ {plan.credits} images</span>
-                <span className="mx-2">or</span>
-                <span className="inline-flex items-center gap-1"><Video className="h-3 w-3" /> ≈ {Math.floor(plan.credits / 4)} videos</span>
+                <span className="inline-flex items-center gap-1"><Image className="h-3 w-3" /> ≈ {plan.credits} pro product photos</span>
               </div>
 
             {/* Features */}
