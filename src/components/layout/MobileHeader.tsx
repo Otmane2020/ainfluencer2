@@ -16,36 +16,23 @@ import { Badge } from "@/components/ui/badge";
 import { CreditsDisplay } from "@/components/CreditsDisplay";
 import {
   LayoutDashboard,
-  FolderKanban,
-  Calendar,
-  Video,
-  ImageIcon,
-  Settings,
-  Clock,
-  FileText,
-  Plug,
-  Image,
-  Megaphone,
   Camera,
+  Image,
+  Clock,
+  Plug,
+  Settings,
 } from "lucide-react";
 
 const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Projects", url: "/projects", icon: FolderKanban },
-  { title: "Campaigns", url: "/campaigns", icon: Megaphone },
-  { title: "AutoPost AI", url: "/calendar", icon: Calendar },
+  { title: "Product Shots", url: "/product-shots", icon: Camera, label: "Flagship" },
+  { title: "AI Image", url: "/images", icon: Image },
 ];
 
-const contentNavItems = [
-  { title: "Videos", url: "/videos", icon: Video },
-  { title: "Images", url: "/images", icon: Image },
-  { title: "Product Shots", url: "/product-shots", icon: Camera, label: "AI Smart" },
-  { title: "Posts", url: "/posts", icon: ImageIcon },
-];
+const contentNavItems: { title: string; url: string; icon: typeof Camera; label?: string }[] = [];
 
 const historyNavItems = [
-  { title: "History", url: "/history", icon: Clock },
-  { title: "Post History", url: "/history/posts", icon: FileText },
+  { title: "Post History", url: "/history/posts", icon: Clock },
 ];
 
 const accountNavItems = [
