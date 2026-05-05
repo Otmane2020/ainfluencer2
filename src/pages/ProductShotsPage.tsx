@@ -23,6 +23,13 @@ const SHOT_TYPES = [
   { id: "zoom_detail", label: "Detail Close-up", icon: Maximize2, description: "Macro detail shot", gradient: "from-fuchsia-500 to-pink-600" },
 ];
 
+const FORMATS = [
+  { id: "portrait", label: "Mobile / Reels", ratio: "9:16", icon: Smartphone, hint: "TikTok, Reels, Shorts" },
+  { id: "square", label: "Square", ratio: "1:1", icon: Square, hint: "Instagram feed, catalog" },
+  { id: "landscape", label: "Landscape", ratio: "16:9", icon: Monitor, hint: "YouTube, web banners" },
+] as const;
+type FormatId = typeof FORMATS[number]["id"];
+
 interface GeneratedImage { type: string; label: string; url: string; selected: boolean; }
 
 const STEPS = [
