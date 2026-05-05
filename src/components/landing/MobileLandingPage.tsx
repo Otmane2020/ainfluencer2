@@ -57,7 +57,7 @@ export function MobileLandingPage() {
             <span className="font-display text-lg font-bold text-gradient">ClipMotion</span>
           </Link>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/auth")} className="text-xs">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/auth?mode=signin")} className="text-xs">
               Sign In
             </Button>
             <Button size="sm" onClick={() => navigate("/auth")} className="gradient-primary rounded-full px-4 text-xs">
@@ -265,7 +265,7 @@ export function MobileLandingPage() {
             <FolderOpen className="w-5 h-5" />
             <span className="text-[10px] font-medium">Pricing</span>
           </Link>
-          <Link to="/auth" className="flex flex-col items-center gap-1 px-4 py-2 text-muted-foreground">
+          <Link to="/auth?mode=signin" className="flex flex-col items-center gap-1 px-4 py-2 text-muted-foreground">
             <User className="w-5 h-5" />
             <span className="text-[10px] font-medium">Sign In</span>
           </Link>
