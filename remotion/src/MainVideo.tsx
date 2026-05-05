@@ -100,7 +100,6 @@ export const MainVideo: React.FC = () => {
           borderRadius: 999,
           background: "rgba(255,255,255,0.08)",
           border: "1px solid rgba(255,255,255,0.15)",
-          backdropFilter: "blur(8px)",
           zIndex: 50,
         }}
       >
