@@ -30,7 +30,8 @@ await renderMedia({
   codec: "h264",
   outputLocation: process.argv[2] || "/mnt/documents/clipmotion-demo3-desktop.mp4",
   puppeteerInstance: browser,
-  muted: true,
+  muted: false,
+  audioCodec: "aac",
   concurrency: 2,
   onProgress: ({ progress }) => {
     if (Math.round(progress * 100) % 10 === 0) console.log(`  ${Math.round(progress * 100)}%`);
