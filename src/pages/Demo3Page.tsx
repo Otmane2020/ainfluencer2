@@ -279,14 +279,9 @@ export default function Demo3Page() {
 
   return (
     <>
-      <Helmet>
-        <title>Live demo — AI product shots in 30s | ClipMotion.ai</title>
-        <meta
-          name="description"
-          content="Watch ClipMotion.ai turn one phone photo into 6 pro product shots — studio + lifestyle. Built for Shopify, Amazon and social ads."
-        />
-        <link rel="canonical" href="https://clipmotion.ai/demo3" />
-      </Helmet>
+      {/* SEO via document head effect */}
+      <SeoHead />
+
 
       <div className="min-h-screen bg-[#06080A] text-white">
         {/* Header */}
