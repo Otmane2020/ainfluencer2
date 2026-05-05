@@ -342,55 +342,66 @@ export default function ProductShotsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-2">
-                {SHOT_TYPES.map((type) => (
-                  <div
-                    key={type.id}
-                    onClick={() => toggleShotType(type.id)}
-                    className={`
-                      flex items-center gap-3 p-3 rounded-lg border cursor-pointer
-                      transition-all hover:border-primary/50
-                      ${selectedShotTypes.has(type.id)
-                        ? "border-primary bg-primary/10"
-                        : "border-border"
-                      }
-                    `}
-                  >
-                    <Checkbox
-                      checked={selectedShotTypes.has(type.id)}
-                      onCheckedChange={() => toggleShotType(type.id)}
-                    />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{type.label}</p>
-                      <p className="text-xs text-muted-foreground truncate">
+              <div className="grid grid-cols-2 gap-2.5">
+                {SHOT_TYPES.map((type) => {
+                  const Icon = type.icon;
+                  const active = selectedShotTypes.has(type.id);
+                  return (
+                    <button
+                      key={type.id}
+                      type="button"
+                      onClick={() => toggleShotType(type.id)}
+                      className={`group relative overflow-hidden rounded-xl border p-3 text-left transition-all hover:scale-[1.02] hover:shadow-md ${
+                        active
+                          ? "border-primary/60 bg-primary/5 shadow-sm"
+                          : "border-border bg-card hover:border-primary/30"
+                      }`}
+                    >
+                      {active && (
+                        <div className="absolute right-2 top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
+                          <Check className="h-3 w-3" strokeWidth={3} />
+                        </div>
+                      )}
+                      <div className={`mb-2 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br ${type.gradient} shadow-sm transition-transform group-hover:scale-110`}>
+                        <Icon className="h-4 w-4 text-white" strokeWidth={2.5} />
+                      </div>
+                      <p className="text-sm font-semibold leading-tight">{type.label}</p>
+                      <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground line-clamp-2">
                         {type.description}
                       </p>
-                    </div>
-                  </div>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* Lifestyle Option */}
-              <div
+              {/* Lifestyle Option — full width accent card */}
+              <button
+                type="button"
                 onClick={() => setIncludeLifestyle(!includeLifestyle)}
-                className={`
-                  flex items-center gap-3 p-3 rounded-lg border cursor-pointer
-                  transition-all hover:border-primary/50
-                  ${includeLifestyle ? "border-primary bg-primary/10" : "border-border"}
-                `}
+                className={`group relative w-full overflow-hidden rounded-xl border p-4 text-left transition-all hover:shadow-md ${
+                  includeLifestyle
+                    ? "border-primary/60 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent"
+                    : "border-dashed border-border hover:border-primary/40"
+                }`}
               >
-                <Checkbox
-                  checked={includeLifestyle}
-                  onCheckedChange={(checked) => setIncludeLifestyle(!!checked)}
-                />
-                <Home className="h-4 w-4 shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Lifestyle Scene</p>
-                  <p className="text-xs text-muted-foreground">
-                    Product in realistic environment
-                  </p>
+                {includeLifestyle && (
+                  <div className="absolute right-3 top-3 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
+                    <Check className="h-3 w-3" strokeWidth={3} />
+                  </div>
+                )}
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 shadow-md transition-transform group-hover:scale-110">
+                    <Palette className="h-5 w-5 text-white" strokeWidth={2.5} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold">Lifestyle Scene</p>
+                      <Badge variant="secondary" className="h-4 px-1.5 text-[9px] bg-amber-500/15 text-amber-600 border-0">PREMIUM</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Product in a realistic, on-brand environment</p>
+                  </div>
                 </div>
-              </div>
+              </button>
             </CardContent>
           </Card>
 
