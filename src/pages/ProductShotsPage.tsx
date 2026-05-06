@@ -535,6 +535,16 @@ export default function ProductShotsPage() {
                     style={{ animationDelay: `${i * 60}ms` }}>
                     <img src={img.url} alt={img.label} className="w-full aspect-square object-cover" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setLightboxIndex(i); }}
+                      className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      aria-label="View larger"
+                    >
+                      <span className="rounded-full bg-background/90 backdrop-blur p-2 shadow-lg">
+                        <Eye className="h-4 w-4" />
+                      </span>
+                    </button>
                     <Badge variant="secondary" className="absolute bottom-1 left-1 text-[9px] px-1.5 py-0">{img.label}</Badge>
                     <div className={`absolute top-1 right-1 h-5 w-5 rounded-full flex items-center justify-center ${img.selected ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
                       {img.selected ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
@@ -542,6 +552,55 @@ export default function ProductShotsPage() {
                   </div>
                 ))}
               </div>
+              {lightboxIndex !== null && generatedImages[lightboxIndex] && (
+                <div
+                  className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+                  onClick={() => setLightboxIndex(null)}
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setLightboxIndex(null); }}
+                    className="absolute top-4 right-4 h-10 w-10 rounded-full bg-background/20 hover:bg-background/40 text-white flex items-center justify-center transition"
+                    aria-label="Close"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setLightboxIndex((idx) => idx === null ? null : (idx - 1 + generatedImages.length) % generatedImages.length); }}
+                    className="absolute left-4 h-10 w-10 rounded-full bg-background/20 hover:bg-background/40 text-white flex items-center justify-center transition"
+                    aria-label="Previous"
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setLightboxIndex((idx) => idx === null ? null : (idx + 1) % generatedImages.length); }}
+                    className="absolute right-4 h-10 w-10 rounded-full bg-background/20 hover:bg-background/40 text-white flex items-center justify-center transition"
+                    aria-label="Next"
+                  >
+                    <ArrowRight className="h-5 w-5" />
+                  </button>
+                  <div className="relative max-w-5xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+                    <img
+                      src={generatedImages[lightboxIndex].url}
+                      alt={generatedImages[lightboxIndex].label}
+                      className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+                    />
+                    <div className="mt-3 flex items-center justify-between gap-3 text-white">
+                      <Badge variant="secondary">{generatedImages[lightboxIndex].label}</Badge>
+                      <a
+                        href={generatedImages[lightboxIndex].url}
+                        download
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1.5 text-sm rounded-md bg-primary text-primary-foreground px-3 py-1.5 hover:opacity-90"
+                      >
+                        <Download className="h-4 w-4" /> Download
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
