@@ -395,7 +395,9 @@ export default function ProductShotsPage() {
             <div className="space-y-3 animate-fade-in">
               <div className="text-center">
                 <h2 className="text-base font-bold">Pick your shots</h2>
-                <p className="text-xs text-muted-foreground">{totalShots} shot{totalShots > 1 ? "s" : ""} will be generated</p>
+                <p className="text-xs text-muted-foreground">
+                  {totalShots} shot{totalShots > 1 ? "s" : ""} • costs {totalShots} credit{totalShots > 1 ? "s" : ""} (you have {balance})
+                </p>
               </div>
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                 {SHOT_TYPES.map((type) => {
