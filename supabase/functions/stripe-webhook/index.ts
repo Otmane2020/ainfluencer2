@@ -139,6 +139,32 @@ serve(async (req) => {
             }
           }
 
+          // Send branded subscription confirmation email (non-blocking)
+          try {
+            const recipientEmail = session.customer_details?.email || (session.customer_email as string | undefined);
+            if (recipientEmail) {
+              const amountTotal = session.amount_total ?? 0;
+              const currency = (session.currency ?? "usd").toUpperCase();
+              const amount = amountTotal ? `${(amountTotal / 100).toFixed(2)} ${currency}` : undefined;
+              await supabase.functions.invoke("send-transactional-email", {
+                body: {
+                  templateName: "subscription-upgraded",
+                  recipientEmail,
+                  idempotencyKey: `sub-upgraded-${subscriptionId}`,
+                  templateData: {
+                    name: session.customer_details?.name ?? undefined,
+                    planName: planId.charAt(0).toUpperCase() + planId.slice(1),
+                    credits: planCredits,
+                    amount,
+                  },
+                },
+              });
+              logStep("Subscription email queued", { recipientEmail, planId });
+            }
+          } catch (emailErr: any) {
+            logStep("Subscription email error", { error: emailErr?.message });
+          }
+
         } else if (session.mode === "payment") {
           // Handle one-time credit purchase
           const priceId = session.line_items?.data[0]?.price?.id;
