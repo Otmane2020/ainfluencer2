@@ -44,6 +44,7 @@ const STEPS = [
 ];
 
 export default function ProductShotsPage() {
+  const { balance } = useCredits();
   const [step, setStep] = useState(1);
   const [sourceImage, setSourceImage] = useState<string | null>(null);
   const [sourceFile, setSourceFile] = useState<File | null>(null);
