@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { NotificationSettings } from "@/components/NotificationSettings";
 import { FeatureShowcase } from "@/components/dashboard/FeatureShowcase";
 import { LowCreditsNudge } from "@/components/nudges/LowCreditsNudge";
-import { OnboardingProgress } from "@/components/nudges/OnboardingProgress";
+
 import {
   FolderKanban,
   Plus,
@@ -119,8 +119,6 @@ const Dashboard = () => {
       {/* Nudge: Low credits warning */}
       <LowCreditsNudge />
 
-      {/* Nudge: Onboarding progress */}
-      <OnboardingProgress />
 
       {/* AI Creation Studio - Feature Showcase (Top Priority) */}
       <motion.div
