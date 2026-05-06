@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_log: {
+        Row: {
+          action: string
+          admin_user_id: string
+          created_at: string
+          details: Json | null
+          id: string
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          admin_user_id: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          admin_user_id?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
       ai_generation_configs: {
         Row: {
           created_at: string
@@ -1177,6 +1204,107 @@ export type Database = {
         }
         Relationships: []
       }
+      support_messages: {
+        Row: {
+          attachments: Json | null
+          author_user_id: string | null
+          body_html: string | null
+          body_text: string | null
+          cc: string | null
+          created_at: string
+          direction: string
+          external_message_id: string | null
+          from_email: string | null
+          from_name: string | null
+          id: string
+          in_reply_to: string | null
+          ticket_id: string
+          to_email: string | null
+        }
+        Insert: {
+          attachments?: Json | null
+          author_user_id?: string | null
+          body_html?: string | null
+          body_text?: string | null
+          cc?: string | null
+          created_at?: string
+          direction: string
+          external_message_id?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          in_reply_to?: string | null
+          ticket_id: string
+          to_email?: string | null
+        }
+        Update: {
+          attachments?: Json | null
+          author_user_id?: string | null
+          body_html?: string | null
+          body_text?: string | null
+          cc?: string | null
+          created_at?: string
+          direction?: string
+          external_message_id?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          in_reply_to?: string | null
+          ticket_id?: string
+          to_email?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          email: string
+          external_thread_id: string | null
+          id: string
+          last_message_at: string
+          priority: string
+          status: string
+          subject: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          email: string
+          external_thread_id?: string | null
+          id?: string
+          last_message_at?: string
+          priority?: string
+          status?: string
+          subject: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          email?: string
+          external_thread_id?: string | null
+          id?: string
+          last_message_at?: string
+          priority?: string
+          status?: string
+          subject?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       suppressed_emails: {
         Row: {
           created_at: string
@@ -1287,6 +1415,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       youtube_connections: {
         Row: {
           access_token: string
@@ -1378,6 +1527,14 @@ export type Database = {
           variables: Json
         }[]
       }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
       move_to_dlq: {
         Args: {
           dlq_name: string
@@ -1397,7 +1554,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "support" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1524,6 +1681,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "support", "user"],
+    },
   },
 } as const
