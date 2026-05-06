@@ -304,16 +304,15 @@ CRITICAL REQUIREMENTS:
       try {
         if (!imageData) {
           console.error(`[generate-product-shots] All providers failed for ${shotType}: ${lastStatus} ${lastError}`);
-          continue;
+          return null;
         }
 
-        // If API returns http(s) URL instead of base64 data URL, fetch it and convert to data URL
         let dataUrl = imageData;
         if (/^https?:\/\//i.test(imageData)) {
           const imgResp = await fetchWithTimeout(imageData, { method: "GET" }, 60_000);
           if (!imgResp.ok) {
             console.error(`[generate-product-shots] Failed to fetch returned image URL for ${shotType}:`, imgResp.status);
-            continue;
+            return null;
           }
           const buf = new Uint8Array(await imgResp.arrayBuffer());
           const b64 = bytesToBase64(buf);
@@ -321,9 +320,7 @@ CRITICAL REQUIREMENTS:
         }
 
         const imageBytes = dataUrlToBytes(dataUrl);
-
         const fileName = `product-shots/${Date.now()}-${shotType}-${crypto.randomUUID()}.png`;
-
         const { error: uploadError } = await supabase.storage.from("media").upload(fileName, imageBytes, {
           contentType: "image/png",
           upsert: true,
@@ -331,25 +328,21 @@ CRITICAL REQUIREMENTS:
 
         if (uploadError) {
           console.error(`[generate-product-shots] Upload error for ${shotType}:`, uploadError);
-          generatedImages.push({ type: shotType, label: shotConfig.label, url: dataUrl });
-          continue;
+          return { type: shotType, label: shotConfig.label, url: dataUrl };
         }
 
         const { data: publicUrlData } = supabase.storage.from("media").getPublicUrl(fileName);
-
-        generatedImages.push({
-          type: shotType,
-          label: shotConfig.label,
-          url: publicUrlData.publicUrl,
-        });
-
         console.log(`[generate-product-shots] ${shotType} uploaded: ${publicUrlData.publicUrl}`);
+        return { type: shotType, label: shotConfig.label, url: publicUrlData.publicUrl };
       } catch (shotError) {
         const msg = shotError instanceof Error ? shotError.message : String(shotError);
         console.error(`[generate-product-shots] Error generating ${shotType}:`, msg);
-        // continue other shots
+        return null;
       }
-    }
+    };
+
+    const results = await Promise.all(shotTypes.map((s) => generateOneShot(s)));
+    const generatedImages = results.filter((r): r is { type: ShotType; label: string; url: string } => r !== null);
 
     if (generatedImages.length === 0) {
       return new Response(JSON.stringify({ error: "Failed to generate any images. Please try again." }), {
