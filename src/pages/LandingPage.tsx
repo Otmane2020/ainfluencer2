@@ -259,6 +259,14 @@ const LandingPage = () => {
               </div>
             ))}
           </div>
+          <div className="mt-12 flex flex-wrap items-center justify-center gap-4">
+            <Button size="lg" onClick={() => navigate("/demo")} className="bg-primary hover:bg-primary/90">
+              Try Demo
+            </Button>
+            <Button size="lg" variant="outline" onClick={() => navigate("/demo2")}>
+              Try Demo 2
+            </Button>
+          </div>
         </div>
       </section>
 
