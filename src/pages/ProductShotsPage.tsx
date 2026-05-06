@@ -59,6 +59,7 @@ export default function ProductShotsPage() {
   const [generatingLabel, setGeneratingLabel] = useState("");
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [customPrompt, setCustomPrompt] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Catalog integration
