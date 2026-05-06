@@ -31,6 +31,7 @@ export const SupportWidget = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [emailForm, setEmailForm] = useState({ subject: "", message: "" });
   const [emailSending, setEmailSending] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
