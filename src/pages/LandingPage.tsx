@@ -6,6 +6,7 @@ import { PricingPacks } from "@/components/PricingPacks";
 import { supabase } from "@/integrations/supabase/client";
 
 import { MobileStickyCta } from "@/components/MobileStickyeCTA";
+import { DEMOS, TikTokPhone } from "@/pages/DemoPage";
 import { SEOHead } from "@/components/seo/SEOHead";
 import {
   Upload,
@@ -227,21 +228,22 @@ const LandingPage = () => {
           <h2 className="font-display text-3xl md:text-5xl mb-12">
             See the <span className="text-gradient italic">transformation</span>
           </h2>
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              <div className="px-4 py-3 text-[0.7rem] tracking-widest uppercase text-muted-foreground border-b border-border flex items-center justify-between">
-                <span>Demo</span>
-                <a href="/demo" className="text-primary hover:underline normal-case tracking-normal">Open ↗</a>
+          <div className="grid md:grid-cols-2 gap-10 items-start">
+            {DEMOS.map((d) => (
+              <div key={d.name} className="flex flex-col items-center gap-4">
+                <TikTokPhone demo={d} />
+                <h3 className="font-display text-xl">{d.name} example</h3>
+                <p className="text-sm text-muted-foreground max-w-xs text-center">{d.caption}</p>
               </div>
-              <iframe src="/demo" title="Demo" loading="lazy" className="w-full h-[640px] border-0 bg-background" />
-            </div>
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              <div className="px-4 py-3 text-[0.7rem] tracking-widest uppercase text-muted-foreground border-b border-border flex items-center justify-between">
-                <span>Demo 2</span>
-                <a href="/demo2" className="text-primary hover:underline normal-case tracking-normal">Open ↗</a>
-              </div>
-              <iframe src="/demo2.html" title="Demo 2" loading="lazy" className="w-full h-[640px] border-0 bg-background" />
-            </div>
+            ))}
+          </div>
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+            <Button size="lg" onClick={() => navigate("/demo")} className="bg-primary hover:bg-primary/90">
+              Open full Demo
+            </Button>
+            <Button size="lg" variant="outline" onClick={() => navigate("/demo2")}>
+              Open Demo 2
+            </Button>
           </div>
         </div>
       </section>
