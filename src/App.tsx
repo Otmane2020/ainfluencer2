@@ -30,6 +30,7 @@ import BlogPage from "./pages/BlogPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsPage from "./pages/TermsPage";
 import ContactPage from "./pages/ContactPage";
+import SitemapPage from "./pages/SitemapPage";
 // Blog article pages (Product Shot AI focused)
 import AIProductPhotographyGuidePage from "./pages/blog/AIProductPhotographyGuidePage";
 import ShopifyProductPhotosPage from "./pages/blog/ShopifyProductPhotosPage";
@@ -81,6 +82,7 @@ const App = () => (
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/sitemap" element={<SitemapPage />} />
           <Route path="/api/tiktok/callback" element={<TikTokCallbackPage />} />
           <Route path="/choose-plan" element={<ChoosePlanPage />} />
           <Route path="/auth" element={<Auth />} />
