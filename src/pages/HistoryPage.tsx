@@ -471,7 +471,12 @@ const HistoryPage = () => {
     ? campaigns 
     : campaigns.filter(c => c.project_id === selectedProject);
 
-  const filteredMedia = allMedia;
+  const filteredMedia = allMedia.filter((m) => {
+    if (selectedProductFilter === "all") return true;
+    if (selectedProductFilter === "products") return m.isProductShot === true;
+    if (selectedProductFilter === "non-products") return !m.isProductShot;
+    return true;
+  });
 
   return (
     <div className="space-y-4">
