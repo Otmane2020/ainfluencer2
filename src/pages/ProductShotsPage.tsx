@@ -171,7 +171,7 @@ export default function ProductShotsPage() {
       toast.loading("Generating product shots...", { id: toastId });
       const interval = setInterval(() => setProgress((p) => Math.min(p + 4, 92)), 600);
       const { data, error } = await supabase.functions.invoke("generate-product-shots", {
-        body: { sourceImageUrl: pub.publicUrl, shotTypes: Array.from(selectedShotTypes), productTitle: productTitle || "Product", includeLifestyle, format },
+        body: { sourceImageUrl: pub.publicUrl, shotTypes: Array.from(selectedShotTypes), productTitle: productTitle || "Product", includeLifestyle, format, customPrompt: customPrompt.trim() || undefined },
       });
       clearInterval(interval);
       if (error) throw error;
