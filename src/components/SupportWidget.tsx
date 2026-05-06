@@ -276,6 +276,26 @@ export const SupportWidget = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Success Confirmation Dialog */}
+      <Dialog open={showSuccess} onOpenChange={setShowSuccess}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="mx-auto mb-2 h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
+              <CheckCircle2 className="h-8 w-8 text-primary" />
+            </div>
+            <DialogTitle className="text-center">Message Sent!</DialogTitle>
+            <DialogDescription className="text-center">
+              Thanks for reaching out. Our team will get back to you within 24 hours.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:justify-center">
+            <Button onClick={() => setShowSuccess(false)} className="w-full sm:w-auto">
+              Got it
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
