@@ -250,15 +250,6 @@ CRITICAL REQUIREMENTS:
         }
       }
 
-          lastStatus = r.status;
-          lastError = (await r.text()).slice(0, 200);
-          console.warn(`[generate-product-shots] ${provider.name} failed [${lastStatus}]: ${lastError}`);
-        } catch (e) {
-          lastError = e instanceof Error ? e.message : String(e);
-          console.warn(`[generate-product-shots] ${provider.name} exception:`, lastError);
-        }
-      }
-
       try {
         if (!imageData) {
           console.error(`[generate-product-shots] All providers failed for ${shotType}: ${lastStatus} ${lastError}`);
