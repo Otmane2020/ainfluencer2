@@ -161,33 +161,16 @@ CRITICAL REQUIREMENTS:
 - No text, watermarks, or borders
 - Ultra high resolution, sharp focus on the product`;
 
-      // Provider chain: Lovable AI Gateway → OpenRouter → Google Gemini direct (free tier)
-      type Provider = { name: string; type: "openai" | "gemini"; url: string; key: string | undefined; model: string };
+      // Lovable AI Gateway only (Nano Banana)
+      type Provider = { name: string; type: "openai"; url: string; key: string; model: string };
       const PROVIDERS: Provider[] = [
-        ...(LOVABLE_API_KEY ? [{
-          name: "lovable-ai", type: "openai" as const,
+        {
+          name: "lovable-ai",
+          type: "openai",
           url: "https://ai.gateway.lovable.dev/v1/chat/completions",
           key: LOVABLE_API_KEY,
-          model: "google/gemini-2.5-flash-image-preview",
-        }] : []),
-        ...(OPENROUTER_API_KEY ? [{
-          name: "openrouter", type: "openai" as const,
-          url: "https://openrouter.ai/api/v1/chat/completions",
-          key: OPENROUTER_API_KEY,
           model: "google/gemini-2.5-flash-image",
-        }] : []),
-        ...(GEMINI_API_KEY ? [{
-          name: "gemini-direct", type: "gemini" as const,
-          url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent",
-          key: GEMINI_API_KEY,
-          model: "gemini-2.5-flash-image",
-        }] : []),
-        {
-          name: "pollinations", type: "pollinations" as const,
-          url: "https://image.pollinations.ai/prompt/",
-          key: "",
-          model: "flux",
-        } as any,
+        },
       ];
 
       let imageData: string | undefined;
