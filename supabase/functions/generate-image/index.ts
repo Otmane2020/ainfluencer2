@@ -13,6 +13,57 @@ import {
   checkFluxKontextStatus,
   KIE_MODEL_NAMES,
 } from "../_shared/kie-api-client.ts";
+import { Image } from "https://deno.land/x/imagescript@1.2.17/mod.ts";
+
+// Cover-crop/resize an image (data: URL or raw base64) to enforce a target aspect ratio.
+// Returns a data URL with the same mime type. Falls back to the original on any error.
+async function enforceAspectRatioDataUrl(dataUrl: string, aspect: string): Promise<string> {
+  try {
+    const map: Record<string, { w: number; h: number }> = {
+      "1:1":   { w: 1024, h: 1024 },
+      "9:16":  { w: 1080, h: 1920 },
+      "16:9":  { w: 1920, h: 1080 },
+      "4:5":   { w: 1080, h: 1350 },
+      "3:4":   { w: 1080, h: 1440 },
+    };
+    const target = map[aspect];
+    if (!target) return dataUrl;
+    const m = dataUrl.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+    if (!m) return dataUrl;
+    const b64 = m[2];
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const img = await Image.decode(bytes);
+    const srcRatio = img.width / img.height;
+    const dstRatio = target.w / target.h;
+    if (Math.abs(srcRatio - dstRatio) < 0.02) {
+      img.resize(target.w, target.h);
+    } else {
+      let newW: number, newH: number;
+      if (srcRatio > dstRatio) {
+        newH = target.h;
+        newW = Math.round(target.h * srcRatio);
+      } else {
+        newW = target.w;
+        newH = Math.round(target.w / srcRatio);
+      }
+      img.resize(newW, newH);
+      const x = Math.max(0, Math.floor((newW - target.w) / 2));
+      const y = Math.max(0, Math.floor((newH - target.h) / 2));
+      img.crop(x, y, target.w, target.h);
+    }
+    const out = await img.encode();
+    let bin = "";
+    const CHUNK = 8192;
+    for (let i = 0; i < out.length; i += CHUNK) {
+      const end = Math.min(i + CHUNK, out.length);
+      for (let j = i; j < end; j++) bin += String.fromCharCode(out[j]);
+    }
+    return `data:image/png;base64,${btoa(bin)}`;
+  } catch (e) {
+    console.warn("[enforceAspectRatioDataUrl] failed:", e);
+    return dataUrl;
+  }
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1326,8 +1377,11 @@ BANNED: generic stock photo, clipart, blurry background, low quality, stars as l
       );
     }
 
+    // Enforce the requested aspect ratio (some providers ignore the prompt and return square images)
+    let finalImageData = await enforceAspectRatioDataUrl(imageData, effectiveAspect);
+    console.log(`[Main] Enforced aspect ratio ${effectiveAspect} on output image`);
+
     // Apply text overlay if requested (2-step: spell-check → composite)
-    let finalImageData = imageData;
     if (includeText && overlayText) {
       console.log("[Main] Applying 2-step text overlay...");
       const primaryColor = marketingContext?.visual_identity?.primary_color || guardInput.themeColor;

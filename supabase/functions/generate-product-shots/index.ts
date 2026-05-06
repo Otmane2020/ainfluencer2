@@ -1,4 +1,40 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { Image } from "https://deno.land/x/imagescript@1.2.17/mod.ts";
+
+async function enforceAspectRatio(
+  bytes: Uint8Array,
+  targetW: number,
+  targetH: number,
+): Promise<Uint8Array> {
+  try {
+    const img = await Image.decode(bytes);
+    const srcRatio = img.width / img.height;
+    const dstRatio = targetW / targetH;
+    // If already close enough (±2%), just resize to exact target
+    if (Math.abs(srcRatio - dstRatio) < 0.02) {
+      img.resize(targetW, targetH);
+      return await img.encode();
+    }
+    // Cover crop: scale so the image fully covers the target, then center-crop
+    let newW: number, newH: number;
+    if (srcRatio > dstRatio) {
+      // source is wider — match heights
+      newH = targetH;
+      newW = Math.round(targetH * srcRatio);
+    } else {
+      newW = targetW;
+      newH = Math.round(targetW / srcRatio);
+    }
+    img.resize(newW, newH);
+    const x = Math.max(0, Math.floor((newW - targetW) / 2));
+    const y = Math.max(0, Math.floor((newH - targetH) / 2));
+    img.crop(x, y, targetW, targetH);
+    return await img.encode();
+  } catch (e) {
+    console.warn("[enforceAspectRatio] failed, returning original:", e);
+    return bytes;
+  }
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -98,10 +134,10 @@ Deno.serve(async (req) => {
     const includeLifestyle = Boolean(body?.includeLifestyle);
     const customPrompt = typeof body?.customPrompt === "string" ? body.customPrompt.trim().slice(0, 500) : "";
     const formatRaw = String(body?.format || "square").toLowerCase();
-    const FORMAT_MAP: Record<string, { label: string; ratio: string; px: string; orient: string }> = {
-      square: { label: "Square", ratio: "1:1", px: "2048x2048", orient: "balanced centered framing" },
-      portrait: { label: "Portrait (Mobile / Reels)", ratio: "9:16", px: "1080x1920", orient: "vertical mobile-first composition with subject filling the vertical frame" },
-      landscape: { label: "Landscape", ratio: "16:9", px: "1920x1080", orient: "horizontal cinematic composition" },
+    const FORMAT_MAP: Record<string, { label: string; ratio: string; px: string; orient: string; width: number; height: number }> = {
+      square: { label: "Square", ratio: "1:1", px: "2048x2048", orient: "balanced centered framing", width: 2048, height: 2048 },
+      portrait: { label: "Portrait (Mobile / Reels)", ratio: "9:16", px: "1080x1920", orient: "vertical mobile-first composition with subject filling the vertical frame", width: 1080, height: 1920 },
+      landscape: { label: "Landscape", ratio: "16:9", px: "1920x1080", orient: "horizontal cinematic composition", width: 1920, height: 1080 },
     };
     const format = FORMAT_MAP[formatRaw] || FORMAT_MAP.square;
 
@@ -269,7 +305,8 @@ CRITICAL REQUIREMENTS:
           dataUrl = `data:image/png;base64,${b64}`;
         }
 
-        const imageBytes = dataUrlToBytes(dataUrl);
+        const rawBytes = dataUrlToBytes(dataUrl);
+        const imageBytes = await enforceAspectRatio(rawBytes, format.width, format.height);
         const fileName = `product-shots/${Date.now()}-${shotType}-${crypto.randomUUID()}.png`;
         const { error: uploadError } = await supabase.storage.from("media").upload(fileName, imageBytes, {
           contentType: "image/png",
