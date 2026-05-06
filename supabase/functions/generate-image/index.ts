@@ -755,6 +755,34 @@ RULES:
 // UNIFIED GENERATION WITH ROUTING
 // ============================================================
 
+// ============================================================
+// POLLINATIONS.AI (free, no API key)
+// ============================================================
+async function generateWithPollinations(
+  prompt: string,
+  aspectRatio: string = "1:1"
+): Promise<{ imageData: string | null; error?: string }> {
+  try {
+    const w = aspectRatio === "9:16" ? 720 : aspectRatio === "16:9" ? 1280 : 1024;
+    const h = aspectRatio === "9:16" ? 1280 : aspectRatio === "16:9" ? 720 : 1024;
+    const seed = Math.floor(Math.random() * 1_000_000);
+    const cleanPrompt = (prompt + ". Professional commercial photography, cinematic lighting, no text").slice(0, 1500);
+    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=${w}&height=${h}&nologo=true&seed=${seed}&model=flux`;
+    console.log(`[Pollinations] Calling free endpoint (${w}x${h})`);
+    const res = await fetch(url);
+    if (!res.ok) {
+      return { imageData: null, error: `Pollinations HTTP ${res.status}` };
+    }
+    const buf = await res.arrayBuffer();
+    if (buf.byteLength < 1000) {
+      return { imageData: null, error: "Pollinations returned empty image" };
+    }
+    return { imageData: `data:image/jpeg;base64,${arrayBufferToBase64(buf)}` };
+  } catch (e) {
+    return { imageData: null, error: `Pollinations exception: ${String(e)}` };
+  }
+}
+
 async function generateImage(
   prompt: string,
   modelId: string,
