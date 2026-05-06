@@ -82,12 +82,20 @@ export const SupportWidget = () => {
     if (!emailForm.subject.trim() || !emailForm.message.trim()) return;
 
     setEmailSending(true);
-    // Simulate email sending - in production, connect to email service
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setEmailSending(false);
-    setEmailForm({ subject: "", message: "" });
-    setView("menu");
-    setShowSuccess(true);
+    try {
+      const { error } = await supabase.functions.invoke("support-create-ticket", {
+        body: { subject: emailForm.subject, message: emailForm.message },
+      });
+      if (error) throw error;
+      setEmailForm({ subject: "", message: "" });
+      setView("menu");
+      setShowSuccess(true);
+    } catch (err) {
+      console.error("Ticket create error:", err);
+      alert("Failed to send. Please try again.");
+    } finally {
+      setEmailSending(false);
+    }
   };
 
   const goBack = () => setView("menu");

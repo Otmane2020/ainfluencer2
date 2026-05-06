@@ -138,6 +138,10 @@ project_id = "vgffjuvaedmxoxvzovoq"
     verify_jwt = false
   [functions.resend-inbound-webhook]
     verify_jwt = false
+  [functions.support-create-ticket]
+    verify_jwt = false
+  [functions.support-send-reply]
+    verify_jwt = true
 
 [studio]
   api_url = "http://localhost"
