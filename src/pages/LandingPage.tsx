@@ -249,11 +249,6 @@ const LandingPage = () => {
                 style={{ height: "min(900px, 90vh)" }}
               />
             </div>
-            <div className="mt-6">
-              <Button size="lg" variant="outline" onClick={() => navigate("/demo2")}>
-                Open Demo 2 fullscreen
-              </Button>
-            </div>
           </div>
         </div>
       </section>
