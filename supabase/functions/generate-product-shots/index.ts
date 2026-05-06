@@ -305,7 +305,8 @@ CRITICAL REQUIREMENTS:
           dataUrl = `data:image/png;base64,${b64}`;
         }
 
-        const imageBytes = dataUrlToBytes(dataUrl);
+        const rawBytes = dataUrlToBytes(dataUrl);
+        const imageBytes = await enforceAspectRatio(rawBytes, format.width, format.height);
         const fileName = `product-shots/${Date.now()}-${shotType}-${crypto.randomUUID()}.png`;
         const { error: uploadError } = await supabase.storage.from("media").upload(fileName, imageBytes, {
           contentType: "image/png",
