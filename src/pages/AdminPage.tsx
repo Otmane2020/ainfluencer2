@@ -102,10 +102,8 @@ export default function AdminPage() {
 
   return (
     <>
-      <Helmet>
-        <title>Admin Dashboard | ClipMotion</title>
-        <meta name="robots" content="noindex,nofollow" />
-      </Helmet>
+    <>
+
       <div className="container mx-auto p-6 space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Admin Dashboard</h1>
