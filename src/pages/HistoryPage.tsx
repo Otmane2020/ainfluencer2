@@ -35,9 +35,6 @@ interface Campaign {
 
 const HistoryPage = () => {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = searchParams.get("tab") || "all";
-  const [activeTab, setActiveTab] = useState(initialTab);
   
   // Common state
   const [projects, setProjects] = useState<Project[]>([]);
