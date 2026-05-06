@@ -96,6 +96,7 @@ Deno.serve(async (req) => {
     const sourceImageUrl = body?.sourceImageUrl as string | undefined;
     const productTitle = (body?.productTitle as string | undefined) || "Product";
     const includeLifestyle = Boolean(body?.includeLifestyle);
+    const customPrompt = typeof body?.customPrompt === "string" ? body.customPrompt.trim().slice(0, 500) : "";
     const formatRaw = String(body?.format || "square").toLowerCase();
     const FORMAT_MAP: Record<string, { label: string; ratio: string; px: string; orient: string }> = {
       square: { label: "Square", ratio: "1:1", px: "2048x2048", orient: "balanced centered framing" },
