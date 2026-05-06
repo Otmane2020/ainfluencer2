@@ -28,7 +28,7 @@ type DemoItem = {
   caption: string;
 };
 
-const DEMOS: DemoItem[] = [
+export const DEMOS: DemoItem[] = [
   {
     name: "Sofa",
     hashtag: "#InteriorDesign",
@@ -56,7 +56,7 @@ const STEPS = [
   { icon: ImagesIcon, title: "3. Multiply", text: "Get studio + lifestyle shots" },
 ];
 
-function TikTokPhone({ demo }: { demo: DemoItem }) {
+export function TikTokPhone({ demo }: { demo: DemoItem }) {
   const [stage, setStage] = useState<"intro" | "uploading" | "uploaded" | "generating" | "result">("intro");
   const [revealCount, setRevealCount] = useState(0);
   const [progress, setProgress] = useState(0);
