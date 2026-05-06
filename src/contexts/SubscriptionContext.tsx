@@ -168,21 +168,22 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
       buildCheckoutDebug({ supabaseUrl, planId: options.planId, type, ...payload });
 
     try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.refreshSession();
-      if (sessionError || !sessionData?.session?.access_token) {
-        const isInvalidToken = String(sessionError?.message ?? "").includes("Refresh Token") || String(sessionError?.message ?? "").includes("Invalid");
-        if (isInvalidToken) {
-          await supabase.auth.signOut();
+      // Use the existing session first; only attempt a refresh if there is no token at all.
+      let { data: sessionData } = await supabase.auth.getSession();
+      let accessToken = sessionData?.session?.access_token;
+
+      if (!accessToken) {
+        const refreshed = await supabase.auth.refreshSession();
+        accessToken = refreshed.data?.session?.access_token;
+        if (!accessToken) {
+          logCheckoutDebug("session failed", { hasSession: false });
+          const msg = "Session expired. Please sign in again.";
+          return {
+            success: false,
+            error: new Error(msg),
+            debug: debug({ step: "session", hasSession: false, errorMessage: msg }),
+          };
         }
-        logCheckoutDebug("session failed", { sessionError, hasSession: false });
-        const msg = isInvalidToken
-          ? "Invalid session. You have been signed out. Please sign in again."
-          : "Session expired. Please sign in again.";
-        return {
-          success: false,
-          error: new Error(msg),
-          debug: debug({ step: "session", hasSession: false, responseError: sessionError, errorMessage: msg }),
-        };
       }
 
       const origin = typeof window !== "undefined" ? window.location.origin : "https://www.clipmotion.ai";
