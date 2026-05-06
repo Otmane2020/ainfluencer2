@@ -309,7 +309,26 @@ CRITICAL REQUIREMENTS:
       });
     }
 
-    return new Response(JSON.stringify({ success: true, images: generatedImages, productTitle }), {
+    // Deduct credits: 1 per successfully generated image
+    const cost = generatedImages.length;
+    const { data: deducted, error: dedErr } = await supabase.rpc("deduct_credits", {
+      p_user_id: userId, p_amount: cost,
+    });
+    if (dedErr) {
+      console.error("[generate-product-shots] deduct_credits error:", dedErr);
+    } else if (deducted) {
+      await supabase.from("credit_transactions").insert({
+        user_id: userId,
+        amount: -cost,
+        type: "product_shots",
+        description: `Product Shots: ${cost} image(s) — ${productTitle}`,
+      });
+      console.log(`[generate-product-shots] Deducted ${cost} credits from ${userId}`);
+    } else {
+      console.warn(`[generate-product-shots] deduct returned false for user ${userId}`);
+    }
+
+    return new Response(JSON.stringify({ success: true, images: generatedImages, productTitle, creditsCharged: cost }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
