@@ -213,40 +213,6 @@ const Settings = () => {
             );
           })()}
 
-          {/* Recent Transactions */}
-          {transactions.length > 0 && (
-            <>
-              <Separator />
-              <div>
-                <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Recent Transactions
-                </h4>
-                <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {transactions.slice(0, 5).map((tx) => (
-                    <div 
-                      key={tx.id} 
-                      className="flex items-center justify-between text-sm p-2 rounded-lg bg-muted/30"
-                    >
-                      <div className="flex items-center gap-2">
-                        {tx.amount > 0 ? (
-                          <TrendingUp className="h-4 w-4 text-accent" />
-                        ) : (
-                          <TrendingDown className="h-4 w-4 text-destructive" />
-                        )}
-                        <span className="text-muted-foreground text-xs">
-                          {tx.description || tx.type}
-                        </span>
-                      </div>
-                      <span className={tx.amount > 0 ? "text-accent font-medium" : "text-destructive font-medium"}>
-                        {tx.amount > 0 ? "+" : ""}{tx.amount}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
         </CardContent>
       </Card>
 
