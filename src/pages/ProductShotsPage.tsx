@@ -115,11 +115,30 @@ export default function ProductShotsPage() {
     if (!productTitle) setProductTitle(file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "));
   };
 
+  const maxShots = Math.max(1, Math.min(7, balance));
+  const lifestyleAllowed = (selectedShotTypes.size + 1) <= balance;
+
   const toggleShotType = (id: string) => {
     const s = new Set(selectedShotTypes);
-    if (s.has(id)) { if (s.size > 1) s.delete(id); else return toast.warning("Select at least one shot type"); }
-    else { if (s.size < 7) s.add(id); else return toast.warning("Maximum 7 shot types"); }
+    if (s.has(id)) {
+      if (s.size > 1) s.delete(id);
+      else return toast.warning("Select at least one shot type");
+    } else {
+      const projected = s.size + 1 + (includeLifestyle ? 1 : 0);
+      if (projected > balance) return toast.error(`Not enough credits — you have ${balance}. Upgrade or buy more.`);
+      if (s.size >= 7) return toast.warning("Maximum 7 shot types");
+      s.add(id);
+    }
     setSelectedShotTypes(s);
+  };
+
+  const toggleLifestyle = () => {
+    if (!includeLifestyle) {
+      if (selectedShotTypes.size + 1 > balance) {
+        return toast.error(`Not enough credits — you have ${balance}.`);
+      }
+    }
+    setIncludeLifestyle(!includeLifestyle);
   };
 
   // Cycle through shot labels during generation for visual feedback
