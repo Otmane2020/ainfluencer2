@@ -116,12 +116,17 @@ function selectModelFromPool(qualityId: string): ModelOption {
 // ============================================================
 
 interface ModelRouting {
-  provider: "kie" | "lovable" | "openai" | "replicate";
+  provider: "kie" | "lovable" | "openai" | "replicate" | "pollinations";
   endpoint?: string;
   apiModel?: string;
 }
 
 function getModelRouting(modelId: string): ModelRouting {
+  // Pollinations.ai (free, no key)
+  if (modelId.startsWith("pollinations") || modelId === "flux-free") {
+    return { provider: "pollinations", apiModel: "flux" };
+  }
+
   // Flux Kontext uses a separate API endpoint
   if (modelId === "flux-kontext-pro" || modelId === "flux-kontext-max") {
     return { provider: "kie", endpoint: "flux-kontext", apiModel: modelId };
