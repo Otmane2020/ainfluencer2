@@ -6,6 +6,7 @@ import { PricingPacks } from "@/components/PricingPacks";
 import { supabase } from "@/integrations/supabase/client";
 
 import { MobileStickyCta } from "@/components/MobileStickyeCTA";
+import { DEMOS, TikTokPhone } from "@/pages/DemoPage";
 import { SEOHead } from "@/components/seo/SEOHead";
 import {
   Upload,
