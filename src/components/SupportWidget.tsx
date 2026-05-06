@@ -1,6 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageCircle, X, Send, Mail, Bot, Loader2, ChevronLeft } from "lucide-react";
+import { MessageCircle, X, Send, Mail, Bot, Loader2, ChevronLeft, CheckCircle2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +31,7 @@ export const SupportWidget = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [emailForm, setEmailForm] = useState({ subject: "", message: "" });
   const [emailSending, setEmailSending] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -78,8 +87,7 @@ export const SupportWidget = () => {
     setEmailSending(false);
     setEmailForm({ subject: "", message: "" });
     setView("menu");
-    // Show success feedback
-    alert("Your message has been sent! We'll get back to you soon.");
+    setShowSuccess(true);
   };
 
   const goBack = () => setView("menu");
@@ -268,6 +276,26 @@ export const SupportWidget = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Success Confirmation Dialog */}
+      <Dialog open={showSuccess} onOpenChange={setShowSuccess}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="mx-auto mb-2 h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
+              <CheckCircle2 className="h-8 w-8 text-primary" />
+            </div>
+            <DialogTitle className="text-center">Message Sent!</DialogTitle>
+            <DialogDescription className="text-center">
+              Thanks for reaching out. Our team will get back to you within 24 hours.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:justify-center">
+            <Button onClick={() => setShowSuccess(false)} className="w-full sm:w-auto">
+              Got it
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
