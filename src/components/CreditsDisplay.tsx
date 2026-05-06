@@ -25,7 +25,7 @@ export const CreditsDisplay = ({ compact = false }: CreditsDisplayProps) => {
   const [loadingPackId, setLoadingPackId] = useState<string | null>(null);
 
   const planName = isSubscribed ? (currentPlan?.name || "Starter") : "No Plan";
-  const isStarterPlan = subscription.planId === "n";
+  const isStarterPlan = !isSubscribed || subscription.planId === "starter";
   const isLowCredits = balance <= 5;
   const isZeroCredits = balance === 0;
 
