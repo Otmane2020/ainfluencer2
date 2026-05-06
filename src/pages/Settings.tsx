@@ -193,15 +193,25 @@ const Settings = () => {
           </div>
 
           {/* Product Shot quota */}
-          <div className="rounded-lg bg-muted/50 p-3 text-center">
-            <div className="flex items-center justify-center gap-1.5">
-              <Camera className="h-4 w-4 text-primary" />
-              <span className="text-lg font-bold">
-                {isSubscribed ? "Unlimited" : 0}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground">Pro product shots / month</p>
-          </div>
+          {(() => {
+            const planId = currentPlan?.id;
+            const quota = !isSubscribed
+              ? "5"
+              : planId === "business"
+                ? "Unlimited"
+                : planId === "pro"
+                  ? "50"
+                  : "5";
+            return (
+              <div className="rounded-lg bg-muted/50 p-3 text-center">
+                <div className="flex items-center justify-center gap-1.5">
+                  <Camera className="h-4 w-4 text-primary" />
+                  <span className="text-lg font-bold">{quota}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">Pro product shots / month</p>
+              </div>
+            );
+          })()}
 
           {/* Recent Transactions */}
           {transactions.length > 0 && (
