@@ -477,14 +477,7 @@ const HistoryPage = () => {
     ? campaigns 
     : campaigns.filter(c => c.project_id === selectedProject);
 
-  const filteredMedia = allMedia.filter(item => {
-    // Tab filter
-    if (activeTab === "videos" && item.type !== "video") return false;
-    if (activeTab === "images" && item.type !== "image") return false;
-    
-    // Project/campaign filter would need to be enhanced with campaign data on videos
-    return true;
-  });
+  const filteredMedia = allMedia;
 
   return (
     <div className="space-y-4">
