@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RefreshCw, Video, Image, Loader2, LayoutGrid } from "lucide-react";
+import { RefreshCw, Image, Loader2 } from "lucide-react";
 import { MasonryGrid } from "@/components/history/MasonryGrid";
 import { MediaItem } from "@/components/history/MediaCard";
 import { ImageDetailModal } from "@/components/history/ImageDetailModal";
