@@ -134,10 +134,10 @@ Deno.serve(async (req) => {
     const includeLifestyle = Boolean(body?.includeLifestyle);
     const customPrompt = typeof body?.customPrompt === "string" ? body.customPrompt.trim().slice(0, 500) : "";
     const formatRaw = String(body?.format || "square").toLowerCase();
-    const FORMAT_MAP: Record<string, { label: string; ratio: string; px: string; orient: string }> = {
-      square: { label: "Square", ratio: "1:1", px: "2048x2048", orient: "balanced centered framing" },
-      portrait: { label: "Portrait (Mobile / Reels)", ratio: "9:16", px: "1080x1920", orient: "vertical mobile-first composition with subject filling the vertical frame" },
-      landscape: { label: "Landscape", ratio: "16:9", px: "1920x1080", orient: "horizontal cinematic composition" },
+    const FORMAT_MAP: Record<string, { label: string; ratio: string; px: string; orient: string; width: number; height: number }> = {
+      square: { label: "Square", ratio: "1:1", px: "2048x2048", orient: "balanced centered framing", width: 2048, height: 2048 },
+      portrait: { label: "Portrait (Mobile / Reels)", ratio: "9:16", px: "1080x1920", orient: "vertical mobile-first composition with subject filling the vertical frame", width: 1080, height: 1920 },
+      landscape: { label: "Landscape", ratio: "16:9", px: "1920x1080", orient: "horizontal cinematic composition", width: 1920, height: 1080 },
     };
     const format = FORMAT_MAP[formatRaw] || FORMAT_MAP.square;
 
