@@ -176,7 +176,7 @@ Deno.serve(async (req) => {
       const imagePrompt = `Based on this product image, ${shotConfig.prompt}
 
 Product: ${productTitle}
-
+${customPrompt ? `\nUSER INSTRUCTIONS (must be respected): ${customPrompt}\n` : ""}
 OUTPUT FORMAT:
 - Aspect ratio: ${format.ratio} (${format.label}, ${format.px})
 - Composition: ${format.orient}
