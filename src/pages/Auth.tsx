@@ -169,6 +169,16 @@ const Auth = () => {
           if (profileError) {
             console.error("Profile creation error:", profileError);
           }
+
+          // Send branded welcome email (non-blocking)
+          supabase.functions.invoke("send-transactional-email", {
+            body: {
+              templateName: "welcome",
+              recipientEmail: email,
+              idempotencyKey: `welcome-${data.user.id}`,
+              templateData: { name: displayName },
+            },
+          }).catch((e) => console.error("welcome email error:", e));
         }
 
         toast({
