@@ -237,13 +237,23 @@ const LandingPage = () => {
               </div>
             ))}
           </div>
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            <Button size="lg" onClick={() => navigate("/demo")} className="bg-primary hover:bg-primary/90">
-              Open full Demo
-            </Button>
-            <Button size="lg" variant="outline" onClick={() => navigate("/demo2")}>
-              Open Demo 2
-            </Button>
+          <div className="mt-16">
+            <div className="text-xs tracking-[0.15em] uppercase text-primary mb-4">Demo 2</div>
+            <h3 className="font-display text-2xl md:text-4xl mb-6">Interactive <span className="text-gradient italic">walkthrough</span></h3>
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              <iframe
+                src="/demo2.html"
+                title="ClipMotion Demo 2"
+                loading="lazy"
+                className="w-full border-0 bg-background"
+                style={{ height: "min(900px, 90vh)" }}
+              />
+            </div>
+            <div className="mt-6">
+              <Button size="lg" variant="outline" onClick={() => navigate("/demo2")}>
+                Open Demo 2 fullscreen
+              </Button>
+            </div>
           </div>
         </div>
       </section>
