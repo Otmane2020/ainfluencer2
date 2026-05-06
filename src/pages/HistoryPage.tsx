@@ -321,57 +321,8 @@ const HistoryPage = () => {
         }
       }
 
-      // Fetch images from storage
-      const [imagesResult, productShotsResult] = await Promise.all([
-        supabase.storage.from("media").list("images", {
-          limit: 100,
-          sortBy: { column: "created_at", order: "desc" },
-        }),
-        supabase.storage.from("media").list("product-shots", {
-          limit: 100,
-          sortBy: { column: "created_at", order: "desc" },
-        }),
-      ]);
-
-      if (imagesResult.data) {
-        for (const file of imagesResult.data.filter(f => f.name.match(/\.(jpg|jpeg|png|gif|webp)$/i))) {
-          const storagePath = `images/${file.name}`;
-          const { data: urlData } = supabase.storage.from("media").getPublicUrl(storagePath);
-          const existsInPosts = media.some(m => m.url === urlData.publicUrl);
-          
-          if (!existsInPosts) {
-            media.push({
-              id: file.id || `img-${file.name}`,
-              type: "image",
-              title: file.name,
-              url: urlData.publicUrl,
-              createdAt: new Date(file.created_at || Date.now()),
-              status: "generated",
-              storagePath,
-              aspectRatio: "square",
-            });
-          }
-        }
-      }
-
-      if (productShotsResult.data) {
-        for (const file of productShotsResult.data.filter(f => f.name.match(/\.(jpg|jpeg|png|gif|webp)$/i))) {
-          const storagePath = `product-shots/${file.name}`;
-          const { data: urlData } = supabase.storage.from("media").getPublicUrl(storagePath);
-          
-          media.push({
-            id: file.id || `ps-${file.name}`,
-            type: "image",
-            title: file.name,
-            url: urlData.publicUrl,
-            createdAt: new Date(file.created_at || Date.now()),
-            status: "generated",
-            isProductShot: true,
-            storagePath,
-            aspectRatio: "square",
-          });
-        }
-      }
+      // NOTE: Do NOT list storage bucket directly — it's public and shared across users.
+      // All user media is tracked via DB tables (generations, scheduled_posts) filtered by user_id.
 
       // Sort by date
       media.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
