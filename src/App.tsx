@@ -98,6 +98,7 @@ const App = () => (
             <Route path="/history/posts" element={<PostHistoryPage />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/admin" element={<AdminPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
