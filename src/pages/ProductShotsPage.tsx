@@ -15,6 +15,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { useCredits } from "@/hooks/useCredits";
 
 const SHOT_TYPES = [
   { id: "front", label: "Front View", icon: Camera, description: "Direct front-facing shot", gradient: "from-blue-500 to-cyan-500" },
@@ -43,6 +44,7 @@ const STEPS = [
 ];
 
 export default function ProductShotsPage() {
+  const { balance } = useCredits();
   const [step, setStep] = useState(1);
   const [sourceImage, setSourceImage] = useState<string | null>(null);
   const [sourceFile, setSourceFile] = useState<File | null>(null);
@@ -113,11 +115,30 @@ export default function ProductShotsPage() {
     if (!productTitle) setProductTitle(file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "));
   };
 
+  const maxShots = Math.max(1, Math.min(7, balance));
+  const lifestyleAllowed = (selectedShotTypes.size + 1) <= balance;
+
   const toggleShotType = (id: string) => {
     const s = new Set(selectedShotTypes);
-    if (s.has(id)) { if (s.size > 1) s.delete(id); else return toast.warning("Select at least one shot type"); }
-    else { if (s.size < 7) s.add(id); else return toast.warning("Maximum 7 shot types"); }
+    if (s.has(id)) {
+      if (s.size > 1) s.delete(id);
+      else return toast.warning("Select at least one shot type");
+    } else {
+      const projected = s.size + 1 + (includeLifestyle ? 1 : 0);
+      if (projected > balance) return toast.error(`Not enough credits — you have ${balance}. Upgrade or buy more.`);
+      if (s.size >= 7) return toast.warning("Maximum 7 shot types");
+      s.add(id);
+    }
     setSelectedShotTypes(s);
+  };
+
+  const toggleLifestyle = () => {
+    if (!includeLifestyle) {
+      if (selectedShotTypes.size + 1 > balance) {
+        return toast.error(`Not enough credits — you have ${balance}.`);
+      }
+    }
+    setIncludeLifestyle(!includeLifestyle);
   };
 
   // Cycle through shot labels during generation for visual feedback
@@ -374,7 +395,9 @@ export default function ProductShotsPage() {
             <div className="space-y-3 animate-fade-in">
               <div className="text-center">
                 <h2 className="text-base font-bold">Pick your shots</h2>
-                <p className="text-xs text-muted-foreground">{totalShots} shot{totalShots > 1 ? "s" : ""} will be generated</p>
+                <p className="text-xs text-muted-foreground">
+                  {totalShots} shot{totalShots > 1 ? "s" : ""} • costs {totalShots} credit{totalShots > 1 ? "s" : ""} (you have {balance})
+                </p>
               </div>
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                 {SHOT_TYPES.map((type) => {
@@ -398,7 +421,7 @@ export default function ProductShotsPage() {
                   );
                 })}
               </div>
-              <button type="button" onClick={() => setIncludeLifestyle(!includeLifestyle)}
+              <button type="button" onClick={toggleLifestyle}
                 className={`group relative w-full overflow-hidden rounded-lg border-2 p-2.5 text-left transition-all hover:shadow-md ${
                   includeLifestyle ? "border-primary bg-gradient-to-r from-primary/10 via-primary/5 to-transparent" : "border-dashed border-border hover:border-primary/40"
                 }`}>
@@ -550,12 +573,14 @@ export default function ProductShotsPage() {
             {step === 2 ? (
               <Button
                 onClick={handleGenerate}
-                disabled={!canNext || isGenerating}
+                disabled={!canNext || isGenerating || totalShots > balance}
                 className="gradient-primary h-9 px-3 sm:px-4 shrink-0"
                 size="sm"
               >
                 <Sparkles className="h-4 w-4 mr-1 sm:mr-1.5" />
-                <span className="text-xs sm:text-sm">Generate {totalShots}</span>
+                <span className="text-xs sm:text-sm">
+                  {totalShots > balance ? `Need ${totalShots} credits` : `Generate ${totalShots}`}
+                </span>
               </Button>
             ) : (
               <Button
