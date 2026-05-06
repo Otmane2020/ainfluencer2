@@ -484,17 +484,14 @@ const HistoryPage = () => {
       <div className="flex items-center justify-between">
         <h1 className="font-display text-xl font-bold">History</h1>
         <div className="flex items-center gap-2 flex-wrap">
-          <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
-            <SelectTrigger className="h-9 w-[130px] text-sm">
-              <SelectValue placeholder="All Campaigns" />
+          <Select value={selectedProductFilter} onValueChange={setSelectedProductFilter}>
+            <SelectTrigger className="h-9 w-[140px] text-sm">
+              <SelectValue placeholder="All Products" />
             </SelectTrigger>
             <SelectContent className="bg-card border border-border z-50">
-              <SelectItem value="all">All Campaigns</SelectItem>
-              {filteredCampaigns.map((campaign) => (
-                <SelectItem key={campaign.id} value={campaign.id}>
-                  <span className="truncate max-w-[100px]">{campaign.name}</span>
-                </SelectItem>
-              ))}
+              <SelectItem value="all">All Products</SelectItem>
+              <SelectItem value="products">Product Shots</SelectItem>
+              <SelectItem value="non-products">Other Media</SelectItem>
             </SelectContent>
           </Select>
           <Button
