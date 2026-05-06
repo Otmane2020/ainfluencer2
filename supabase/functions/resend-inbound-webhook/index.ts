@@ -43,18 +43,17 @@ Deno.serve(async (req) => {
       const { data: msg } = await supabase
         .from("support_messages")
         .select("ticket_id")
-        .in("message_id", refs)
+        .in("external_message_id", refs)
         .maybeSingle();
       if (msg) ticketId = msg.ticket_id;
     }
 
     if (!ticketId) {
-      // Try matching by subject thread (strip Re:/Fwd:)
       const cleanSubject = subject.replace(/^(re|fwd|fw):\s*/gi, "").trim();
       const { data: existing } = await supabase
         .from("support_tickets")
         .select("id")
-        .eq("from_email", from)
+        .eq("email", from)
         .ilike("subject", `%${cleanSubject}%`)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -67,8 +66,7 @@ Deno.serve(async (req) => {
         .from("support_tickets")
         .insert({
           subject,
-          from_email: from,
-          to_email: to,
+          email: from,
           status: "open",
           priority: "normal",
           last_message_at: new Date().toISOString(),
@@ -92,7 +90,7 @@ Deno.serve(async (req) => {
       subject,
       body_text: text,
       body_html: html,
-      message_id: messageId,
+      external_message_id: messageId,
       in_reply_to: inReplyTo,
       attachments,
     });
