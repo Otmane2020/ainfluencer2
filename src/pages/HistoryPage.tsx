@@ -517,94 +517,38 @@ const HistoryPage = () => {
         </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full max-w-[300px] grid-cols-2">
-          <TabsTrigger value="all" className="gap-2">
-            <LayoutGrid className="h-4 w-4" />
-            All
-          </TabsTrigger>
-          <TabsTrigger value="videos" className="gap-2">
-            <Video className="h-4 w-4" />
-            Videos
-          </TabsTrigger>
-        </TabsList>
+      {/* Content */}
+      <div className="w-full mt-2">
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-xs text-muted-foreground">
+            {filteredMedia.length} item{filteredMedia.length !== 1 ? "s" : ""}
+          </span>
+        </div>
 
-        <TabsContent value="all" className="mt-4">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs text-muted-foreground">
-              {filteredMedia.length} item{filteredMedia.length !== 1 ? "s" : ""}
-            </span>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
-          
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            </div>
-          ) : (
-            <MasonryGrid
-              items={filteredMedia}
-              generatingTasks={activeTasks.map(task => ({
-                id: task.id,
-                taskId: task.taskId,
-                status: task.status,
-                progress: task.progress,
-                model: task.model,
-                duration: task.duration,
-                script: task.script,
-              }))}
-              onItemClick={handleItemClick}
-              onDelete={handleDelete}
-              onDownload={handleDownload}
-              downloadingId={downloadingId}
-              generatingThumbnails={generatingThumbnails}
-            />
-          )}
-        </TabsContent>
-
-        <TabsContent value="videos" className="mt-4">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs text-muted-foreground">
-              {filteredMedia.length} video{filteredMedia.length !== 1 ? "s" : ""}
-            </span>
-          </div>
-          
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            </div>
-          ) : filteredMedia.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                <Video className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <p className="text-sm text-muted-foreground mb-3">No videos yet</p>
-              <Button size="sm" onClick={() => navigate("/videos")}>
-                Create Video
-              </Button>
-            </div>
-          ) : (
-            <MasonryGrid
-              items={filteredMedia}
-              generatingTasks={activeTasks.map(task => ({
-                id: task.id,
-                taskId: task.taskId,
-                status: task.status,
-                progress: task.progress,
-                model: task.model,
-                duration: task.duration,
-                script: task.script,
-              }))}
-              onItemClick={handleItemClick}
-              onDelete={handleDelete}
-              onDownload={handleDownload}
-              downloadingId={downloadingId}
-              generatingThumbnails={generatingThumbnails}
-            />
-          )}
-        </TabsContent>
-
-      </Tabs>
+        ) : (
+          <MasonryGrid
+            items={filteredMedia}
+            generatingTasks={activeTasks.map(task => ({
+              id: task.id,
+              taskId: task.taskId,
+              status: task.status,
+              progress: task.progress,
+              model: task.model,
+              duration: task.duration,
+              script: task.script,
+            }))}
+            onItemClick={handleItemClick}
+            onDelete={handleDelete}
+            onDownload={handleDownload}
+            downloadingId={downloadingId}
+            generatingThumbnails={generatingThumbnails}
+          />
+        )}
+      </div>
 
       {/* Video Detail Modal */}
       <VideoDetailModal
