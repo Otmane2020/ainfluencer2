@@ -419,7 +419,7 @@ export default function ProductShotsPage() {
                   );
                 })}
               </div>
-              <button type="button" onClick={() => setIncludeLifestyle(!includeLifestyle)}
+              <button type="button" onClick={toggleLifestyle}
                 className={`group relative w-full overflow-hidden rounded-lg border-2 p-2.5 text-left transition-all hover:shadow-md ${
                   includeLifestyle ? "border-primary bg-gradient-to-r from-primary/10 via-primary/5 to-transparent" : "border-dashed border-border hover:border-primary/40"
                 }`}>
