@@ -118,6 +118,30 @@ serve(async (req) => {
       });
     }
     // ============================================================
+    // CHECK DATABASE for active free Starter plan (no Stripe needed)
+    // ============================================================
+    const { data: freeStarter } = await supabaseClient
+      .from("subscriptions")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("plan_id", "starter")
+      .eq("status", "active")
+      .is("stripe_subscription_id", null)
+      .maybeSingle();
+
+    if (freeStarter) {
+      logStep("Free Starter plan active in DB - skipping Stripe check");
+      return new Response(JSON.stringify({
+        subscribed: true,
+        plan_id: "starter",
+        status: "active",
+        subscription_end: freeStarter.renews_at,
+        requires_checkout: false,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
 
     const stripe = new Stripe(stripeKey);
     const customers = await stripe.customers.list({ email: userEmail, limit: 1 });
