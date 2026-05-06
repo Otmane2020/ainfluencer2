@@ -138,6 +138,34 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Auth: extract user from JWT
+    const authHeader = req.headers.get("Authorization") || "";
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+    if (!token) {
+      return new Response(JSON.stringify({ error: "Authentication required" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+    const userId = userData?.user?.id;
+    if (userErr || !userId) {
+      return new Response(JSON.stringify({ error: "Invalid auth" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Pre-check balance
+    const { data: creditsRow } = await supabase
+      .from("credits").select("balance").eq("user_id", userId).maybeSingle();
+    const balance = creditsRow?.balance ?? 0;
+    if (balance < shotTypes.length) {
+      return new Response(JSON.stringify({
+        error: `Not enough credits. You need ${shotTypes.length}, you have ${balance}.`,
+        code: "INSUFFICIENT_CREDITS",
+      }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    console.log(`[generate-product-shots] user=${userId} balance=${balance} requested=${shotTypes.length}`);
     console.log(`[generate-product-shots] Starting generation for: ${productTitle}`);
     console.log(`[generate-product-shots] Shot types: ${shotTypes.join(", ")}`);
 
