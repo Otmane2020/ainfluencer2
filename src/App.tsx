@@ -43,6 +43,7 @@ import DemoPage from "./pages/DemoPage";
 import Demo2Page from "./pages/Demo2Page";
 import Demo3Page from "./pages/Demo3Page";
 import Demo3ReelPage from "./pages/Demo3ReelPage";
+import UnsubscribePage from "./pages/UnsubscribePage";
 
 import { SubscriptionProvider } from "./contexts/SubscriptionContext";
 import { OrgProvider } from "./contexts/OrgContext";
@@ -81,6 +82,7 @@ const App = () => (
           <Route path="/api/tiktok/callback" element={<TikTokCallbackPage />} />
           <Route path="/choose-plan" element={<ChoosePlanPage />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/unsubscribe" element={<UnsubscribePage />} />
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/projects" element={<Projects />} />
