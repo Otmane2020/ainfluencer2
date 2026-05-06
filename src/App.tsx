@@ -44,6 +44,7 @@ import Demo2Page from "./pages/Demo2Page";
 import Demo3Page from "./pages/Demo3Page";
 import Demo3ReelPage from "./pages/Demo3ReelPage";
 import UnsubscribePage from "./pages/UnsubscribePage";
+import AdminPage from "./pages/AdminPage";
 
 import { SubscriptionProvider } from "./contexts/SubscriptionContext";
 import { OrgProvider } from "./contexts/OrgContext";
@@ -97,6 +98,7 @@ const App = () => (
             <Route path="/history/posts" element={<PostHistoryPage />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/admin" element={<AdminPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
