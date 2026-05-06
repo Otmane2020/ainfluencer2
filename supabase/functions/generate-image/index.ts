@@ -1377,8 +1377,11 @@ BANNED: generic stock photo, clipart, blurry background, low quality, stars as l
       );
     }
 
+    // Enforce the requested aspect ratio (some providers ignore the prompt and return square images)
+    let finalImageData = await enforceAspectRatioDataUrl(imageData, effectiveAspect);
+    console.log(`[Main] Enforced aspect ratio ${effectiveAspect} on output image`);
+
     // Apply text overlay if requested (2-step: spell-check → composite)
-    let finalImageData = imageData;
     if (includeText && overlayText) {
       console.log("[Main] Applying 2-step text overlay...");
       const primaryColor = marketingContext?.visual_identity?.primary_color || guardInput.themeColor;
