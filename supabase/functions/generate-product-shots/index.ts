@@ -143,9 +143,7 @@ Deno.serve(async (req) => {
     console.log(`[generate-product-shots] Starting generation for: ${productTitle}`);
     console.log(`[generate-product-shots] Shot types: ${shotTypes.join(", ")}`);
 
-    const generatedImages: Array<{ type: ShotType; label: string; url: string }> = [];
-
-    for (const shotType of shotTypes) {
+    const generateOneShot = async (shotType: ShotType): Promise<{ type: ShotType; label: string; url: string } | null> => {
       const shotConfig = SHOT_TYPES[shotType];
 
       const imagePrompt = `Based on this product image, ${shotConfig.prompt}
