@@ -120,6 +120,25 @@ serve(async (req) => {
           if (error) logStep("Error updating subscription", { error: error.message });
           else logStep("Subscription activated", { planId, productId, priceId, subscriptionId, renewsAt });
 
+          // Grant monthly credits for the plan
+          const planCredits = PLAN_TO_CREDITS[planId] || 0;
+          if (planCredits > 0 && userId) {
+            const { error: credErr } = await supabase.rpc("add_credits", {
+              p_user_id: userId,
+              p_amount: planCredits,
+            });
+            if (credErr) logStep("Error granting plan credits", { error: credErr.message });
+            else {
+              await supabase.from("credit_transactions").insert({
+                user_id: userId,
+                amount: planCredits,
+                type: "subscription",
+                description: `Monthly credits for ${planId} plan`,
+              });
+              logStep("Plan credits granted", { planId, planCredits, userId });
+            }
+          }
+
         } else if (session.mode === "payment") {
           // Handle one-time credit purchase
           const priceId = session.line_items?.data[0]?.price?.id;
