@@ -45,6 +45,7 @@ import Demo3Page from "./pages/Demo3Page";
 import Demo3ReelPage from "./pages/Demo3ReelPage";
 import UnsubscribePage from "./pages/UnsubscribePage";
 import AdminPage from "./pages/AdminPage";
+import AdminTicketPage from "./pages/AdminTicketPage";
 
 import { SubscriptionProvider } from "./contexts/SubscriptionContext";
 import { OrgProvider } from "./contexts/OrgContext";
@@ -99,6 +100,7 @@ const App = () => (
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/admin" element={<AdminPage />} />
+            <Route path="/admin/tickets/:id" element={<AdminTicketPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
