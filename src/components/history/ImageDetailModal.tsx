@@ -518,34 +518,7 @@ export const ImageDetailModal = ({
                   />
                 </div>
 
-                {/* Direct API Publish buttons */}
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium flex items-center gap-2">
-                    <Send className="h-4 w-4" />
-                    Publish directly
-                  </h4>
-                  <div className="grid grid-cols-1 gap-2">
-                    <Button
-                      variant="default"
-                      className="gap-2 h-10 w-full"
-                      onClick={handlePublishAsImage}
-                      disabled={isPublishingImage || !imageUrl}
-                    >
-                      {isPublishingImage ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <ImageIcon className="h-4 w-4" />
-                      )}
-                      Post as Image
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground text-center">
-                    Posts to Facebook & Instagram feeds
-                  </p>
-                  <p className="text-xs text-muted-foreground/70 text-center italic">
-                    💡 For Reels with music, create a Campaign with ClipMotion enabled
-                  </p>
-                </div>
+
 
                 {/* Share buttons */}
                 <div className="space-y-2">
