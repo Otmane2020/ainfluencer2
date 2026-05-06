@@ -182,10 +182,16 @@ CRITICAL REQUIREMENTS:
         }] : []),
         ...(GEMINI_API_KEY ? [{
           name: "gemini-direct", type: "gemini" as const,
-          url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent",
+          url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent",
           key: GEMINI_API_KEY,
-          model: "gemini-2.5-flash-image-preview",
+          model: "gemini-2.5-flash-image",
         }] : []),
+        {
+          name: "pollinations", type: "pollinations" as const,
+          url: "https://image.pollinations.ai/prompt/",
+          key: "",
+          model: "flux",
+        } as any,
       ];
 
       let imageData: string | undefined;
@@ -226,6 +232,22 @@ CRITICAL REQUIREMENTS:
               },
               90_000
             );
+          } else if ((provider as any).type === "pollinations") {
+            const w = format.ratio === "9:16" ? 1080 : format.ratio === "16:9" ? 1920 : 2048;
+            const h = format.ratio === "9:16" ? 1920 : format.ratio === "16:9" ? 1080 : 2048;
+            const url = `${provider.url}${encodeURIComponent(imagePrompt)}?width=${w}&height=${h}&nologo=true&seed=${Math.floor(Math.random()*1e6)}&model=flux`;
+            r = await fetchWithTimeout(url, { method: "GET" }, 90_000);
+            if (r.ok) {
+              const buf = new Uint8Array(await r.arrayBuffer());
+              const b64 = bytesToBase64(buf);
+              imageData = `data:image/png;base64,${b64}`;
+              console.log(`[generate-product-shots] ${shotType} via ${provider.name}`);
+              break;
+            }
+            lastStatus = r.status;
+            lastError = `pollinations ${r.status}`;
+            console.warn(`[generate-product-shots] pollinations failed [${r.status}]`);
+            continue;
           } else {
             r = await fetchWithTimeout(
               provider.url,
