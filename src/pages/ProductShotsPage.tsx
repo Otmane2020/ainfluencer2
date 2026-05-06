@@ -272,7 +272,7 @@ export default function ProductShotsPage() {
                     <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
                     {sourceImage ? (
                       <div className="relative animate-scale-in w-full h-full flex items-center justify-center">
-                        <img src={sourceImage} alt="Source" className="max-h-full max-w-full mx-auto rounded-lg object-contain" />
+                        <img src={sourceImage} alt="Source" className="max-h-[260px] sm:max-h-[320px] md:max-h-[360px] w-auto max-w-full mx-auto rounded-lg object-contain" />
                         <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-7 w-7"
                           onClick={(e) => { e.stopPropagation(); handleReset(); }}>
                           <Trash2 className="h-3.5 w-3.5" />
