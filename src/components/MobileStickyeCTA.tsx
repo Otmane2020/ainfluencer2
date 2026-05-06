@@ -71,14 +71,10 @@ export function MobileStickyCta({ showFlashSale = true }: MobileStickyCtaProps) 
 
           {/* Main CTA */}
           <div className="bg-background/95 backdrop-blur-lg border-t border-border px-4 py-3 safe-area-bottom">
-            <div className="flex items-center gap-3">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold truncate">Start creating viral content</p>
-                <p className="text-xs text-muted-foreground">Free trial • No credit card</p>
-              </div>
+            <div className="flex items-center justify-center">
               <Button
                 onClick={() => navigate("/auth")}
-                className="gradient-primary shadow-glow shrink-0"
+                className="gradient-primary shadow-glow w-full"
                 size="default"
               >
                 <Sparkles className="h-4 w-4 mr-1.5" />
