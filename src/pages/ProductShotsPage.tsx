@@ -448,6 +448,22 @@ export default function ProductShotsPage() {
                 </div>
               </button>
 
+              {/* Custom prompt — passed to Lovable AI */}
+              <div className="space-y-1.5 pt-1">
+                <Label htmlFor="custom-prompt" className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  Custom instructions <span className="normal-case text-muted-foreground/70">(optional)</span>
+                </Label>
+                <textarea
+                  id="custom-prompt"
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value.slice(0, 500))}
+                  placeholder="e.g. minimalist beige background, soft morning light, marble surface…"
+                  rows={2}
+                  className="w-full resize-none rounded-lg border border-border bg-card px-3 py-2 text-xs placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+                <p className="text-[10px] text-muted-foreground text-right">{customPrompt.length}/500</p>
+              </div>
+
               {/* Format / Orientation selector */}
               <div className="space-y-1.5 pt-1">
                 <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Output format</p>
