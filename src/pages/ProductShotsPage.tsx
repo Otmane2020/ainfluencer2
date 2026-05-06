@@ -44,7 +44,7 @@ const STEPS = [
 ];
 
 export default function ProductShotsPage() {
-  const { balance } = useCredits();
+  const { balance, refresh: refreshCredits } = useCredits();
   const [step, setStep] = useState(1);
   const [sourceImage, setSourceImage] = useState<string | null>(null);
   const [sourceFile, setSourceFile] = useState<File | null>(null);
@@ -177,7 +177,9 @@ export default function ProductShotsPage() {
       if (data?.images?.length) {
         setGeneratedImages(data.images.map((img: any) => ({ type: img.type, label: img.label, url: img.url, selected: true })));
         setProgress(100);
-        toast.success(`${data.images.length} product shots generated!`, { id: toastId });
+        const charged = data.creditsCharged ?? data.images.length;
+        toast.success(`${data.images.length} shots generated — ${charged} credit(s) used`, { id: toastId });
+        await refreshCredits();
         setStep(4);
       } else throw new Error(data?.error || "No images generated");
     } catch (e: any) {
