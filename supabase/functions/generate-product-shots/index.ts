@@ -182,10 +182,16 @@ CRITICAL REQUIREMENTS:
         }] : []),
         ...(GEMINI_API_KEY ? [{
           name: "gemini-direct", type: "gemini" as const,
-          url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent",
+          url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent",
           key: GEMINI_API_KEY,
-          model: "gemini-2.5-flash-image-preview",
+          model: "gemini-2.5-flash-image",
         }] : []),
+        {
+          name: "pollinations", type: "pollinations" as const,
+          url: "https://image.pollinations.ai/prompt/",
+          key: "",
+          model: "flux",
+        } as any,
       ];
 
       let imageData: string | undefined;
