@@ -136,6 +136,8 @@ project_id = "vgffjuvaedmxoxvzovoq"
     verify_jwt = false
   [functions.youtube-oauth]
     verify_jwt = false
+  [functions.resend-inbound-webhook]
+    verify_jwt = false
 
 [studio]
   api_url = "http://localhost"
