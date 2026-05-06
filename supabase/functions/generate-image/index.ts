@@ -789,6 +789,10 @@ async function generateImage(
       result = await generateWithOpenAI(prompt, aspectRatio);
       break;
 
+    case "pollinations":
+      result = await generateWithPollinations(prompt, aspectRatio);
+      break;
+
     case "lovable":
     default:
       result = await generateWithLovable(prompt, routing.apiModel!, sourceImage);
