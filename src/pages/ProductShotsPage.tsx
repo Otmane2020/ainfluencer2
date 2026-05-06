@@ -573,12 +573,14 @@ export default function ProductShotsPage() {
             {step === 2 ? (
               <Button
                 onClick={handleGenerate}
-                disabled={!canNext || isGenerating}
+                disabled={!canNext || isGenerating || totalShots > balance}
                 className="gradient-primary h-9 px-3 sm:px-4 shrink-0"
                 size="sm"
               >
                 <Sparkles className="h-4 w-4 mr-1 sm:mr-1.5" />
-                <span className="text-xs sm:text-sm">Generate {totalShots}</span>
+                <span className="text-xs sm:text-sm">
+                  {totalShots > balance ? `Need ${totalShots} credits` : `Generate ${totalShots}`}
+                </span>
               </Button>
             ) : (
               <Button
