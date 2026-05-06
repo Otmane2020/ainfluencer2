@@ -492,25 +492,6 @@ const HistoryPage = () => {
       <div className="flex items-center justify-between">
         <h1 className="font-display text-xl font-bold">History</h1>
         <div className="flex items-center gap-2 flex-wrap">
-          <Select value={selectedProject} onValueChange={setSelectedProject}>
-            <SelectTrigger className="h-9 w-[130px] text-sm">
-              <SelectValue placeholder="All Projects" />
-            </SelectTrigger>
-            <SelectContent className="bg-card border border-border z-50">
-              <SelectItem value="all">All Projects</SelectItem>
-              {projects.map((project) => (
-                <SelectItem key={project.id} value={project.id}>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="h-2 w-2 rounded-full"
-                      style={{ backgroundColor: project.theme_color }}
-                    />
-                    <span className="truncate max-w-[80px]">{project.name}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
             <SelectTrigger className="h-9 w-[130px] text-sm">
               <SelectValue placeholder="All Campaigns" />
@@ -538,7 +519,7 @@ const HistoryPage = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full max-w-[400px] grid-cols-3">
+        <TabsList className="grid w-full max-w-[300px] grid-cols-2">
           <TabsTrigger value="all" className="gap-2">
             <LayoutGrid className="h-4 w-4" />
             All
@@ -546,10 +527,6 @@ const HistoryPage = () => {
           <TabsTrigger value="videos" className="gap-2">
             <Video className="h-4 w-4" />
             Videos
-          </TabsTrigger>
-          <TabsTrigger value="images" className="gap-2">
-            <Image className="h-4 w-4" />
-            Images
           </TabsTrigger>
         </TabsList>
 
@@ -627,38 +604,6 @@ const HistoryPage = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="images" className="mt-4">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs text-muted-foreground">
-              {filteredMedia.length} image{filteredMedia.length !== 1 ? "s" : ""}
-            </span>
-          </div>
-          
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            </div>
-          ) : filteredMedia.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-3">
-                <Image className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <p className="text-sm text-muted-foreground mb-3">No images found</p>
-              <Button size="sm" onClick={() => navigate("/images")}>
-                Create Image
-              </Button>
-            </div>
-          ) : (
-            <MasonryGrid
-              items={filteredMedia}
-              onItemClick={handleItemClick}
-              onDelete={handleDelete}
-              onDownload={handleDownload}
-              downloadingId={downloadingId}
-              generatingThumbnails={generatingThumbnails}
-            />
-          )}
-        </TabsContent>
       </Tabs>
 
       {/* Video Detail Modal */}
