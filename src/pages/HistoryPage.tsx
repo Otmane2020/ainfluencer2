@@ -41,6 +41,7 @@ const HistoryPage = () => {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const [selectedCampaign, setSelectedCampaign] = useState<string>("all");
+  const [selectedProductFilter, setSelectedProductFilter] = useState<string>("all");
   
   // Media state
   const [allMedia, setAllMedia] = useState<MediaItem[]>([]);
