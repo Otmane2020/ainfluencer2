@@ -61,10 +61,6 @@ const HistoryPage = () => {
   const processedVideosRef = useRef<Set<string>>(new Set());
   const activeTasks = getPendingTasks();
 
-  // Sync tab with URL
-  useEffect(() => {
-    setSearchParams({ tab: activeTab });
-  }, [activeTab, setSearchParams]);
 
   // Fetch projects and campaigns
   useEffect(() => {
