@@ -227,45 +227,21 @@ const LandingPage = () => {
           <h2 className="font-display text-3xl md:text-5xl mb-12">
             See the <span className="text-gradient italic">transformation</span>
           </h2>
-          <div className="space-y-12">
-            {showcases.map((sc) => (
-              <div key={sc.label}>
-                <div className="text-xs tracking-[0.15em] uppercase text-muted-foreground mb-4">{sc.label}</div>
-                <div className="grid md:grid-cols-[1fr_auto_1fr] items-center gap-6">
-                  <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                    <div className="px-4 py-3 text-[0.7rem] tracking-widest uppercase text-muted-foreground border-b border-border">
-                      📸 Your original photo
-                    </div>
-                    <div className="aspect-square bg-muted/30 flex items-center justify-center p-6">
-                      <img src={sc.before} alt={`${sc.label} original`} className="max-h-full max-w-full object-contain" />
-                    </div>
-                  </div>
-                  <div className="hidden md:flex w-12 h-12 mx-auto rounded-full bg-primary text-primary-foreground items-center justify-center font-bold shadow-glow">→</div>
-                  <div className="md:hidden h-8 w-px bg-primary/40 mx-auto" />
-                  <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                    <div className="px-4 py-3 text-[0.7rem] tracking-widest uppercase text-muted-foreground border-b border-border">
-                      ✨ 4 AI-generated visuals
-                    </div>
-                    <div className="grid grid-cols-2 gap-1.5 p-3">
-                      {sc.after.map((src, i) => (
-                        <div key={`${src}-${i}`} className="aspect-square rounded-lg overflow-hidden bg-muted/30">
-                          <img src={src} alt={`${sc.label} variation`} className="w-full h-full object-cover" />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <p className="mt-4 text-sm text-muted-foreground text-center">{sc.caption}</p>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              <div className="px-4 py-3 text-[0.7rem] tracking-widest uppercase text-muted-foreground border-b border-border flex items-center justify-between">
+                <span>Demo</span>
+                <a href="/demo" className="text-primary hover:underline normal-case tracking-normal">Open ↗</a>
               </div>
-            ))}
-          </div>
-          <div className="mt-12 flex flex-wrap items-center justify-center gap-4">
-            <Button size="lg" onClick={() => navigate("/demo")} className="bg-primary hover:bg-primary/90">
-              Try Demo
-            </Button>
-            <Button size="lg" variant="outline" onClick={() => navigate("/demo2")}>
-              Try Demo 2
-            </Button>
+              <iframe src="/demo" title="Demo" loading="lazy" className="w-full h-[640px] border-0 bg-background" />
+            </div>
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              <div className="px-4 py-3 text-[0.7rem] tracking-widest uppercase text-muted-foreground border-b border-border flex items-center justify-between">
+                <span>Demo 2</span>
+                <a href="/demo2" className="text-primary hover:underline normal-case tracking-normal">Open ↗</a>
+              </div>
+              <iframe src="/demo2.html" title="Demo 2" loading="lazy" className="w-full h-[640px] border-0 bg-background" />
+            </div>
           </div>
         </div>
       </section>
