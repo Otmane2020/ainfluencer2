@@ -87,8 +87,7 @@ export const SupportWidget = () => {
     setEmailSending(false);
     setEmailForm({ subject: "", message: "" });
     setView("menu");
-    // Show success feedback
-    alert("Your message has been sent! We'll get back to you soon.");
+    setShowSuccess(true);
   };
 
   const goBack = () => setView("menu");
