@@ -1,0 +1,1 @@
+ALTER TABLE public.credits ALTER COLUMN balance SET DEFAULT 5;

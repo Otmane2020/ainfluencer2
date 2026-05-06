@@ -9,25 +9,29 @@ const corsHeaders = {
 
 // Product IDs for ClipMotion subscription plans
 const PRODUCT_TO_PLAN: Record<string, string> = {
-  "prod_TsTqynweuSksG3": "starter",
-  "prod_TsTqUdBfAHdNCi": "pro",
-  "prod_TsTqxdl9cpZNJg": "business",
+  "prod_Tts3Yrv7nyBmxi": "pro",
+  "prod_USk3Zi3Hhs42nn": "business",
 };
 
 // Price IDs for ClipMotion subscription plans (must match create-checkout)
 const PRICE_TO_PLAN: Record<string, string> = {
-  "price_1SuiszEfti9t9nN9qEGnwrdT": "starter",
-  "price_1Suit0Efti9t9nN9jKws1R3q": "pro",
-  "price_1Suit1Efti9t9nN9F5g8iTGq": "business",
+  "price_1Sw4JNEfti9t9nN9Z88uua20": "pro",
+  "price_1TToZ8Efti9t9nN9kA3w0Myp": "business",
 };
 
-// Credit pack mappings (must match create-checkout)
+// Monthly credit allocation per plan
+const PLAN_TO_CREDITS: Record<string, number> = {
+  starter: 5,
+  pro: 50,
+  business: 500,
+};
+
+// Credit pack price IDs ($1 = 1 credit)
 const PRICE_TO_CREDITS: Record<string, number> = {
-  "price_1Suit2Efti9t9nN9idG07kAf": 50,
-  "price_1Suit3Efti9t9nN9vPGwwfWa": 100,
-  "price_1Suit5Efti9t9nN9cjaee5yZ": 250,
-  "price_1Suit5Efti9t9nN96jaDSp7j": 500,
-  "price_1Suit6Efti9t9nN9ynTRmA7o": 1000,
+  "price_1TTtsiEfti9t9nN9G51T8TIS": 5,
+  "price_1TTtsjEfti9t9nN9VhqJ2S7v": 20,
+  "price_1TTtskEfti9t9nN9furDfh1K": 50,
+  "price_1TTtslEfti9t9nN9uFXKcXrx": 100,
 };
 
 const logStep = (step: string, details?: unknown) => {
@@ -115,6 +119,25 @@ serve(async (req) => {
 
           if (error) logStep("Error updating subscription", { error: error.message });
           else logStep("Subscription activated", { planId, productId, priceId, subscriptionId, renewsAt });
+
+          // Grant monthly credits for the plan
+          const planCredits = PLAN_TO_CREDITS[planId] || 0;
+          if (planCredits > 0 && userId) {
+            const { error: credErr } = await supabase.rpc("add_credits", {
+              p_user_id: userId,
+              p_amount: planCredits,
+            });
+            if (credErr) logStep("Error granting plan credits", { error: credErr.message });
+            else {
+              await supabase.from("credit_transactions").insert({
+                user_id: userId,
+                amount: planCredits,
+                type: "subscription",
+                description: `Monthly credits for ${planId} plan`,
+              });
+              logStep("Plan credits granted", { planId, planCredits, userId });
+            }
+          }
 
         } else if (session.mode === "payment") {
           // Handle one-time credit purchase

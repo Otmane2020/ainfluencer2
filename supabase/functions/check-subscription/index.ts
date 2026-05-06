@@ -14,16 +14,14 @@ const corsHeaders: Record<string, string> = {
 
 // Product IDs for ClipMotion subscription plans
 const PRODUCT_TO_PLAN: Record<string, string> = {
-  "prod_TsTqynweuSksG3": "starter",
-  "prod_TsTqUdBfAHdNCi": "pro",
-  "prod_TsTqxdl9cpZNJg": "business",
+  "prod_Tts3Yrv7nyBmxi": "pro",
+  "prod_USk3Zi3Hhs42nn": "business",
 };
 
 // Price IDs for ClipMotion subscription plans (fallback lookup)
 const PRICE_TO_PLAN: Record<string, string> = {
-  "price_1SuiszEfti9t9nN9qEGnwrdT": "starter",
-  "price_1Suit0Efti9t9nN9jKws1R3q": "pro",
-  "price_1Suit1Efti9t9nN9F5g8iTGq": "business",
+  "price_1Sw4JNEfti9t9nN9Z88uua20": "pro",
+  "price_1TToZ8Efti9t9nN9kA3w0Myp": "business",
 };
 
 const logStep = (step: string, details?: unknown) => {
