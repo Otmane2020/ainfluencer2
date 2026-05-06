@@ -21,7 +21,7 @@ interface Ticket {
 interface Message {
   id: string; ticket_id: string; direction: "inbound" | "outbound";
   from_email: string | null; to_email: string | null; from_name: string | null;
-  subject: string | null; body_text: string | null; body_html: string | null;
+  subject?: string | null; body_text: string | null; body_html: string | null;
   created_at: string;
 }
 
@@ -49,7 +49,7 @@ export default function AdminTicketPage() {
       supabase.from("support_messages").select("*").eq("ticket_id", id!).order("created_at"),
     ]);
     if (t.data) setTicket(t.data as Ticket);
-    if (m.data) setMessages(m.data as Message[]);
+    if (m.data) setMessages(m.data as unknown as Message[]);
     setLoadingData(false);
   };
 
