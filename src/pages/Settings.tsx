@@ -193,50 +193,26 @@ const Settings = () => {
           </div>
 
           {/* Product Shot quota */}
-          <div className="rounded-lg bg-muted/50 p-3 text-center">
-            <div className="flex items-center justify-center gap-1.5">
-              <Camera className="h-4 w-4 text-primary" />
-              <span className="text-lg font-bold">
-                {isSubscribed ? "Unlimited" : 0}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground">Pro product shots / month</p>
-          </div>
-
-          {/* Recent Transactions */}
-          {transactions.length > 0 && (
-            <>
-              <Separator />
-              <div>
-                <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Recent Transactions
-                </h4>
-                <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {transactions.slice(0, 5).map((tx) => (
-                    <div 
-                      key={tx.id} 
-                      className="flex items-center justify-between text-sm p-2 rounded-lg bg-muted/30"
-                    >
-                      <div className="flex items-center gap-2">
-                        {tx.amount > 0 ? (
-                          <TrendingUp className="h-4 w-4 text-accent" />
-                        ) : (
-                          <TrendingDown className="h-4 w-4 text-destructive" />
-                        )}
-                        <span className="text-muted-foreground text-xs">
-                          {tx.description || tx.type}
-                        </span>
-                      </div>
-                      <span className={tx.amount > 0 ? "text-accent font-medium" : "text-destructive font-medium"}>
-                        {tx.amount > 0 ? "+" : ""}{tx.amount}
-                      </span>
-                    </div>
-                  ))}
+          {(() => {
+            const planId = currentPlan?.id;
+            const quota = !isSubscribed
+              ? "5"
+              : planId === "business"
+                ? "Unlimited"
+                : planId === "pro"
+                  ? "50"
+                  : "5";
+            return (
+              <div className="rounded-lg bg-muted/50 p-3 text-center">
+                <div className="flex items-center justify-center gap-1.5">
+                  <Camera className="h-4 w-4 text-primary" />
+                  <span className="text-lg font-bold">{quota}</span>
                 </div>
+                <p className="text-xs text-muted-foreground">Pro product shots / month</p>
               </div>
-            </>
-          )}
+            );
+          })()}
+
         </CardContent>
       </Card>
 
