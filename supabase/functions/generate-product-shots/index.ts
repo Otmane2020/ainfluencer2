@@ -133,6 +133,8 @@ Deno.serve(async (req) => {
     const productTitle = (body?.productTitle as string | undefined) || "Product";
     const includeLifestyle = Boolean(body?.includeLifestyle);
     const customPrompt = typeof body?.customPrompt === "string" ? body.customPrompt.trim().slice(0, 500) : "";
+    const withAmbiance = Boolean(body?.withAmbiance);
+    const ambiancePrompt = typeof body?.ambiancePrompt === "string" ? body.ambiancePrompt.trim().slice(0, 300) : "";
     const formatRaw = String(body?.format || "square").toLowerCase();
     const FORMAT_MAP: Record<string, { label: string; ratio: string; px: string; orient: string; width: number; height: number }> = {
       square: { label: "Square", ratio: "1:1", px: "2048x2048", orient: "balanced centered framing", width: 2048, height: 2048 },
