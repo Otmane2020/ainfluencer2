@@ -10,7 +10,7 @@ import {
   Upload, Sparkles, Camera, RotateCcw, Eye, Download, Check, X, Loader2,
   ImageIcon, Trash2, ArrowUpFromLine, ArrowDownFromLine, Maximize2, Move3d,
   Palette, ArrowRight, ArrowLeft, Wand2, Aperture, Smartphone, Square, Monitor,
-  Store, Package, Plug,
+  Store, Package, Plug, ChevronDown, ChevronUp, Sun, Trees, Building, Coffee, Gem, Mountain,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
@@ -33,6 +33,17 @@ const FORMATS = [
   { id: "landscape", label: "Landscape", ratio: "16:9", icon: Monitor, hint: "YouTube, web banners" },
 ] as const;
 type FormatId = typeof FORMATS[number]["id"];
+
+const AMBIANCE_STYLES = [
+  { id: "studio_white", label: "Studio White", icon: Square, prompt: "pure white seamless studio backdrop, soft even lighting" },
+  { id: "minimal_beige", label: "Minimal Beige", icon: Sun, prompt: "minimalist beige background, soft morning light, marble surface" },
+  { id: "natural_outdoor", label: "Nature", icon: Trees, prompt: "natural outdoor setting, organic textures, soft daylight, greenery" },
+  { id: "urban_modern", label: "Urban Modern", icon: Building, prompt: "modern urban interior, concrete and glass, contemporary architecture" },
+  { id: "cozy_lifestyle", label: "Cozy Lifestyle", icon: Coffee, prompt: "cozy warm lifestyle setting, wooden surfaces, soft ambient lighting" },
+  { id: "luxury_premium", label: "Luxury", icon: Gem, prompt: "premium luxury setting, marble and gold accents, dramatic lighting" },
+  { id: "outdoor_adventure", label: "Adventure", icon: Mountain, prompt: "rugged outdoor adventure scene, natural rocks and landscape" },
+] as const;
+type AmbianceId = typeof AMBIANCE_STYLES[number]["id"];
 
 interface GeneratedImage { type: string; label: string; url: string; selected: boolean; }
 
@@ -60,6 +71,9 @@ export default function ProductShotsPage() {
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [customPrompt, setCustomPrompt] = useState("");
+  const [withAmbiance, setWithAmbiance] = useState(false);
+  const [ambianceStyle, setAmbianceStyle] = useState<AmbianceId>("studio_white");
+  const [showAmbianceStyles, setShowAmbianceStyles] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Catalog integration
@@ -171,7 +185,7 @@ export default function ProductShotsPage() {
       toast.loading("Generating product shots...", { id: toastId });
       const interval = setInterval(() => setProgress((p) => Math.min(p + 4, 92)), 600);
       const { data, error } = await supabase.functions.invoke("generate-product-shots", {
-        body: { sourceImageUrl: pub.publicUrl, shotTypes: Array.from(selectedShotTypes), productTitle: productTitle || "Product", includeLifestyle, format, customPrompt: customPrompt.trim() || undefined },
+        body: { sourceImageUrl: pub.publicUrl, shotTypes: Array.from(selectedShotTypes), productTitle: productTitle || "Product", includeLifestyle, format, customPrompt: customPrompt.trim() || undefined, withAmbiance, ambianceStyle: withAmbiance ? ambianceStyle : undefined, ambiancePrompt: withAmbiance ? AMBIANCE_STYLES.find(a => a.id === ambianceStyle)?.prompt : undefined },
       });
       clearInterval(interval);
       if (error) throw error;
@@ -447,6 +461,92 @@ export default function ProductShotsPage() {
                   </div>
                 </div>
               </button>
+
+              {/* Ambiance toggle (With / Without) + collapsible style picker */}
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center gap-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide flex-1">Ambiance</p>
+                  <div className="inline-flex rounded-lg border border-border overflow-hidden text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setWithAmbiance(false)}
+                      className={`px-2.5 py-1 transition-colors ${!withAmbiance ? "bg-primary text-primary-foreground" : "bg-card hover:bg-muted"}`}
+                    >
+                      Without ambiance
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWithAmbiance(true)}
+                      className={`px-2.5 py-1 transition-colors ${withAmbiance ? "bg-primary text-primary-foreground" : "bg-card hover:bg-muted"}`}
+                    >
+                      With ambiance
+                    </button>
+                  </div>
+                </div>
+
+                {withAmbiance && (
+                  <div className="rounded-lg border border-border bg-card/50 animate-fade-in">
+                    <button
+                      type="button"
+                      onClick={() => setShowAmbianceStyles((v) => !v)}
+                      className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-muted/40 transition"
+                      aria-expanded={showAmbianceStyles}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        {(() => {
+                          const cur = AMBIANCE_STYLES.find((a) => a.id === ambianceStyle)!;
+                          const Icon = cur.icon;
+                          return (
+                            <>
+                              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-primary/20 to-primary/5 text-primary shrink-0">
+                                <Icon className="h-3.5 w-3.5" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold truncate">{cur.label}</p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {showAmbianceStyles ? "Hide styles" : "Expand styles"}
+                                </p>
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                      {showAmbianceStyles ? (
+                        <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                      )}
+                    </button>
+
+                    {showAmbianceStyles && (
+                      <div className="px-2 pb-2 grid grid-cols-3 sm:grid-cols-4 gap-1.5 animate-fade-in">
+                        {AMBIANCE_STYLES.map((a) => {
+                          const Icon = a.icon;
+                          const active = ambianceStyle === a.id;
+                          return (
+                            <button
+                              key={a.id}
+                              type="button"
+                              onClick={() => setAmbianceStyle(a.id)}
+                              className={`relative rounded-md border-2 p-1.5 text-center transition-all hover:scale-[1.04] ${
+                                active ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-card hover:border-primary/40"
+                              }`}
+                            >
+                              {active && (
+                                <div className="absolute right-0.5 top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                                  <Check className="h-2 w-2" strokeWidth={3} />
+                                </div>
+                              )}
+                              <Icon className={`mx-auto mb-0.5 h-4 w-4 ${active ? "text-primary" : "text-muted-foreground"}`} />
+                              <p className="text-[10px] font-medium leading-tight">{a.label}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Custom prompt — passed to Lovable AI */}
               <div className="space-y-1.5 pt-1">

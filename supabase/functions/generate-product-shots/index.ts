@@ -133,6 +133,8 @@ Deno.serve(async (req) => {
     const productTitle = (body?.productTitle as string | undefined) || "Product";
     const includeLifestyle = Boolean(body?.includeLifestyle);
     const customPrompt = typeof body?.customPrompt === "string" ? body.customPrompt.trim().slice(0, 500) : "";
+    const withAmbiance = Boolean(body?.withAmbiance);
+    const ambiancePrompt = typeof body?.ambiancePrompt === "string" ? body.ambiancePrompt.trim().slice(0, 300) : "";
     const formatRaw = String(body?.format || "square").toLowerCase();
     const FORMAT_MAP: Record<string, { label: string; ratio: string; px: string; orient: string; width: number; height: number }> = {
       square: { label: "Square", ratio: "1:1", px: "2048x2048", orient: "balanced centered framing", width: 2048, height: 2048 },
@@ -209,10 +211,15 @@ Deno.serve(async (req) => {
     const generateOneShot = async (shotType: ShotType): Promise<{ type: ShotType; label: string; url: string } | null> => {
       const shotConfig = SHOT_TYPES[shotType];
 
+      const useAmbiance = withAmbiance && shotType !== "lifestyle" && ambiancePrompt.length > 0;
+      const ambianceBlock = useAmbiance
+        ? `\nAMBIANCE / SCENE (must replace any white background): ${ambiancePrompt}. Place the product naturally within this environment while keeping it the clear focal point.\n`
+        : "";
+
       const imagePrompt = `Based on this product image, ${shotConfig.prompt}
 
 Product: ${productTitle}
-${customPrompt ? `\nUSER INSTRUCTIONS (must be respected): ${customPrompt}\n` : ""}
+${customPrompt ? `\nUSER INSTRUCTIONS (must be respected): ${customPrompt}\n` : ""}${ambianceBlock}
 OUTPUT FORMAT:
 - Aspect ratio: ${format.ratio} (${format.label}, ${format.px})
 - Composition: ${format.orient}
