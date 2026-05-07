@@ -71,6 +71,9 @@ export default function ProductShotsPage() {
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [customPrompt, setCustomPrompt] = useState("");
+  const [withAmbiance, setWithAmbiance] = useState(false);
+  const [ambianceStyle, setAmbianceStyle] = useState<AmbianceId>("studio_white");
+  const [showAmbianceStyles, setShowAmbianceStyles] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Catalog integration
