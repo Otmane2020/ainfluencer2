@@ -211,10 +211,15 @@ Deno.serve(async (req) => {
     const generateOneShot = async (shotType: ShotType): Promise<{ type: ShotType; label: string; url: string } | null> => {
       const shotConfig = SHOT_TYPES[shotType];
 
+      const useAmbiance = withAmbiance && shotType !== "lifestyle" && ambiancePrompt.length > 0;
+      const ambianceBlock = useAmbiance
+        ? `\nAMBIANCE / SCENE (must replace any white background): ${ambiancePrompt}. Place the product naturally within this environment while keeping it the clear focal point.\n`
+        : "";
+
       const imagePrompt = `Based on this product image, ${shotConfig.prompt}
 
 Product: ${productTitle}
-${customPrompt ? `\nUSER INSTRUCTIONS (must be respected): ${customPrompt}\n` : ""}
+${customPrompt ? `\nUSER INSTRUCTIONS (must be respected): ${customPrompt}\n` : ""}${ambianceBlock}
 OUTPUT FORMAT:
 - Aspect ratio: ${format.ratio} (${format.label}, ${format.px})
 - Composition: ${format.orient}
