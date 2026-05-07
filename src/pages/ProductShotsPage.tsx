@@ -34,6 +34,17 @@ const FORMATS = [
 ] as const;
 type FormatId = typeof FORMATS[number]["id"];
 
+const AMBIANCE_STYLES = [
+  { id: "studio_white", label: "Studio White", icon: Square, prompt: "pure white seamless studio backdrop, soft even lighting" },
+  { id: "minimal_beige", label: "Minimal Beige", icon: Sun, prompt: "minimalist beige background, soft morning light, marble surface" },
+  { id: "natural_outdoor", label: "Nature", icon: Trees, prompt: "natural outdoor setting, organic textures, soft daylight, greenery" },
+  { id: "urban_modern", label: "Urban Modern", icon: Building, prompt: "modern urban interior, concrete and glass, contemporary architecture" },
+  { id: "cozy_lifestyle", label: "Cozy Lifestyle", icon: Coffee, prompt: "cozy warm lifestyle setting, wooden surfaces, soft ambient lighting" },
+  { id: "luxury_premium", label: "Luxury", icon: Gem, prompt: "premium luxury setting, marble and gold accents, dramatic lighting" },
+  { id: "outdoor_adventure", label: "Adventure", icon: Mountain, prompt: "rugged outdoor adventure scene, natural rocks and landscape" },
+] as const;
+type AmbianceId = typeof AMBIANCE_STYLES[number]["id"];
+
 interface GeneratedImage { type: string; label: string; url: string; selected: boolean; }
 
 const STEPS = [
