@@ -10,7 +10,7 @@ import {
   Upload, Sparkles, Camera, RotateCcw, Eye, Download, Check, X, Loader2,
   ImageIcon, Trash2, ArrowUpFromLine, ArrowDownFromLine, Maximize2, Move3d,
   Palette, ArrowRight, ArrowLeft, Wand2, Aperture, Smartphone, Square, Monitor,
-  Store, Package, Plug,
+  Store, Package, Plug, ChevronDown, ChevronUp, Sun, Trees, Building, Coffee, Gem, Mountain,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
