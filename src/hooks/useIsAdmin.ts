@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 export function useIsAdmin() {
+  const { user, isLoading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -9,17 +11,11 @@ export function useIsAdmin() {
     let mounted = true;
 
     const resolveAdmin = async () => {
+      if (authLoading) return;
+
       setLoading(true);
 
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
-
-      if (!mounted) return;
-
-      if (authError || !user) {
-        if (authError) console.error("useIsAdmin auth error", authError);
+      if (!user) {
         setIsAdmin(false);
         setLoading(false);
         return;
@@ -41,17 +37,10 @@ export function useIsAdmin() {
 
     void resolveAdmin();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      void resolveAdmin();
-    });
-
     return () => {
       mounted = false;
-      subscription.unsubscribe();
     };
-  }, []);
+  }, [user, authLoading]);
 
-  return { isAdmin: isAdmin === true, loading };
+  return { isAdmin: isAdmin === true, loading: loading || authLoading };
 }
