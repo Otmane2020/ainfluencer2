@@ -50,6 +50,7 @@ import AdminTicketPage from "./pages/AdminTicketPage";
 
 import { SubscriptionProvider } from "./contexts/SubscriptionContext";
 import { OrgProvider } from "./contexts/OrgContext";
+import { AuthProvider } from "./hooks/useAuth";
 
 const queryClient = new QueryClient();
 
@@ -58,6 +59,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <AuthProvider>
       <BrowserRouter>
       <ScrollToTop />
       <OrgProvider>
@@ -109,6 +111,7 @@ const App = () => (
       </SubscriptionProvider>
       </OrgProvider>
       </BrowserRouter>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
