@@ -1,33 +1,57 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 
 export function useIsAdmin() {
-  const { user, isLoading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
-    if (authLoading) return;
-    if (!user) {
-      if (mounted) { setIsAdmin(false); setLoading(false); }
-      return;
-    }
-    (async () => {
+
+    const resolveAdmin = async () => {
+      setLoading(true);
+
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (!mounted) return;
+
+      if (authError || !user) {
+        if (authError) console.error("useIsAdmin auth error", authError);
+        setIsAdmin(false);
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", user.id)
-        .in("role", ["admin", "support"]);
-      if (mounted) {
-        if (error) console.error("useIsAdmin error", error);
-        setIsAdmin((data?.length ?? 0) > 0);
-        setLoading(false);
-      }
-    })();
-    return () => { mounted = false; };
-  }, [user, authLoading]);
+        .in("role", ["admin", "support"])
+        .limit(1);
 
-  return { isAdmin, loading: loading || authLoading };
+      if (!mounted) return;
+
+      if (error) console.error("useIsAdmin error", error);
+      setIsAdmin((data?.length ?? 0) > 0);
+      setLoading(false);
+    };
+
+    void resolveAdmin();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      void resolveAdmin();
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  return { isAdmin: isAdmin === true, loading };
 }
