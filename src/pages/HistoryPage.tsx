@@ -9,7 +9,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RefreshCw, Image, Loader2 } from "lucide-react";
+import { RefreshCw, Image, Loader2, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { MasonryGrid } from "@/components/history/MasonryGrid";
 import { MediaItem } from "@/components/history/MediaCard";
 import { ImageDetailModal } from "@/components/history/ImageDetailModal";
