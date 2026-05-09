@@ -304,6 +304,76 @@ export default function MobileAdsPage() {
         )}
       </main>
 
+      {/* Generation animation overlay */}
+      <AnimatePresence>
+        {loading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-zinc-950/80 backdrop-blur-md grid place-items-center px-6"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl text-center"
+            >
+              <div className="relative w-24 h-24 mx-auto mb-5">
+                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-violet-500 via-fuchsia-500 to-orange-400 animate-pulse blur-xl opacity-70" />
+                <div className="absolute inset-2 rounded-full bg-gradient-to-br from-violet-600 to-fuchsia-500 grid place-items-center">
+                  <Wand2 className="h-10 w-10 text-white animate-pulse" />
+                </div>
+              </div>
+              <h3 className="font-display text-xl font-black mb-1">Creating your visuals</h3>
+              <p className="text-xs text-zinc-500 mb-5">This takes about 20 seconds</p>
+
+              <div className="space-y-3 text-left">
+                {[
+                  { icon: ImageIcon, label: "Analyzing your product page" },
+                  { icon: Palette, label: "Designing studio scenes" },
+                  { icon: Sparkles, label: "Generating 4 AI visuals" },
+                  { icon: Check, label: "Finalizing your samples" },
+                ].map((s, i) => {
+                  const done = i < progressStep;
+                  const active = i === progressStep;
+                  const Icon = s.icon;
+                  return (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.1 }}
+                      className={`flex items-center gap-3 rounded-xl px-3 py-2 transition ${
+                        active ? "bg-violet-50" : done ? "opacity-60" : "opacity-40"
+                      }`}
+                    >
+                      <div
+                        className={`h-8 w-8 rounded-full grid place-items-center shrink-0 ${
+                          done
+                            ? "bg-emerald-500 text-white"
+                            : active
+                              ? "bg-gradient-to-br from-violet-600 to-fuchsia-500 text-white"
+                              : "bg-zinc-100 text-zinc-400"
+                        }`}
+                      >
+                        {done ? (
+                          <Check className="h-4 w-4" />
+                        ) : active ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Icon className="h-4 w-4" />
+                        )}
+                      </div>
+                      <span className="text-sm font-medium text-zinc-800">{s.label}</span>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <footer className="border-t border-black/5 py-6 text-center text-xs text-zinc-500">
         <Sparkles className="h-3 w-3 inline mr-1" />
         Powered by ClipMotion AI · <Link to="/privacy-policy" className="underline">Privacy</Link>
