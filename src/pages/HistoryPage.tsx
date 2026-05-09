@@ -449,6 +449,8 @@ const HistoryPage = () => {
       setIsLoading(false);
     }
   };
+
+  const handleItemClick = (item: MediaItem) => {
     if (item.type === "video") {
       setSelectedVideo(item);
     } else {
