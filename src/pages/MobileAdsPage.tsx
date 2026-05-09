@@ -34,11 +34,23 @@ export default function MobileAdsPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ images: string[]; productTitle?: string } | null>(null);
   const [headlineIdx, setHeadlineIdx] = useState(0);
+  const [progressStep, setProgressStep] = useState(0);
 
   useEffect(() => {
     const t = setInterval(() => setHeadlineIdx((i) => (i + 1) % ANIMATED_HEADLINES.length), 2800);
     return () => clearInterval(t);
   }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      setProgressStep(0);
+      return;
+    }
+    setProgressStep(0);
+    const steps = [1, 2, 3];
+    const timers = steps.map((s, i) => setTimeout(() => setProgressStep(s), (i + 1) * 4000));
+    return () => timers.forEach(clearTimeout);
+  }, [loading]);
 
   const handleGenerate = async () => {
     const trimmed = url.trim();
