@@ -356,6 +356,34 @@ export default function ProductShotsPage() {
                       </div>
                     )}
                   </div>
+
+                  {/* OR import from URL */}
+                  {!sourceImage && (
+                    <div className="mt-3">
+                      <div className="relative flex items-center mb-2">
+                        <div className="flex-grow border-t border-border" />
+                        <span className="mx-3 text-[10px] uppercase tracking-wider text-muted-foreground">or paste a link</span>
+                        <div className="flex-grow border-t border-border" />
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Link2 className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                          <Input
+                            type="url"
+                            value={importUrl}
+                            onChange={(e) => setImportUrl(e.target.value)}
+                            placeholder="https://store.com/product-image.jpg"
+                            className="pl-8 h-9 text-xs"
+                            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleImportFromUrl())}
+                          />
+                        </div>
+                        <Button onClick={handleImportFromUrl} disabled={importingUrl || !importUrl.trim()} size="sm" className="h-9">
+                          {importingUrl ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Import"}
+                        </Button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1.5">Direct image URL from Shopify, Amazon, etc.</p>
+                    </div>
+                  )}
                 </TabsContent>
 
                 {/* CATALOG TAB */}
