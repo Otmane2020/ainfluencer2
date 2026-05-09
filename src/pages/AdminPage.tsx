@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +32,7 @@ interface Ticket {
 }
 
 export default function AdminPage() {
+  const { user, isLoading: authLoading } = useAuth();
   const { isAdmin, loading } = useIsAdmin();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -93,7 +95,8 @@ export default function AdminPage() {
     loadAll();
   };
 
-  if (loading) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin" /></div>;
+  if (authLoading || loading) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin" /></div>;
+  if (!user) return <Navigate to="/auth" replace />;
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
 
   const filteredUsers = users.filter((u) =>
