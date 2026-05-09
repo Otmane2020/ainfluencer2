@@ -9,7 +9,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RefreshCw, Image, Loader2 } from "lucide-react";
+import { RefreshCw, Image, Loader2, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { MasonryGrid } from "@/components/history/MasonryGrid";
 import { MediaItem } from "@/components/history/MediaCard";
 import { ImageDetailModal } from "@/components/history/ImageDetailModal";
@@ -409,6 +420,36 @@ const HistoryPage = () => {
     }
   };
 
+  const handleClearAll = async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      // Delete all generations and scheduled posts owned by current user (RLS enforces ownership)
+      const [{ error: e1 }, { error: e2 }] = await Promise.all([
+        supabase.from("generations").delete().eq("user_id", user.id),
+        supabase.from("scheduled_posts").delete().eq("user_id", user.id),
+      ]);
+      if (e1 || e2) throw e1 || e2;
+
+      // Best-effort: remove user's files from storage bucket folder
+      try {
+        const { data: files } = await supabase.storage.from("media").list(user.id, { limit: 1000 });
+        if (files && files.length > 0) {
+          await supabase.storage.from("media").remove(files.map((f) => `${user.id}/${f.name}`));
+        }
+      } catch {}
+
+      sessionStorage.removeItem(CACHE_KEY);
+      setAllMedia([]);
+      toast({ title: "History cleared" });
+    } catch (error) {
+      console.error("Clear all error:", error);
+      toast({ title: "Failed to clear history", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleItemClick = (item: MediaItem) => {
     if (item.type === "video") {
       setSelectedVideo(item);
@@ -454,6 +495,33 @@ const HistoryPage = () => {
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
           </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                disabled={isLoading || allMedia.length === 0}
+                className="h-9 w-9 text-destructive hover:text-destructive"
+                title="Clear all history"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Clear all history?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete all your generated images and videos. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleClearAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Delete all
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
