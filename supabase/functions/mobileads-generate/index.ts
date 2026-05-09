@@ -98,29 +98,19 @@ Deno.serve(async (req) => {
       .eq("ip_hash", ipHash)
       .maybeSingle();
 
-    if (existing && !force) {
-      if (existing.status === "completed") {
-        return new Response(
-          JSON.stringify({
-            alreadyUsed: true,
-            images: existing.result_images,
-            productTitle: existing.product_title,
-            productUrl: existing.product_url,
-          }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-      // pending/failed - block re-submission per requirements
+    if (existing && existing.status === "completed" && !force) {
       return new Response(
         JSON.stringify({
           alreadyUsed: true,
-          error: "You already used your free trial. Sign up to generate more product visuals.",
+          images: existing.result_images,
+          productTitle: existing.product_title,
+          productUrl: existing.product_url,
         }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // Insert pending trial (acts as the IP lock)
+    // Insert or reset trial row (pending/failed entries can be retried)
     if (!existing) {
       const { error: insErr } = await supabase.from("mobileads_trials").insert({
         ip_hash: ipHash,
@@ -135,6 +125,11 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+    } else {
+      await supabase
+        .from("mobileads_trials")
+        .update({ status: "pending", product_url: url, error_message: null })
+        .eq("ip_hash", ipHash);
     }
 
     // 1) Scrape with Firecrawl
