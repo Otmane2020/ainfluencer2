@@ -47,6 +47,7 @@ import Demo3ReelPage from "./pages/Demo3ReelPage";
 import UnsubscribePage from "./pages/UnsubscribePage";
 import AdminPage from "./pages/AdminPage";
 import AdminTicketPage from "./pages/AdminTicketPage";
+import MobileAdsPage from "./pages/MobileAdsPage";
 
 import { SubscriptionProvider } from "./contexts/SubscriptionContext";
 import { OrgProvider } from "./contexts/OrgContext";
@@ -66,6 +67,7 @@ const App = () => (
       <SubscriptionProvider>
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/mobileads" element={<MobileAdsPage />} />
           <Route path="/features" element={<FeaturesPage />} />
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/use-cases" element={<UseCasesPage />} />

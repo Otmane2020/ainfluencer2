@@ -10,7 +10,7 @@ import {
   Upload, Sparkles, Camera, RotateCcw, Eye, Download, Check, X, Loader2,
   ImageIcon, Trash2, ArrowUpFromLine, ArrowDownFromLine, Maximize2, Move3d,
   Palette, ArrowRight, ArrowLeft, Wand2, Aperture, Smartphone, Square, Monitor,
-  Store, Package, Plug, ChevronDown, ChevronUp, Sun, Trees, Building, Coffee, Gem, Mountain,
+  Store, Package, Plug, ChevronDown, ChevronUp, Sun, Trees, Building, Coffee, Gem, Mountain, Link2,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
@@ -74,6 +74,8 @@ export default function ProductShotsPage() {
   const [withAmbiance, setWithAmbiance] = useState(false);
   const [ambianceStyle, setAmbianceStyle] = useState<AmbianceId>("studio_white");
   const [showAmbianceStyles, setShowAmbianceStyles] = useState(false);
+  const [importUrl, setImportUrl] = useState("");
+  const [importingUrl, setImportingUrl] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Catalog integration
@@ -129,6 +131,33 @@ export default function ProductShotsPage() {
     reader.onload = (e) => setSourceImage(e.target?.result as string);
     reader.readAsDataURL(file);
     if (!productTitle) setProductTitle(file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "));
+  };
+
+  const handleImportFromUrl = async () => {
+    const trimmed = importUrl.trim();
+    if (!trimmed) return toast.error("Paste a product image URL");
+    if (!/^https?:\/\//i.test(trimmed)) return toast.error("URL must start with http(s)://");
+    setImportingUrl(true);
+    try {
+      const res = await fetch(trimmed);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      if (!blob.type.startsWith("image/")) throw new Error("URL doesn't point to an image");
+      if (blob.size > 10 * 1024 * 1024) throw new Error("Image must be under 10MB");
+      const ext = (blob.type.split("/")[1] || "png").replace("jpeg", "jpg");
+      const fileName = trimmed.split("/").pop()?.split("?")[0] || `import.${ext}`;
+      const file = new File([blob], fileName, { type: blob.type });
+      setSourceFile(file);
+      const reader = new FileReader();
+      reader.onload = (e) => setSourceImage(e.target?.result as string);
+      reader.readAsDataURL(file);
+      if (!productTitle) setProductTitle(fileName.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "));
+      toast.success("Image imported from URL");
+    } catch (e: any) {
+      toast.error(e?.message || "Could not load image from this URL");
+    } finally {
+      setImportingUrl(false);
+    }
   };
 
   const maxShots = Math.max(1, Math.min(7, balance));
@@ -327,6 +356,34 @@ export default function ProductShotsPage() {
                       </div>
                     )}
                   </div>
+
+                  {/* OR import from URL */}
+                  {!sourceImage && (
+                    <div className="mt-3">
+                      <div className="relative flex items-center mb-2">
+                        <div className="flex-grow border-t border-border" />
+                        <span className="mx-3 text-[10px] uppercase tracking-wider text-muted-foreground">or paste a link</span>
+                        <div className="flex-grow border-t border-border" />
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Link2 className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                          <Input
+                            type="url"
+                            value={importUrl}
+                            onChange={(e) => setImportUrl(e.target.value)}
+                            placeholder="https://store.com/product-image.jpg"
+                            className="pl-8 h-9 text-xs"
+                            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleImportFromUrl())}
+                          />
+                        </div>
+                        <Button onClick={handleImportFromUrl} disabled={importingUrl || !importUrl.trim()} size="sm" className="h-9">
+                          {importingUrl ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Import"}
+                        </Button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1.5">Direct image URL from Shopify, Amazon, etc.</p>
+                    </div>
+                  )}
                 </TabsContent>
 
                 {/* CATALOG TAB */}

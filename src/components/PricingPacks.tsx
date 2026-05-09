@@ -95,43 +95,6 @@ export const PricingPacks = ({
     const isCurrentPlan = subscription.isSubscribed && effectiveCurrentPlanId === plan.id;
     if (isCurrentPlan) return;
 
-    // Free plan (Starter, $0) — no Stripe checkout. Activate immediately and go to dashboard.
-    if (plan.price === 0) {
-      setLoadingPlanId(plan.id);
-      try {
-        const { supabase } = await import("@/integrations/supabase/client");
-        const { data: sessionData } = await supabase.auth.getSession();
-        const userId = sessionData?.session?.user?.id;
-        if (!userId) {
-          window.location.href = "/auth?plan=starter";
-          return;
-        }
-        const { error } = await supabase
-          .from("subscriptions")
-          .upsert(
-            {
-              user_id: userId,
-              plan_id: "starter",
-              status: "active",
-              started_at: new Date().toISOString(),
-            },
-            { onConflict: "user_id" }
-          );
-        if (error) {
-          toast({
-            title: "Error",
-            description: "Failed to activate the free plan. Please try again.",
-            variant: "destructive",
-          });
-          return;
-        }
-        window.location.href = "/dashboard?plan=starter";
-      } finally {
-        setLoadingPlanId(null);
-      }
-      return;
-    }
-
     // If user has an active subscription, open customer portal to manage/upgrade
     if (subscription.isSubscribed) {
       setLoadingPlanId(plan.id);

@@ -8,10 +8,11 @@ const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Stripe price mappings (USD) — Starter is free, no Stripe price needed
+// Stripe price mappings (USD) — all 3 plans paid
 const PLAN_PRICES: Record<string, string> = {
-  pro: "price_1Sw4JNEfti9t9nN9Z88uua20",      // $29/mo
-  business: "price_1TToZ8Efti9t9nN9kA3w0Myp", // $79/mo
+  starter: "price_1TVHjUEfti9t9nN9i6CyLsqe",  // $19/mo
+  pro: "price_1TVHkoEfti9t9nN9SaJWW3Ex",      // $49/mo
+  business: "price_1TVHn3Efti9t9nN9ufeUcSez", // $149/mo
 };
 
 const CREDIT_PACK_PRICES: Record<string, { priceId: string; credits: number }> = {

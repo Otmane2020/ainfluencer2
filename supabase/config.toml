@@ -142,6 +142,8 @@ project_id = "vgffjuvaedmxoxvzovoq"
     verify_jwt = false
   [functions.support-send-reply]
     verify_jwt = true
+  [functions.mobileads-generate]
+    verify_jwt = false
 
 [studio]
   api_url = "http://localhost"

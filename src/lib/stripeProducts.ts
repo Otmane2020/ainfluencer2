@@ -4,14 +4,17 @@
 // ============================================================
 
 export const STRIPE_PLAN_PRICES: Record<string, { priceId: string; productId: string }> = {
-  // Starter is free — no Stripe price needed (signup only)
+  starter: {
+    priceId: "price_1TVHjUEfti9t9nN9i6CyLsqe",
+    productId: "prod_UUGF9BN4hFpVBC",
+  },
   pro: {
-    priceId: "price_1Sw4JNEfti9t9nN9Z88uua20",
-    productId: "prod_Tts3Yrv7nyBmxi",
+    priceId: "price_1TVHkoEfti9t9nN9SaJWW3Ex",
+    productId: "prod_UUGHX6dRrVohB2",
   },
   business: {
-    priceId: "price_1TToZ8Efti9t9nN9kA3w0Myp",
-    productId: "prod_USk3Zi3Hhs42nn",
+    priceId: "price_1TVHn3Efti9t9nN9ufeUcSez",
+    productId: "prod_UUGJKfikndKnp4",
   },
 };
 
