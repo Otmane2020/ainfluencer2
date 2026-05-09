@@ -495,6 +495,34 @@ const HistoryPage = () => {
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
           </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                disabled={isLoading || allMedia.length === 0}
+                className="h-9 w-9 text-destructive hover:text-destructive"
+                title="Clear all history"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Clear all history?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete all your generated images and videos. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleClearAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Delete all
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          </Button>
         </div>
       </div>
 
