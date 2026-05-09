@@ -91,8 +91,8 @@ const App = () => (
           <Route path="/unsubscribe" element={<UnsubscribePage />} />
           <Route path="/superadmin" element={<AdminPage />} />
           <Route path="/superadmin/tickets/:id" element={<AdminTicketPage />} />
-          <Route path="/admin" element={<Navigate to="/superadmin" replace />} />
-          <Route path="/admin/tickets/:id" element={<Navigate to="/superadmin/tickets/:id" replace />} />
+          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/admin/tickets/:id" element={<AdminTicketPage />} />
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/projects" element={<Projects />} />
