@@ -222,18 +222,34 @@ Deno.serve(async (req) => {
       console.warn("analysis parse err", e);
     }
 
-    // 3) Generate 4 images with Nano Banana, using the scraped image when possible (image-to-image)
-    const generatedUrls: string[] = [];
-    for (let i = 0; i < STYLES.length; i++) {
-      const style = STYLES[i];
-      const prompt = `Ultra-realistic professional product photography of ${product.visual_description}. The product is ${product.product_name}. Place it ${style}. 9:16 vertical mobile-ad composition, sharp focus on the product, premium commercial lighting, hyper-detailed, no text, no logos. Magazine-quality, photorealistic.`;
+    // 3) Generate 4 images with Nano Banana (Lovable AI), fallback to direct Gemini API
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
-      const userContent: any[] = [{ type: "text", text: prompt }];
-      if (scrapedImage) {
-        userContent.push({ type: "image_url", image_url: { url: scrapedImage } });
-      }
-
+    // Pre-fetch the scraped image as base64 (for direct Gemini fallback)
+    let scrapedImageB64: { data: string; mime: string } | null = null;
+    if (scrapedImage) {
       try {
+        const r = await fetch(scrapedImage);
+        if (r.ok) {
+          const mime = r.headers.get("content-type") || "image/jpeg";
+          const buf = new Uint8Array(await r.arrayBuffer());
+          let bin = "";
+          for (let j = 0; j < buf.length; j += 8192) {
+            const end = Math.min(j + 8192, buf.length);
+            for (let k = j; k < end; k++) bin += String.fromCharCode(buf[k]);
+          }
+          scrapedImageB64 = { data: btoa(bin), mime };
+        }
+      } catch (e) {
+        console.warn("scraped image fetch err", e);
+      }
+    }
+
+    async function generateOne(prompt: string): Promise<string | null> {
+      // Try Lovable AI Gateway first
+      try {
+        const userContent: any[] = [{ type: "text", text: prompt }];
+        if (scrapedImage) userContent.push({ type: "image_url", image_url: { url: scrapedImage } });
         const imgRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
@@ -243,18 +259,59 @@ Deno.serve(async (req) => {
             modalities: ["image", "text"],
           }),
         });
-        if (!imgRes.ok) {
-          console.error(`img ${i} failed`, imgRes.status, await imgRes.text());
-          continue;
+        if (imgRes.ok) {
+          const data = await imgRes.json();
+          const dataUrl: string | undefined = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+          if (dataUrl) return dataUrl;
+        } else {
+          console.warn("lovable-ai img failed", imgRes.status, (await imgRes.text()).slice(0, 200));
         }
-        const data = await imgRes.json();
-        const dataUrl: string | undefined = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-        if (!dataUrl) continue;
-        const publicUrl = await uploadDataUrl(supabase, dataUrl, "mobileads");
-        if (publicUrl) generatedUrls.push(publicUrl);
       } catch (e) {
-        console.error(`img ${i} err`, e);
+        console.warn("lovable-ai err", e);
       }
+
+      // Fallback: direct Gemini API
+      if (!GEMINI_API_KEY) return null;
+      try {
+        const parts: any[] = [{ text: prompt }];
+        if (scrapedImageB64) {
+          parts.push({ inline_data: { mime_type: scrapedImageB64.mime, data: scrapedImageB64.data } });
+        }
+        const r = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts }],
+              generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+            }),
+          },
+        );
+        if (!r.ok) {
+          console.error("gemini-direct failed", r.status, (await r.text()).slice(0, 300));
+          return null;
+        }
+        const j = await r.json();
+        const inline = j?.candidates?.[0]?.content?.parts?.find((p: any) => p?.inline_data || p?.inlineData);
+        const inlineData = inline?.inline_data ?? inline?.inlineData;
+        if (!inlineData?.data) return null;
+        const mime = inlineData.mime_type ?? inlineData.mimeType ?? "image/png";
+        return `data:${mime};base64,${inlineData.data}`;
+      } catch (e) {
+        console.error("gemini-direct err", e);
+        return null;
+      }
+    }
+
+    const generatedUrls: string[] = [];
+    for (let i = 0; i < STYLES.length; i++) {
+      const style = STYLES[i];
+      const prompt = `Ultra-realistic professional product photography of ${product.visual_description}. The product is ${product.product_name}. Place it ${style}. 9:16 vertical mobile-ad composition, sharp focus on the product, premium commercial lighting, hyper-detailed, no text, no logos. Magazine-quality, photorealistic.`;
+      const dataUrl = await generateOne(prompt);
+      if (!dataUrl) continue;
+      const publicUrl = await uploadDataUrl(supabase, dataUrl, "mobileads");
+      if (publicUrl) generatedUrls.push(publicUrl);
     }
 
     if (generatedUrls.length === 0) {
