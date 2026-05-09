@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { SEOHead } from "@/components/seo/SEOHead";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import watchOriginal from "@/assets/demo/watch-original.jpg";
 
 const SAMPLE_THUMBS = [
   "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400",
@@ -16,7 +17,7 @@ const SAMPLE_THUMBS = [
   "https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=400",
   "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=400",
   "https://images.unsplash.com/photo-1521223890158-f9f7c3d5d504?w=400",
-  "https://images.unsplash.com/photo-1518049362265-d5b2a6b00b37?w=400",
+  watchOriginal,
   "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400",
 ];
 
