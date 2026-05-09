@@ -75,14 +75,14 @@ export default function AdminTicketPage() {
   };
 
   if (loading) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin" /></div>;
-  if (!isAdmin) return <Navigate to="/dashboard" replace />;
+  if (!isAdmin) return <Navigate to="/superadmin" replace />;
   if (loadingData) return <div className="flex items-center justify-center h-96"><Loader2 className="animate-spin" /></div>;
   if (!ticket) return <div className="container mx-auto p-6">Ticket not found</div>;
 
   return (
     <div className="container mx-auto p-6 space-y-4 max-w-5xl">
       <div className="flex items-center justify-between">
-        <Link to="/admin">
+        <Link to="/superadmin">
           <Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4 mr-1" />Back to Inbox</Button>
         </Link>
         <div className="flex gap-2">
