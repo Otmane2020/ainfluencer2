@@ -522,7 +522,6 @@ const HistoryPage = () => {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-          </Button>
         </div>
       </div>
 
