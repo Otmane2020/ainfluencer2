@@ -420,7 +420,35 @@ const HistoryPage = () => {
     }
   };
 
-  const handleItemClick = (item: MediaItem) => {
+  const handleClearAll = async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      // Delete all generations and scheduled posts owned by current user (RLS enforces ownership)
+      const [{ error: e1 }, { error: e2 }] = await Promise.all([
+        supabase.from("generations").delete().eq("user_id", user.id),
+        supabase.from("scheduled_posts").delete().eq("user_id", user.id),
+      ]);
+      if (e1 || e2) throw e1 || e2;
+
+      // Best-effort: remove user's files from storage bucket folder
+      try {
+        const { data: files } = await supabase.storage.from("media").list(user.id, { limit: 1000 });
+        if (files && files.length > 0) {
+          await supabase.storage.from("media").remove(files.map((f) => `${user.id}/${f.name}`));
+        }
+      } catch {}
+
+      sessionStorage.removeItem(CACHE_KEY);
+      setAllMedia([]);
+      toast({ title: "History cleared" });
+    } catch (error) {
+      console.error("Clear all error:", error);
+      toast({ title: "Failed to clear history", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
     if (item.type === "video") {
       setSelectedVideo(item);
     } else {
