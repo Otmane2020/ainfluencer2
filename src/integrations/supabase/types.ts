@@ -771,6 +771,45 @@ export type Database = {
         }
         Relationships: []
       }
+      mobileads_trials: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          ip_hash: string
+          product_title: string | null
+          product_url: string
+          result_images: Json | null
+          status: string
+          user_agent: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          ip_hash: string
+          product_title?: string | null
+          product_url: string
+          result_images?: Json | null
+          status?: string
+          user_agent?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          ip_hash?: string
+          product_title?: string | null
+          product_url?: string
+          result_images?: Json | null
+          status?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       platform_formats: {
         Row: {
           aspect_ratio: string | null
