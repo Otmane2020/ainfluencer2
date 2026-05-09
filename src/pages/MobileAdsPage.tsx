@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, ArrowUp, Check, Loader2, Sparkles, Quote } from "lucide-react";
+import { ArrowRight, ArrowUp, Check, Loader2, Sparkles, Quote, Wand2, ImageIcon, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SEOHead } from "@/components/seo/SEOHead";
 import { supabase } from "@/integrations/supabase/client";
