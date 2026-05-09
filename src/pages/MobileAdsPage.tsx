@@ -266,7 +266,7 @@ export default function MobileAdsPage() {
               <Button
                 size="lg"
                 variant="outline"
-                className="w-full rounded-full"
+                className="w-full rounded-full text-white bg-zinc-900 hover:bg-zinc-800 hover:text-white border-zinc-900"
                 onClick={() => {
                   setResult(null);
                   setUrl("");
