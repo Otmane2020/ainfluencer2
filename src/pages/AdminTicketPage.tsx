@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Navigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -27,6 +28,7 @@ interface Message {
 
 export default function AdminTicketPage() {
   const { id } = useParams();
+  const { user, isLoading: authLoading } = useAuth();
   const { isAdmin, loading } = useIsAdmin();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -74,8 +76,9 @@ export default function AdminTicketPage() {
     load();
   };
 
-  if (loading) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin" /></div>;
-  if (!isAdmin) return <Navigate to="/superadmin" replace />;
+  if (authLoading || loading) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin" /></div>;
+  if (!user) return <Navigate to="/auth" replace />;
+  if (!isAdmin) return <Navigate to="/dashboard" replace />;
   if (loadingData) return <div className="flex items-center justify-center h-96"><Loader2 className="animate-spin" /></div>;
   if (!ticket) return <div className="container mx-auto p-6">Ticket not found</div>;
 
