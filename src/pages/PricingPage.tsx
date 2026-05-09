@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { SEOHead } from "@/components/seo/SEOHead";
 import { PublicPageLayout } from "@/components/seo/PublicPageLayout";
 import { PricingPacks } from "@/components/PricingPacks";
@@ -23,10 +24,10 @@ const PricingPage = () => {
             Simple, <span className="text-gradient">Transparent</span> Pricing
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-4">
-            Choose the plan that fits your needs. Start with a subscription, pay per generation with credits.
+            Choose the plan that fits your needs. All plans include credits and unlock every AI feature.
           </p>
           <p className="text-sm text-muted-foreground mb-12">
-            No hidden fees • Cancel anytime • 1 credit = $1
+            No hidden fees • Cancel anytime • Try our free demo at <Link to="/mobileads" className="underline text-primary">/mobileads</Link>
           </p>
           
           <PricingPacks />
@@ -73,11 +74,11 @@ const PricingPage = () => {
             {[
               {
                 q: "How does the subscription + credits model work?",
-                a: "Your subscription (Starter, Pro, or Business) gives you access to the app features and AutoPost limits. Each AI generation (image or video) consumes credits from your balance. This way, you only pay for what you actually use.",
+                a: "Your subscription (Starter, Pro, or Business) gives you access to the app features and AutoPost limits. Each AI generation (image or video) consumes credits from your monthly allowance.",
               },
               {
-                q: "Can I try ClipMotion for free?",
-                a: "Yes! New users receive 10 free credits to try our AI generation tools. You can upgrade to a paid plan when you're ready.",
+                q: "Can I try ClipMotion before paying?",
+                a: "Yes — visit /mobileads to generate 4 free AI product shots from any product URL, no signup required. When you're ready, pick a paid plan to unlock unlimited generations.",
               },
               {
                 q: "What happens if I run out of credits?",
