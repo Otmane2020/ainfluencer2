@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ScrollToTop from "./components/ScrollToTop";
 import { AppLayout } from "@/components/layout/AppLayout";
 import LandingPage from "./pages/LandingPage";
@@ -89,6 +89,10 @@ const App = () => (
           <Route path="/choose-plan" element={<ChoosePlanPage />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/unsubscribe" element={<UnsubscribePage />} />
+          <Route path="/superadmin" element={<AdminPage />} />
+          <Route path="/superadmin/tickets/:id" element={<AdminTicketPage />} />
+          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/admin/tickets/:id" element={<AdminTicketPage />} />
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/projects" element={<Projects />} />
@@ -103,8 +107,6 @@ const App = () => (
             <Route path="/history/posts" element={<PostHistoryPage />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="/admin" element={<AdminPage />} />
-            <Route path="/admin/tickets/:id" element={<AdminTicketPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
