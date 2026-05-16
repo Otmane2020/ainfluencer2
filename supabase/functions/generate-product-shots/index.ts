@@ -15,21 +15,25 @@ async function enforceAspectRatio(
       img.resize(targetW, targetH);
       return await img.encode();
     }
-    // Cover crop: scale so the image fully covers the target, then center-crop
+    // CONTAIN (letterbox): scale so the entire product fits, then center on a white canvas.
+    // Avoids cropping the product when switching to portrait/landscape formats.
     let newW: number, newH: number;
     if (srcRatio > dstRatio) {
-      // source is wider — match heights
-      newH = targetH;
-      newW = Math.round(targetH * srcRatio);
-    } else {
+      // source wider → fit by width
       newW = targetW;
       newH = Math.round(targetW / srcRatio);
+    } else {
+      // source taller → fit by height
+      newH = targetH;
+      newW = Math.round(targetH * srcRatio);
     }
     img.resize(newW, newH);
-    const x = Math.max(0, Math.floor((newW - targetW) / 2));
-    const y = Math.max(0, Math.floor((newH - targetH) / 2));
-    img.crop(x, y, targetW, targetH);
-    return await img.encode();
+    const canvas = new Image(targetW, targetH);
+    canvas.fill(0xffffffff); // opaque white background
+    const x = Math.floor((targetW - newW) / 2);
+    const y = Math.floor((targetH - newH) / 2);
+    canvas.composite(img, x, y);
+    return await canvas.encode();
   } catch (e) {
     console.warn("[enforceAspectRatio] failed, returning original:", e);
     return bytes;
