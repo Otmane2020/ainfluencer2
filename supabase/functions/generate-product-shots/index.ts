@@ -249,48 +249,56 @@ CRITICAL REQUIREMENTS:
       let lastStatus = 0;
       let lastError = "";
 
-      for (const provider of PROVIDERS) {
-        try {
-          const r = await fetchWithTimeout(
-            provider.url,
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${provider.key}`,
-                "Content-Type": "application/json",
+      // Retry each provider up to 3 times — Nano Banana sometimes returns 200 with no image under load
+      const MAX_ATTEMPTS = 3;
+      outer: for (const provider of PROVIDERS) {
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+          try {
+            const r = await fetchWithTimeout(
+              provider.url,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${provider.key}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  model: provider.model,
+                  messages: [{
+                    role: "user",
+                    content: [
+                      { type: "text", text: imagePrompt },
+                      { type: "image_url", image_url: { url: sourceImageUrl } },
+                    ],
+                  }],
+                  modalities: ["image", "text"],
+                }),
               },
-              body: JSON.stringify({
-                model: provider.model,
-                messages: [{
-                  role: "user",
-                  content: [
-                    { type: "text", text: imagePrompt },
-                    { type: "image_url", image_url: { url: sourceImageUrl } },
-                  ],
-                }],
-                modalities: ["image", "text"],
-              }),
-            },
-            90_000
-          );
+              90_000
+            );
 
-          if (r.ok) {
-            const data = await r.json();
-            imageData = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-            if (imageData) {
-              console.log(`[generate-product-shots] ${shotType} via ${provider.name}`);
-              break;
+            if (r.ok) {
+              const data = await r.json();
+              imageData = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+              if (imageData) {
+                console.log(`[generate-product-shots] ${shotType} via ${provider.name} (attempt ${attempt})`);
+                break outer;
+              }
+              lastError = "no image in response";
+              console.warn(`[generate-product-shots] ${shotType} attempt ${attempt}: empty image, retrying...`);
+            } else {
+              lastStatus = r.status;
+              lastError = (await r.text()).slice(0, 200);
+              console.warn(`[generate-product-shots] ${provider.name} failed [${lastStatus}] attempt ${attempt}: ${lastError}`);
+              // 429/5xx → retry; 4xx (other) → no point retrying
+              if (lastStatus < 500 && lastStatus !== 429) break;
             }
-            lastError = "no image in response";
-            continue;
+          } catch (e) {
+            lastError = e instanceof Error ? e.message : String(e);
+            console.warn(`[generate-product-shots] ${provider.name} exception attempt ${attempt}:`, lastError);
           }
-
-          lastStatus = r.status;
-          lastError = (await r.text()).slice(0, 200);
-          console.warn(`[generate-product-shots] ${provider.name} failed [${lastStatus}]: ${lastError}`);
-        } catch (e) {
-          lastError = e instanceof Error ? e.message : String(e);
-          console.warn(`[generate-product-shots] ${provider.name} exception:`, lastError);
+          // exponential backoff with jitter
+          await new Promise((res) => setTimeout(res, 600 * attempt + Math.random() * 400));
         }
       }
 
@@ -335,7 +343,14 @@ CRITICAL REQUIREMENTS:
       }
     };
 
-    const results = await Promise.all(shotTypes.map((s) => generateOneShot(s)));
+    // Limit concurrency to 3 — avoids Nano Banana throttling that returns 200 with no image
+    const CONCURRENCY = 3;
+    const results: Array<{ type: ShotType; label: string; url: string } | null> = [];
+    for (let i = 0; i < shotTypes.length; i += CONCURRENCY) {
+      const batch = shotTypes.slice(i, i + CONCURRENCY);
+      const batchRes = await Promise.all(batch.map((s) => generateOneShot(s)));
+      results.push(...batchRes);
+    }
     const generatedImages = results.filter((r): r is { type: ShotType; label: string; url: string } => r !== null);
 
     if (generatedImages.length === 0) {
