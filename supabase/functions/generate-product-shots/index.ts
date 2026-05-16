@@ -343,7 +343,14 @@ CRITICAL REQUIREMENTS:
       }
     };
 
-    const results = await Promise.all(shotTypes.map((s) => generateOneShot(s)));
+    // Limit concurrency to 3 — avoids Nano Banana throttling that returns 200 with no image
+    const CONCURRENCY = 3;
+    const results: Array<{ type: ShotType; label: string; url: string } | null> = [];
+    for (let i = 0; i < shotTypes.length; i += CONCURRENCY) {
+      const batch = shotTypes.slice(i, i + CONCURRENCY);
+      const batchRes = await Promise.all(batch.map((s) => generateOneShot(s)));
+      results.push(...batchRes);
+    }
     const generatedImages = results.filter((r): r is { type: ShotType; label: string; url: string } => r !== null);
 
     if (generatedImages.length === 0) {
