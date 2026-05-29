@@ -409,8 +409,11 @@ CRITICAL REQUIREMENTS:
     const generatedImages = results.filter((r): r is { type: ShotType; label: string; url: string } => r !== null);
 
     if (generatedImages.length === 0) {
-      return new Response(JSON.stringify({ error: "Failed to generate any images. Please try again." }), {
-        status: 500,
+      return new Response(JSON.stringify({
+        error: "All image providers are temporarily unavailable. Please retry in a moment.",
+        code: "ALL_PROVIDERS_FAILED",
+      }), {
+        status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
