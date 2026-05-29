@@ -213,6 +213,19 @@ Deno.serve(async (req) => {
     console.log(`[generate-product-shots] Starting generation for: ${productTitle}`);
     console.log(`[generate-product-shots] Shot types: ${shotTypes.join(", ")}`);
 
+    // Lazy-cached base64 of source image (used by Gemini direct fallback)
+    let sourceImageB64: { mime: string; data: string } | null = null;
+    const getSourceImageB64 = async (): Promise<{ mime: string; data: string }> => {
+      if (sourceImageB64) return sourceImageB64;
+      const r = await fetchWithTimeout(sourceImageUrl, { method: "GET" }, 60_000);
+      if (!r.ok) throw new Error(`Failed to fetch source image: ${r.status}`);
+      const mime = r.headers.get("content-type")?.split(";")[0] || "image/jpeg";
+      const buf = new Uint8Array(await r.arrayBuffer());
+      sourceImageB64 = { mime, data: bytesToBase64(buf) };
+      return sourceImageB64;
+    };
+
+
     const generateOneShot = async (shotType: ShotType): Promise<{ type: ShotType; label: string; url: string } | null> => {
       const shotConfig = SHOT_TYPES[shotType];
 
