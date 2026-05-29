@@ -251,74 +251,103 @@ CRITICAL REQUIREMENTS:
 - No text, watermarks, or borders
 - Ultra high resolution, sharp focus on the product`;
 
-      // Lovable AI Gateway only (Nano Banana)
-      type Provider = { name: string; type: "openai"; url: string; key: string; model: string };
+      // Providers: Lovable AI Gateway first, then Gemini direct (own key) as fallback when Lovable credits exhausted
+      type Provider =
+        | { name: "lovable-ai"; kind: "openrouter"; key: string; model: string }
+        | { name: "gemini-direct"; kind: "google"; key: string; model: string };
       const PROVIDERS: Provider[] = [
-        {
-          name: "lovable-ai",
-          type: "openai",
-          url: "https://ai.gateway.lovable.dev/v1/chat/completions",
-          key: LOVABLE_API_KEY,
-          model: "google/gemini-2.5-flash-image",
-        },
+        { name: "lovable-ai", kind: "openrouter", key: LOVABLE_API_KEY, model: "google/gemini-2.5-flash-image" },
       ];
+      if (GEMINI_API_KEY) {
+        PROVIDERS.push({ name: "gemini-direct", kind: "google", key: GEMINI_API_KEY, model: "gemini-2.5-flash-image-preview" });
+      }
 
       let imageData: string | undefined;
       let lastStatus = 0;
       let lastError = "";
 
-      // Retry each provider up to 3 times — Nano Banana sometimes returns 200 with no image under load
       const MAX_ATTEMPTS = 3;
       outer: for (const provider of PROVIDERS) {
         for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
           try {
-            const r = await fetchWithTimeout(
-              provider.url,
-              {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${provider.key}`,
-                  "Content-Type": "application/json",
+            let r: Response;
+            if (provider.kind === "openrouter") {
+              r = await fetchWithTimeout(
+                "https://ai.gateway.lovable.dev/v1/chat/completions",
+                {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${provider.key}`, "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    model: provider.model,
+                    messages: [{
+                      role: "user",
+                      content: [
+                        { type: "text", text: imagePrompt },
+                        { type: "image_url", image_url: { url: sourceImageUrl } },
+                      ],
+                    }],
+                    modalities: ["image", "text"],
+                  }),
                 },
-                body: JSON.stringify({
-                  model: provider.model,
-                  messages: [{
-                    role: "user",
-                    content: [
-                      { type: "text", text: imagePrompt },
-                      { type: "image_url", image_url: { url: sourceImageUrl } },
-                    ],
-                  }],
-                  modalities: ["image", "text"],
-                }),
-              },
-              90_000
-            );
-
-            if (r.ok) {
-              const data = await r.json();
-              imageData = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-              if (imageData) {
-                console.log(`[generate-product-shots] ${shotType} via ${provider.name} (attempt ${attempt})`);
-                break outer;
+                90_000
+              );
+              if (r.ok) {
+                const data = await r.json();
+                imageData = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
               }
+            } else {
+              // Google Generative Language API direct (requires base64 inline)
+              const src = await getSourceImageB64();
+              r = await fetchWithTimeout(
+                `https://generativelanguage.googleapis.com/v1beta/models/${provider.model}:generateContent?key=${provider.key}`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    contents: [{
+                      parts: [
+                        { text: imagePrompt },
+                        { inline_data: { mime_type: src.mime, data: src.data } },
+                      ],
+                    }],
+                  }),
+                },
+                90_000
+              );
+              if (r.ok) {
+                const data = await r.json();
+                const parts = data?.candidates?.[0]?.content?.parts || [];
+                const imgPart = parts.find((p: { inline_data?: { data?: string; mime_type?: string }; inlineData?: { data?: string; mimeType?: string } }) =>
+                  p?.inline_data?.data || p?.inlineData?.data
+                );
+                const b64 = imgPart?.inline_data?.data || imgPart?.inlineData?.data;
+                const mime = imgPart?.inline_data?.mime_type || imgPart?.inlineData?.mimeType || "image/png";
+                if (b64) imageData = `data:${mime};base64,${b64}`;
+              }
+            }
+
+            if (r.ok && imageData) {
+              console.log(`[generate-product-shots] ${shotType} via ${provider.name} (attempt ${attempt})`);
+              break outer;
+            }
+            if (r.ok) {
               lastError = "no image in response";
-              console.warn(`[generate-product-shots] ${shotType} attempt ${attempt}: empty image, retrying...`);
+              console.warn(`[generate-product-shots] ${shotType} attempt ${attempt} via ${provider.name}: empty image, retrying...`);
             } else {
               lastStatus = r.status;
               lastError = (await r.text()).slice(0, 200);
               console.warn(`[generate-product-shots] ${provider.name} failed [${lastStatus}] attempt ${attempt}: ${lastError}`);
-              // 429/5xx → retry; 4xx (other) → no point retrying
+              // 429/5xx → retry; other 4xx (incl. 402 credits) → stop attempts and move to next provider
               if (lastStatus < 500 && lastStatus !== 429) break;
             }
           } catch (e) {
             lastError = e instanceof Error ? e.message : String(e);
             console.warn(`[generate-product-shots] ${provider.name} exception attempt ${attempt}:`, lastError);
           }
-          // exponential backoff with jitter
           await new Promise((res) => setTimeout(res, 600 * attempt + Math.random() * 400));
         }
       }
+
 
       try {
         if (!imageData) {
