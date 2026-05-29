@@ -251,22 +251,28 @@ CRITICAL REQUIREMENTS:
 - No text, watermarks, or borders
 - Ultra high resolution, sharp focus on the product`;
 
-      // Providers: Lovable AI Gateway first, then Gemini direct (own key) as fallback when Lovable credits exhausted
+      // Providers: Lovable AI Gateway first, then Gemini direct (multiple model names — availability varies)
       type Provider =
-        | { name: "lovable-ai"; kind: "openrouter"; key: string; model: string }
-        | { name: "gemini-direct"; kind: "google"; key: string; model: string };
+        | { name: string; kind: "openrouter"; key: string; model: string }
+        | { name: string; kind: "google"; key: string; model: string };
       const PROVIDERS: Provider[] = [
         { name: "lovable-ai", kind: "openrouter", key: LOVABLE_API_KEY, model: "google/gemini-2.5-flash-image" },
       ];
       if (GEMINI_API_KEY) {
-        PROVIDERS.push({ name: "gemini-direct", kind: "google", key: GEMINI_API_KEY, model: "gemini-2.5-flash-image-preview" });
+        for (const m of [
+          "gemini-2.5-flash-image",
+          "gemini-2.0-flash-exp-image-generation",
+          "gemini-2.0-flash-preview-image-generation",
+        ]) {
+          PROVIDERS.push({ name: `gemini-direct:${m}`, kind: "google", key: GEMINI_API_KEY, model: m });
+        }
       }
 
       let imageData: string | undefined;
       let lastStatus = 0;
       let lastError = "";
 
-      const MAX_ATTEMPTS = 3;
+      const MAX_ATTEMPTS = 2;
       outer: for (const provider of PROVIDERS) {
         for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
           try {
@@ -296,7 +302,7 @@ CRITICAL REQUIREMENTS:
                 imageData = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
               }
             } else {
-              // Google Generative Language API direct (requires base64 inline)
+              // Google Generative Language API direct — requires inline base64 + responseModalities
               const src = await getSourceImageB64();
               r = await fetchWithTimeout(
                 `https://generativelanguage.googleapis.com/v1beta/models/${provider.model}:generateContent?key=${provider.key}`,
@@ -305,11 +311,13 @@ CRITICAL REQUIREMENTS:
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     contents: [{
+                      role: "user",
                       parts: [
                         { text: imagePrompt },
                         { inline_data: { mime_type: src.mime, data: src.data } },
                       ],
                     }],
+                    generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
                   }),
                 },
                 90_000
@@ -337,7 +345,7 @@ CRITICAL REQUIREMENTS:
               lastStatus = r.status;
               lastError = (await r.text()).slice(0, 200);
               console.warn(`[generate-product-shots] ${provider.name} failed [${lastStatus}] attempt ${attempt}: ${lastError}`);
-              // 429/5xx → retry; other 4xx (incl. 402 credits) → stop attempts and move to next provider
+              // 429/5xx → retry; other 4xx (incl. 402 credits, 404 model) → stop and move to next provider
               if (lastStatus < 500 && lastStatus !== 429) break;
             }
           } catch (e) {
