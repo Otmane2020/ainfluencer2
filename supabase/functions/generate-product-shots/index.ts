@@ -305,7 +305,7 @@ CRITICAL REQUIREMENTS:
                 const data = await r.json();
                 imageData = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
               }
-            } else {
+            } else if (provider.kind === "google") {
               // Google Generative Language API direct — requires inline base64 + responseModalities
               const src = await getSourceImageB64();
               r = await fetchWithTimeout(
@@ -335,6 +335,34 @@ CRITICAL REQUIREMENTS:
                 const b64 = imgPart?.inline_data?.data || imgPart?.inlineData?.data;
                 const mime = imgPart?.inline_data?.mime_type || imgPart?.inlineData?.mimeType || "image/png";
                 if (b64) imageData = `data:${mime};base64,${b64}`;
+              }
+            } else {
+              // OpenAI gpt-image-1 via images/edits (multipart) — uses source image as reference
+              const src = await getSourceImageB64();
+              const imgBytes = Uint8Array.from(atob(src.data), (c) => c.charCodeAt(0));
+              const form = new FormData();
+              form.append("model", provider.model);
+              form.append("prompt", imagePrompt.slice(0, 3900));
+              form.append("size", format.width >= format.height
+                ? (format.width === format.height ? "1024x1024" : "1536x1024")
+                : "1024x1536");
+              form.append("n", "1");
+              form.append("image", new Blob([imgBytes], { type: src.mime }), "source.png");
+              r = await fetchWithTimeout(
+                "https://api.openai.com/v1/images/edits",
+                {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${provider.key}` },
+                  body: form,
+                },
+                120_000
+              );
+              if (r.ok) {
+                const data = await r.json();
+                const b64 = data?.data?.[0]?.b64_json;
+                const url = data?.data?.[0]?.url;
+                if (b64) imageData = `data:image/png;base64,${b64}`;
+                else if (url) imageData = url;
               }
             }
 
