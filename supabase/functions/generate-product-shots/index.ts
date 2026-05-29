@@ -263,7 +263,6 @@ CRITICAL REQUIREMENTS:
       if (GEMINI_API_KEY) {
         for (const m of [
           "gemini-2.5-flash-image",
-          "gemini-2.5-flash-image-preview",
         ]) {
           PROVIDERS.push({ name: `gemini-direct:${m}`, kind: "google", key: GEMINI_API_KEY, model: m });
         }
@@ -275,6 +274,7 @@ CRITICAL REQUIREMENTS:
       let imageData: string | undefined;
       let lastStatus = 0;
       let lastError = "";
+      const providerFailures: Array<{ provider: string; status: number; message: string; code: string }> = [];
 
       const MAX_ATTEMPTS = 2;
       outer: for (const provider of PROVIDERS) {
@@ -376,6 +376,22 @@ CRITICAL REQUIREMENTS:
             } else {
               lastStatus = r.status;
               lastError = (await r.text()).slice(0, 200);
+              const normalizedMessage = lastError.toLowerCase();
+              const errorCode = lastStatus === 402 || normalizedMessage.includes("not enough credits")
+                ? "CREDITS_EXHAUSTED"
+                : lastStatus === 429 || normalizedMessage.includes("quota") || normalizedMessage.includes("rate limit")
+                  ? "RATE_LIMITED"
+                  : lastStatus === 404 || normalizedMessage.includes("not found")
+                    ? "MODEL_UNAVAILABLE"
+                    : lastStatus >= 500
+                      ? "PROVIDER_UNAVAILABLE"
+                      : "PROVIDER_ERROR";
+              providerFailures.push({
+                provider: provider.name,
+                status: lastStatus,
+                message: lastError,
+                code: errorCode,
+              });
               console.warn(`[generate-product-shots] ${provider.name} failed [${lastStatus}] attempt ${attempt}: ${lastError}`);
               // 429/5xx → retry; other 4xx (incl. 402 credits, 404 model) → stop and move to next provider
               if (lastStatus < 500 && lastStatus !== 429) break;
@@ -392,7 +408,12 @@ CRITICAL REQUIREMENTS:
       try {
         if (!imageData) {
           console.error(`[generate-product-shots] All providers failed for ${shotType}: ${lastStatus} ${lastError}`);
-          return null;
+          return {
+            type: shotType,
+            label: shotConfig.label,
+            url: "",
+            failures: providerFailures,
+          } as const;
         }
 
         let dataUrl = imageData;
@@ -432,20 +453,30 @@ CRITICAL REQUIREMENTS:
 
     // Limit concurrency to 3 — avoids Nano Banana throttling that returns 200 with no image
     const CONCURRENCY = 3;
-    const results: Array<{ type: ShotType; label: string; url: string } | null> = [];
+    const results: Array<
+      | { type: ShotType; label: string; url: string }
+      | { type: ShotType; label: string; url: ""; failures: Array<{ provider: string; status: number; message: string; code: string }> }
+      | null
+    > = [];
     for (let i = 0; i < shotTypes.length; i += CONCURRENCY) {
       const batch = shotTypes.slice(i, i + CONCURRENCY);
       const batchRes = await Promise.all(batch.map((s) => generateOneShot(s)));
       results.push(...batchRes);
     }
-    const generatedImages = results.filter((r): r is { type: ShotType; label: string; url: string } => r !== null);
+    const generatedImages = results.filter((r): r is { type: ShotType; label: string; url: string } => Boolean(r && "url" in r && r.url));
+    const failedShots = results.filter((r): r is { type: ShotType; label: string; url: ""; failures: Array<{ provider: string; status: number; message: string; code: string }> } => Boolean(r && "failures" in r));
 
     if (generatedImages.length === 0) {
       return new Response(JSON.stringify({
-        error: "All image providers are temporarily unavailable. Please retry in a moment.",
+        success: false,
+        fallback: true,
+        error: failedShots.some((shot) => shot.failures.some((failure) => failure.code === "CREDITS_EXHAUSTED"))
+          ? "Image generation is temporarily unavailable because the connected AI providers have exhausted their credits or billing limits."
+          : "All image providers are temporarily unavailable. Please retry in a moment.",
         code: "ALL_PROVIDERS_FAILED",
+        failedShots,
       }), {
-        status: 502,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -469,7 +500,7 @@ CRITICAL REQUIREMENTS:
       console.warn(`[generate-product-shots] deduct returned false for user ${userId}`);
     }
 
-    return new Response(JSON.stringify({ success: true, images: generatedImages, productTitle, creditsCharged: cost }), {
+    return new Response(JSON.stringify({ success: true, images: generatedImages, productTitle, creditsCharged: cost, failedShots }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
