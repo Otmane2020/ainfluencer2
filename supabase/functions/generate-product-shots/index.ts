@@ -255,18 +255,21 @@ CRITICAL REQUIREMENTS:
       // Providers: Lovable AI Gateway first, then Gemini direct (multiple model names — availability varies)
       type Provider =
         | { name: string; kind: "openrouter"; key: string; model: string }
-        | { name: string; kind: "google"; key: string; model: string };
+        | { name: string; kind: "google"; key: string; model: string }
+        | { name: string; kind: "openai"; key: string; model: string };
       const PROVIDERS: Provider[] = [
         { name: "lovable-ai", kind: "openrouter", key: LOVABLE_API_KEY, model: "google/gemini-2.5-flash-image" },
       ];
       if (GEMINI_API_KEY) {
         for (const m of [
           "gemini-2.5-flash-image",
-          "gemini-2.0-flash-exp-image-generation",
-          "gemini-2.0-flash-preview-image-generation",
+          "gemini-2.5-flash-image-preview",
         ]) {
           PROVIDERS.push({ name: `gemini-direct:${m}`, kind: "google", key: GEMINI_API_KEY, model: m });
         }
+      }
+      if (OPENAI_API_KEY) {
+        PROVIDERS.push({ name: "openai:gpt-image-1", kind: "openai", key: OPENAI_API_KEY, model: "gpt-image-1" });
       }
 
       let imageData: string | undefined;
