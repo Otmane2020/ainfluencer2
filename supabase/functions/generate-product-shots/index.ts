@@ -164,6 +164,7 @@ Deno.serve(async (req) => {
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -254,18 +255,21 @@ CRITICAL REQUIREMENTS:
       // Providers: Lovable AI Gateway first, then Gemini direct (multiple model names — availability varies)
       type Provider =
         | { name: string; kind: "openrouter"; key: string; model: string }
-        | { name: string; kind: "google"; key: string; model: string };
+        | { name: string; kind: "google"; key: string; model: string }
+        | { name: string; kind: "openai"; key: string; model: string };
       const PROVIDERS: Provider[] = [
         { name: "lovable-ai", kind: "openrouter", key: LOVABLE_API_KEY, model: "google/gemini-2.5-flash-image" },
       ];
       if (GEMINI_API_KEY) {
         for (const m of [
           "gemini-2.5-flash-image",
-          "gemini-2.0-flash-exp-image-generation",
-          "gemini-2.0-flash-preview-image-generation",
+          "gemini-2.5-flash-image-preview",
         ]) {
           PROVIDERS.push({ name: `gemini-direct:${m}`, kind: "google", key: GEMINI_API_KEY, model: m });
         }
+      }
+      if (OPENAI_API_KEY) {
+        PROVIDERS.push({ name: "openai:gpt-image-1", kind: "openai", key: OPENAI_API_KEY, model: "gpt-image-1" });
       }
 
       let imageData: string | undefined;
@@ -301,7 +305,7 @@ CRITICAL REQUIREMENTS:
                 const data = await r.json();
                 imageData = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
               }
-            } else {
+            } else if (provider.kind === "google") {
               // Google Generative Language API direct — requires inline base64 + responseModalities
               const src = await getSourceImageB64();
               r = await fetchWithTimeout(
@@ -331,6 +335,34 @@ CRITICAL REQUIREMENTS:
                 const b64 = imgPart?.inline_data?.data || imgPart?.inlineData?.data;
                 const mime = imgPart?.inline_data?.mime_type || imgPart?.inlineData?.mimeType || "image/png";
                 if (b64) imageData = `data:${mime};base64,${b64}`;
+              }
+            } else {
+              // OpenAI gpt-image-1 via images/edits (multipart) — uses source image as reference
+              const src = await getSourceImageB64();
+              const imgBytes = Uint8Array.from(atob(src.data), (c) => c.charCodeAt(0));
+              const form = new FormData();
+              form.append("model", provider.model);
+              form.append("prompt", imagePrompt.slice(0, 3900));
+              form.append("size", format.width >= format.height
+                ? (format.width === format.height ? "1024x1024" : "1536x1024")
+                : "1024x1536");
+              form.append("n", "1");
+              form.append("image", new Blob([imgBytes], { type: src.mime }), "source.png");
+              r = await fetchWithTimeout(
+                "https://api.openai.com/v1/images/edits",
+                {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${provider.key}` },
+                  body: form,
+                },
+                120_000
+              );
+              if (r.ok) {
+                const data = await r.json();
+                const b64 = data?.data?.[0]?.b64_json;
+                const url = data?.data?.[0]?.url;
+                if (b64) imageData = `data:image/png;base64,${b64}`;
+                else if (url) imageData = url;
               }
             }
 
