@@ -128,6 +128,39 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
   return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
 }
 
+function classifyProviderFailure(status: number, message: string): string {
+  const normalizedMessage = message.toLowerCase();
+
+  if (
+    status === 429 ||
+    normalizedMessage.includes("quota") ||
+    normalizedMessage.includes("rate limit") ||
+    normalizedMessage.includes("queue full")
+  ) {
+    return "RATE_LIMITED";
+  }
+
+  if (
+    normalizedMessage.includes("not enough credits") ||
+    normalizedMessage.includes("billing hard limit") ||
+    normalizedMessage.includes("billing limit") ||
+    normalizedMessage.includes("payment_required") ||
+    normalizedMessage.includes("credits exhausted")
+  ) {
+    return "CREDITS_EXHAUSTED";
+  }
+
+  if (status === 404 || normalizedMessage.includes("not found")) {
+    return "MODEL_UNAVAILABLE";
+  }
+
+  if (status >= 500) {
+    return "PROVIDER_UNAVAILABLE";
+  }
+
+  return "PROVIDER_ERROR";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -224,6 +257,23 @@ Deno.serve(async (req) => {
       const buf = new Uint8Array(await r.arrayBuffer());
       sourceImageB64 = { mime, data: bytesToBase64(buf) };
       return sourceImageB64;
+    };
+
+    let pollinationsQueue = Promise.resolve();
+    let pollinationsRelease: (() => void) | null = null;
+    const runPollinationsRequest = async (url: string): Promise<Response> => {
+      const waitForTurn = pollinationsQueue;
+      pollinationsQueue = new Promise<void>((resolve) => {
+        pollinationsRelease = resolve;
+      });
+
+      await waitForTurn;
+      try {
+        return await fetchWithTimeout(url, { method: "GET" }, 90_000);
+      } finally {
+        pollinationsRelease?.();
+        pollinationsRelease = null;
+      }
     };
 
 
@@ -368,10 +418,11 @@ CRITICAL REQUIREMENTS:
                 else if (url) imageData = url;
               }
             } else {
-              // Pollinations.ai — free, no API key, no billing. Text-to-image only (no source ref).
+              // Pollinations.ai — free, no API key, no billing. Anonymous tier is single-file / single-queue per IP,
+              // so requests must be serialized inside this invocation.
               const seed = Math.floor(Math.random() * 1_000_000);
               const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt.slice(0, 1800))}?width=${format.width}&height=${format.height}&model=${provider.model}&nologo=true&seed=${seed}`;
-              r = await fetchWithTimeout(url, { method: "GET" }, 90_000);
+              r = await runPollinationsRequest(url);
               if (r.ok) {
                 const buf = new Uint8Array(await r.arrayBuffer());
                 if (buf.byteLength > 1000) {
@@ -390,16 +441,7 @@ CRITICAL REQUIREMENTS:
             } else {
               lastStatus = r.status;
               lastError = (await r.text()).slice(0, 200);
-              const normalizedMessage = lastError.toLowerCase();
-              const errorCode = lastStatus === 402 || normalizedMessage.includes("not enough credits")
-                ? "CREDITS_EXHAUSTED"
-                : lastStatus === 429 || normalizedMessage.includes("quota") || normalizedMessage.includes("rate limit")
-                  ? "RATE_LIMITED"
-                  : lastStatus === 404 || normalizedMessage.includes("not found")
-                    ? "MODEL_UNAVAILABLE"
-                    : lastStatus >= 500
-                      ? "PROVIDER_UNAVAILABLE"
-                      : "PROVIDER_ERROR";
+              const errorCode = classifyProviderFailure(lastStatus, lastError);
               providerFailures.push({
                 provider: provider.name,
                 status: lastStatus,
