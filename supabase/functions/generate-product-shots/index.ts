@@ -339,7 +339,7 @@ CRITICAL REQUIREMENTS:
                 const mime = imgPart?.inline_data?.mime_type || imgPart?.inlineData?.mimeType || "image/png";
                 if (b64) imageData = `data:${mime};base64,${b64}`;
               }
-            } else {
+            } else if (provider.kind === "openai") {
               // OpenAI gpt-image-1 via images/edits (multipart) — uses source image as reference
               const src = await getSourceImageB64();
               const imgBytes = Uint8Array.from(atob(src.data), (c) => c.charCodeAt(0));
@@ -366,6 +366,17 @@ CRITICAL REQUIREMENTS:
                 const url = data?.data?.[0]?.url;
                 if (b64) imageData = `data:image/png;base64,${b64}`;
                 else if (url) imageData = url;
+              }
+            } else {
+              // Pollinations.ai — free, no API key, no billing. Text-to-image only (no source ref).
+              const seed = Math.floor(Math.random() * 1_000_000);
+              const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt.slice(0, 1800))}?width=${format.width}&height=${format.height}&model=${provider.model}&nologo=true&seed=${seed}`;
+              r = await fetchWithTimeout(url, { method: "GET" }, 90_000);
+              if (r.ok) {
+                const buf = new Uint8Array(await r.arrayBuffer());
+                if (buf.byteLength > 1000) {
+                  imageData = `data:image/png;base64,${bytesToBase64(buf)}`;
+                }
               }
             }
 
