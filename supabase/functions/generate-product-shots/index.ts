@@ -256,7 +256,8 @@ CRITICAL REQUIREMENTS:
       type Provider =
         | { name: string; kind: "openrouter"; key: string; model: string }
         | { name: string; kind: "google"; key: string; model: string }
-        | { name: string; kind: "openai"; key: string; model: string };
+        | { name: string; kind: "openai"; key: string; model: string }
+        | { name: string; kind: "pollinations"; key: ""; model: string };
       const PROVIDERS: Provider[] = [
         { name: "lovable-ai", kind: "openrouter", key: LOVABLE_API_KEY, model: "google/gemini-2.5-flash-image" },
       ];
@@ -270,6 +271,8 @@ CRITICAL REQUIREMENTS:
       if (OPENAI_API_KEY) {
         PROVIDERS.push({ name: "openai:gpt-image-1", kind: "openai", key: OPENAI_API_KEY, model: "gpt-image-1" });
       }
+      // Free fallback — no API key required, no billing limit
+      PROVIDERS.push({ name: "pollinations:flux", kind: "pollinations", key: "", model: "flux" });
 
       let imageData: string | undefined;
       let lastStatus = 0;
