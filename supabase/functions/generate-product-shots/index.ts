@@ -276,7 +276,13 @@ Deno.serve(async (req) => {
     };
 
 
-    const generateOneShot = async (shotType: ShotType): Promise<{ type: ShotType; label: string; url: string } | null> => {
+    const generateOneShot = async (
+      shotType: ShotType,
+    ): Promise<
+      | { type: ShotType; label: string; url: string }
+      | { type: ShotType; label: string; url: ""; failures: Array<{ provider: string; status: number; message: string; code: string }> }
+      | null
+    > => {
       const shotConfig = SHOT_TYPES[shotType];
 
       const useAmbiance = withAmbiance && shotType !== "lifestyle" && ambiancePrompt.length > 0;
