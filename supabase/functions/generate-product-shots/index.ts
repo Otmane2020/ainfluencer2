@@ -128,6 +128,39 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
   return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
 }
 
+function classifyProviderFailure(status: number, message: string): string {
+  const normalizedMessage = message.toLowerCase();
+
+  if (
+    status === 429 ||
+    normalizedMessage.includes("quota") ||
+    normalizedMessage.includes("rate limit") ||
+    normalizedMessage.includes("queue full")
+  ) {
+    return "RATE_LIMITED";
+  }
+
+  if (
+    normalizedMessage.includes("not enough credits") ||
+    normalizedMessage.includes("billing hard limit") ||
+    normalizedMessage.includes("billing limit") ||
+    normalizedMessage.includes("payment_required") ||
+    normalizedMessage.includes("credits exhausted")
+  ) {
+    return "CREDITS_EXHAUSTED";
+  }
+
+  if (status === 404 || normalizedMessage.includes("not found")) {
+    return "MODEL_UNAVAILABLE";
+  }
+
+  if (status >= 500) {
+    return "PROVIDER_UNAVAILABLE";
+  }
+
+  return "PROVIDER_ERROR";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -226,8 +259,30 @@ Deno.serve(async (req) => {
       return sourceImageB64;
     };
 
+    let pollinationsQueue = Promise.resolve();
+    const runPollinationsRequest = async (url: string): Promise<Response> => {
+      const waitForTurn = pollinationsQueue;
+      let releaseQueue!: () => void;
+      pollinationsQueue = new Promise<void>((resolve) => {
+        releaseQueue = resolve;
+      });
 
-    const generateOneShot = async (shotType: ShotType): Promise<{ type: ShotType; label: string; url: string } | null> => {
+      await waitForTurn;
+      try {
+        return await fetchWithTimeout(url, { method: "GET" }, 90_000);
+      } finally {
+        releaseQueue();
+      }
+    };
+
+
+    const generateOneShot = async (
+      shotType: ShotType,
+    ): Promise<
+      | { type: ShotType; label: string; url: string }
+      | { type: ShotType; label: string; url: ""; failures: Array<{ provider: string; status: number; message: string; code: string }> }
+      | null
+    > => {
       const shotConfig = SHOT_TYPES[shotType];
 
       const useAmbiance = withAmbiance && shotType !== "lifestyle" && ambiancePrompt.length > 0;
@@ -368,10 +423,11 @@ CRITICAL REQUIREMENTS:
                 else if (url) imageData = url;
               }
             } else {
-              // Pollinations.ai — free, no API key, no billing. Text-to-image only (no source ref).
+              // Pollinations.ai — free, no API key, no billing. Anonymous tier is single-file / single-queue per IP,
+              // so requests must be serialized inside this invocation.
               const seed = Math.floor(Math.random() * 1_000_000);
               const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt.slice(0, 1800))}?width=${format.width}&height=${format.height}&model=${provider.model}&nologo=true&seed=${seed}`;
-              r = await fetchWithTimeout(url, { method: "GET" }, 90_000);
+              r = await runPollinationsRequest(url);
               if (r.ok) {
                 const buf = new Uint8Array(await r.arrayBuffer());
                 if (buf.byteLength > 1000) {
@@ -390,16 +446,7 @@ CRITICAL REQUIREMENTS:
             } else {
               lastStatus = r.status;
               lastError = (await r.text()).slice(0, 200);
-              const normalizedMessage = lastError.toLowerCase();
-              const errorCode = lastStatus === 402 || normalizedMessage.includes("not enough credits")
-                ? "CREDITS_EXHAUSTED"
-                : lastStatus === 429 || normalizedMessage.includes("quota") || normalizedMessage.includes("rate limit")
-                  ? "RATE_LIMITED"
-                  : lastStatus === 404 || normalizedMessage.includes("not found")
-                    ? "MODEL_UNAVAILABLE"
-                    : lastStatus >= 500
-                      ? "PROVIDER_UNAVAILABLE"
-                      : "PROVIDER_ERROR";
+              const errorCode = classifyProviderFailure(lastStatus, lastError);
               providerFailures.push({
                 provider: provider.name,
                 status: lastStatus,
@@ -414,7 +461,11 @@ CRITICAL REQUIREMENTS:
             lastError = e instanceof Error ? e.message : String(e);
             console.warn(`[generate-product-shots] ${provider.name} exception attempt ${attempt}:`, lastError);
           }
-          await new Promise((res) => setTimeout(res, 600 * attempt + Math.random() * 400));
+          const backoff =
+            lastError.toLowerCase().includes("queue full") || lastStatus === 429
+              ? 15_500
+              : 600 * attempt + Math.random() * 400;
+          await new Promise((res) => setTimeout(res, backoff));
         }
       }
 
