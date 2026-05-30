@@ -260,19 +260,18 @@ Deno.serve(async (req) => {
     };
 
     let pollinationsQueue = Promise.resolve();
-    let pollinationsRelease: (() => void) | null = null;
     const runPollinationsRequest = async (url: string): Promise<Response> => {
       const waitForTurn = pollinationsQueue;
+      let releaseQueue!: () => void;
       pollinationsQueue = new Promise<void>((resolve) => {
-        pollinationsRelease = resolve;
+        releaseQueue = resolve;
       });
 
       await waitForTurn;
       try {
         return await fetchWithTimeout(url, { method: "GET" }, 90_000);
       } finally {
-        pollinationsRelease?.();
-        pollinationsRelease = null;
+        releaseQueue();
       }
     };
 
@@ -456,7 +455,11 @@ CRITICAL REQUIREMENTS:
             lastError = e instanceof Error ? e.message : String(e);
             console.warn(`[generate-product-shots] ${provider.name} exception attempt ${attempt}:`, lastError);
           }
-          await new Promise((res) => setTimeout(res, 600 * attempt + Math.random() * 400));
+          const backoff =
+            lastError.toLowerCase().includes("queue full") || lastStatus === 429
+              ? 15_500
+              : 600 * attempt + Math.random() * 400;
+          await new Promise((res) => setTimeout(res, backoff));
         }
       }
 
