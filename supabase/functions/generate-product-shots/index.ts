@@ -474,11 +474,7 @@ CRITICAL REQUIREMENTS:
                   if (b64) {
                     imageData = `data:image/png;base64,${b64}`;
                   } else if (imgUrl) {
-                    const imgFetch = await fetchWithTimeout(imgUrl, { method: "GET" }, 60_000);
-                    if (imgFetch.ok) {
-                      const buf = new Uint8Array(await imgFetch.arrayBuffer());
-                      imageData = `data:image/png;base64,${bytesToBase64(buf)}`;
-                    }
+                    imageData = imgUrl;
                   }
                 } else {
                   const buf = new Uint8Array(await r.arrayBuffer());
@@ -552,18 +548,12 @@ CRITICAL REQUIREMENTS:
           } as const;
         }
 
-        let dataUrl = imageData;
         if (/^https?:\/\//i.test(imageData)) {
-          const imgResp = await fetchWithTimeout(imageData, { method: "GET" }, 60_000);
-          if (!imgResp.ok) {
-            console.error(`[generate-product-shots] Failed to fetch returned image URL for ${shotType}:`, imgResp.status);
-            return null;
-          }
-          const buf = new Uint8Array(await imgResp.arrayBuffer());
-          const b64 = bytesToBase64(buf);
-          dataUrl = `data:image/png;base64,${b64}`;
+          console.log(`[generate-product-shots] ${shotType} returning provider URL directly to avoid edge memory spikes`);
+          return { type: shotType, label: shotConfig.label, url: imageData };
         }
 
+        const dataUrl = imageData;
         const rawBytes = dataUrlToBytes(dataUrl);
         const imageBytes = rawBytes; // skip in-function resize to avoid OOM
 
