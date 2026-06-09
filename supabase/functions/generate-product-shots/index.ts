@@ -1,44 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Image } from "https://deno.land/x/imagescript@1.2.17/mod.ts";
+// NOTE: imagescript removed — was causing WORKER_RESOURCE_LIMIT (OOM) errors.
+// Aspect ratio is now enforced by the provider's width/height params at generation time.
 
-async function enforceAspectRatio(
-  bytes: Uint8Array,
-  targetW: number,
-  targetH: number,
-): Promise<Uint8Array> {
-  try {
-    const img = await Image.decode(bytes);
-    const srcRatio = img.width / img.height;
-    const dstRatio = targetW / targetH;
-    // If already close enough (±2%), just resize to exact target
-    if (Math.abs(srcRatio - dstRatio) < 0.02) {
-      img.resize(targetW, targetH);
-      return await img.encode();
-    }
-    // CONTAIN (letterbox): scale so the entire product fits, then center on a white canvas.
-    // Avoids cropping the product when switching to portrait/landscape formats.
-    let newW: number, newH: number;
-    if (srcRatio > dstRatio) {
-      // source wider → fit by width
-      newW = targetW;
-      newH = Math.round(targetW / srcRatio);
-    } else {
-      // source taller → fit by height
-      newH = targetH;
-      newW = Math.round(targetH * srcRatio);
-    }
-    img.resize(newW, newH);
-    const canvas = new Image(targetW, targetH);
-    canvas.fill(0xffffffff); // opaque white background
-    const x = Math.floor((targetW - newW) / 2);
-    const y = Math.floor((targetH - newH) / 2);
-    canvas.composite(img, x, y);
-    return await canvas.encode();
-  } catch (e) {
-    console.warn("[enforceAspectRatio] failed, returning original:", e);
-    return bytes;
-  }
-}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
