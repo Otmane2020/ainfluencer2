@@ -179,7 +179,7 @@ const LandingPage = () => {
       {/* PROMO BANNER */}
       <div className="pt-14 md:pt-16">
         <div className="bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-500 text-white text-center text-sm md:text-base font-semibold py-2.5 px-4">
-          🎁 Limited offer — <span className="underline underline-offset-2">3 months of unlimited AI generation, FREE</span> · No credit card required
+          🎁 Limited offer — <span className="underline underline-offset-2">1 month of unlimited AI generation, FREE</span> · No credit card required
         </div>
       </div>
 
@@ -192,7 +192,7 @@ const LandingPage = () => {
         >
           <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 border border-emerald-500/40 px-4 py-1.5 mb-6">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 tracking-wider uppercase">3 months free · Unlimited · No card</span>
+            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 tracking-wider uppercase">1 month free · Unlimited · No card</span>
           </div>
           <h1 className="font-display text-4xl sm:text-5xl md:text-7xl font-bold leading-[1.05] tracking-tight">
             1 product photo →<br />
@@ -205,7 +205,7 @@ const LandingPage = () => {
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Button size="lg" onClick={() => navigate("/auth")} className="h-12 px-8 gradient-primary shadow-glow">
-              <Sparkles className="mr-2 h-4 w-4" /> Claim 3 months free
+              <Sparkles className="mr-2 h-4 w-4" /> Claim 1 month free
             </Button>
             <Button size="lg" variant="outline" onClick={() => {
               document.getElementById("demo")?.scrollIntoView({ behavior: "smooth" });
@@ -213,7 +213,7 @@ const LandingPage = () => {
               Watch demo <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
-          <p className="mt-4 text-xs text-muted-foreground">No credit card · Cancel anytime · Unlimited generations for 90 days</p>
+          <p className="mt-4 text-xs text-muted-foreground">No credit card · Cancel anytime · Unlimited generations for 30 days</p>
         </motion.div>
       </section>
 
