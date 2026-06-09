@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SUPPORT_INBOX = "benyahya.otmane@gmail.com";
+const SUPPORT_INBOX = "oben.rockman@gmail.com";
 const FROM = "ClipMotion Support <support@notify.clipmotion.ai>";
 
 Deno.serve(async (req) => {

@@ -205,18 +205,25 @@ const HistoryPage = () => {
   };
 
   const CACHE_KEY = `history_media_${user?.id}`;
-  const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  const CACHE_TTL = 60 * 1000; // 1 minute (short, to avoid stale cross-user data)
 
   const loadAllMedia = async (forceRefresh = false) => {
     if (!user) return;
+
+    // Clear any stale caches from other accounts on this device
+    try {
+      Object.keys(sessionStorage).forEach((k) => {
+        if (k.startsWith("history_media_") && k !== CACHE_KEY) sessionStorage.removeItem(k);
+      });
+    } catch {}
 
     // Check cache first
     if (!forceRefresh) {
       try {
         const cached = sessionStorage.getItem(CACHE_KEY);
         if (cached) {
-          const { data, timestamp } = JSON.parse(cached);
-          if (Date.now() - timestamp < CACHE_TTL) {
+          const { data, timestamp, uid } = JSON.parse(cached);
+          if (uid === user.id && Date.now() - timestamp < CACHE_TTL) {
             const restored = data.map((m: any) => ({ ...m, createdAt: new Date(m.createdAt) }));
             setAllMedia(restored);
             return;
@@ -340,8 +347,9 @@ const HistoryPage = () => {
       setAllMedia(media);
 
       // Save to cache
+      // Save to cache (with user id binding)
       try {
-        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data: media, timestamp: Date.now() }));
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data: media, timestamp: Date.now(), uid: user.id }));
       } catch {}
     } catch (error) {
       console.error("Error loading media:", error);
