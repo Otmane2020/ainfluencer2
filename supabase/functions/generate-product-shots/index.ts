@@ -543,8 +543,11 @@ CRITICAL REQUIREMENTS:
               console.log(`[generate-product-shots] ${shotType} via ${provider.name} (attempt ${attempt})`);
               successfulProvider = provider.name;
               successfulModel = provider.model;
+              lastSuccessfulProvider = provider.name;
+              lastSuccessfulModel = provider.model;
               break outer;
             }
+
             if (r.ok) {
               lastError = "no image in response";
               console.warn(`[generate-product-shots] ${shotType} attempt ${attempt} via ${provider.name}: empty image, retrying...`);
