@@ -1158,8 +1158,8 @@ BANNED: generic stock photo, clipart, blurry background, low quality, stars as l
     // ============================================================
     // AUTOMATIC FALLBACK CHAIN
     // When primary fails, try alternatives in order:
-    // 1. Nano Banana (only if primary wasn't already lovable)
-    // 2. Gemini direct API (using GEMINI_API_KEY)
+    // 1. Gemini direct API (primary fallback)
+    // 2. Gemini direct API (alternate models)
     // 3. KIE Qwen Z-Image (cheapest KIE model)
     // ============================================================
     if (!imageData) {
