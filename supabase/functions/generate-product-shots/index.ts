@@ -322,6 +322,10 @@ CRITICAL REQUIREMENTS:
         | { name: string; kind: "huggingface"; key: string; model: string }
         | { name: string; kind: "pollinations"; key: ""; model: string };
       const PROVIDERS: Provider[] = [];
+      // PRIMARY — HuggingFace via fal-ai router (FLUX.1-schnell, fast & cheap)
+      if (HF_TOKEN) {
+        PROVIDERS.push({ name: "hf:fal-flux-schnell", kind: "huggingface", key: HF_TOKEN, model: "fal-ai/flux/schnell" });
+      }
       if (GEMINI_API_KEY) {
         for (const m of [
           "gemini-2.5-flash-image",
@@ -340,12 +344,9 @@ CRITICAL REQUIREMENTS:
       if (LOVABLE_API_KEY) {
         PROVIDERS.push({ name: "lovable:nano-banana", kind: "lovable", key: LOVABLE_API_KEY, model: "google/gemini-2.5-flash-image" });
       }
-      // Free fallback — HuggingFace router endpoint (api-inference.huggingface.co is deprecated)
-      if (HF_TOKEN) {
-        PROVIDERS.push({ name: "hf:flux-schnell", kind: "huggingface", key: HF_TOKEN, model: "black-forest-labs/FLUX.1-schnell" });
-      }
       // Free fallback — Pollinations.ai (no API key, queue-limited)
       PROVIDERS.push({ name: "pollinations:flux", kind: "pollinations", key: "", model: "flux" });
+
 
       let imageData: string | undefined;
       let lastStatus = 0;
