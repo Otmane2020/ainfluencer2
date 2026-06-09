@@ -9,10 +9,13 @@ import { Loader2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SupportWidget } from "@/components/SupportWidget";
 import { PWAInstallBanner } from "@/components/PWAInstall";
+import { TrialEndedModal } from "@/components/TrialEndedModal";
+import { useTrialStatus } from "@/hooks/useTrialStatus";
 
 export function AppLayout() {
   const { user, isLoading } = useAuth();
-  const { isSubscribed, isLoading: subLoading } = useSubscription();
+  const { isSubscribed, isLoading: subLoading, currentPlan } = useSubscription();
+  const trial = useTrialStatus();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
