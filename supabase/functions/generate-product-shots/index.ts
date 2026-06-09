@@ -195,14 +195,13 @@ Deno.serve(async (req) => {
 
     const shotTypes = normalizeShotTypes(body?.shotTypes, includeLifestyle);
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     const HF_TOKEN = Deno.env.get("HF_TOKEN");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!LOVABLE_API_KEY) {
+    if (!GEMINI_API_KEY && !OPENAI_API_KEY && !HF_TOKEN) {
       return new Response(JSON.stringify({ error: "AI service not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -308,16 +307,13 @@ CRITICAL REQUIREMENTS:
 - No text, watermarks, or borders
 - Ultra high resolution, sharp focus on the product`;
 
-      // Providers: Lovable AI Gateway first, then Gemini direct (multiple model names — availability varies)
+      // Providers: direct APIs only — Gemini, OpenAI, HuggingFace, Pollinations
       type Provider =
-        | { name: string; kind: "openrouter"; key: string; model: string }
         | { name: string; kind: "google"; key: string; model: string }
         | { name: string; kind: "openai"; key: string; model: string }
         | { name: string; kind: "huggingface"; key: string; model: string }
         | { name: string; kind: "pollinations"; key: ""; model: string };
-      const PROVIDERS: Provider[] = [
-        { name: "lovable-ai", kind: "openrouter", key: LOVABLE_API_KEY, model: "google/gemini-2.5-flash-image" },
-      ];
+      const PROVIDERS: Provider[] = [];
       if (GEMINI_API_KEY) {
         for (const m of [
           "gemini-2.5-flash-image",
@@ -338,6 +334,8 @@ CRITICAL REQUIREMENTS:
       let imageData: string | undefined;
       let lastStatus = 0;
       let lastError = "";
+      let successfulProvider = "";
+      let successfulModel = "";
       const providerFailures: Array<{ provider: string; status: number; message: string; code: string }> = [];
 
       const MAX_ATTEMPTS = 2;
@@ -345,31 +343,7 @@ CRITICAL REQUIREMENTS:
         for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
           try {
             let r: Response;
-            if (provider.kind === "openrouter") {
-              r = await fetchWithTimeout(
-                "https://ai.gateway.lovable.dev/v1/chat/completions",
-                {
-                  method: "POST",
-                  headers: { Authorization: `Bearer ${provider.key}`, "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    model: provider.model,
-                    messages: [{
-                      role: "user",
-                      content: [
-                        { type: "text", text: imagePrompt },
-                        { type: "image_url", image_url: { url: sourceImageUrl } },
-                      ],
-                    }],
-                    modalities: ["image", "text"],
-                  }),
-                },
-                90_000
-              );
-              if (r.ok) {
-                const data = await r.json();
-                imageData = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-              }
-            } else if (provider.kind === "google") {
+            if (provider.kind === "google") {
               // Google Generative Language API direct — requires inline base64 + responseModalities
               const src = await getSourceImageB64();
               r = await fetchWithTimeout(
@@ -472,6 +446,8 @@ CRITICAL REQUIREMENTS:
 
             if (r.ok && imageData) {
               console.log(`[generate-product-shots] ${shotType} via ${provider.name} (attempt ${attempt})`);
+              successfulProvider = provider.name;
+              successfulModel = provider.model;
               break outer;
             }
             if (r.ok) {
@@ -595,8 +571,8 @@ CRITICAL REQUIREMENTS:
       thumbnail_url: image.url,
       audio_url: null,
       duration: 0,
-      model: "google/gemini-2.5-flash-image",
-      provider: "lovable-ai",
+      model: successfulModel || "direct-api",
+      provider: successfulProvider || "direct-api",
       quality: format.px,
       format: formatRaw,
       estimated_cost: 0,

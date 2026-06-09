@@ -94,9 +94,9 @@ async function verifyAutoPostAccess(
 // ============================================================
 
 const IMAGE_QUALITY_CONFIG = {
-  standard: { model: "google/gemini-2.5-flash-image", provider: "lovable", cost: 1 },
-  pro: { model: "google/gemini-3-pro-image-preview", provider: "lovable", cost: 3 },
-  cinema: { model: "google/gemini-3-pro-image-preview", provider: "lovable", cost: 5 },
+  standard: { model: "google/gemini-2.5-flash-image", provider: "gemini-direct", cost: 1 },
+  pro: { model: "google/gemini-3-pro-image-preview", provider: "gemini-direct", cost: 3 },
+  cinema: { model: "google/gemini-3-pro-image-preview", provider: "gemini-direct", cost: 5 },
 };
 
 // Sora 2 valid durations: 4, 8, 12 seconds only
@@ -191,44 +191,37 @@ async function uploadUrlToStorage(url: string, supabase: any): Promise<string | 
   } catch { return url; }
 }
 
-async function tryLovableAI(prompt: string, _model: string): Promise<string | null> {
-  const key = Deno.env.get("LOVABLE_API_KEY");
+async function tryGeminiDirectPrimary(prompt: string, _model: string): Promise<string | null> {
+  const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) return null;
-  
-  // Try Gemini image generation via chat completions (primary)
-  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ 
-      model: "google/gemini-3-pro-image-preview", 
-      messages: [{ role: "user", content: prompt.slice(0, 3000) }], 
-      modalities: ["image", "text"] 
-    }),
-  });
-  if (!resp.ok) { 
-    const errText = await resp.text().catch(() => "");
-    console.error(`[Lovable-Gemini3] ${resp.status} ${errText}`); 
-    // Try flash image as fallback
-    const resp2 = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        model: "google/gemini-2.5-flash-image", 
-        messages: [{ role: "user", content: prompt.slice(0, 3000) }], 
-        modalities: ["image", "text"] 
-      }),
-    });
-    if (!resp2.ok) { console.error(`[Lovable-Gemini2.5] ${resp2.status}`); return null; }
-    const data2 = await resp2.json();
-    const imgUrl2 = data2.choices?.[0]?.message?.images?.[0]?.image_url?.url 
-      || data2.choices?.[0]?.message?.content?.[0]?.image_url?.url;
-    if (imgUrl2) { console.log("[Lovable] ✅ Image generated via gemini-2.5-flash-image"); return imgUrl2; }
-    return null;
+
+  const models = ["gemini-2.5-flash-image-preview", "gemini-2.0-flash-exp-image-generation"];
+  for (const model of models) {
+    try {
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt.slice(0, 3000) }] }],
+          generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+        }),
+      });
+      if (!resp.ok) {
+        console.warn(`[GeminiDirect] ${model} → ${resp.status}`);
+        continue;
+      }
+      const data = await resp.json();
+      const parts = data.candidates?.[0]?.content?.parts || [];
+      for (const part of parts) {
+        if (part.inlineData?.data || part.inline_data?.data) {
+          const inline = part.inlineData || part.inline_data;
+          const mime = inline.mimeType || inline.mime_type || "image/png";
+          console.log(`[GeminiDirect] ✅ Image generated via ${model}`);
+          return `data:${mime};base64,${inline.data}`;
+        }
+      }
+    } catch { continue; }
   }
-  const data = await resp.json();
-  const imgUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url 
-    || data.choices?.[0]?.message?.content?.[0]?.image_url?.url;
-  if (imgUrl) { console.log("[Lovable] ✅ Image generated via gemini-3-pro-image-preview"); return imgUrl; }
   return null;
 }
 
@@ -410,9 +403,9 @@ ${lang !== "en" ? `Do NOT use English text — all text must be in ${langName}.`
 
   // ── Fallback chain ──
   const providers = [
-    { name: "Lovable AI", fn: () => tryLovableAI(finalPrompt, config.model) },
+    { name: "Gemini Direct", fn: () => tryGeminiDirectPrimary(finalPrompt, config.model) },
     { name: "OpenAI DALL-E", fn: () => tryOpenAIDalle(finalPrompt) },
-    { name: "Gemini Direct", fn: () => tryGeminiDirect(finalPrompt) },
+    { name: "Gemini Direct (legacy)", fn: () => tryGeminiDirect(finalPrompt) },
     { name: "Kling Direct", fn: () => tryKlingDirect(finalPrompt) },
     { name: "Replicate FLUX", fn: () => tryReplicateFlux(finalPrompt) },
   ];
