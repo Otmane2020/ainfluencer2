@@ -920,9 +920,9 @@ async function generateImage(
       result = await generateWithPollinations(prompt, aspectRatio);
       break;
 
-    case "lovable":
+    case "gemini-direct":
     default:
-      result = await generateWithLovable(prompt, routing.apiModel!, sourceImage);
+      result = await generateWithGeminiDirectPrimary(prompt, routing.apiModel!, sourceImage);
       break;
   }
 
@@ -1165,25 +1165,25 @@ BANNED: generic stock photo, clipart, blurry background, low quality, stars as l
     if (!imageData) {
       console.log(`[Fallback] Primary model ${effectiveModelId} (${provider}) failed: ${error}`);
 
-      // Step 1: Try Nano Banana — skip if primary was already lovable
-      if (provider !== "lovable") {
-        console.log(`[Fallback] Step 1: Trying Nano Banana...`);
-        const fallbackResult = await generateWithLovable(
+      // Step 1: Try Gemini direct API (primary fallback)
+      if (provider !== "gemini-direct") {
+        console.log(`[Fallback] Step 1: Trying Gemini direct API...`);
+        const fallbackResult = await generateWithGeminiDirectPrimary(
           finalPrompt,
           "google/gemini-2.5-flash-image",
           sourceImage
         );
         if (fallbackResult.imageData) {
-          console.log(`[Fallback] ✓ Nano Banana succeeded`);
+          console.log(`[Fallback] ✓ Gemini direct succeeded`);
           imageData = fallbackResult.imageData;
           error = undefined;
-          provider = "lovable";
+          provider = "gemini-direct";
         } else {
-          console.error(`[Fallback] ✗ Nano Banana failed: ${fallbackResult.error}`);
+          console.error(`[Fallback] ✗ Gemini direct failed: ${fallbackResult.error}`);
         }
       }
 
-      // Step 2: Try Gemini direct API
+      // Step 2: Try Gemini direct API (alternate models)
       if (!imageData) {
         console.log(`[Fallback] Step 2: Trying Gemini direct API...`);
         const geminiResult = await generateWithGeminiDirect(finalPrompt, sourceImage);
