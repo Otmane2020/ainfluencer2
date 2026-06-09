@@ -1,10 +1,10 @@
 // ============================================================
 // MODEL POOLS CONFIGURATION
 // Centralized model selection with weighted random rotation
-// All models now via Lovable AI (Nano Banana)
+// Removed Lovable AI — now uses direct provider APIs
 // ============================================================
 
-export type Provider = "lovable" | "openai" | "elevenlabs" | "suno";
+export type Provider = "openai" | "elevenlabs" | "suno";
 
 export interface ModelOption {
   id: string;
@@ -16,59 +16,59 @@ export interface ModelOption {
 }
 
 // ============================================================
-// VIDEO MODEL POOLS (via Lovable AI / Nano Banana)
-// All tiers now use Nano Banana for reliability
+// VIDEO MODEL POOLS
+// Uses direct provider APIs (Sora, Veo, KIE, HeyGen via backend)
 // ============================================================
 
 export const VIDEO_MODEL_POOLS: Record<string, ModelOption[]> = {
-  // Standard Video - Nano Banana (fast, 10s max)
+  // Standard Video
   "standard-video": [
-    { id: "nano-banana", provider: "lovable", weight: 100, apiModel: "nano-banana", maxDuration: 10, costEstimate: 0.05 },
+    { id: "standard-video", provider: "openai", weight: 100, apiModel: "standard-video", maxDuration: 10, costEstimate: 0.05 },
   ],
-  // Pro Video - Nano Banana (high quality, 12s)
+  // Pro Video
   "pro-video": [
-    { id: "nano-banana-pro", provider: "lovable", weight: 100, apiModel: "nano-banana-pro", maxDuration: 12, costEstimate: 0.10 },
+    { id: "pro-video", provider: "openai", weight: 100, apiModel: "pro-video", maxDuration: 12, costEstimate: 0.10 },
   ],
-  // Cinema Video - Nano Banana Premium
+  // Cinema Video
   "cinema-video": [
-    { id: "nano-banana-premium", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", maxDuration: 12, costEstimate: 0.05 },
+    { id: "cinema-video", provider: "openai", weight: 100, apiModel: "cinema-video", maxDuration: 12, costEstimate: 0.05 },
   ],
   // Legacy support
   "smart-video": [
-    { id: "nano-banana", provider: "lovable", weight: 100, apiModel: "nano-banana", maxDuration: 10, costEstimate: 0.05 },
+    { id: "smart-video", provider: "openai", weight: 100, apiModel: "smart-video", maxDuration: 10, costEstimate: 0.05 },
   ],
   "high-video": [
-    { id: "nano-banana-pro", provider: "lovable", weight: 100, apiModel: "nano-banana-pro", maxDuration: 12, costEstimate: 0.10 },
+    { id: "high-video", provider: "openai", weight: 100, apiModel: "high-video", maxDuration: 12, costEstimate: 0.10 },
   ],
 };
 
 // ============================================================
-// IMAGE MODEL POOLS (via CometAPI - Flux.1 Pro/Dev/Schnell)
+// IMAGE MODEL POOLS (Flux.1 via direct APIs)
 // Best for text rendering in images (URLs, overlay text)
 // ============================================================
 
 export const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
   // Standard Image - Flux Schnell (fast, affordable)
   "standard-image": [
-    { id: "flux-schnell", provider: "lovable", weight: 100, apiModel: "flux-schnell", costEstimate: 0.01 },
+    { id: "flux-schnell", provider: "openai", weight: 100, apiModel: "flux-schnell", costEstimate: 0.01 },
   ],
   // Pro Image - Flux Dev (high quality)
   "pro-image": [
-    { id: "flux-dev", provider: "lovable", weight: 100, apiModel: "flux-dev", costEstimate: 0.02 },
+    { id: "flux-dev", provider: "openai", weight: 100, apiModel: "flux-dev", costEstimate: 0.02 },
   ],
   // Cinema Image - Flux Pro (premium, best text rendering)
   "cinema-image": [
-    { id: "flux-pro", provider: "lovable", weight: 100, apiModel: "flux-pro", costEstimate: 0.05 },
+    { id: "flux-pro", provider: "openai", weight: 100, apiModel: "flux-pro", costEstimate: 0.05 },
   ],
   // Legacy support
   "smart-image": [
-    { id: "flux-schnell", provider: "lovable", weight: 100, apiModel: "flux-schnell", costEstimate: 0.01 },
+    { id: "flux-schnell", provider: "openai", weight: 100, apiModel: "flux-schnell", costEstimate: 0.01 },
   ],
   "high-image": [
-    { id: "flux-dev", provider: "lovable", weight: 100, apiModel: "flux-dev", costEstimate: 0.02 },
+    { id: "flux-dev", provider: "openai", weight: 100, apiModel: "flux-dev", costEstimate: 0.02 },
   ],
   "studio-image": [
-    { id: "flux-pro", provider: "lovable", weight: 100, apiModel: "flux-pro", costEstimate: 0.05 },
+    { id: "flux-pro", provider: "openai", weight: 100, apiModel: "flux-pro", costEstimate: 0.05 },
   ],
 };
 
