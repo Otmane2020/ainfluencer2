@@ -669,8 +669,9 @@ CRITICAL REQUIREMENTS:
       thumbnail_url: image.url,
       audio_url: null,
       duration: 0,
-      model: successfulModel || "direct-api",
-      provider: successfulProvider || "direct-api",
+      model: lastSuccessfulModel || "direct-api",
+      provider: lastSuccessfulProvider || "direct-api",
+
       quality: format.px,
       format: formatRaw,
       estimated_cost: 0,
