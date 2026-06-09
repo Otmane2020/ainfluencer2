@@ -729,7 +729,7 @@ async function generateWithGeminiDirect(
 
 // ============================================================
 // TEXT OVERLAY — 2-step: prepare text, then composite onto image
-// Uses AI to render properly spelled, styled marketing text
+// Uses direct Gemini API to render properly spelled, styled marketing text
 // ============================================================
 
 async function overlayTextOnImage(
@@ -739,8 +739,8 @@ async function overlayTextOnImage(
   brandName?: string,
   primaryColor?: string,
 ): Promise<string> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY || !textContent || textContent.trim().length === 0) {
+  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+  if (!GEMINI_API_KEY || !textContent || textContent.trim().length === 0) {
     return baseImageData;
   }
 
@@ -760,22 +760,21 @@ Input text: "${textContent}"
 
 Reply with ONLY the corrected text, nothing else.`;
 
-    const textPrepRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [{ role: "user", content: textPrepPrompt }],
-      }),
-    });
+    const textPrepRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: textPrepPrompt }] }],
+        }),
+      }
+    );
 
     let correctedText = textContent;
     if (textPrepRes.ok) {
       const textPrepData = await textPrepRes.json();
-      const aiText = textPrepData.choices?.[0]?.message?.content?.trim();
+      const aiText = textPrepData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
       if (aiText && aiText.length > 0 && aiText.length < 100) {
         correctedText = aiText.replace(/^["']|["']$/g, ""); // strip quotes
         console.log(`[TextOverlay] Corrected text: "${correctedText}"`);
@@ -799,24 +798,25 @@ RULES:
 - Do NOT add any other text, watermarks, or labels
 - Preserve the rest of the image EXACTLY as-is`;
 
-    const compositeRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image",
-        messages: [{
-          role: "user",
-          content: [
-            { type: "text", text: compositePrompt },
-            { type: "image_url", image_url: { url: baseImageData } },
-          ],
-        }],
-        modalities: ["image", "text"],
-      }),
-    });
+    const baseMatch = baseImageData.match(/^data:([^;]+);base64,(.+)$/);
+
+    const compositeRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            role: "user",
+            parts: [
+              { text: compositePrompt },
+              ...(baseMatch ? [{ inline_data: { mime_type: baseMatch[1], data: baseMatch[2] } }] : []),
+            ],
+          }],
+          generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+        }),
+      }
+    );
 
     if (!compositeRes.ok) {
       console.error(`[TextOverlay] Composite failed: ${compositeRes.status}`);
@@ -824,7 +824,18 @@ RULES:
     }
 
     const compositeData = await compositeRes.json();
-    const resultImage = compositeData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    const candidateParts = compositeData.candidates?.[0]?.content?.parts;
+    let resultImage: string | null = null;
+    if (candidateParts) {
+      for (const part of candidateParts) {
+        if (part.inlineData?.data || part.inline_data?.data) {
+          const inline = part.inlineData || part.inline_data;
+          const mime = inline.mimeType || inline.mime_type || "image/png";
+          resultImage = `data:${mime};base64,${inline.data}`;
+          break;
+        }
+      }
+    }
 
     if (resultImage) {
       console.log(`[TextOverlay] ✓ Text overlay applied successfully`);
