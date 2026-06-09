@@ -580,6 +580,41 @@ CRITICAL REQUIREMENTS:
       });
     }
 
+    const generationsToInsert = generatedImages.map((image) => ({
+      user_id: userId,
+      project_id: null,
+      campaign_id: null,
+      type: "image",
+      video_mode: "standard",
+      status: "completed",
+      progress: 100,
+      step: "finalizing",
+      prompt: `Product shot (${image.label}) — ${productTitle}${customPrompt ? `\n\nCustom instructions: ${customPrompt}` : ""}`,
+      script: null,
+      media_url: image.url,
+      thumbnail_url: image.url,
+      audio_url: null,
+      duration: 0,
+      model: "google/gemini-2.5-flash-image",
+      provider: "lovable-ai",
+      quality: format.px,
+      format: formatRaw,
+      estimated_cost: 0,
+      actual_cost: 0,
+      error_message: null,
+      retry_count: 0,
+      started_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
+    }));
+
+    const { error: saveGenerationError } = await supabase
+      .from("generations")
+      .insert(generationsToInsert);
+
+    if (saveGenerationError) {
+      console.error("[generate-product-shots] Failed to save generated images to generations:", saveGenerationError);
+    }
+
     // Deduct credits: 1 per successfully generated image
     const cost = generatedImages.length;
     const { data: deducted, error: dedErr } = await supabase.rpc("deduct_credits", {
