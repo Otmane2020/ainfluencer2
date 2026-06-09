@@ -5,7 +5,7 @@
 
 export type ModelType = "text-to-image" | "image-to-image" | "utility";
 export type CostLevel = "ultra-low" | "low" | "medium" | "high";
-export type ModelProvider = "kie" | "openai" | "replicate";
+export type ModelProvider = "kie" | "lovable" | "openai" | "replicate";
 
 export interface ImageModel {
   id: string;
@@ -149,7 +149,7 @@ const TEXT_TO_IMAGE_MODELS: ImageModel[] = [
     costLevel: "medium",
     costPerImage: 0.09,
     usage: "Social ads",
-    provider: "openai",
+    provider: "lovable",
     requiresImage: false,
     resolution: "2K",
   },
@@ -178,7 +178,7 @@ const TEXT_TO_IMAGE_MODELS: ImageModel[] = [
     costLevel: "high",
     costPerImage: 0.12,
     usage: "Hero / branding",
-    provider: "openai",
+    provider: "lovable",
     requiresImage: false,
     resolution: "4K",
   },

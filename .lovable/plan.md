@@ -1,43 +1,27 @@
-## Goal
-Make product-shot generation succeed reliably again and stop the current 500 error on `/product-shots`.
+## Problem
 
-## What I found
-The failure is in the backend function `generate-product-shots`, not the page preview itself.
+The edge function `generate-product-shots` fails with `Maximum call stack size exceeded` from the gemini-direct provider. Combined with the other providers being out of credits (402), every shot type fails and the function returns 500 "Failed to generate any images".
 
-From the logs:
-- Primary image provider fails with `402 Not enough credits`
-- The fallback provider is reached
-- That fallback then fails with `404 model not found`
-- The function returns `Failed to generate any images`, which surfaces as a 500 in the UI
+Root cause: in `bytesToBase64()`, the line `String.fromCharCode.apply(null, bytes.subarray(...))` still spreads up to 32KB of bytes as function arguments, which Deno's runtime rejects with a stack overflow on larger uploads.
 
-So the root cause is an invalid Gemini fallback configuration, plus the function currently escalates total provider failure into a hard 500.
+## Fix
 
-## Plan
-1. Fix the Gemini fallback in `supabase/functions/generate-product-shots/index.ts`
-   - Replace the invalid direct Gemini model usage with a known working image-generation fallback pattern already used elsewhere in the project
-   - Add the proper Gemini request payload for image output
-   - Keep the existing centered/contain post-processing so portrait and desktop outputs do not crop the product
+Replace the chunked `apply` with a simple per-byte loop inside 8KB windows in `supabase/functions/generate-product-shots/index.ts` (lines 73-81):
 
-2. Improve graceful failure behavior
-   - Prevent total provider failure from crashing the experience with an opaque 500
-   - Return a structured JSON error when no provider can generate images, so the frontend can handle it cleanly
-   - Preserve detailed backend logging for provider-specific failures
+```ts
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const CHUNK = 8192;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    const end = Math.min(i + CHUNK, bytes.length);
+    for (let j = i; j < end; j++) binary += String.fromCharCode(bytes[j]);
+  }
+  return btoa(binary);
+}
+```
 
-3. Update the frontend call site in `src/pages/ProductShotsPage.tsx`
-   - Handle the structured backend error without blank-screen behavior
-   - Show a clear user-facing error state instead of a generic runtime failure
+This eliminates the stack overflow so the gemini-direct fallback works even when Lovable AI / OpenRouter return 402.
 
-4. Validate the fix
-   - Redeploy the backend function
-   - Re-run generation with the same 1–2 shot flow that currently fails
-   - Confirm the logs show the corrected fallback path and that the UI no longer throws the runtime error
+## Note on credits
 
-## Technical details
-Files involved:
-- `supabase/functions/generate-product-shots/index.ts`
-- `src/pages/ProductShotsPage.tsx`
-
-Expected behavior after the fix:
-- If the primary provider works, generation behaves as before
-- If the primary provider is unavailable, fallback generation is attempted correctly
-- If every provider fails, the app shows a controlled error message instead of surfacing a raw 500 runtime failure
+The logs also show `lovable-ai` and `openrouter` returning **402 — out of credits**. Once the base64 bug is fixed, gemini-direct will succeed (GEMINI_API_KEY is configured). To restore the primary providers, top up Lovable AI workspace credits.

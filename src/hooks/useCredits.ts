@@ -96,7 +96,7 @@ export const useCredits = () => {
         if (!existingBonus) {
           const { data: newCredits, error: insertError } = await supabase
             .from("credits")
-            .insert({ user_id: user.id, balance: 500 })
+            .insert({ user_id: user.id, balance: 10 })
             .select()
             .single();
 
@@ -104,7 +104,7 @@ export const useCredits = () => {
             setCredits(newCredits);
             await supabase.from("credit_transactions").insert({
               user_id: user.id,
-              amount: 500,
+              amount: 10,
               type: "bonus",
               description: "Welcome bonus credits",
             });

@@ -176,23 +176,16 @@ const LandingPage = () => {
         </div>
       </nav>
 
-      {/* PROMO BANNER */}
-      <div className="pt-14 md:pt-16">
-        <div className="bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-500 text-white text-center text-sm md:text-base font-semibold py-2.5 px-4">
-          🎁 Limited offer — <span className="underline underline-offset-2">1 month of unlimited AI generation, FREE</span> · No credit card required
-        </div>
-      </div>
-
       {/* HERO */}
-      <section className="relative pt-12 pb-20 px-6 text-center overflow-hidden">
+      <section className="relative pt-32 pb-20 px-6 text-center overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/10 rounded-full blur-3xl pointer-events-none" />
         <motion.div
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}
           className="relative max-w-4xl mx-auto"
         >
-          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 border border-emerald-500/40 px-4 py-1.5 mb-6">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 tracking-wider uppercase">1 month free · Unlimited · No card</span>
+          <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/30 px-4 py-1.5 mb-8">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+            <span className="text-xs font-medium text-primary tracking-widest uppercase">AI built for E-commerce</span>
           </div>
           <h1 className="font-display text-4xl sm:text-5xl md:text-7xl font-bold leading-[1.05] tracking-tight">
             1 product photo →<br />
@@ -203,9 +196,9 @@ const LandingPage = () => {
             Turn ordinary product shots into pro visuals that sell.
             No photographer. No studio.
           </p>
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Button size="lg" onClick={() => navigate("/auth")} className="h-12 px-8 gradient-primary shadow-glow">
-              <Sparkles className="mr-2 h-4 w-4" /> Claim 1 month free
+              <Sparkles className="mr-2 h-4 w-4" /> Try Free
             </Button>
             <Button size="lg" variant="outline" onClick={() => {
               document.getElementById("demo")?.scrollIntoView({ behavior: "smooth" });
@@ -213,7 +206,6 @@ const LandingPage = () => {
               Watch demo <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
-          <p className="mt-4 text-xs text-muted-foreground">No credit card · Cancel anytime · Unlimited generations for 30 days</p>
         </motion.div>
       </section>
 

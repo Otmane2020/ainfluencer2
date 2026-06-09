@@ -218,23 +218,6 @@ export default function ProductShotsPage() {
       });
       clearInterval(interval);
       if (error) throw error;
-      if (data?.fallback || data?.success === false) {
-        const failedCount = Array.isArray(data?.failedShots) ? data.failedShots.length : totalShots;
-        const firstFailure = data?.failedShots?.[0]?.failures?.[0];
-        const detail = firstFailure?.code === "CREDITS_EXHAUSTED"
-          ? "Please top up the connected AI billing first, then retry."
-          : firstFailure?.code === "RATE_LIMITED"
-            ? "The provider is rate-limited right now. Please retry in a moment."
-            : "Please retry in a moment.";
-        toast.error(`${data?.error || "Image generation is temporarily unavailable."} ${detail}`, { id: toastId });
-        setProgress(0);
-        setStep(2);
-        if (failedCount < totalShots && data?.images?.length) {
-          setGeneratedImages(data.images.map((img: any) => ({ type: img.type, label: img.label, url: img.url, selected: true })));
-          setStep(4);
-        }
-        return;
-      }
       if (data?.images?.length) {
         setGeneratedImages(data.images.map((img: any) => ({ type: img.type, label: img.label, url: img.url, selected: true })));
         setProgress(100);

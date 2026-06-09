@@ -9,13 +9,10 @@ import { Loader2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SupportWidget } from "@/components/SupportWidget";
 import { PWAInstallBanner } from "@/components/PWAInstall";
-import { TrialEndedModal } from "@/components/TrialEndedModal";
-import { useTrialStatus } from "@/hooks/useTrialStatus";
 
 export function AppLayout() {
   const { user, isLoading } = useAuth();
-  const { isSubscribed, isLoading: subLoading, currentPlan } = useSubscription();
-  const trial = useTrialStatus();
+  const { isSubscribed, isLoading: subLoading } = useSubscription();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
@@ -47,8 +44,6 @@ export function AppLayout() {
     return null;
   }
 
-  const showTrialEnded = trial.isTrialExpired && currentPlan?.id === "starter";
-
   // Mobile layout with sheet menu
   if (isMobile) {
     return (
@@ -59,7 +54,6 @@ export function AppLayout() {
         </main>
         <SupportWidget />
         <PWAInstallBanner />
-        <TrialEndedModal open={showTrialEnded} />
       </div>
     );
   }
@@ -76,7 +70,6 @@ export function AppLayout() {
         </SidebarInset>
         <SupportWidget />
         <PWAInstallBanner />
-        <TrialEndedModal open={showTrialEnded} />
       </div>
     </SidebarProvider>
   );

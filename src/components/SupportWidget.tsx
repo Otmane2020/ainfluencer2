@@ -23,11 +23,7 @@ interface Message {
 type View = "menu" | "chat" | "email";
 
 export const SupportWidget = () => {
-  // Temporarily hidden per product decision
-  return null;
-  // eslint-disable-next-line no-unreachable
   const location = useLocation();
-  // eslint-disable-next-line no-unreachable
   const [isOpen, setIsOpen] = useState(false);
   const [view, setView] = useState<View>("menu");
   const [messages, setMessages] = useState<Message[]>([]);

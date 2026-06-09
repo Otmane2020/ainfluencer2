@@ -1,6 +1,6 @@
 // Public endpoint for the /mobileads landing trial.
 // 1 free trial per IP. Scrapes a product URL, then generates 4 stylized images
-// via direct Gemini API with modern backgrounds.
+// via Lovable AI Gateway (Nano Banana) with modern backgrounds.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
@@ -183,42 +183,44 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 2) Ask Gemini (direct API) to extract product description
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
+    // 2) Ask Gemini to extract product description
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
       return new Response(JSON.stringify({ error: "AI service not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const analysisRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{
-            role: "user",
-            parts: [
-              { text: "You analyze e-commerce product pages. Return a JSON object with: {\"product_name\": string, \"category\": string, \"visual_description\": string (a precise one-sentence description of the physical object: shape, color, material, key features for an image generator)}. ONLY JSON, no markdown.\n\n" },
-              { text: `Title: ${pageTitle}\n\nContent:\n${markdown.slice(0, 3000)}` },
-            ],
-          }],
-        }),
-      },
-    );
+    const analysisRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You analyze e-commerce product pages. Return a JSON object with: {\"product_name\": string, \"category\": string, \"visual_description\": string (a precise one-sentence description of the physical object: shape, color, material, key features for an image generator)}. ONLY JSON, no markdown.",
+          },
+          { role: "user", content: `Title: ${pageTitle}\n\nContent:\n${markdown.slice(0, 3000)}` },
+        ],
+      }),
+    });
     const analysisJson = await analysisRes.json();
     let product = { product_name: pageTitle || "Product", category: "product", visual_description: "a modern product" };
     try {
-      const txt = analysisJson?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      const txt = analysisJson?.choices?.[0]?.message?.content || "";
       const cleaned = txt.replace(/```json|```/g, "").trim();
       product = { ...product, ...JSON.parse(cleaned) };
     } catch (e) {
       console.warn("analysis parse err", e);
     }
 
-    // Pre-fetch the scraped image as base64 (for direct Gemini)
+    // 3) Generate 4 images with Nano Banana (Lovable AI), fallback to direct Gemini API
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+
+    // Pre-fetch the scraped image as base64 (for direct Gemini fallback)
     let scrapedImageB64: { data: string; mime: string } | null = null;
     if (scrapedImage) {
       try {
@@ -238,63 +240,63 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 3) Generate 4 images with direct Gemini API, fallback to Pollinations
     async function generateOne(prompt: string): Promise<string | null> {
-      // Primary: direct Gemini API
-      if (GEMINI_API_KEY) {
-        try {
-          const parts: any[] = [{ text: prompt }];
-          if (scrapedImageB64) {
-            parts.push({ inline_data: { mime_type: scrapedImageB64.mime, data: scrapedImageB64.data } });
-          }
-          const r = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${GEMINI_API_KEY}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [{ role: "user", parts }],
-                generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
-              }),
-            },
-          );
-          if (r.ok) {
-            const j = await r.json();
-            const inline = j?.candidates?.[0]?.content?.parts?.find((p: any) => p?.inline_data || p?.inlineData);
-            const inlineData = inline?.inline_data ?? inline?.inlineData;
-            if (inlineData?.data) {
-              const mime = inlineData.mime_type ?? inlineData.mimeType ?? "image/png";
-              return `data:${mime};base64,${inlineData.data}`;
-            }
-          } else {
-            console.warn("gemini-direct img failed", r.status, (await r.text()).slice(0, 200));
-          }
-        } catch (e) {
-          console.warn("gemini-direct err", e);
-        }
-      }
-
-      // Fallback: Pollinations.ai — free, no API key
+      // Try Lovable AI Gateway first
       try {
-        const seed = Math.floor(Math.random() * 1_000_000);
-        const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt.slice(0, 1800))}?width=1080&height=1920&model=flux&nologo=true&seed=${seed}`;
-        const r = await fetch(url, { method: "GET" });
-        if (r.ok) {
-          const buf = new Uint8Array(await r.arrayBuffer());
-          if (buf.byteLength > 1000) {
-            let bin = "";
-            for (let j = 0; j < buf.length; j += 8192) {
-              const end = Math.min(j + 8192, buf.length);
-              for (let k = j; k < end; k++) bin += String.fromCharCode(buf[k]);
-            }
-            return `data:image/png;base64,${btoa(bin)}`;
-          }
+        const userContent: any[] = [{ type: "text", text: prompt }];
+        if (scrapedImage) userContent.push({ type: "image_url", image_url: { url: scrapedImage } });
+        const imgRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash-image",
+            messages: [{ role: "user", content: userContent }],
+            modalities: ["image", "text"],
+          }),
+        });
+        if (imgRes.ok) {
+          const data = await imgRes.json();
+          const dataUrl: string | undefined = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+          if (dataUrl) return dataUrl;
+        } else {
+          console.warn("lovable-ai img failed", imgRes.status, (await imgRes.text()).slice(0, 200));
         }
       } catch (e) {
-        console.warn("pollinations err", e);
+        console.warn("lovable-ai err", e);
       }
 
-      return null;
+      // Fallback: direct Gemini API
+      if (!GEMINI_API_KEY) return null;
+      try {
+        const parts: any[] = [{ text: prompt }];
+        if (scrapedImageB64) {
+          parts.push({ inline_data: { mime_type: scrapedImageB64.mime, data: scrapedImageB64.data } });
+        }
+        const r = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts }],
+              generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+            }),
+          },
+        );
+        if (!r.ok) {
+          console.error("gemini-direct failed", r.status, (await r.text()).slice(0, 300));
+          return null;
+        }
+        const j = await r.json();
+        const inline = j?.candidates?.[0]?.content?.parts?.find((p: any) => p?.inline_data || p?.inlineData);
+        const inlineData = inline?.inline_data ?? inline?.inlineData;
+        if (!inlineData?.data) return null;
+        const mime = inlineData.mime_type ?? inlineData.mimeType ?? "image/png";
+        return `data:${mime};base64,${inlineData.data}`;
+      } catch (e) {
+        console.error("gemini-direct err", e);
+        return null;
+      }
     }
 
     const generatedUrls: string[] = [];

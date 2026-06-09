@@ -417,7 +417,7 @@ Deno.serve(async (req) => {
           status: "processing",
           progress: 10,
           model: "nano-banana",
-          provider: "gemini-direct",
+          provider: "lovable",
           duration,
           quality,
           creditCost: skipCreditDeduction ? 0 : creditCost,

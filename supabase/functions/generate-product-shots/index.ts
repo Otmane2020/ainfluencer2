@@ -1,7 +1,44 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-// NOTE: imagescript removed — was causing WORKER_RESOURCE_LIMIT (OOM) errors.
-// Aspect ratio is now enforced by the provider's width/height params at generation time.
+import { Image } from "https://deno.land/x/imagescript@1.2.17/mod.ts";
 
+async function enforceAspectRatio(
+  bytes: Uint8Array,
+  targetW: number,
+  targetH: number,
+): Promise<Uint8Array> {
+  try {
+    const img = await Image.decode(bytes);
+    const srcRatio = img.width / img.height;
+    const dstRatio = targetW / targetH;
+    // If already close enough (±2%), just resize to exact target
+    if (Math.abs(srcRatio - dstRatio) < 0.02) {
+      img.resize(targetW, targetH);
+      return await img.encode();
+    }
+    // CONTAIN (letterbox): scale so the entire product fits, then center on a white canvas.
+    // Avoids cropping the product when switching to portrait/landscape formats.
+    let newW: number, newH: number;
+    if (srcRatio > dstRatio) {
+      // source wider → fit by width
+      newW = targetW;
+      newH = Math.round(targetW / srcRatio);
+    } else {
+      // source taller → fit by height
+      newH = targetH;
+      newW = Math.round(targetH * srcRatio);
+    }
+    img.resize(newW, newH);
+    const canvas = new Image(targetW, targetH);
+    canvas.fill(0xffffffff); // opaque white background
+    const x = Math.floor((targetW - newW) / 2);
+    const y = Math.floor((targetH - newH) / 2);
+    canvas.composite(img, x, y);
+    return await canvas.encode();
+  } catch (e) {
+    console.warn("[enforceAspectRatio] failed, returning original:", e);
+    return bytes;
+  }
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -91,39 +128,6 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
   return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
 }
 
-function classifyProviderFailure(status: number, message: string): string {
-  const normalizedMessage = message.toLowerCase();
-
-  if (
-    status === 429 ||
-    normalizedMessage.includes("quota") ||
-    normalizedMessage.includes("rate limit") ||
-    normalizedMessage.includes("queue full")
-  ) {
-    return "RATE_LIMITED";
-  }
-
-  if (
-    normalizedMessage.includes("not enough credits") ||
-    normalizedMessage.includes("billing hard limit") ||
-    normalizedMessage.includes("billing limit") ||
-    normalizedMessage.includes("payment_required") ||
-    normalizedMessage.includes("credits exhausted")
-  ) {
-    return "CREDITS_EXHAUSTED";
-  }
-
-  if (status === 404 || normalizedMessage.includes("not found")) {
-    return "MODEL_UNAVAILABLE";
-  }
-
-  if (status >= 500) {
-    return "PROVIDER_UNAVAILABLE";
-  }
-
-  return "PROVIDER_ERROR";
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -158,15 +162,11 @@ Deno.serve(async (req) => {
 
     const shotTypes = normalizeShotTypes(body?.shotTypes, includeLifestyle);
 
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    const HF_TOKEN = Deno.env.get("HF_TOKEN");
-    const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!GEMINI_API_KEY && !OPENAI_API_KEY && !HF_TOKEN) {
+    if (!LOVABLE_API_KEY) {
       return new Response(JSON.stringify({ error: "AI service not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -212,46 +212,7 @@ Deno.serve(async (req) => {
     console.log(`[generate-product-shots] Starting generation for: ${productTitle}`);
     console.log(`[generate-product-shots] Shot types: ${shotTypes.join(", ")}`);
 
-    // Lazy-cached base64 of source image (used by Gemini direct fallback)
-    let sourceImageB64: { mime: string; data: string } | null = null;
-    const getSourceImageB64 = async (): Promise<{ mime: string; data: string }> => {
-      if (sourceImageB64) return sourceImageB64;
-      const r = await fetchWithTimeout(sourceImageUrl, { method: "GET" }, 60_000);
-      if (!r.ok) throw new Error(`Failed to fetch source image: ${r.status}`);
-      const mime = r.headers.get("content-type")?.split(";")[0] || "image/jpeg";
-      const buf = new Uint8Array(await r.arrayBuffer());
-      sourceImageB64 = { mime, data: bytesToBase64(buf) };
-      return sourceImageB64;
-    };
-
-    let pollinationsQueue = Promise.resolve();
-    const runPollinationsRequest = async (url: string): Promise<Response> => {
-      const waitForTurn = pollinationsQueue;
-      let releaseQueue!: () => void;
-      pollinationsQueue = new Promise<void>((resolve) => {
-        releaseQueue = resolve;
-      });
-
-      await waitForTurn;
-      try {
-        return await fetchWithTimeout(url, { method: "GET" }, 90_000);
-      } finally {
-        releaseQueue();
-      }
-    };
-
-
-    let lastSuccessfulProvider = "";
-    let lastSuccessfulModel = "";
-
-    const generateOneShot = async (
-      shotType: ShotType,
-    ): Promise<
-      | { type: ShotType; label: string; url: string }
-      | { type: ShotType; label: string; url: ""; failures: Array<{ provider: string; status: number; message: string; code: string }> }
-      | null
-    > => {
-
+    const generateOneShot = async (shotType: ShotType): Promise<{ type: ShotType; label: string; url: string } | null> => {
       const shotConfig = SHOT_TYPES[shotType];
 
       const useAmbiance = withAmbiance && shotType !== "lifestyle" && ambiancePrompt.length > 0;
@@ -276,287 +237,95 @@ CRITICAL REQUIREMENTS:
 - No text, watermarks, or borders
 - Ultra high resolution, sharp focus on the product`;
 
-      // Providers: direct APIs only — Gemini, OpenAI, HuggingFace, Pollinations
-      type Provider =
-        | { name: string; kind: "google"; key: string; model: string }
-        | { name: string; kind: "openai"; key: string; model: string }
-        | { name: string; kind: "replicate"; key: string; model: string }
-        | { name: string; kind: "lovable"; key: string; model: string }
-        | { name: string; kind: "huggingface"; key: string; model: string }
-        | { name: string; kind: "pollinations"; key: ""; model: string };
-      const PROVIDERS: Provider[] = [];
-      // PRIMARY — HuggingFace via fal-ai router (FLUX.1-schnell, fast & cheap)
-      if (HF_TOKEN) {
-        PROVIDERS.push({ name: "hf:fal-flux-schnell", kind: "huggingface", key: HF_TOKEN, model: "fal-ai/flux/schnell" });
-      }
-      if (GEMINI_API_KEY) {
-        for (const m of [
-          "gemini-2.5-flash-image",
-        ]) {
-          PROVIDERS.push({ name: `gemini-direct:${m}`, kind: "google", key: GEMINI_API_KEY, model: m });
-        }
-      }
-      if (OPENAI_API_KEY) {
-        PROVIDERS.push({ name: "openai:gpt-image-1", kind: "openai", key: OPENAI_API_KEY, model: "gpt-image-1" });
-      }
-      // Reliable paid fallback — Replicate FLUX schnell (works when others hit quota/billing)
-      if (REPLICATE_API_KEY) {
-        PROVIDERS.push({ name: "replicate:flux-schnell", kind: "replicate", key: REPLICATE_API_KEY, model: "black-forest-labs/flux-schnell" });
-      }
-      // Reliable paid fallback — Lovable AI Gateway (Nano Banana image generation)
-      if (LOVABLE_API_KEY) {
-        PROVIDERS.push({ name: "lovable:nano-banana", kind: "lovable", key: LOVABLE_API_KEY, model: "google/gemini-2.5-flash-image" });
-      }
-      // Free fallback — Pollinations.ai (no API key, queue-limited)
-      PROVIDERS.push({ name: "pollinations:flux", kind: "pollinations", key: "", model: "flux" });
-
+      // Lovable AI Gateway only (Nano Banana)
+      type Provider = { name: string; type: "openai"; url: string; key: string; model: string };
+      const PROVIDERS: Provider[] = [
+        {
+          name: "lovable-ai",
+          type: "openai",
+          url: "https://ai.gateway.lovable.dev/v1/chat/completions",
+          key: LOVABLE_API_KEY,
+          model: "google/gemini-2.5-flash-image",
+        },
+      ];
 
       let imageData: string | undefined;
       let lastStatus = 0;
       let lastError = "";
-      let successfulProvider = "";
-      let successfulModel = "";
-      const providerFailures: Array<{ provider: string; status: number; message: string; code: string }> = [];
 
-      const MAX_ATTEMPTS = 2;
+      // Retry each provider up to 3 times — Nano Banana sometimes returns 200 with no image under load
+      const MAX_ATTEMPTS = 3;
       outer: for (const provider of PROVIDERS) {
         for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
           try {
-            let r: Response;
-            if (provider.kind === "google") {
-              // Google Generative Language API direct — requires inline base64 + responseModalities
-              const src = await getSourceImageB64();
-              r = await fetchWithTimeout(
-                `https://generativelanguage.googleapis.com/v1beta/models/${provider.model}:generateContent?key=${provider.key}`,
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    contents: [{
-                      role: "user",
-                      parts: [
-                        { text: imagePrompt },
-                        { inline_data: { mime_type: src.mime, data: src.data } },
-                      ],
-                    }],
-                    generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
-                  }),
+            const r = await fetchWithTimeout(
+              provider.url,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${provider.key}`,
+                  "Content-Type": "application/json",
                 },
-                90_000
-              );
-              if (r.ok) {
-                const data = await r.json();
-                const parts = data?.candidates?.[0]?.content?.parts || [];
-                const imgPart = parts.find((p: { inline_data?: { data?: string; mime_type?: string }; inlineData?: { data?: string; mimeType?: string } }) =>
-                  p?.inline_data?.data || p?.inlineData?.data
-                );
-                const b64 = imgPart?.inline_data?.data || imgPart?.inlineData?.data;
-                const mime = imgPart?.inline_data?.mime_type || imgPart?.inlineData?.mimeType || "image/png";
-                if (b64) imageData = `data:${mime};base64,${b64}`;
-              }
-            } else if (provider.kind === "openai") {
-              // OpenAI gpt-image-1 via images/edits (multipart) — uses source image as reference
-              const src = await getSourceImageB64();
-              const imgBytes = Uint8Array.from(atob(src.data), (c) => c.charCodeAt(0));
-              const form = new FormData();
-              form.append("model", provider.model);
-              form.append("prompt", imagePrompt.slice(0, 3900));
-              form.append("size", format.width >= format.height
-                ? (format.width === format.height ? "1024x1024" : "1536x1024")
-                : "1024x1536");
-              form.append("n", "1");
-              form.append("image", new Blob([imgBytes], { type: src.mime }), "source.png");
-              r = await fetchWithTimeout(
-                "https://api.openai.com/v1/images/edits",
-                {
-                  method: "POST",
-                  headers: { Authorization: `Bearer ${provider.key}` },
-                  body: form,
-                },
-                120_000
-              );
-              if (r.ok) {
-                const data = await r.json();
-                const b64 = data?.data?.[0]?.b64_json;
-                const url = data?.data?.[0]?.url;
-                if (b64) imageData = `data:image/png;base64,${b64}`;
-                else if (url) imageData = url;
-              }
-            } else if (provider.kind === "replicate") {
-              // Replicate FLUX schnell with sync wait
-              r = await fetchWithTimeout(
-                `https://api.replicate.com/v1/models/${provider.model}/predictions`,
-                {
-                  method: "POST",
-                  headers: {
-                    Authorization: `Bearer ${provider.key}`,
-                    "Content-Type": "application/json",
-                    Prefer: "wait=60",
-                  },
-                  body: JSON.stringify({
-                    input: {
-                      prompt: imagePrompt.slice(0, 1800),
-                      aspect_ratio: format.width === format.height
-                        ? "1:1"
-                        : (format.width > format.height ? "16:9" : "9:16"),
-                      output_format: "png",
-                      num_outputs: 1,
-                      go_fast: true,
-                    },
-                  }),
-                },
-                90_000,
-              );
-              if (r.ok) {
-                const data = await r.json();
-                const out = Array.isArray(data?.output) ? data.output[0] : data?.output;
-                if (typeof out === "string" && /^https?:\/\//i.test(out)) {
-                  imageData = out;
-                }
-              }
-            } else if (provider.kind === "lovable") {
-              // Lovable AI Gateway — Nano Banana image generation
-              const src = await getSourceImageB64();
-              r = await fetchWithTimeout(
-                "https://ai.gateway.lovable.dev/v1/chat/completions",
-                {
-                  method: "POST",
-                  headers: {
-                    Authorization: `Bearer ${provider.key}`,
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    model: provider.model,
-                    messages: [{
-                      role: "user",
-                      content: [
-                        { type: "text", text: imagePrompt },
-                        { type: "image_url", image_url: { url: `data:${src.mime};base64,${src.data}` } },
-                      ],
-                    }],
-                    modalities: ["image", "text"],
-                  }),
-                },
-                90_000,
-              );
-              if (r.ok) {
-                const data = await r.json();
-                const imgs = data?.choices?.[0]?.message?.images;
-                const url = imgs?.[0]?.image_url?.url;
-                if (typeof url === "string" && url.length > 100) imageData = url;
-              }
-            } else if (provider.kind === "huggingface") {
-              // HuggingFace router via fal-ai provider — FLUX.1-schnell text-to-image
-              r = await fetchWithTimeout(
-                `https://router.huggingface.co/${provider.model}`,
-                {
-                  method: "POST",
-                  headers: {
-                    Authorization: `Bearer ${provider.key}`,
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    inputs: imagePrompt.slice(0, 1500),
-                    parameters: {
-                      width: format.width > 1280 ? 1280 : format.width,
-                      height: format.height > 1280 ? 1280 : format.height,
-                    },
-                  }),
-                },
-                90_000,
-              );
-              if (r.ok) {
-                const contentType = r.headers.get("content-type") || "";
-                if (contentType.includes("application/json")) {
-                  const hfData = await r.json();
-                  const imgUrl = hfData?.images?.[0]?.url || hfData?.data?.[0]?.url;
-                  const b64 = hfData?.images?.[0]?.b64_json || hfData?.data?.[0]?.b64_json;
-                  if (b64) {
-                    imageData = `data:image/png;base64,${b64}`;
-                  } else if (imgUrl) {
-                    imageData = imgUrl;
-                  }
-                } else {
-                  const buf = new Uint8Array(await r.arrayBuffer());
-                  if (buf.byteLength > 1000) {
-                    imageData = `data:image/png;base64,${bytesToBase64(buf)}`;
-                  }
-                }
-              }
-
-            } else {
-              // Pollinations.ai — free, no API key, no billing. Anonymous tier is single-file / single-queue per IP,
-              // so requests must be serialized inside this invocation.
-              const seed = Math.floor(Math.random() * 1_000_000);
-              const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt.slice(0, 1800))}?width=${format.width}&height=${format.height}&model=${provider.model}&nologo=true&seed=${seed}`;
-              r = await runPollinationsRequest(url);
-              if (r.ok) {
-                const buf = new Uint8Array(await r.arrayBuffer());
-                if (buf.byteLength > 1000) {
-                  imageData = `data:image/png;base64,${bytesToBase64(buf)}`;
-                }
-              }
-            }
-
-            if (r.ok && imageData) {
-              console.log(`[generate-product-shots] ${shotType} via ${provider.name} (attempt ${attempt})`);
-              successfulProvider = provider.name;
-              successfulModel = provider.model;
-              lastSuccessfulProvider = provider.name;
-              lastSuccessfulModel = provider.model;
-              break outer;
-            }
+                body: JSON.stringify({
+                  model: provider.model,
+                  messages: [{
+                    role: "user",
+                    content: [
+                      { type: "text", text: imagePrompt },
+                      { type: "image_url", image_url: { url: sourceImageUrl } },
+                    ],
+                  }],
+                  modalities: ["image", "text"],
+                }),
+              },
+              90_000
+            );
 
             if (r.ok) {
+              const data = await r.json();
+              imageData = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+              if (imageData) {
+                console.log(`[generate-product-shots] ${shotType} via ${provider.name} (attempt ${attempt})`);
+                break outer;
+              }
               lastError = "no image in response";
-              console.warn(`[generate-product-shots] ${shotType} attempt ${attempt} via ${provider.name}: empty image, retrying...`);
+              console.warn(`[generate-product-shots] ${shotType} attempt ${attempt}: empty image, retrying...`);
             } else {
               lastStatus = r.status;
               lastError = (await r.text()).slice(0, 200);
-              const errorCode = classifyProviderFailure(lastStatus, lastError);
-              providerFailures.push({
-                provider: provider.name,
-                status: lastStatus,
-                message: lastError,
-                code: errorCode,
-              });
               console.warn(`[generate-product-shots] ${provider.name} failed [${lastStatus}] attempt ${attempt}: ${lastError}`);
-              // 429/5xx → retry; other 4xx (incl. 402 credits, 404 model) → stop and move to next provider
+              // 429/5xx → retry; 4xx (other) → no point retrying
               if (lastStatus < 500 && lastStatus !== 429) break;
             }
           } catch (e) {
             lastError = e instanceof Error ? e.message : String(e);
             console.warn(`[generate-product-shots] ${provider.name} exception attempt ${attempt}:`, lastError);
           }
-          const backoff =
-            lastError.toLowerCase().includes("queue full") || lastStatus === 429
-              ? 15_500
-              : 600 * attempt + Math.random() * 400;
-          await new Promise((res) => setTimeout(res, backoff));
+          // exponential backoff with jitter
+          await new Promise((res) => setTimeout(res, 600 * attempt + Math.random() * 400));
         }
       }
-
 
       try {
         if (!imageData) {
           console.error(`[generate-product-shots] All providers failed for ${shotType}: ${lastStatus} ${lastError}`);
-          return {
-            type: shotType,
-            label: shotConfig.label,
-            url: "",
-            failures: providerFailures,
-          } as const;
+          return null;
         }
 
+        let dataUrl = imageData;
         if (/^https?:\/\//i.test(imageData)) {
-          console.log(`[generate-product-shots] ${shotType} returning provider URL directly to avoid edge memory spikes`);
-          return { type: shotType, label: shotConfig.label, url: imageData };
+          const imgResp = await fetchWithTimeout(imageData, { method: "GET" }, 60_000);
+          if (!imgResp.ok) {
+            console.error(`[generate-product-shots] Failed to fetch returned image URL for ${shotType}:`, imgResp.status);
+            return null;
+          }
+          const buf = new Uint8Array(await imgResp.arrayBuffer());
+          const b64 = bytesToBase64(buf);
+          dataUrl = `data:image/png;base64,${b64}`;
         }
 
-        const dataUrl = imageData;
         const rawBytes = dataUrlToBytes(dataUrl);
-        const imageBytes = rawBytes; // skip in-function resize to avoid OOM
-
+        const imageBytes = await enforceAspectRatio(rawBytes, format.width, format.height);
         const fileName = `product-shots/${Date.now()}-${shotType}-${crypto.randomUUID()}.png`;
         const { error: uploadError } = await supabase.storage.from("media").upload(fileName, imageBytes, {
           contentType: "image/png",
@@ -580,68 +349,19 @@ CRITICAL REQUIREMENTS:
 
     // Limit concurrency to 3 — avoids Nano Banana throttling that returns 200 with no image
     const CONCURRENCY = 3;
-    const results: Array<
-      | { type: ShotType; label: string; url: string }
-      | { type: ShotType; label: string; url: ""; failures: Array<{ provider: string; status: number; message: string; code: string }> }
-      | null
-    > = [];
+    const results: Array<{ type: ShotType; label: string; url: string } | null> = [];
     for (let i = 0; i < shotTypes.length; i += CONCURRENCY) {
       const batch = shotTypes.slice(i, i + CONCURRENCY);
       const batchRes = await Promise.all(batch.map((s) => generateOneShot(s)));
       results.push(...batchRes);
     }
-    const generatedImages = results.filter((r): r is { type: ShotType; label: string; url: string } => Boolean(r && "url" in r && r.url));
-    const failedShots = results.filter((r): r is { type: ShotType; label: string; url: ""; failures: Array<{ provider: string; status: number; message: string; code: string }> } => Boolean(r && "failures" in r));
+    const generatedImages = results.filter((r): r is { type: ShotType; label: string; url: string } => r !== null);
 
     if (generatedImages.length === 0) {
-      return new Response(JSON.stringify({
-        success: false,
-        fallback: true,
-        error: failedShots.some((shot) => shot.failures.some((failure) => failure.code === "CREDITS_EXHAUSTED"))
-          ? "Image generation is temporarily unavailable because the connected AI providers have exhausted their credits or billing limits."
-          : "All image providers are temporarily unavailable. Please retry in a moment.",
-        code: "ALL_PROVIDERS_FAILED",
-        failedShots,
-      }), {
-        status: 200,
+      return new Response(JSON.stringify({ error: "Failed to generate any images. Please try again." }), {
+        status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
-
-    const generationsToInsert = generatedImages.map((image) => ({
-      user_id: userId,
-      project_id: null,
-      campaign_id: null,
-      type: "image",
-      video_mode: "standard",
-      status: "completed",
-      progress: 100,
-      step: "finalizing",
-      prompt: `Product shot (${image.label}) — ${productTitle}${customPrompt ? `\n\nCustom instructions: ${customPrompt}` : ""}`,
-      script: null,
-      media_url: image.url,
-      thumbnail_url: image.url,
-      audio_url: null,
-      duration: 0,
-      model: lastSuccessfulModel || "direct-api",
-      provider: lastSuccessfulProvider || "direct-api",
-
-      quality: format.px,
-      format: formatRaw,
-      estimated_cost: 0,
-      actual_cost: 0,
-      error_message: null,
-      retry_count: 0,
-      started_at: new Date().toISOString(),
-      completed_at: new Date().toISOString(),
-    }));
-
-    const { error: saveGenerationError } = await supabase
-      .from("generations")
-      .insert(generationsToInsert);
-
-    if (saveGenerationError) {
-      console.error("[generate-product-shots] Failed to save generated images to generations:", saveGenerationError);
     }
 
     // Deduct credits: 1 per successfully generated image
@@ -663,7 +383,7 @@ CRITICAL REQUIREMENTS:
       console.warn(`[generate-product-shots] deduct returned false for user ${userId}`);
     }
 
-    return new Response(JSON.stringify({ success: true, images: generatedImages, productTitle, creditsCharged: cost, failedShots }), {
+    return new Response(JSON.stringify({ success: true, images: generatedImages, productTitle, creditsCharged: cost }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

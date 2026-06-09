@@ -1,10 +1,10 @@
 // ============================================================
 // MODEL POOLS CONFIGURATION
 // Centralized model selection with weighted random rotation
-// Removed Lovable AI — now uses direct provider APIs
+// All models now via Lovable AI (Nano Banana)
 // ============================================================
 
-export type Provider = "openai" | "elevenlabs" | "suno";
+export type Provider = "lovable" | "openai" | "elevenlabs" | "suno";
 
 export interface ModelOption {
   id: string;
@@ -16,59 +16,59 @@ export interface ModelOption {
 }
 
 // ============================================================
-// VIDEO MODEL POOLS
-// Uses direct provider APIs (Sora, Veo, KIE, HeyGen via backend)
+// VIDEO MODEL POOLS (via Lovable AI / Nano Banana)
+// All tiers now use Nano Banana for reliability
 // ============================================================
 
 export const VIDEO_MODEL_POOLS: Record<string, ModelOption[]> = {
-  // Standard Video
+  // Standard Video - Nano Banana (fast, 10s max)
   "standard-video": [
-    { id: "standard-video", provider: "openai", weight: 100, apiModel: "standard-video", maxDuration: 10, costEstimate: 0.05 },
+    { id: "nano-banana", provider: "lovable", weight: 100, apiModel: "nano-banana", maxDuration: 10, costEstimate: 0.05 },
   ],
-  // Pro Video
+  // Pro Video - Nano Banana (high quality, 12s)
   "pro-video": [
-    { id: "pro-video", provider: "openai", weight: 100, apiModel: "pro-video", maxDuration: 12, costEstimate: 0.10 },
+    { id: "nano-banana-pro", provider: "lovable", weight: 100, apiModel: "nano-banana-pro", maxDuration: 12, costEstimate: 0.10 },
   ],
-  // Cinema Video
+  // Cinema Video - Nano Banana Premium
   "cinema-video": [
-    { id: "cinema-video", provider: "openai", weight: 100, apiModel: "cinema-video", maxDuration: 12, costEstimate: 0.05 },
+    { id: "nano-banana-premium", provider: "lovable", weight: 100, apiModel: "google/gemini-2.5-flash-image", maxDuration: 12, costEstimate: 0.05 },
   ],
   // Legacy support
   "smart-video": [
-    { id: "smart-video", provider: "openai", weight: 100, apiModel: "smart-video", maxDuration: 10, costEstimate: 0.05 },
+    { id: "nano-banana", provider: "lovable", weight: 100, apiModel: "nano-banana", maxDuration: 10, costEstimate: 0.05 },
   ],
   "high-video": [
-    { id: "high-video", provider: "openai", weight: 100, apiModel: "high-video", maxDuration: 12, costEstimate: 0.10 },
+    { id: "nano-banana-pro", provider: "lovable", weight: 100, apiModel: "nano-banana-pro", maxDuration: 12, costEstimate: 0.10 },
   ],
 };
 
 // ============================================================
-// IMAGE MODEL POOLS (Flux.1 via direct APIs)
+// IMAGE MODEL POOLS (via CometAPI - Flux.1 Pro/Dev/Schnell)
 // Best for text rendering in images (URLs, overlay text)
 // ============================================================
 
 export const IMAGE_MODEL_POOLS: Record<string, ModelOption[]> = {
   // Standard Image - Flux Schnell (fast, affordable)
   "standard-image": [
-    { id: "flux-schnell", provider: "openai", weight: 100, apiModel: "flux-schnell", costEstimate: 0.01 },
+    { id: "flux-schnell", provider: "lovable", weight: 100, apiModel: "flux-schnell", costEstimate: 0.01 },
   ],
   // Pro Image - Flux Dev (high quality)
   "pro-image": [
-    { id: "flux-dev", provider: "openai", weight: 100, apiModel: "flux-dev", costEstimate: 0.02 },
+    { id: "flux-dev", provider: "lovable", weight: 100, apiModel: "flux-dev", costEstimate: 0.02 },
   ],
   // Cinema Image - Flux Pro (premium, best text rendering)
   "cinema-image": [
-    { id: "flux-pro", provider: "openai", weight: 100, apiModel: "flux-pro", costEstimate: 0.05 },
+    { id: "flux-pro", provider: "lovable", weight: 100, apiModel: "flux-pro", costEstimate: 0.05 },
   ],
   // Legacy support
   "smart-image": [
-    { id: "flux-schnell", provider: "openai", weight: 100, apiModel: "flux-schnell", costEstimate: 0.01 },
+    { id: "flux-schnell", provider: "lovable", weight: 100, apiModel: "flux-schnell", costEstimate: 0.01 },
   ],
   "high-image": [
-    { id: "flux-dev", provider: "openai", weight: 100, apiModel: "flux-dev", costEstimate: 0.02 },
+    { id: "flux-dev", provider: "lovable", weight: 100, apiModel: "flux-dev", costEstimate: 0.02 },
   ],
   "studio-image": [
-    { id: "flux-pro", provider: "openai", weight: 100, apiModel: "flux-pro", costEstimate: 0.05 },
+    { id: "flux-pro", provider: "lovable", weight: 100, apiModel: "flux-pro", costEstimate: 0.05 },
   ],
 };
 
@@ -189,9 +189,10 @@ export function getQualityModels(qualityId: string): ModelOption[] {
 // ============================================================
 
 export const VIDEO_DURATION_CONFIGS: Record<string, { min: number; max: number; step: number }> = {
-  "standard-video": { min: 3, max: 10, step: 1 },
-  "pro-video": { min: 3, max: 12, step: 1 },
-  "cinema-video": { min: 3, max: 12, step: 1 },
+  // Nano Banana models with actual API limits
+  "nano-banana": { min: 3, max: 10, step: 1 },
+  "nano-banana-pro": { min: 3, max: 12, step: 1 },
+  "nano-banana-premium": { min: 3, max: 12, step: 1 },
 };
 
 export function getValidDurations(apiModel: string): number[] {
