@@ -327,7 +327,7 @@ export const ImageGenerator = ({ onImageGenerated, onBeforeGenerate }: ImageGene
 
         onImageGenerated(newImage);
 
-        const modelEmoji = selectedModel.provider === "lovable" ? "🍌" : selectedModel.provider === "kie" ? "⚡" : "🤖";
+        const modelEmoji = selectedModel.provider === "kie" ? "⚡" : "🤖";
         toast({
           title: "Image generated! 🎨",
           description: `Created with ${modelEmoji} ${selectedModel.name}`,
