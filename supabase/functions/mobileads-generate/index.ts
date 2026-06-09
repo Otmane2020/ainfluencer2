@@ -218,6 +218,26 @@ Deno.serve(async (req) => {
       console.warn("analysis parse err", e);
     }
 
+    // Pre-fetch the scraped image as base64 (for direct Gemini)
+    let scrapedImageB64: { data: string; mime: string } | null = null;
+    if (scrapedImage) {
+      try {
+        const r = await fetch(scrapedImage);
+        if (r.ok) {
+          const mime = r.headers.get("content-type") || "image/jpeg";
+          const buf = new Uint8Array(await r.arrayBuffer());
+          let bin = "";
+          for (let j = 0; j < buf.length; j += 8192) {
+            const end = Math.min(j + 8192, buf.length);
+            for (let k = j; k < end; k++) bin += String.fromCharCode(buf[k]);
+          }
+          scrapedImageB64 = { data: btoa(bin), mime };
+        }
+      } catch (e) {
+        console.warn("scraped image fetch err", e);
+      }
+    }
+
     // 3) Generate 4 images with direct Gemini API, fallback to Pollinations
     async function generateOne(prompt: string): Promise<string | null> {
       // Primary: direct Gemini API
