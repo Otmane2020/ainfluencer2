@@ -204,33 +204,8 @@ const HistoryPage = () => {
     if (data) setCampaigns(data);
   };
 
-  const CACHE_KEY = `history_media_${user?.id}`;
-  const CACHE_TTL = 60 * 1000; // 1 minute (short, to avoid stale cross-user data)
-
   const loadAllMedia = async (forceRefresh = false) => {
     if (!user) return;
-
-    // Clear any stale caches from other accounts on this device
-    try {
-      Object.keys(sessionStorage).forEach((k) => {
-        if (k.startsWith("history_media_") && k !== CACHE_KEY) sessionStorage.removeItem(k);
-      });
-    } catch {}
-
-    // Check cache first
-    if (!forceRefresh) {
-      try {
-        const cached = sessionStorage.getItem(CACHE_KEY);
-        if (cached) {
-          const { data, timestamp, uid } = JSON.parse(cached);
-          if (uid === user.id && Date.now() - timestamp < CACHE_TTL) {
-            const restored = data.map((m: any) => ({ ...m, createdAt: new Date(m.createdAt) }));
-            setAllMedia(restored);
-            return;
-          }
-        }
-      } catch {}
-    }
 
     setIsLoading(true);
     
@@ -260,8 +235,8 @@ const HistoryPage = () => {
       // Fetch image generations from DB (for model info and prompt)
       const { data: imageGenerations } = await supabase
         .from("generations")
-        .select("id, media_url, model, created_at, prompt, project_id, campaign_id, thumbnail_url")
-        .eq("type", "image")
+        .select("id, media_url, model, provider, created_at, prompt, project_id, campaign_id, thumbnail_url")
+        .in("type", ["image", "product_shots"])
         .eq("user_id", user.id)
         .in("status", ["completed", "ready"])
         .order("created_at", { ascending: false })
@@ -334,6 +309,8 @@ const HistoryPage = () => {
             script: gen.prompt || undefined,
             aspectRatio: "square",
             model: gen.model || undefined,
+            provider: gen.provider || undefined,
+            isProductShot: gen.prompt?.toLowerCase().includes("product shot") || gen.url?.includes("product-shots/") || undefined,
           });
           existingUrls.add(gen.media_url);
         }
@@ -346,11 +323,6 @@ const HistoryPage = () => {
       media.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
       setAllMedia(media);
 
-      // Save to cache
-      // Save to cache (with user id binding)
-      try {
-        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data: media, timestamp: Date.now(), uid: user.id }));
-      } catch {}
     } catch (error) {
       console.error("Error loading media:", error);
     } finally {
@@ -359,11 +331,10 @@ const HistoryPage = () => {
   };
 
   const handleRefresh = async () => {
-    sessionStorage.removeItem(CACHE_KEY);
     await loadAllMedia(true);
     toast({
       title: "Refreshed",
-      description: `Found ${allMedia.length} items`,
+      description: "History updated",
     });
   };
 
@@ -447,7 +418,6 @@ const HistoryPage = () => {
         }
       } catch {}
 
-      sessionStorage.removeItem(CACHE_KEY);
       setAllMedia([]);
       toast({ title: "History cleared" });
     } catch (error) {
