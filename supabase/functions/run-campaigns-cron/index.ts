@@ -94,9 +94,9 @@ async function verifyAutoPostAccess(
 // ============================================================
 
 const IMAGE_QUALITY_CONFIG = {
-  standard: { model: "google/gemini-2.5-flash-image", provider: "lovable", cost: 1 },
-  pro: { model: "google/gemini-3-pro-image-preview", provider: "lovable", cost: 3 },
-  cinema: { model: "google/gemini-3-pro-image-preview", provider: "lovable", cost: 5 },
+  standard: { model: "google/gemini-2.5-flash-image", provider: "gemini-direct", cost: 1 },
+  pro: { model: "google/gemini-3-pro-image-preview", provider: "gemini-direct", cost: 3 },
+  cinema: { model: "google/gemini-3-pro-image-preview", provider: "gemini-direct", cost: 5 },
 };
 
 // Sora 2 valid durations: 4, 8, 12 seconds only
