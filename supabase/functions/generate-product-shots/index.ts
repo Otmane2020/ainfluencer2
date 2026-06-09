@@ -313,6 +313,8 @@ CRITICAL REQUIREMENTS:
       type Provider =
         | { name: string; kind: "google"; key: string; model: string }
         | { name: string; kind: "openai"; key: string; model: string }
+        | { name: string; kind: "replicate"; key: string; model: string }
+        | { name: string; kind: "lovable"; key: string; model: string }
         | { name: string; kind: "huggingface"; key: string; model: string }
         | { name: string; kind: "pollinations"; key: ""; model: string };
       const PROVIDERS: Provider[] = [];
@@ -326,11 +328,19 @@ CRITICAL REQUIREMENTS:
       if (OPENAI_API_KEY) {
         PROVIDERS.push({ name: "openai:gpt-image-1", kind: "openai", key: OPENAI_API_KEY, model: "gpt-image-1" });
       }
-      // Free fallback #1 — HuggingFace FLUX.1-schnell (Apache 2.0, free tier with HF token)
+      // Reliable paid fallback — Replicate FLUX schnell (works when others hit quota/billing)
+      if (REPLICATE_API_KEY) {
+        PROVIDERS.push({ name: "replicate:flux-schnell", kind: "replicate", key: REPLICATE_API_KEY, model: "black-forest-labs/flux-schnell" });
+      }
+      // Reliable paid fallback — Lovable AI Gateway (Nano Banana image generation)
+      if (LOVABLE_API_KEY) {
+        PROVIDERS.push({ name: "lovable:nano-banana", kind: "lovable", key: LOVABLE_API_KEY, model: "google/gemini-2.5-flash-image" });
+      }
+      // Free fallback — HuggingFace router endpoint (api-inference.huggingface.co is deprecated)
       if (HF_TOKEN) {
         PROVIDERS.push({ name: "hf:flux-schnell", kind: "huggingface", key: HF_TOKEN, model: "black-forest-labs/FLUX.1-schnell" });
       }
-      // Free fallback #2 — Pollinations.ai, no API key required
+      // Free fallback — Pollinations.ai (no API key, queue-limited)
       PROVIDERS.push({ name: "pollinations:flux", kind: "pollinations", key: "", model: "flux" });
 
       let imageData: string | undefined;
