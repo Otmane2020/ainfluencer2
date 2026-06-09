@@ -403,9 +403,9 @@ ${lang !== "en" ? `Do NOT use English text — all text must be in ${langName}.`
 
   // ── Fallback chain ──
   const providers = [
-    { name: "Lovable AI", fn: () => tryLovableAI(finalPrompt, config.model) },
+    { name: "Gemini Direct", fn: () => tryGeminiDirectPrimary(finalPrompt, config.model) },
     { name: "OpenAI DALL-E", fn: () => tryOpenAIDalle(finalPrompt) },
-    { name: "Gemini Direct", fn: () => tryGeminiDirect(finalPrompt) },
+    { name: "Gemini Direct (legacy)", fn: () => tryGeminiDirect(finalPrompt) },
     { name: "Kling Direct", fn: () => tryKlingDirect(finalPrompt) },
     { name: "Replicate FLUX", fn: () => tryReplicateFlux(finalPrompt) },
   ];
