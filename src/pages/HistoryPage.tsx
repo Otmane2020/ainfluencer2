@@ -310,7 +310,7 @@ const HistoryPage = () => {
             aspectRatio: "square",
             model: gen.model || undefined,
             provider: gen.provider || undefined,
-            isProductShot: gen.prompt?.toLowerCase().includes("product shot") || gen.url?.includes("product-shots/") || undefined,
+            isProductShot: gen.prompt?.toLowerCase().includes("product shot") || gen.media_url?.includes("product-shots/") || undefined,
           });
           existingUrls.add(gen.media_url);
         }
