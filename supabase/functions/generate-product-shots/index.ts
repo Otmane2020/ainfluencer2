@@ -428,6 +428,34 @@ CRITICAL REQUIREMENTS:
                 if (b64) imageData = `data:image/png;base64,${b64}`;
                 else if (url) imageData = url;
               }
+            } else if (provider.kind === "huggingface") {
+              // HuggingFace Inference API — text-to-image (FLUX.1-schnell, Apache 2.0, free tier)
+              r = await fetchWithTimeout(
+                `https://api-inference.huggingface.co/models/${provider.model}`,
+                {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${provider.key}`,
+                    "Content-Type": "application/json",
+                    Accept: "image/png",
+                  },
+                  body: JSON.stringify({
+                    inputs: imagePrompt.slice(0, 1800),
+                    parameters: {
+                      width: format.width,
+                      height: format.height,
+                      num_inference_steps: 4,
+                    },
+                  }),
+                },
+                90_000
+              );
+              if (r.ok) {
+                const buf = new Uint8Array(await r.arrayBuffer());
+                if (buf.byteLength > 1000) {
+                  imageData = `data:image/png;base64,${bytesToBase64(buf)}`;
+                }
+              }
             } else {
               // Pollinations.ai — free, no API key, no billing. Anonymous tier is single-file / single-queue per IP,
               // so requests must be serialized inside this invocation.
