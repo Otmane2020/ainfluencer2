@@ -47,6 +47,8 @@ export function AppLayout() {
     return null;
   }
 
+  const showTrialEnded = trial.isTrialExpired && currentPlan?.id === "starter";
+
   // Mobile layout with sheet menu
   if (isMobile) {
     return (
@@ -57,6 +59,7 @@ export function AppLayout() {
         </main>
         <SupportWidget />
         <PWAInstallBanner />
+        <TrialEndedModal open={showTrialEnded} />
       </div>
     );
   }
@@ -73,6 +76,7 @@ export function AppLayout() {
         </SidebarInset>
         <SupportWidget />
         <PWAInstallBanner />
+        <TrialEndedModal open={showTrialEnded} />
       </div>
     </SidebarProvider>
   );
