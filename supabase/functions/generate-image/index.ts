@@ -167,7 +167,7 @@ function selectModelFromPool(qualityId: string): ModelOption {
 // ============================================================
 
 interface ModelRouting {
-  provider: "kie" | "lovable" | "openai" | "replicate" | "pollinations";
+  provider: "kie" | "gemini-direct" | "openai" | "replicate" | "pollinations";
   endpoint?: string;
   apiModel?: string;
 }
@@ -189,12 +189,12 @@ function getModelRouting(modelId: string): ModelRouting {
     return { provider: "kie", endpoint: kieModelName };
   }
 
-  // Lovable AI (Nano Banana)
+  // Direct Gemini (formerly Nano Banana via Lovable)
   if (modelId.startsWith("nano-banana")) {
-    const apiModel = modelId.includes("4k") || modelId.includes("pro") 
-      ? "google/gemini-3-pro-image-preview" 
+    const apiModel = modelId.includes("4k") || modelId.includes("pro")
+      ? "google/gemini-3-pro-image-preview"
       : "google/gemini-2.5-flash-image";
-    return { provider: "lovable", apiModel };
+    return { provider: "gemini-direct", apiModel };
   }
 
   // OpenAI
@@ -202,8 +202,8 @@ function getModelRouting(modelId: string): ModelRouting {
     return { provider: "openai", apiModel: "gpt-image-1" };
   }
 
-  // Default to Lovable
-  return { provider: "lovable", apiModel: "google/gemini-2.5-flash-image" };
+  // Default to direct Gemini
+  return { provider: "gemini-direct", apiModel: "google/gemini-2.5-flash-image" };
 }
 
 // ============================================================
@@ -228,25 +228,25 @@ async function overlayLogoOnImage(
 ): Promise<string> {
   try {
     console.log("[LogoOverlay] Fetching logo from:", logoUrl);
-    
+
     const logoResponse = await fetch(logoUrl);
     if (!logoResponse.ok) {
       console.error("[LogoOverlay] Failed to fetch logo:", logoResponse.status);
       return baseImageData;
     }
-    
+
     const logoBlob = await logoResponse.blob();
     const logoArrayBuffer = await logoBlob.arrayBuffer();
     const logoBase64 = arrayBufferToBase64(logoArrayBuffer);
     const logoDataUrl = `data:${logoBlob.type || "image/png"};base64,${logoBase64}`;
-    
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("[LogoOverlay] No LOVABLE_API_KEY");
+
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      console.error("[LogoOverlay] No GEMINI_API_KEY");
       return baseImageData;
     }
-    
-    const compositePrompt = `Take this base image and add the provided logo to the ${position.replace("-", " ")} corner. 
+
+    const compositePrompt = `Take this base image and add the provided logo to the ${position.replace("-", " ")} corner.
 The logo should be:
 - Small (about 10-15% of the image width)
 - Semi-transparent or with subtle shadow for integration
@@ -254,29 +254,29 @@ The logo should be:
 - Preserve the original image quality and composition
 Keep the base image exactly as is, only add the logo overlay.`;
 
-    console.log("[LogoOverlay] Requesting composite via AI...");
-    
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image",
-        messages: [
-          {
+    console.log("[LogoOverlay] Requesting composite via Gemini direct API...");
+
+    const baseMatch = baseImageData.match(/^data:([^;]+);base64,(.+)$/);
+    const logoMatch = logoDataUrl.match(/^data:([^;]+);base64,(.+)$/);
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
             role: "user",
-            content: [
-              { type: "text", text: compositePrompt },
-              { type: "image_url", image_url: { url: baseImageData } },
-              { type: "image_url", image_url: { url: logoDataUrl } },
+            parts: [
+              { text: compositePrompt },
+              ...(baseMatch ? [{ inline_data: { mime_type: baseMatch[1], data: baseMatch[2] } }] : []),
+              ...(logoMatch ? [{ inline_data: { mime_type: logoMatch[1], data: logoMatch[2] } }] : []),
             ],
-          },
-        ],
-        modalities: ["image", "text"],
-      }),
-    });
+          }],
+          generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+        }),
+      }
+    );
 
     if (!response.ok) {
       console.error("[LogoOverlay] AI composite failed:", response.status);
@@ -284,13 +284,24 @@ Keep the base image exactly as is, only add the logo overlay.`;
     }
 
     const data = await response.json();
-    const compositedImage = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    
+    const candidateParts = data.candidates?.[0]?.content?.parts;
+    let compositedImage: string | null = null;
+    if (candidateParts) {
+      for (const part of candidateParts) {
+        if (part.inlineData?.data || part.inline_data?.data) {
+          const inline = part.inlineData || part.inline_data;
+          const mime = inline.mimeType || inline.mime_type || "image/png";
+          compositedImage = `data:${mime};base64,${inline.data}`;
+          break;
+        }
+      }
+    }
+
     if (compositedImage) {
       console.log("[LogoOverlay] Logo successfully added!");
       return compositedImage;
     }
-    
+
     console.log("[LogoOverlay] No composited image returned, using original");
     return baseImageData;
   } catch (error) {
@@ -548,68 +559,94 @@ async function generateWithOpenAI(
 }
 
 // ============================================================
-// LOVABLE AI GENERATION (Nano Banana)
+// DIRECT GEMINI GENERATION (replaces Lovable AI / Nano Banana)
 // ============================================================
 
-async function generateWithLovable(
+async function generateWithGeminiDirectPrimary(
   prompt: string,
-  model: string,
+  _model: string,
   sourceImage?: string
 ): Promise<{ imageData: string | null; error?: string }> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) {
-    return { imageData: null, error: "LOVABLE_API_KEY not configured" };
+  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+  if (!GEMINI_API_KEY) {
+    return { imageData: null, error: "GEMINI_API_KEY not configured" };
   }
 
   try {
-    const displayName = model.includes("gemini-3") ? "Nano Banana Pro" : "Nano Banana";
-    console.log(`[Lovable] Generating image with ${displayName} (${model})`);
+    console.log(`[GeminiDirect] Generating image with direct Gemini API`);
 
-    const content: any[] = [{ type: "text", text: prompt }];
-    
-    // Add source image if provided
-    if (sourceImage) {
-      content.push({ type: "image_url", image_url: { url: sourceImage } });
-    }
-
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content }],
-        modalities: ["image", "text"],
-      }),
-    });
-
-    if (!response.ok) {
-      const status = response.status;
-      const errorText = await response.text();
-      console.error(`[Lovable] Error ${status}:`, errorText.slice(0, 200));
-      
-      if (status === 429) {
-        return { imageData: null, error: "Rate limit exceeded. Please try again later." };
+    const parts: any[] = [{ text: prompt }];
+    if (sourceImage && sourceImage.startsWith("data:")) {
+      const match = sourceImage.match(/^data:([^;]+);base64,(.+)$/);
+      if (match) {
+        parts.push({ inline_data: { mime_type: match[1], data: match[2] } });
       }
-      if (status === 402) {
-        return { imageData: null, error: "Payment required. Please add credits." };
+    } else if (sourceImage) {
+      // Fetch remote image and convert to base64
+      try {
+        const imgResp = await fetch(sourceImage);
+        if (imgResp.ok) {
+          const mime = imgResp.headers.get("content-type")?.split(";")[0] || "image/jpeg";
+          const buf = new Uint8Array(await imgResp.arrayBuffer());
+          let bin = "";
+          for (let j = 0; j < buf.length; j += 8192) {
+            const end = Math.min(j + 8192, buf.length);
+            for (let k = j; k < end; k++) bin += String.fromCharCode(buf[k]);
+          }
+          parts.push({ inline_data: { mime_type: mime, data: btoa(bin) } });
+        }
+      } catch (e) {
+        console.warn("[GeminiDirect] Could not fetch source image:", e);
       }
-      return { imageData: null, error: `Lovable error: ${status}` };
     }
 
-    const data = await response.json();
-    const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    const GEMINI_MODELS = [
+      "gemini-2.5-flash-image-preview",
+      "gemini-2.0-flash-exp-image-generation",
+    ];
 
-    if (!imageData) {
-      return { imageData: null, error: "No image generated" };
+    for (const geminiModel of GEMINI_MODELS) {
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts }],
+              generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.warn(`[GeminiDirect] ${geminiModel} → ${response.status}: ${errorText.slice(0, 150)}`);
+          continue;
+        }
+
+        const data = await response.json();
+        const candidateParts = data.candidates?.[0]?.content?.parts;
+        if (candidateParts) {
+          for (const part of candidateParts) {
+            if (part.inlineData?.data || part.inline_data?.data) {
+              const inline = part.inlineData || part.inline_data;
+              const mimeType = inline.mimeType || inline.mime_type || "image/png";
+              const imageData = `data:${mimeType};base64,${inline.data}`;
+              console.log(`[GeminiDirect] ✓ Image generated with ${geminiModel}`);
+              return { imageData };
+            }
+          }
+        }
+        console.warn(`[GeminiDirect] ${geminiModel} returned no image data`);
+      } catch (err) {
+        console.warn(`[GeminiDirect] ${geminiModel} exception:`, String(err));
+      }
     }
 
-    console.log(`[Lovable] ✓ Image generated successfully with ${displayName}`);
-    return { imageData };
+    return { imageData: null, error: "All Gemini direct models failed" };
   } catch (error) {
-    console.error("[Lovable] Exception:", error);
+    console.error("[GeminiDirect] Exception:", error);
     return { imageData: null, error: String(error) };
   }
 }
