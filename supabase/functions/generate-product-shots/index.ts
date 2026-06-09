@@ -278,6 +278,9 @@ Deno.serve(async (req) => {
     };
 
 
+    let lastSuccessfulProvider = "";
+    let lastSuccessfulModel = "";
+
     const generateOneShot = async (
       shotType: ShotType,
     ): Promise<
@@ -285,6 +288,7 @@ Deno.serve(async (req) => {
       | { type: ShotType; label: string; url: ""; failures: Array<{ provider: string; status: number; message: string; code: string }> }
       | null
     > => {
+
       const shotConfig = SHOT_TYPES[shotType];
 
       const useAmbiance = withAmbiance && shotType !== "lifestyle" && ambiancePrompt.length > 0;
@@ -318,6 +322,10 @@ CRITICAL REQUIREMENTS:
         | { name: string; kind: "huggingface"; key: string; model: string }
         | { name: string; kind: "pollinations"; key: ""; model: string };
       const PROVIDERS: Provider[] = [];
+      // PRIMARY — HuggingFace via fal-ai router (FLUX.1-schnell, fast & cheap)
+      if (HF_TOKEN) {
+        PROVIDERS.push({ name: "hf:fal-flux-schnell", kind: "huggingface", key: HF_TOKEN, model: "fal-ai/flux/schnell" });
+      }
       if (GEMINI_API_KEY) {
         for (const m of [
           "gemini-2.5-flash-image",
@@ -336,12 +344,9 @@ CRITICAL REQUIREMENTS:
       if (LOVABLE_API_KEY) {
         PROVIDERS.push({ name: "lovable:nano-banana", kind: "lovable", key: LOVABLE_API_KEY, model: "google/gemini-2.5-flash-image" });
       }
-      // Free fallback — HuggingFace router endpoint (api-inference.huggingface.co is deprecated)
-      if (HF_TOKEN) {
-        PROVIDERS.push({ name: "hf:flux-schnell", kind: "huggingface", key: HF_TOKEN, model: "black-forest-labs/FLUX.1-schnell" });
-      }
       // Free fallback — Pollinations.ai (no API key, queue-limited)
       PROVIDERS.push({ name: "pollinations:flux", kind: "pollinations", key: "", model: "flux" });
+
 
       let imageData: string | undefined;
       let lastStatus = 0;
@@ -478,33 +483,48 @@ CRITICAL REQUIREMENTS:
                 if (typeof url === "string" && url.length > 100) imageData = url;
               }
             } else if (provider.kind === "huggingface") {
-              // HuggingFace router (new endpoint) — FLUX.1-schnell text-to-image
+              // HuggingFace router via fal-ai provider — FLUX.1-schnell text-to-image
               r = await fetchWithTimeout(
-                `https://router.huggingface.co/hf-inference/models/${provider.model}`,
+                `https://router.huggingface.co/${provider.model}`,
                 {
                   method: "POST",
                   headers: {
                     Authorization: `Bearer ${provider.key}`,
                     "Content-Type": "application/json",
-                    Accept: "image/png",
                   },
                   body: JSON.stringify({
-                    inputs: imagePrompt.slice(0, 1800),
+                    inputs: imagePrompt.slice(0, 1500),
                     parameters: {
-                      width: format.width,
-                      height: format.height,
-                      num_inference_steps: 4,
+                      width: format.width > 1280 ? 1280 : format.width,
+                      height: format.height > 1280 ? 1280 : format.height,
                     },
                   }),
                 },
                 90_000,
               );
               if (r.ok) {
-                const buf = new Uint8Array(await r.arrayBuffer());
-                if (buf.byteLength > 1000) {
-                  imageData = `data:image/png;base64,${bytesToBase64(buf)}`;
+                const contentType = r.headers.get("content-type") || "";
+                if (contentType.includes("application/json")) {
+                  const hfData = await r.json();
+                  const imgUrl = hfData?.images?.[0]?.url || hfData?.data?.[0]?.url;
+                  const b64 = hfData?.images?.[0]?.b64_json || hfData?.data?.[0]?.b64_json;
+                  if (b64) {
+                    imageData = `data:image/png;base64,${b64}`;
+                  } else if (imgUrl) {
+                    const imgFetch = await fetchWithTimeout(imgUrl, { method: "GET" }, 60_000);
+                    if (imgFetch.ok) {
+                      const buf = new Uint8Array(await imgFetch.arrayBuffer());
+                      imageData = `data:image/png;base64,${bytesToBase64(buf)}`;
+                    }
+                  }
+                } else {
+                  const buf = new Uint8Array(await r.arrayBuffer());
+                  if (buf.byteLength > 1000) {
+                    imageData = `data:image/png;base64,${bytesToBase64(buf)}`;
+                  }
                 }
               }
+
             } else {
               // Pollinations.ai — free, no API key, no billing. Anonymous tier is single-file / single-queue per IP,
               // so requests must be serialized inside this invocation.
@@ -523,8 +543,11 @@ CRITICAL REQUIREMENTS:
               console.log(`[generate-product-shots] ${shotType} via ${provider.name} (attempt ${attempt})`);
               successfulProvider = provider.name;
               successfulModel = provider.model;
+              lastSuccessfulProvider = provider.name;
+              lastSuccessfulModel = provider.model;
               break outer;
             }
+
             if (r.ok) {
               lastError = "no image in response";
               console.warn(`[generate-product-shots] ${shotType} attempt ${attempt} via ${provider.name}: empty image, retrying...`);
@@ -646,8 +669,9 @@ CRITICAL REQUIREMENTS:
       thumbnail_url: image.url,
       audio_url: null,
       duration: 0,
-      model: successfulModel || "direct-api",
-      provider: successfulProvider || "direct-api",
+      model: lastSuccessfulModel || "direct-api",
+      provider: lastSuccessfulProvider || "direct-api",
+
       quality: format.px,
       format: formatRaw,
       estimated_cost: 0,
