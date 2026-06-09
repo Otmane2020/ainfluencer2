@@ -198,6 +198,7 @@ Deno.serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    const HF_TOKEN = Deno.env.get("HF_TOKEN");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -312,6 +313,7 @@ CRITICAL REQUIREMENTS:
         | { name: string; kind: "openrouter"; key: string; model: string }
         | { name: string; kind: "google"; key: string; model: string }
         | { name: string; kind: "openai"; key: string; model: string }
+        | { name: string; kind: "huggingface"; key: string; model: string }
         | { name: string; kind: "pollinations"; key: ""; model: string };
       const PROVIDERS: Provider[] = [
         { name: "lovable-ai", kind: "openrouter", key: LOVABLE_API_KEY, model: "google/gemini-2.5-flash-image" },
@@ -326,7 +328,11 @@ CRITICAL REQUIREMENTS:
       if (OPENAI_API_KEY) {
         PROVIDERS.push({ name: "openai:gpt-image-1", kind: "openai", key: OPENAI_API_KEY, model: "gpt-image-1" });
       }
-      // Free fallback — no API key required, no billing limit
+      // Free fallback #1 — HuggingFace FLUX.1-schnell (Apache 2.0, free tier with HF token)
+      if (HF_TOKEN) {
+        PROVIDERS.push({ name: "hf:flux-schnell", kind: "huggingface", key: HF_TOKEN, model: "black-forest-labs/FLUX.1-schnell" });
+      }
+      // Free fallback #2 — Pollinations.ai, no API key required
       PROVIDERS.push({ name: "pollinations:flux", kind: "pollinations", key: "", model: "flux" });
 
       let imageData: string | undefined;
@@ -421,6 +427,34 @@ CRITICAL REQUIREMENTS:
                 const url = data?.data?.[0]?.url;
                 if (b64) imageData = `data:image/png;base64,${b64}`;
                 else if (url) imageData = url;
+              }
+            } else if (provider.kind === "huggingface") {
+              // HuggingFace Inference API — text-to-image (FLUX.1-schnell, Apache 2.0, free tier)
+              r = await fetchWithTimeout(
+                `https://api-inference.huggingface.co/models/${provider.model}`,
+                {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${provider.key}`,
+                    "Content-Type": "application/json",
+                    Accept: "image/png",
+                  },
+                  body: JSON.stringify({
+                    inputs: imagePrompt.slice(0, 1800),
+                    parameters: {
+                      width: format.width,
+                      height: format.height,
+                      num_inference_steps: 4,
+                    },
+                  }),
+                },
+                90_000
+              );
+              if (r.ok) {
+                const buf = new Uint8Array(await r.arrayBuffer());
+                if (buf.byteLength > 1000) {
+                  imageData = `data:image/png;base64,${bytesToBase64(buf)}`;
+                }
               }
             } else {
               // Pollinations.ai — free, no API key, no billing. Anonymous tier is single-file / single-queue per IP,
