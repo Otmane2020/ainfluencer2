@@ -278,6 +278,9 @@ Deno.serve(async (req) => {
     };
 
 
+    let lastSuccessfulProvider = "";
+    let lastSuccessfulModel = "";
+
     const generateOneShot = async (
       shotType: ShotType,
     ): Promise<
@@ -285,6 +288,7 @@ Deno.serve(async (req) => {
       | { type: ShotType; label: string; url: ""; failures: Array<{ provider: string; status: number; message: string; code: string }> }
       | null
     > => {
+
       const shotConfig = SHOT_TYPES[shotType];
 
       const useAmbiance = withAmbiance && shotType !== "lifestyle" && ambiancePrompt.length > 0;
