@@ -414,10 +414,73 @@ CRITICAL REQUIREMENTS:
                 if (b64) imageData = `data:image/png;base64,${b64}`;
                 else if (url) imageData = url;
               }
-            } else if (provider.kind === "huggingface") {
-              // HuggingFace Inference API — text-to-image (FLUX.1-schnell, Apache 2.0, free tier)
+            } else if (provider.kind === "replicate") {
+              // Replicate FLUX schnell with sync wait
               r = await fetchWithTimeout(
-                `https://api-inference.huggingface.co/models/${provider.model}`,
+                `https://api.replicate.com/v1/models/${provider.model}/predictions`,
+                {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${provider.key}`,
+                    "Content-Type": "application/json",
+                    Prefer: "wait=60",
+                  },
+                  body: JSON.stringify({
+                    input: {
+                      prompt: imagePrompt.slice(0, 1800),
+                      aspect_ratio: format.width === format.height
+                        ? "1:1"
+                        : (format.width > format.height ? "16:9" : "9:16"),
+                      output_format: "png",
+                      num_outputs: 1,
+                      go_fast: true,
+                    },
+                  }),
+                },
+                90_000,
+              );
+              if (r.ok) {
+                const data = await r.json();
+                const out = Array.isArray(data?.output) ? data.output[0] : data?.output;
+                if (typeof out === "string" && /^https?:\/\//i.test(out)) {
+                  imageData = out;
+                }
+              }
+            } else if (provider.kind === "lovable") {
+              // Lovable AI Gateway — Nano Banana image generation
+              const src = await getSourceImageB64();
+              r = await fetchWithTimeout(
+                "https://ai.gateway.lovable.dev/v1/chat/completions",
+                {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${provider.key}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    model: provider.model,
+                    messages: [{
+                      role: "user",
+                      content: [
+                        { type: "text", text: imagePrompt },
+                        { type: "image_url", image_url: { url: `data:${src.mime};base64,${src.data}` } },
+                      ],
+                    }],
+                    modalities: ["image", "text"],
+                  }),
+                },
+                90_000,
+              );
+              if (r.ok) {
+                const data = await r.json();
+                const imgs = data?.choices?.[0]?.message?.images;
+                const url = imgs?.[0]?.image_url?.url;
+                if (typeof url === "string" && url.length > 100) imageData = url;
+              }
+            } else if (provider.kind === "huggingface") {
+              // HuggingFace router (new endpoint) — FLUX.1-schnell text-to-image
+              r = await fetchWithTimeout(
+                `https://router.huggingface.co/hf-inference/models/${provider.model}`,
                 {
                   method: "POST",
                   headers: {
@@ -434,7 +497,7 @@ CRITICAL REQUIREMENTS:
                     },
                   }),
                 },
-                90_000
+                90_000,
               );
               if (r.ok) {
                 const buf = new Uint8Array(await r.arrayBuffer());
