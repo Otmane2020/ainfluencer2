@@ -195,14 +195,13 @@ Deno.serve(async (req) => {
 
     const shotTypes = normalizeShotTypes(body?.shotTypes, includeLifestyle);
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     const HF_TOKEN = Deno.env.get("HF_TOKEN");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!LOVABLE_API_KEY) {
+    if (!GEMINI_API_KEY && !OPENAI_API_KEY && !HF_TOKEN) {
       return new Response(JSON.stringify({ error: "AI service not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

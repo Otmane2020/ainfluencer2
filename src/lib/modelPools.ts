@@ -189,10 +189,9 @@ export function getQualityModels(qualityId: string): ModelOption[] {
 // ============================================================
 
 export const VIDEO_DURATION_CONFIGS: Record<string, { min: number; max: number; step: number }> = {
-  // Nano Banana models with actual API limits
-  "nano-banana": { min: 3, max: 10, step: 1 },
-  "nano-banana-pro": { min: 3, max: 12, step: 1 },
-  "nano-banana-premium": { min: 3, max: 12, step: 1 },
+  "standard-video": { min: 3, max: 10, step: 1 },
+  "pro-video": { min: 3, max: 12, step: 1 },
+  "cinema-video": { min: 3, max: 12, step: 1 },
 };
 
 export function getValidDurations(apiModel: string): number[] {
