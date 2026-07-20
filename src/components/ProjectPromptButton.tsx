@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -21,19 +21,19 @@ interface Project {
 }
 
 interface ProjectPromptButtonProps {
-  /** Which suggest-content prompt style to request. */
-  contentType: "image_prompt" | "video_prompt";
-  productCategory: string;
+  /** "image" generates a visual image prompt (suggest-content), "motion" generates
+   * a camera/motion direction prompt to animate an image (generate-motion-prompt). */
+  mode: "image" | "motion";
   onPromptGenerated: (prompt: string) => void;
   disabled?: boolean;
 }
 
 /**
  * Sparkles button that generates a branded prompt from one of the user's
- * projects via the suggest-content edge function. If the user has no
- * project yet, it sends them to create one instead of silently no-oping.
+ * projects. Always offers "Create a new project" alongside the existing
+ * ones — if the user has none yet, they must create one first.
  */
-export function ProjectPromptButton({ contentType, productCategory, onPromptGenerated, disabled }: ProjectPromptButtonProps) {
+export function ProjectPromptButton({ mode, onPromptGenerated, disabled }: ProjectPromptButtonProps) {
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [open, setOpen] = useState(false);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
@@ -54,25 +54,45 @@ export function ProjectPromptButton({ contentType, productCategory, onPromptGene
   const generate = async (project: Project) => {
     setGeneratingId(project.id);
     try {
-      const { data, error } = await supabase.functions.invoke("suggest-content", {
-        body: {
-          projectId: project.id,
-          projectName: project.name,
-          projectDescription: project.description || project.name,
-          projectUrl: project.url,
-          scrapedContent: project.scraped_markdown?.slice(0, 3000),
-          contentType,
-          productCategory,
-          detectedLanguage: project.detected_language || "en",
-          logoUrl: project.avatar_url,
-          services: project.scraped_data?.services,
-          marketingContext: project.marketing_context,
-        },
-      });
-      if (error) throw error;
-      const suggestion = data?.suggestions?.[0];
-      if (!suggestion?.content) throw new Error("No prompt received");
-      onPromptGenerated(suggestion.content);
+      const scrapedContent = project.scraped_markdown?.slice(0, 3000);
+      const detectedLanguage = project.detected_language || "en";
+
+      let prompt: string | undefined;
+      if (mode === "image") {
+        const { data, error } = await supabase.functions.invoke("suggest-content", {
+          body: {
+            projectId: project.id,
+            projectName: project.name,
+            projectDescription: project.description || project.name,
+            projectUrl: project.url,
+            scrapedContent,
+            contentType: "image_prompt",
+            productCategory: "image",
+            detectedLanguage,
+            logoUrl: project.avatar_url,
+            services: project.scraped_data?.services,
+            marketingContext: project.marketing_context,
+          },
+        });
+        if (error) throw error;
+        prompt = data?.suggestions?.[0]?.content;
+      } else {
+        const { data, error } = await supabase.functions.invoke("generate-motion-prompt", {
+          body: {
+            projectName: project.name,
+            projectDescription: project.description || project.name,
+            projectUrl: project.url,
+            scrapedContent,
+            marketingContext: project.marketing_context,
+            detectedLanguage,
+          },
+        });
+        if (error) throw error;
+        prompt = data?.prompt;
+      }
+
+      if (!prompt) throw new Error("No prompt received");
+      onPromptGenerated(prompt);
       setOpen(false);
       toast({ title: "Prompt generated ✨", description: project.name });
     } catch (e) {
@@ -99,47 +119,51 @@ export function ProjectPromptButton({ contentType, productCategory, onPromptGene
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-3" align="end">
+        <div className="text-sm font-medium mb-3">Generate from your project</div>
         {projects === null ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           </div>
-        ) : !hasProjects ? (
-          <div className="space-y-3 text-center py-2">
-            <p className="text-sm font-medium">No project yet</p>
-            <p className="text-xs text-muted-foreground">
-              Create a project so AI can generate on-brand prompts for you.
-            </p>
-            <Button size="sm" className="w-full" onClick={() => navigate("/projects/new")}>
-              Create a project
-            </Button>
-          </div>
         ) : (
           <>
-            <div className="text-sm font-medium mb-3">Generate from your project</div>
-            <ScrollArea className="max-h-48">
-              <div className="space-y-1">
-                {projects.map((project) => (
-                  <button
-                    key={project.id}
-                    onClick={() => generate(project)}
-                    disabled={generatingId !== null}
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted transition-colors border border-transparent hover:border-border disabled:opacity-60"
-                  >
-                    <div
-                      className="h-4 w-4 rounded-full shrink-0 ring-2 ring-offset-2 ring-offset-background ring-primary"
-                      style={{ backgroundColor: project.theme_color || "#6366f1" }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <span className="font-medium truncate block">{project.name}</span>
-                      {project.url && (
-                        <span className="text-xs text-muted-foreground truncate block">{project.url}</span>
-                      )}
-                    </div>
-                    {generatingId === project.id && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
-                  </button>
-                ))}
-              </div>
-            </ScrollArea>
+            {hasProjects && (
+              <ScrollArea className="max-h-48 mb-1">
+                <div className="space-y-1">
+                  {projects.map((project) => (
+                    <button
+                      key={project.id}
+                      onClick={() => generate(project)}
+                      disabled={generatingId !== null}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted transition-colors border border-transparent hover:border-border disabled:opacity-60"
+                    >
+                      <div
+                        className="h-4 w-4 rounded-full shrink-0 ring-2 ring-offset-2 ring-offset-background ring-primary"
+                        style={{ backgroundColor: project.theme_color || "#6366f1" }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium truncate block">{project.name}</span>
+                        {project.url && (
+                          <span className="text-xs text-muted-foreground truncate block">{project.url}</span>
+                        )}
+                      </div>
+                      {generatingId === project.id && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+            {!hasProjects && (
+              <p className="text-xs text-muted-foreground px-1 pb-2">
+                Create a project so AI can generate on-brand prompts for you.
+              </p>
+            )}
+            <button
+              onClick={() => navigate("/projects/new")}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted transition-colors border border-dashed border-border text-muted-foreground hover:text-foreground"
+            >
+              <Plus className="h-4 w-4 shrink-0" />
+              Create a new project
+            </button>
           </>
         )}
       </PopoverContent>

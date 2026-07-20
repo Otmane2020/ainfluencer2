@@ -158,11 +158,7 @@ const HiggsfieldStudio = ({ defaultTab = "text-to-image" }: Props) => {
                         className="pr-12"
                       />
                       <div className="absolute right-1 top-1">
-                        <ProjectPromptButton
-                          contentType="image_prompt"
-                          productCategory="image"
-                          onPromptGenerated={setImgPrompt}
-                        />
+                        <ProjectPromptButton mode="image" onPromptGenerated={setImgPrompt} />
                       </div>
                     </div>
                   </div>
@@ -281,11 +277,7 @@ const HiggsfieldStudio = ({ defaultTab = "text-to-image" }: Props) => {
                         className="pr-12"
                       />
                       <div className="absolute right-1 top-1">
-                        <ProjectPromptButton
-                          contentType="video_prompt"
-                          productCategory="video"
-                          onPromptGenerated={setVidPrompt}
-                        />
+                        <ProjectPromptButton mode="motion" onPromptGenerated={setVidPrompt} />
                       </div>
                     </div>
                   </div>
