@@ -120,36 +120,6 @@ const Dashboard = () => {
     },
   ];
 
-  const statCards = [
-    {
-      title: "Projects",
-      value: stats.totalProjects,
-      icon: FolderKanban,
-      color: "text-primary",
-      bgColor: "bg-primary/10",
-    },
-    {
-      title: "Scheduled",
-      value: stats.scheduledPosts,
-      icon: Clock,
-      color: "text-accent",
-      bgColor: "bg-accent/10",
-    },
-    {
-      title: "Published",
-      value: stats.publishedPosts,
-      icon: CheckCircle2,
-      color: "text-primary",
-      bgColor: "bg-primary/10",
-    },
-    {
-      title: "Pending",
-      value: stats.pendingPosts,
-      icon: TrendingUp,
-      color: "text-secondary",
-      bgColor: "bg-secondary/10",
-    },
-  ];
 
 
   return (
