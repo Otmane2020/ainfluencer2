@@ -220,3 +220,15 @@
   from { box-shadow: 0 0 20px -5px hsl(270, 80%, 50%); }
   to { box-shadow: 0 0 30px -5px hsl(190, 85%, 55%); }
 }
+
+/* Hide Lovable badge on published site */
+@layer base {
+  #lovable-badge,
+  a[href*="lovable.dev"][class*="badge"],
+  [id*="lovable-badge"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+}

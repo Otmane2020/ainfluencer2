@@ -1,20 +1,13 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
-  FolderKanban,
-  Megaphone,
-  CalendarDays,
   Video,
-  ImageIcon,
   Settings,
   LogOut,
   Clock,
-  FileText,
-  Plug,
-  Image,
-  Camera,
+  Image as ImageIcon,
+  Film,
   Sparkles,
-  
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { NavLink } from "@/components/NavLink";
@@ -38,27 +31,19 @@ import {
 
 const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Projects", url: "/projects", icon: FolderKanban },
-  { title: "Campaigns", url: "/campaigns", icon: Megaphone },
-  
-  { title: "AutoPost AI", url: "/calendar", icon: CalendarDays },
 ];
 
 const contentNavItems = [
-  { title: "AI Video", url: "/videos", icon: Video },
-  { title: "AI Image", url: "/images", icon: Image },
-  { title: "Smart AI Image", url: "/smart-image", icon: Sparkles, label: "NEW" },
-  { title: "Product Shots", url: "/product-shots", icon: Camera, label: "AI Smart" },
-  { title: "Posts", url: "/posts", icon: ImageIcon },
+  { title: "AI Image", url: "/images", icon: ImageIcon, label: "STUDIO" },
+  { title: "AI Video", url: "/videos", icon: Video, label: "STUDIO" },
+  { title: "Image → Video", url: "/image-to-video", icon: Film, label: "NEW" },
 ];
 
 const historyNavItems = [
   { title: "History", url: "/history", icon: Clock },
-  { title: "Post History", url: "/history/posts", icon: FileText },
 ];
 
 const accountNavItems = [
-  { title: "Integrations", url: "/integrations", icon: Plug },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
@@ -76,6 +61,41 @@ export function AppSidebar() {
     navigate("/auth");
   };
 
+  type NavItem = { title: string; url: string; icon: any; label?: string };
+  const renderGroup = (label: string, items: NavItem[]) => (
+    <SidebarGroup>
+      <SidebarGroupLabel>{label}</SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {items.map((item) => (
+            <SidebarMenuItem key={item.title}>
+              <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
+                <NavLink
+                  to={item.url}
+                  end
+                  className="flex items-center gap-3"
+                  activeClassName="bg-primary/10 text-primary font-medium"
+                >
+                  <item.icon className="h-5 w-5 shrink-0" />
+                  {!collapsed && (
+                    <span className="flex items-center gap-2">
+                      {item.title}
+                      {item.label && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-primary/20 text-primary border-0">
+                          {item.label}
+                        </Badge>
+                      )}
+                    </span>
+                  )}
+                </NavLink>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
       <SidebarHeader className="p-4">
@@ -85,146 +105,28 @@ export function AppSidebar() {
           </div>
           {!collapsed && (
             <div className="flex flex-col overflow-hidden">
-              <span className="font-display text-xl font-bold text-gradient truncate">
-                ClipMotion
-              </span>
-              <span className="text-xs text-muted-foreground truncate">
-                AI Studio
-              </span>
+              <span className="font-display text-xl font-bold text-gradient truncate">ClipMotion</span>
+              <span className="text-xs text-muted-foreground truncate">AI Creative Studio</span>
             </div>
           )}
         </div>
       </SidebarHeader>
 
       <SidebarContent className="px-2">
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {mainNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive(item.url)}
-                    tooltip={item.title}
-                  >
-                    <NavLink
-                      to={item.url}
-                      end
-                      className="flex items-center gap-3"
-                      activeClassName="bg-primary/10 text-primary font-medium"
-                    >
-                      <item.icon className="h-5 w-5 shrink-0" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Create</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {contentNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive(item.url)}
-                    tooltip={item.title}
-                  >
-                    <NavLink
-                      to={item.url}
-                      end
-                      className="flex items-center gap-3"
-                      activeClassName="bg-primary/10 text-primary font-medium"
-                    >
-                      <item.icon className="h-5 w-5 shrink-0" />
-                      {!collapsed && (
-                        <span className="flex items-center gap-2">
-                          {item.title}
-                          {"label" in item && item.label && (
-                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-primary/20 text-primary border-0">
-                              {item.label}
-                            </Badge>
-                          )}
-                        </span>
-                      )}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>History</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {historyNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive(item.url)}
-                    tooltip={item.title}
-                  >
-                    <NavLink
-                      to={item.url}
-                      end
-                      className="flex items-center gap-3"
-                      activeClassName="bg-primary/10 text-primary font-medium"
-                    >
-                      <item.icon className="h-5 w-5 shrink-0" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Account</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {accountNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive(item.url)}
-                    tooltip={item.title}
-                  >
-                    <NavLink
-                      to={item.url}
-                      end
-                      className="flex items-center gap-3"
-                      activeClassName="bg-primary/10 text-primary font-medium"
-                    >
-                      <item.icon className="h-5 w-5 shrink-0" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {renderGroup("Navigation", mainNavItems)}
+        {renderGroup("Create", contentNavItems)}
+        {renderGroup("Library", historyNavItems)}
+        {renderGroup("Account", accountNavItems)}
       </SidebarContent>
 
       <SidebarFooter className="p-4 border-t border-border">
         <div className="flex flex-col gap-3">
-          {/* Credits Display */}
           {!collapsed && <CreditsDisplay />}
           {collapsed && (
             <div className="flex justify-center">
               <CreditsDisplay compact />
             </div>
           )}
-          
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full gradient-primary p-[2px]">
               <div className="flex h-full w-full items-center justify-center rounded-full bg-card">
@@ -235,10 +137,8 @@ export function AppSidebar() {
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">
-                  {profile?.display_name || "User"}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">Creator</p>
+                <p className="font-medium text-sm truncate">{profile?.display_name || "Creator"}</p>
+                <p className="text-xs text-muted-foreground truncate">ClipMotion</p>
               </div>
             )}
             {!collapsed && (

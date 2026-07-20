@@ -14,6 +14,8 @@ import CampaignsPage from "./pages/CampaignsPage";
 
 import CalendarPage from "./pages/CalendarPage";
 import Videos from "./pages/Videos";
+import HiggsfieldVideoStudio from "./pages/HiggsfieldVideoStudio";
+import HiggsfieldImageStudio from "./pages/HiggsfieldImageStudio";
 // AI Video page removed - consolidated into Videos page
 import Images from "./pages/Images";
 import SmartImagePage from "./pages/SmartImagePage";
@@ -106,9 +108,12 @@ const App = () => (
             
             <Route path="/calendar" element={<CalendarPage />} />
             {/* ClipMotion route removed - consolidated into Videos */}
-            <Route path="/videos" element={<Videos />} />
+            <Route path="/videos" element={<HiggsfieldVideoStudio mode="text" />} />
+            <Route path="/videos-legacy" element={<Videos />} />
+            <Route path="/image-to-video" element={<HiggsfieldVideoStudio mode="image" />} />
             {/* AI Video route removed - consolidated into /videos */}
-            <Route path="/images" element={<Images />} />
+            <Route path="/images" element={<HiggsfieldImageStudio />} />
+            <Route path="/images-legacy" element={<Images />} />
             <Route path="/smart-image" element={<SmartImagePage />} />
             <Route path="/product-shots" element={<ProductShotsPage />} />
             <Route path="/posts" element={<Posts />} />

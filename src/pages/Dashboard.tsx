@@ -10,12 +10,16 @@ import { FeatureShowcase } from "@/components/dashboard/FeatureShowcase";
 import { LowCreditsNudge } from "@/components/nudges/LowCreditsNudge";
 import { OnboardingProgress } from "@/components/nudges/OnboardingProgress";
 import {
-  FolderKanban,
+  Image as ImageIcon,
+  Video,
+  Sparkles,
+  Coins,
+  ArrowRight,
   Plus,
+  FolderKanban,
   TrendingUp,
   Clock,
   CheckCircle2,
-  ArrowRight,
 } from "lucide-react";
 
 interface Project {
@@ -28,10 +32,10 @@ interface Project {
 }
 
 interface Stats {
+  imagesGenerated: number;
+  videosGenerated: number;
+  totalGenerations: number;
   totalProjects: number;
-  scheduledPosts: number;
-  publishedPosts: number;
-  pendingPosts: number;
 }
 
 const Dashboard = () => {
@@ -39,10 +43,10 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [stats, setStats] = useState<Stats>({
+    imagesGenerated: 0,
+    videosGenerated: 0,
+    totalGenerations: 0,
     totalProjects: 0,
-    scheduledPosts: 0,
-    publishedPosts: 0,
-    pendingPosts: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -63,16 +67,19 @@ const Dashboard = () => {
         setStats((prev) => ({ ...prev, totalProjects: projectsData.length }));
       }
 
-      const { data: postsData } = await supabase
-        .from("scheduled_posts")
-        .select("status");
+      const { data: generationsData } = await supabase
+        .from("generations")
+        .select("type")
+        .in("status", ["completed", "success"]);
 
-      if (postsData) {
+      if (generationsData) {
+        const images = generationsData.filter((g: any) => (g.type || "").includes("image")).length;
+        const videos = generationsData.filter((g: any) => (g.type || "").includes("video")).length;
         setStats((prev) => ({
           ...prev,
-          scheduledPosts: postsData.filter((p) => p.status === "scheduled").length,
-          publishedPosts: postsData.filter((p) => p.status === "published").length,
-          pendingPosts: postsData.filter((p) => p.status === "pending_approval").length,
+          imagesGenerated: images,
+          videosGenerated: videos,
+          totalGenerations: generationsData.length,
         }));
       }
     } catch (error) {
@@ -84,34 +91,35 @@ const Dashboard = () => {
 
   const statCards = [
     {
+      title: "Images",
+      value: stats.imagesGenerated,
+      icon: ImageIcon,
+      color: "text-primary",
+      bgColor: "bg-primary/10",
+    },
+    {
+      title: "Videos",
+      value: stats.videosGenerated,
+      icon: Video,
+      color: "text-secondary",
+      bgColor: "bg-secondary/10",
+    },
+    {
+      title: "Total Generations",
+      value: stats.totalGenerations,
+      icon: Sparkles,
+      color: "text-accent",
+      bgColor: "bg-accent/10",
+    },
+    {
       title: "Projects",
       value: stats.totalProjects,
       icon: FolderKanban,
       color: "text-primary",
       bgColor: "bg-primary/10",
     },
-    {
-      title: "Scheduled",
-      value: stats.scheduledPosts,
-      icon: Clock,
-      color: "text-accent",
-      bgColor: "bg-accent/10",
-    },
-    {
-      title: "Published",
-      value: stats.publishedPosts,
-      icon: CheckCircle2,
-      color: "text-primary",
-      bgColor: "bg-primary/10",
-    },
-    {
-      title: "Pending",
-      value: stats.pendingPosts,
-      icon: TrendingUp,
-      color: "text-secondary",
-      bgColor: "bg-secondary/10",
-    },
   ];
+
 
 
   return (
