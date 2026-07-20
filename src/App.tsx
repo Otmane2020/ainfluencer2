@@ -14,8 +14,7 @@ import CampaignsPage from "./pages/CampaignsPage";
 
 import CalendarPage from "./pages/CalendarPage";
 import Videos from "./pages/Videos";
-import HiggsfieldVideoStudio from "./pages/HiggsfieldVideoStudio";
-import HiggsfieldImageStudio from "./pages/HiggsfieldImageStudio";
+import HiggsfieldStudio from "./pages/HiggsfieldStudio";
 // AI Video page removed - consolidated into Videos page
 import Images from "./pages/Images";
 import SmartImagePage from "./pages/SmartImagePage";
@@ -107,12 +106,12 @@ const App = () => (
             <Route path="/campaigns" element={<CampaignsPage />} />
             
             <Route path="/calendar" element={<CalendarPage />} />
-            {/* ClipMotion route removed - consolidated into Videos */}
-            <Route path="/videos" element={<HiggsfieldVideoStudio mode="text" />} />
+            {/* ClipMotion route removed - consolidated into AI Studio (Text to Image / Image to Video) */}
+            <Route path="/videos" element={<HiggsfieldStudio defaultTab="image-to-video" />} />
             <Route path="/videos-legacy" element={<Videos />} />
-            <Route path="/image-to-video" element={<HiggsfieldVideoStudio mode="image" />} />
-            {/* AI Video route removed - consolidated into /videos */}
-            <Route path="/images" element={<HiggsfieldImageStudio />} />
+            <Route path="/image-to-video" element={<HiggsfieldStudio defaultTab="image-to-video" />} />
+            {/* AI Video route removed - consolidated into AI Studio */}
+            <Route path="/images" element={<HiggsfieldStudio defaultTab="text-to-image" />} />
             <Route path="/images-legacy" element={<Images />} />
             <Route path="/smart-image" element={<SmartImagePage />} />
             <Route path="/product-shots" element={<ProductShotsPage />} />

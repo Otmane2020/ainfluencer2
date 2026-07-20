@@ -1,13 +1,11 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
-  Video,
   Settings,
   LogOut,
   Clock,
-  Image as ImageIcon,
-  Film,
   Sparkles,
+  FolderKanban,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { NavLink } from "@/components/NavLink";
@@ -31,12 +29,11 @@ import {
 
 const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Projects", url: "/projects", icon: FolderKanban },
 ];
 
 const contentNavItems = [
-  { title: "AI Image", url: "/images", icon: ImageIcon, label: "STUDIO" },
-  { title: "AI Video", url: "/videos", icon: Video, label: "STUDIO" },
-  { title: "Image → Video", url: "/image-to-video", icon: Film, label: "NEW" },
+  { title: "AI Studio", url: "/images", icon: Sparkles, label: "STUDIO" },
 ];
 
 const historyNavItems = [
