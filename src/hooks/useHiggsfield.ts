@@ -1,5 +1,25 @@
 import { useCallback, useRef, useState } from "react";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+
+/**
+ * supabase-js's FunctionsHttpError.message is always the generic
+ * "Edge Function returned a non-2xx status code" — the actual error we
+ * return from the edge function body (e.g. "prompt is required",
+ * "Higgsfield credentials not configured") is only reachable via
+ * error.context, the raw Response object.
+ */
+async function extractFunctionErrorMessage(error: unknown): Promise<string> {
+  if (error instanceof FunctionsHttpError) {
+    try {
+      const body = await error.context.clone().json();
+      if (body?.error) return body.error;
+    } catch {
+      /* body wasn't JSON — fall through to the generic message */
+    }
+  }
+  return (error as Error).message;
+}
 
 export interface HiggsfieldResult {
   status: "queued" | "in_progress" | "completed" | "failed" | "nsfw";
@@ -37,7 +57,7 @@ export function useHiggsfield() {
       const submit = await supabase.functions.invoke("higgsfield-generate", {
         body: { action: "submit", endpoint, payload },
       });
-      if (submit.error) throw new Error(submit.error.message);
+      if (submit.error) throw new Error(await extractFunctionErrorMessage(submit.error));
       const initial = submit.data as HiggsfieldResult;
       if (!initial?.request_id) {
         throw new Error(initial?.error || "Higgsfield: no request_id returned");
@@ -52,7 +72,7 @@ export function useHiggsfield() {
         const s = await supabase.functions.invoke("higgsfield-generate", {
           body: { action: "status", request_id: initial.request_id },
         });
-        if (s.error) throw new Error(s.error.message);
+        if (s.error) throw new Error(await extractFunctionErrorMessage(s.error));
         const cur = s.data as HiggsfieldResult;
         onProgress?.(cur.status);
         if (cur.status === "completed") {

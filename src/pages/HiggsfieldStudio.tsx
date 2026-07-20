@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Download, Loader2, Wand2, Upload } from "lucide-react";
+import { Sparkles, Download, Loader2, Wand2, Upload, CheckCircle2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -53,6 +53,7 @@ const HiggsfieldStudio = ({ defaultTab = "text-to-image" }: Props) => {
   // Image to Video state
   const [vidPrompt, setVidPrompt] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [vidModel, setVidModel] = useState(VIDEO_MODELS[0].id);
   const [duration, setDuration] = useState("5");
   const [vidStatus, setVidStatus] = useState("");
@@ -67,12 +68,18 @@ const HiggsfieldStudio = ({ defaultTab = "text-to-image" }: Props) => {
       if (uploadError) throw uploadError;
       const { data: pub } = supabase.storage.from("media").getPublicUrl(data.path);
       setImageUrl(pub.publicUrl);
+      setUploadedFileName(file.name);
       toast({ title: "Image uploaded" });
     } catch (e) {
       toast({ title: "Upload failed", description: (e as Error).message, variant: "destructive" });
     } finally {
       setUploading(false);
     }
+  };
+
+  const clearImage = () => {
+    setImageUrl("");
+    setUploadedFileName(null);
   };
 
   const handleGenerateImage = async () => {
@@ -247,22 +254,43 @@ const HiggsfieldStudio = ({ defaultTab = "text-to-image" }: Props) => {
                 <CardContent className="p-6 space-y-4">
                   <div className="space-y-3">
                     <Label>Source image</Label>
-                    <div className="flex gap-2">
-                      <Input placeholder="https://…/image.jpg" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
-                      <label className="inline-flex">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
+                    {imageUrl ? (
+                      <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+                        <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                        <span className="flex-1 min-w-0 truncate">
+                          {uploadedFileName ? `Image uploaded — ${uploadedFileName}` : "Image linked"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={clearImage}
+                          className="shrink-0 rounded-full p-0.5 hover:bg-primary/20 transition-colors"
+                          aria-label="Remove image"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="https://…/image.jpg"
+                          value={imageUrl}
+                          onChange={(e) => setImageUrl(e.target.value)}
                         />
-                        <Button asChild variant="outline" disabled={uploading}>
-                          <span className="cursor-pointer gap-2 flex items-center">
-                            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Upload
-                          </span>
-                        </Button>
-                      </label>
-                    </div>
+                        <label className="inline-flex">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
+                          />
+                          <Button asChild variant="outline" disabled={uploading}>
+                            <span className="cursor-pointer gap-2 flex items-center">
+                              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Upload
+                            </span>
+                          </Button>
+                        </label>
+                      </div>
+                    )}
                     {imageUrl && <img src={imageUrl} alt="source" className="rounded-lg max-h-40 object-contain" />}
                   </div>
 
