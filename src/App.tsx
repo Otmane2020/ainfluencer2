@@ -14,6 +14,8 @@ import CampaignsPage from "./pages/CampaignsPage";
 
 import CalendarPage from "./pages/CalendarPage";
 import Videos from "./pages/Videos";
+import HiggsfieldVideoStudio from "./pages/HiggsfieldVideoStudio";
+import HiggsfieldImageStudio from "./pages/HiggsfieldImageStudio";
 // AI Video page removed - consolidated into Videos page
 import Images from "./pages/Images";
 import SmartImagePage from "./pages/SmartImagePage";
