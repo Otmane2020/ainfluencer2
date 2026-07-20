@@ -374,51 +374,6 @@ CRITICAL REQUIREMENTS:
 6. Be SPECIFIC to this brand's actual offerings, NOT generic stock imagery
 7. Make the viewer WANT to buy — conversion > aesthetics`;
 
-    } else if (contentType === "video_prompt") {
-      // ============================================
-      // IMAGE-TO-VIDEO MOTION PROMPT GENERATION
-      // ============================================
-      const brandContext = scrapedContent ? `
-WEBSITE ANALYSIS (extract key selling points):
-${scrapedContent.substring(0, 2500)}
-` : "";
-
-      systemPrompt = `You are a MOTION DIRECTION SPECIALIST for AI image-to-video generation. Your job is to write short prompts that describe how a still brand image should ANIMATE — camera movement, subject motion, atmosphere — not what the image looks like.
-
-🎯 YOUR MISSION: Describe cinematic MOTION for an existing product/brand photo so it comes alive as a short video clip.
-
-📝 RULES:
-1. Describe CAMERA movement (push-in, pan, orbit, slow zoom, parallax, handheld drift) and/or SUBJECT motion (fabric moving, steam rising, hair moving, liquid pouring, light shifting)
-2. Keep it grounded in what would realistically be visible in a product/brand photo — no scene changes, no new objects appearing
-3. Mention pacing and mood (slow and cinematic, energetic, subtle)
-4. Do NOT describe static composition/lighting/colors — assume the image already exists, only describe the MOVEMENT to apply to it
-5. Each prompt must be a single flowing sentence or two, ready to paste directly into a video generator
-
-📍 BRAND CONTEXT:
-- Brand: ${projectName || "Unknown"}
-- What they sell: ${projectDescription || "Products/services to promote"}
-${projectUrl ? `- Website: ${projectUrl}` : ""}
-${brandContext}
-${marketingContextBlock}
-${productName ? `- Product: ${productName}` : ""}
-
-${languageInstruction}
-
-Respond ONLY with valid JSON:
-{
-  "suggestions": [
-    {
-      "id": "1",
-      "title": "Short label for this motion (max 50 chars)",
-      "content": "Motion/camera direction prompt describing how the image should animate",
-      "contentType": "video",
-      "estimatedEngagement": "high"
-    }
-  ]
-}`;
-
-      userMessage = `Generate 5 UNIQUE motion/camera-direction prompts to animate a brand image for "${projectName || 'this seller'}" into a short image-to-video clip. Focus purely on movement and pacing, not visual description.`;
-
     } else if (contentType === "script") {
       // Calculate word count based on duration (same logic as generate-script-nanobanana)
       const dur = duration || 10;
@@ -601,7 +556,7 @@ Respond ONLY with valid JSON:
 
     // Use Claude for text-based content (scripts, posts, suggestions)
     // Use OpenRouter for image prompts (needs visual AI models)
-    const useClaudeForContent = contentType !== "image_prompt" && contentType !== "video_prompt";
+    const useClaudeForContent = contentType !== "image_prompt";
     
     let content: string;
     

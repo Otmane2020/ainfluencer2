@@ -140,6 +140,9 @@ verify_jwt = false
 [functions.generate-motion-script]
 verify_jwt = false
 
+[functions.generate-motion-prompt]
+verify_jwt = false
+
 [functions.generate-video-comet]
 verify_jwt = false
 

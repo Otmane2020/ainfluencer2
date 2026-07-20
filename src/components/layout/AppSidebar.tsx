@@ -7,7 +7,6 @@ import {
   Sparkles,
   FolderKanban,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -27,20 +26,12 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const mainNavItems = [
+const createNavItem = { title: "AI Studio", url: "/images", icon: Sparkles };
+
+const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderKanban },
-];
-
-const contentNavItems = [
-  { title: "AI Studio", url: "/images", icon: Sparkles, label: "STUDIO" },
-];
-
-const historyNavItems = [
   { title: "History", url: "/history", icon: Clock },
-];
-
-const accountNavItems = [
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
@@ -58,39 +49,25 @@ export function AppSidebar() {
     navigate("/auth");
   };
 
-  type NavItem = { title: string; url: string; icon: any; label?: string };
-  const renderGroup = (label: string, items: NavItem[]) => (
-    <SidebarGroup>
-      <SidebarGroupLabel>{label}</SidebarGroupLabel>
-      <SidebarGroupContent>
-        <SidebarMenu>
-          {items.map((item) => (
-            <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
-                <NavLink
-                  to={item.url}
-                  end
-                  className="flex items-center gap-3"
-                  activeClassName="bg-primary/10 text-primary font-medium"
-                >
-                  <item.icon className="h-5 w-5 shrink-0" />
-                  {!collapsed && (
-                    <span className="flex items-center gap-2">
-                      {item.title}
-                      {item.label && (
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-primary/20 text-primary border-0">
-                          {item.label}
-                        </Badge>
-                      )}
-                    </span>
-                  )}
-                </NavLink>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
+  type NavItem = { title: string; url: string; icon: any };
+  const renderItems = (items: NavItem[]) => (
+    <SidebarMenu>
+      {items.map((item) => (
+        <SidebarMenuItem key={item.title}>
+          <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
+            <NavLink
+              to={item.url}
+              end
+              className="flex items-center gap-3"
+              activeClassName="bg-primary/10 text-primary font-medium"
+            >
+              <item.icon className="h-5 w-5 shrink-0" />
+              {!collapsed && <span>{item.title}</span>}
+            </NavLink>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      ))}
+    </SidebarMenu>
   );
 
   return (
@@ -110,10 +87,23 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="px-2">
-        {renderGroup("Navigation", mainNavItems)}
-        {renderGroup("Create", contentNavItems)}
-        {renderGroup("Library", historyNavItems)}
-        {renderGroup("Account", accountNavItems)}
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <NavLink
+              to={createNavItem.url}
+              end
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 mb-2 gradient-primary text-primary-foreground font-medium shadow-glow transition-opacity hover:opacity-90 ${collapsed ? "justify-center" : ""}`}
+            >
+              <createNavItem.icon className="h-5 w-5 shrink-0" />
+              {!collapsed && <span>{createNavItem.title}</span>}
+            </NavLink>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Menu</SidebarGroupLabel>
+          <SidebarGroupContent>{renderItems(navItems)}</SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter className="p-4 border-t border-border">
