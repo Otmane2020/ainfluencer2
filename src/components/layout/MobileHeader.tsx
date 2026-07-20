@@ -18,15 +18,14 @@ import {
   LayoutDashboard,
   FolderKanban,
   Calendar,
-  Video,
   ImageIcon,
   Settings,
   Clock,
   FileText,
   Plug,
-  Image,
   Megaphone,
   Camera,
+  Sparkles,
 } from "lucide-react";
 
 const mainNavItems = [
@@ -37,8 +36,7 @@ const mainNavItems = [
 ];
 
 const contentNavItems = [
-  { title: "Videos", url: "/videos", icon: Video },
-  { title: "Images", url: "/images", icon: Image },
+  { title: "AI Studio", url: "/images", icon: Sparkles },
   { title: "Product Shots", url: "/product-shots", icon: Camera, label: "AI Smart" },
   { title: "Posts", url: "/posts", icon: ImageIcon },
 ];

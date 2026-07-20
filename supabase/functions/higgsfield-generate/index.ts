@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { action, model_id, payload, request_id } = body ?? {};
+    const { action, endpoint, payload, request_id } = body ?? {};
 
     // Status polling
     if (action === "status") {
@@ -54,14 +54,30 @@ Deno.serve(async (req) => {
     }
 
     // Submit generation
-    if (!model_id) {
-      return new Response(JSON.stringify({ error: "model_id required" }), {
+    if (!endpoint) {
+      return new Response(JSON.stringify({ error: "endpoint required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const p = (payload ?? {}) as Record<string, unknown>;
+    if (!p.prompt || typeof p.prompt !== "string" || !p.prompt.trim()) {
+      return new Response(JSON.stringify({ error: "prompt is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (endpoint.startsWith("/v1/image2video") && !p.image_url) {
+      return new Response(JSON.stringify({ error: "image_url is required for image-to-video generation" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const r = await fetch(`${HIGGSFIELD_BASE}/${model_id}`, {
+    // Higgsfield's v2 API takes the model as part of the endpoint path
+    // (e.g. /v1/text2image/soul, /v1/image2video/dop) and the params flat
+    // (not wrapped) in the POST body.
+    const r = await fetch(`${HIGGSFIELD_BASE}${endpoint}`, {
       method: "POST",
       headers: {
         Authorization: authHeader,

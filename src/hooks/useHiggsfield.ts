@@ -10,7 +10,8 @@ export interface HiggsfieldResult {
 }
 
 interface GenerateOpts {
-  modelId: string;
+  /** Higgsfield API path for the model, e.g. "/v1/text2image/soul" or "/v1/image2video/dop" */
+  endpoint: string;
   payload: Record<string, unknown>;
   onProgress?: (status: string) => void;
   timeoutMs?: number;
@@ -26,7 +27,7 @@ export function useHiggsfield() {
   const [error, setError] = useState<string | null>(null);
   const cancelRef = useRef<{ requestId?: string; cancelled: boolean }>({ cancelled: false });
 
-  const generate = useCallback(async ({ modelId, payload, onProgress, timeoutMs = 300_000 }: GenerateOpts) => {
+  const generate = useCallback(async ({ endpoint, payload, onProgress, timeoutMs = 300_000 }: GenerateOpts) => {
     setLoading(true);
     setError(null);
     setResult(null);
@@ -34,7 +35,7 @@ export function useHiggsfield() {
 
     try {
       const submit = await supabase.functions.invoke("higgsfield-generate", {
-        body: { action: "submit", model_id: modelId, payload },
+        body: { action: "submit", endpoint, payload },
       });
       if (submit.error) throw new Error(submit.error.message);
       const initial = submit.data as HiggsfieldResult;
