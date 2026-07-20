@@ -141,14 +141,15 @@ export const PRICING_PLANS: PricingPlan[] = [
     name: "Starter",
     price: 19,
     priceUnit: "/month",
-    description: "Get started with AI product visuals",
-    credits: 100,
+    description: "Perfect for creators getting started",
+    credits: 30,
     creditValue: CREDIT_UNIT_PRICE,
     features: [
-      "100 credits / month",
-      "All AI styles unlocked",
-      "HD download",
-      "Background removal",
+      "30 credits included",
+      "1 credit per image · 4 per video",
+      "3 projects",
+      "1 campaign",
+      "AutoPost scheduling",
       "Email support",
     ],
     limits: {
@@ -161,45 +162,48 @@ export const PRICING_PLANS: PricingPlan[] = [
     name: "Pro",
     price: 49,
     priceUnit: "/month",
-    description: "For growing e-commerce sellers",
-    credits: 500,
+    description: "For brands and serious creators",
+    credits: 80,
     creditValue: CREDIT_UNIT_PRICE,
     features: [
-      "500 credits / month",
-      "AutoPost: 1 video / day",
-      "All premium styles",
-      "Multi-platform formats",
-      "Lifestyle staging",
+      "80 credits included",
+      "1 credit per image · 4 per video",
+      "10 projects",
+      "Unlimited campaigns",
+      "AutoPost scheduling",
       "Priority support",
+      "Analytics dashboard",
     ],
     limits: {
       projects: 10,
       campaigns: -1,
     },
     popular: true,
-    badge: "MOST POPULAR",
+    badge: "POPULAR",
   },
   {
     id: "business",
     name: "Business",
-    price: 149,
+    price: 99,
     priceUnit: "/month",
-    description: "For agencies and high-volume sellers",
-    credits: 2000,
+    description: "For agencies and power users",
+    credits: 200,
     creditValue: CREDIT_UNIT_PRICE,
     features: [
-      "2000 credits / month",
-      "AutoPost: 3 videos / day",
-      "Unlimited products & projects",
-      "Batch up to 20 products",
+      "200 credits included",
+      "1 credit per image · 4 per video",
+      "Unlimited projects",
+      "Unlimited campaigns",
+      "AutoPost scheduling",
+      "Priority queue",
       "API access",
-      "Dedicated onboarding",
+      "Dedicated support",
     ],
     limits: {
       projects: -1,
       campaigns: -1,
     },
-    badge: "BUSINESS",
+    badge: "PRO",
   },
 ];
 
@@ -291,13 +295,6 @@ export interface PlanAccess {
 }
 
 export const PLAN_ACCESS: Record<string, PlanAccess> = {
-  lite: {
-    maxProjects: 1,
-    maxCampaigns: 1,
-    canAutopost: true,
-    hasPriorityQueue: false,
-    hasApiAccess: false,
-  },
   starter: {
     maxProjects: 3,
     maxCampaigns: 1,
@@ -337,14 +334,6 @@ export const getPlanAccess = (planId: string): PlanAccess => {
 
 // Legacy quality access - now all tiers available to all subscribers
 export const PLAN_QUALITY_ACCESS: Record<string, { image: string[]; video: string[]; maxProjects: number; maxCampaigns: number; autopostImagesPerDay: number; autopostVideosPerDay: number }> = {
-  lite: {
-    image: ["standard-image", "pro-image", "cinema-image"],
-    video: ["standard-video", "pro-video", "cinema-video"],
-    maxProjects: 1,
-    maxCampaigns: 1,
-    autopostImagesPerDay: -1,
-    autopostVideosPerDay: -1,
-  },
   starter: {
     image: ["standard-image", "pro-image", "cinema-image"],
     video: ["standard-video", "pro-video", "cinema-video"],

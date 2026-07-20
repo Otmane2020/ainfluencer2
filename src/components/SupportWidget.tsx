@@ -1,15 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageCircle, X, Send, Mail, Bot, Loader2, ChevronLeft, CheckCircle2 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { useLocation } from "react-router-dom";
+import { MessageCircle, X, Send, Mail, Bot, Loader2, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -23,7 +14,6 @@ interface Message {
 type View = "menu" | "chat" | "email";
 
 export const SupportWidget = () => {
-  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [view, setView] = useState<View>("menu");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -31,7 +21,6 @@ export const SupportWidget = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [emailForm, setEmailForm] = useState({ subject: "", message: "" });
   const [emailSending, setEmailSending] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -39,9 +28,6 @@ export const SupportWidget = () => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
-
-  // Hide widget on wizard pages
-  if (location.pathname.startsWith("/product-shots")) return null;
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
@@ -82,20 +68,13 @@ export const SupportWidget = () => {
     if (!emailForm.subject.trim() || !emailForm.message.trim()) return;
 
     setEmailSending(true);
-    try {
-      const { error } = await supabase.functions.invoke("support-create-ticket", {
-        body: { subject: emailForm.subject, message: emailForm.message },
-      });
-      if (error) throw error;
-      setEmailForm({ subject: "", message: "" });
-      setView("menu");
-      setShowSuccess(true);
-    } catch (err) {
-      console.error("Ticket create error:", err);
-      alert("Failed to send. Please try again.");
-    } finally {
-      setEmailSending(false);
-    }
+    // Simulate email sending - in production, connect to email service
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    setEmailSending(false);
+    setEmailForm({ subject: "", message: "" });
+    setView("menu");
+    // Show success feedback
+    alert("Your message has been sent! We'll get back to you soon.");
   };
 
   const goBack = () => setView("menu");
@@ -284,26 +263,6 @@ export const SupportWidget = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Success Confirmation Dialog */}
-      <Dialog open={showSuccess} onOpenChange={setShowSuccess}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <div className="mx-auto mb-2 h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
-              <CheckCircle2 className="h-8 w-8 text-primary" />
-            </div>
-            <DialogTitle className="text-center">Message Sent!</DialogTitle>
-            <DialogDescription className="text-center">
-              Thanks for reaching out. Our team will get back to you within 24 hours.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="sm:justify-center">
-            <Button onClick={() => setShowSuccess(false)} className="w-full sm:w-auto">
-              Got it
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 };

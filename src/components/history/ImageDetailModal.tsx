@@ -350,40 +350,31 @@ export const ImageDetailModal = ({
         url = `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}&quote=${shareText}`;
         break;
       case "linkedin":
-        url = imageUrl
-          ? `https://www.linkedin.com/sharing/share-offsite/?url=${shareUrl}`
-          : `https://www.linkedin.com/feed/?shareActive=true`;
+        // LinkedIn often blocks direct image URLs.
+        // Open composer and guide the user with copy + download.
+        url = `https://www.linkedin.com/feed/?shareActive=true`;
         break;
       case "instagram":
-        url = "https://www.instagram.com/";
-        break;
       case "tiktok":
-        url = "https://www.tiktok.com/upload";
+        url = platform === "instagram" ? "https://www.instagram.com/" : "https://www.tiktok.com/";
         break;
     }
-    if (!url) return;
 
-    // 1) Open popup SYNCHRONOUSLY (preserve user gesture, avoid popup blockers)
-    const result = openPopupOrRedirect(url, "width=900,height=700");
-
-    // 2) Then run async helpers (clipboard + download)
-    const textToCopy = imageUrl ? (caption ? `${caption}\n\n${imageUrl}` : imageUrl) : caption;
-    if (textToCopy) {
-      navigator.clipboard?.writeText(textToCopy).catch(() => {});
-    }
-    if (platform === "instagram" || platform === "tiktok") {
+    if (url) {
+      // Manual share workflow
+      if (imageUrl) {
+        void navigator.clipboard.writeText(caption ? `${caption}\n\n${imageUrl}` : imageUrl);
+      } else {
+        void navigator.clipboard.writeText(caption);
+      }
       void handleDownload();
+      openPopupOrRedirect(url, "width=900,height=700");
+      toast({
+        title: "Share",
+        description: "Caption + link copied. Download starts so you can upload in the platform.",
+      });
     }
-
-    toast({
-      title: result.opened ? "Share window opened" : "Redirecting…",
-      description:
-        platform === "instagram" || platform === "tiktok"
-          ? "Caption copied & image downloaded — upload it in the app."
-          : "Caption + link copied to your clipboard.",
-    });
   };
-
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -518,7 +509,34 @@ export const ImageDetailModal = ({
                   />
                 </div>
 
-
+                {/* Direct API Publish buttons */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium flex items-center gap-2">
+                    <Send className="h-4 w-4" />
+                    Publish directly
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    <Button
+                      variant="default"
+                      className="gap-2 h-10 w-full"
+                      onClick={handlePublishAsImage}
+                      disabled={isPublishingImage || !imageUrl}
+                    >
+                      {isPublishingImage ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ImageIcon className="h-4 w-4" />
+                      )}
+                      Post as Image
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Posts to Facebook & Instagram feeds
+                  </p>
+                  <p className="text-xs text-muted-foreground/70 text-center italic">
+                    💡 For Reels with music, create a Campaign with ClipMotion enabled
+                  </p>
+                </div>
 
                 {/* Share buttons */}
                 <div className="space-y-2">

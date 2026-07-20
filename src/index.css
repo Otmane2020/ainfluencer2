@@ -6,65 +6,65 @@
 
 @layer base {
   :root {
-    /* Dark theme - ClipMotion Demo3 palette (#06080A base, fuchsia + orange accents) */
-    --background: 210 20% 3%;
-    --foreground: 0 0% 98%;
+    /* Dark theme by default - AI Premium palette */
+    --background: 220 20% 7%;
+    --foreground: 210 20% 94%;
 
-    --card: 220 15% 7%;
-    --card-foreground: 0 0% 98%;
+    --card: 220 18% 10%;
+    --card-foreground: 210 20% 94%;
 
-    --popover: 220 15% 7%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 220 18% 10%;
+    --popover-foreground: 210 20% 94%;
 
-    /* Fuchsia primary */
-    --primary: 292 84% 61%;
+    /* Violet/Cyan gradient accent - matches logo */
+    --primary: 270 80% 65%;
     --primary-foreground: 0 0% 100%;
 
-    /* Orange secondary */
-    --secondary: 24 95% 60%;
-    --secondary-foreground: 0 0% 5%;
+    /* Cyan secondary */
+    --secondary: 190 85% 55%;
+    --secondary-foreground: 0 0% 100%;
 
     /* Muted dark surfaces */
-    --muted: 220 10% 12%;
-    --muted-foreground: 0 0% 65%;
+    --muted: 220 15% 15%;
+    --muted-foreground: 215 15% 60%;
 
-    /* Accent - orange */
-    --accent: 24 95% 60%;
-    --accent-foreground: 0 0% 5%;
+    /* Accent - bright cyan */
+    --accent: 190 90% 50%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 75% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 12% 16%;
-    --input: 220 10% 14%;
-    --ring: 292 84% 61%;
+    --border: 220 15% 18%;
+    --input: 220 15% 18%;
+    --ring: 270 80% 65%;
 
     --radius: 1rem;
 
-    /* Premium gradients - fuchsia → orange */
-    --gradient-primary: linear-gradient(135deg, hsl(292, 84%, 61%) 0%, hsl(24, 95%, 60%) 100%);
-    --gradient-surface: linear-gradient(180deg, hsl(220, 15%, 7%) 0%, hsl(210, 20%, 3%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(292, 84%, 61%) 0%, hsl(330, 90%, 60%) 50%, hsl(24, 95%, 60%) 100%);
-    --gradient-glow: linear-gradient(135deg, hsl(292, 84%, 61%) 0%, hsl(24, 95%, 60%) 100%);
-
+    /* Premium gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(270, 80%, 65%) 0%, hsl(190, 85%, 55%) 100%);
+    --gradient-surface: linear-gradient(180deg, hsl(220, 18%, 10%) 0%, hsl(220, 20%, 7%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(270, 80%, 60%) 0%, hsl(200, 90%, 50%) 50%, hsl(180, 85%, 50%) 100%);
+    --gradient-glow: linear-gradient(135deg, hsl(270, 80%, 65%) 0%, hsl(190, 85%, 55%) 100%);
+    
     /* Glassmorphism */
-    --glass-bg: hsla(220, 15%, 8%, 0.8);
-    --glass-border: hsla(0, 0%, 100%, 0.08);
-
+    --glass-bg: hsla(220, 18%, 12%, 0.8);
+    --glass-border: hsla(220, 15%, 25%, 0.5);
+    
     /* Shadows - glow effects */
-    --shadow-soft: 0 4px 20px -4px hsla(0, 0%, 0%, 0.5);
-    --shadow-glow: 0 0 40px -12px hsl(292, 84%, 61%);
-    --shadow-card: 0 8px 32px -8px hsla(0, 0%, 0%, 0.6);
-    --shadow-primary: 0 0 30px -5px hsl(292, 84%, 50%);
+    --shadow-soft: 0 4px 20px -4px hsla(0, 0%, 0%, 0.4);
+    --shadow-glow: 0 0 40px -12px hsl(270, 80%, 65%);
+    --shadow-card: 0 8px 32px -8px hsla(0, 0%, 0%, 0.5);
+    --shadow-primary: 0 0 30px -5px hsl(270, 80%, 50%);
 
-    --sidebar-background: 210 20% 4%;
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 292 84% 61%;
+    --sidebar-background: 220 20% 8%;
+    --sidebar-foreground: 210 20% 94%;
+    --sidebar-primary: 270 80% 65%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 12% 10%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 220 10% 14%;
-    --sidebar-ring: 292 84% 61%;
+    --sidebar-accent: 220 15% 14%;
+    --sidebar-accent-foreground: 210 20% 94%;
+    --sidebar-border: 220 15% 16%;
+    --sidebar-ring: 270 80% 65%;
   }
 
   /* Light theme option (toggle later) */

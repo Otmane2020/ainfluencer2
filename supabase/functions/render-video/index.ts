@@ -107,12 +107,13 @@ Deno.serve(async (req) => {
     const generationId = generationRecord?.id;
     console.log(`[RENDER-VIDEO] Generation: ${generationId}`);
 
-    // POST to Remotion server
+    // POST to Remotion server — /render endpoint
+    // Determine composition/template based on aspect ratio
     const renderWidth = quality === "cinema" ? 1920 : 1280;
     const renderHeight = quality === "cinema" ? 1080 : 720;
-    const templateId = "KenBurnsVideo";
-    // Si le prompt est fourni, utiliser le pipeline AI (FLUX + Remotion)
-    const useAiPipeline = !!(body.prompt && body.prompt.trim().length > 0);
+    const isVertical = renderHeight > renderWidth;
+    const isSquare = Math.abs(renderWidth - renderHeight) < 50;
+    const templateId = "template-prompt-to-video";
     const renderCrf = quality === "cinema" ? 23 : 28;
     const renderConcurrency = 2;
     const renderThreads = 2;
@@ -123,10 +124,10 @@ Deno.serve(async (req) => {
 
     let jobId: string | undefined;
     try {
-      // Pre-flight health check — allow up to 90s for free-tier cold-start (50s+)
+      // Pre-flight health check with generous cold-start timeout
       try {
         const healthRes = await fetch(`${baseWorkerUrl}/health`, {
-          signal: AbortSignal.timeout(90_000),
+          signal: AbortSignal.timeout(30_000),
         });
         if (!healthRes.ok) {
           throw new Error(`Health check failed: ${healthRes.status}`);
@@ -138,32 +139,26 @@ Deno.serve(async (req) => {
         throw new Error(`Worker unreachable (health check): ${msg}`);
       }
 
-      // Always use /generate-promo-video: stock videos + voiceover + music (no Chrome)
-      const endpoint = `${baseWorkerUrl}/generate-promo-video`;
-      const workerBody = {
-        prompt: body.prompt || cleanText,
-        script: cleanText,
-        title: cleanText || body.prompt,
-        subtitle: "",
-        voice: props.voice || "en-female",
-        mood: props.mood || "cinematic",
-        style: props.style || "cinematic",
-        accentColor: props.accentColor || "#6c47ff",
-        brandName: "clipmotion.ai",
-        useAiImages: false,
-        videoFormat: quality === "cinema" ? "landscape" : "landscape",
-        quality,
-        webhookUrl,
-        generationId,
-      };
-
-      const workerRes = await fetch(endpoint, {
+      const workerRes = await fetch(`${baseWorkerUrl}/render`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${Deno.env.get("RENDER_WORKER_SECRET") || ""}`,
         },
-        body: JSON.stringify(workerBody),
+        body: JSON.stringify({
+          templateId,
+          titleText: cleanText,
+          audioUrl: audioUrl || null,
+          duration,
+          imageUrl: props.image || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1920&q=80",
+          width: renderWidth,
+          height: renderHeight,
+          crf: renderCrf,
+          concurrency: renderConcurrency,
+          ffmpegThreads: renderThreads,
+          webhookUrl,
+          generationId,
+        }),
         signal: AbortSignal.timeout(30_000),
       });
 

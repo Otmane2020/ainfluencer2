@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { NotificationSettings } from "@/components/NotificationSettings";
 import { FeatureShowcase } from "@/components/dashboard/FeatureShowcase";
 import { LowCreditsNudge } from "@/components/nudges/LowCreditsNudge";
-
+import { OnboardingProgress } from "@/components/nudges/OnboardingProgress";
 import {
   FolderKanban,
   Plus,
@@ -119,6 +119,8 @@ const Dashboard = () => {
       {/* Nudge: Low credits warning */}
       <LowCreditsNudge />
 
+      {/* Nudge: Onboarding progress */}
+      <OnboardingProgress />
 
       {/* AI Creation Studio - Feature Showcase (Top Priority) */}
       <motion.div
@@ -129,45 +131,121 @@ const Dashboard = () => {
       </motion.div>
 
 
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        {statCards.map((stat, index) => (
+          <motion.div
+            key={stat.title}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 + index * 0.1 }}
+          >
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardContent className="p-4 md:p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs md:text-sm text-muted-foreground">{stat.title}</p>
+                    <p className="text-2xl md:text-3xl font-bold mt-1">{stat.value}</p>
+                  </div>
+                  <div className={`h-10 w-10 md:h-12 md:w-12 rounded-xl ${stat.bgColor} flex items-center justify-center shrink-0`}>
+                    <stat.icon className={`h-5 w-5 md:h-6 md:w-6 ${stat.color}`} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
+      </div>
 
-      {/* User Guide */}
+      {/* Recent Projects */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
+        transition={{ delay: 0.6 }}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display text-xl font-semibold">Quick Start Guide</h2>
-          <Button variant="ghost" onClick={() => navigate("/history")} className="gap-2">
-            View History
+          <h2 className="font-display text-xl font-semibold">Recent Projects</h2>
+          <Button variant="ghost" onClick={() => navigate("/projects")} className="gap-2">
+            View All
             <ArrowRight className="h-4 w-4" />
           </Button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[
-            { step: "1", title: "Upload your product photo", desc: "Drag & drop a single product image — any angle, any background." },
-            { step: "2", title: "Pick a style", desc: "Choose from 20+ pro styles: studio, lifestyle, e-commerce, premium." },
-            { step: "3", title: "Get 10 pro shots", desc: "AI generates conversion-ready visuals in under 2 minutes. Download & publish." },
-          ].map((item) => (
-            <Card key={item.step} className="hover:shadow-lg transition-shadow">
-              <CardContent className="p-6 space-y-3">
-                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center font-display text-lg font-bold text-primary">
-                  {item.step}
-                </div>
-                <h3 className="font-semibold">{item.title}</h3>
-                <p className="text-sm text-muted-foreground">{item.desc}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        <div className="mt-6 flex justify-center">
-          <Button onClick={() => navigate("/product-shots")} size="lg" className="gap-2 gradient-primary">
-            <Plus className="h-4 w-4" />
-            Start your first product shot
-          </Button>
-        </div>
+
+        {projects.length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                <FolderKanban className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="font-semibold mb-2">No projects yet</h3>
+              <p className="text-muted-foreground text-sm text-center mb-4">
+                Create your first project to automate your publications
+              </p>
+              <Button onClick={() => navigate("/projects/new")} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Create Project
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {projects.map((project, index) => (
+              <motion.div
+                key={project.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7 + index * 0.1 }}
+              >
+                <Card
+                  className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]"
+                  onClick={() => navigate(`/projects/${project.id}`)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="h-10 w-10 rounded-xl flex items-center justify-center text-white font-bold"
+                        style={{ backgroundColor: project.theme_color }}
+                      >
+                        {project.logo_url ? (
+                          <img
+                            src={project.logo_url}
+                            alt={project.name}
+                            className="h-full w-full rounded-xl object-cover"
+                          />
+                        ) : (
+                          project.name[0].toUpperCase()
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <CardTitle className="text-base truncate">{project.name}</CardTitle>
+                        <p className="text-xs text-muted-foreground">
+                          {project.posts_per_week} posts/week
+                        </p>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  {project.description && (
+                    <CardContent className="pt-0">
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {project.description}
+                      </p>
+                    </CardContent>
+                  )}
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </motion.div>
 
+      {/* Notification Settings */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.8 }}
+      >
+        <NotificationSettings />
+      </motion.div>
     </div>
   );
 };

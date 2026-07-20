@@ -12,9 +12,9 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const openRouterKey = Deno.env.get("OPENROUTER_API_KEY") || Deno.env.get("ANTHROPIC_API_KEY");
-
-    if (!openRouterKey) throw new Error("OPENROUTER_API_KEY not configured");
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    
+    if (!anthropicKey) throw new Error("ANTHROPIC_API_KEY not configured");
 
     const authHeader = req.headers.get("Authorization");
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -76,39 +76,38 @@ serve(async (req) => {
         }
       }
 
-      // 3. Call OpenRouter API
-      const claudeResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      // 3. Call Claude API
+      const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${openRouterKey}`,
+          "x-api-key": anthropicKey,
+          "anthropic-version": "2023-06-01",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "anthropic/claude-3.5-sonnet",
+          model: config.model || "claude-sonnet-4-20250514",
           max_tokens: config.max_tokens || 1000,
           temperature: Number(config.temperature) || 0.7,
-          messages: [
-            { role: "system", content: config.system_prompt },
-            { role: "user", content: userPrompt },
-          ],
+          system: config.system_prompt,
+          messages: [{ role: "user", content: userPrompt }],
         }),
       });
 
       if (!claudeResponse.ok) {
         const errText = await claudeResponse.text();
-        console.error("OpenRouter API error:", claudeResponse.status, errText);
+        console.error("Claude API error:", claudeResponse.status, errText);
         if (claudeResponse.status === 429) {
           return new Response(JSON.stringify({ error: "Rate limit reached, please try again later" }), {
             status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
-        throw new Error(`OpenRouter API error: ${claudeResponse.status}`);
+        throw new Error(`Claude API error: ${claudeResponse.status}`);
       }
 
       const claudeData = await claudeResponse.json();
-      const generatedText = claudeData.choices?.[0]?.message?.content || "";
-      const tokensInput = claudeData.usage?.prompt_tokens || 0;
-      const tokensOutput = claudeData.usage?.completion_tokens || 0;
+      const generatedText = claudeData.content?.[0]?.text || "";
+      const tokensInput = claudeData.usage?.input_tokens || 0;
+      const tokensOutput = claudeData.usage?.output_tokens || 0;
       const costUsd = (tokensInput * 0.000003) + (tokensOutput * 0.000015); // Sonnet pricing
 
       // 4. Log usage
@@ -155,8 +154,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("generate-platform-content error:", error);
-    const msg = error instanceof Error ? error.message : String(error);
-    return new Response(JSON.stringify({ error: msg }), {
+    return new Response(JSON.stringify({ error: error.message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

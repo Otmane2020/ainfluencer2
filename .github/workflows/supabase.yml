@@ -14,7 +14,7 @@ jobs:
       - uses: supabase/setup-cli@v1
 
       - name: Link project
-        run: supabase link --project-ref vgffjuvaedmxoxvzovoq
+        run: supabase link --project-ref axwwpawvezqsybttulyo
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
@@ -25,7 +25,7 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
 
       - name: Deploy Edge Functions
-        run: supabase functions deploy --project-ref vgffjuvaedmxoxvzovoq --use-api
+        run: supabase functions deploy --project-ref axwwpawvezqsybttulyo --use-api
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
@@ -35,7 +35,7 @@ jobs:
       - name: Notify Deploy Success
         if: success()
         run: |
-          curl -s -X POST https://vgffjuvaedmxoxvzovoq.supabase.co/functions/v1/deploy-webhook \
+          curl -s -X POST https://axwwpawvezqsybttulyo.supabase.co/functions/v1/deploy-webhook \
             -H "Content-Type: application/json" \
             -d '{
               "status": "success",
@@ -51,7 +51,7 @@ jobs:
       - name: Notify Deploy Failure
         if: failure()
         run: |
-          curl -s -X POST https://vgffjuvaedmxoxvzovoq.supabase.co/functions/v1/deploy-webhook \
+          curl -s -X POST https://axwwpawvezqsybttulyo.supabase.co/functions/v1/deploy-webhook \
             -H "Content-Type: application/json" \
             -d '{
               "status": "error",

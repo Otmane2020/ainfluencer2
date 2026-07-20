@@ -28,8 +28,6 @@ import {
   ChevronRight,
   Sun,
   Moon,
-  Store,
-  Camera,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -192,27 +190,62 @@ const Settings = () => {
             </div>
           </div>
 
-          {/* Product Shot quota */}
-          {(() => {
-            const planId = currentPlan?.id;
-            const quota = !isSubscribed
-              ? "5"
-              : planId === "business"
-                ? "Unlimited"
-                : planId === "pro"
-                  ? "50"
-                  : "5";
-            return (
-              <div className="rounded-lg bg-muted/50 p-3 text-center">
-                <div className="flex items-center justify-center gap-1.5">
-                  <Camera className="h-4 w-4 text-primary" />
-                  <span className="text-lg font-bold">{quota}</span>
-                </div>
-                <p className="text-xs text-muted-foreground">Pro product shots / month</p>
+          {/* AutoPost Info - Credits-based */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-lg bg-muted/50 p-3 text-center">
+              <div className="flex items-center justify-center gap-1.5">
+                <Image className="h-4 w-4 text-primary" />
+                <span className="text-lg font-bold">
+                  {isSubscribed ? "∞" : 0}
+                </span>
               </div>
-            );
-          })()}
+              <p className="text-xs text-muted-foreground">Images (credits)</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 p-3 text-center">
+              <div className="flex items-center justify-center gap-1.5">
+                <Video className="h-4 w-4 text-secondary" />
+                <span className="text-lg font-bold">
+                  {isSubscribed ? "∞" : 0}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">Videos (credits)</p>
+            </div>
+          </div>
 
+          {/* Recent Transactions */}
+          {transactions.length > 0 && (
+            <>
+              <Separator />
+              <div>
+                <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Recent Transactions
+                </h4>
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {transactions.slice(0, 5).map((tx) => (
+                    <div 
+                      key={tx.id} 
+                      className="flex items-center justify-between text-sm p-2 rounded-lg bg-muted/30"
+                    >
+                      <div className="flex items-center gap-2">
+                        {tx.amount > 0 ? (
+                          <TrendingUp className="h-4 w-4 text-accent" />
+                        ) : (
+                          <TrendingDown className="h-4 w-4 text-destructive" />
+                        )}
+                        <span className="text-muted-foreground text-xs">
+                          {tx.description || tx.type}
+                        </span>
+                      </div>
+                      <span className={tx.amount > 0 ? "text-accent font-medium" : "text-destructive font-medium"}>
+                        {tx.amount > 0 ? "+" : ""}{tx.amount}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -309,55 +342,6 @@ const Settings = () => {
                 checked={notifications.weekly}
                 onCheckedChange={(checked) => setNotifications((prev) => ({ ...prev, weekly: checked }))}
               />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Connected Stores */}
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Store className="h-4 w-4 text-primary" />
-            Connected stores
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Push generated product shots straight to your storefront.
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" size="sm" onClick={() => navigate("/integrations")} className="h-9">
-              Shopify
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate("/integrations")} className="h-9">
-              WooCommerce
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Product Shot defaults */}
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Camera className="h-4 w-4 text-primary" />
-            Product Shot defaults
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Square format (1:1)</span>
-              <Switch defaultChecked />
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Portrait format (9:16)</span>
-              <Switch defaultChecked />
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Landscape format (16:9)</span>
-              <Switch />
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Auto background removal</span>
-              <Switch defaultChecked />
             </div>
           </div>
         </CardContent>

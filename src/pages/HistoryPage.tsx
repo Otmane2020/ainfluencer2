@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -9,18 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RefreshCw, Image, Loader2, Trash2 } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { RefreshCw, Video, Image, Loader2, LayoutGrid } from "lucide-react";
 import { MasonryGrid } from "@/components/history/MasonryGrid";
 import { MediaItem } from "@/components/history/MediaCard";
 import { ImageDetailModal } from "@/components/history/ImageDetailModal";
@@ -46,13 +35,15 @@ interface Campaign {
 
 const HistoryPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab") || "all";
+  const [activeTab, setActiveTab] = useState(initialTab);
   
   // Common state
   const [projects, setProjects] = useState<Project[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const [selectedCampaign, setSelectedCampaign] = useState<string>("all");
-  const [selectedProductFilter, setSelectedProductFilter] = useState<string>("all");
   
   // Media state
   const [allMedia, setAllMedia] = useState<MediaItem[]>([]);
@@ -73,6 +64,10 @@ const HistoryPage = () => {
   const processedVideosRef = useRef<Set<string>>(new Set());
   const activeTasks = getPendingTasks();
 
+  // Sync tab with URL
+  useEffect(() => {
+    setSearchParams({ tab: activeTab });
+  }, [activeTab, setSearchParams]);
 
   // Fetch projects and campaigns
   useEffect(() => {
@@ -332,8 +327,57 @@ const HistoryPage = () => {
         }
       }
 
-      // NOTE: Do NOT list storage bucket directly — it's public and shared across users.
-      // All user media is tracked via DB tables (generations, scheduled_posts) filtered by user_id.
+      // Fetch images from storage
+      const [imagesResult, productShotsResult] = await Promise.all([
+        supabase.storage.from("media").list("images", {
+          limit: 100,
+          sortBy: { column: "created_at", order: "desc" },
+        }),
+        supabase.storage.from("media").list("product-shots", {
+          limit: 100,
+          sortBy: { column: "created_at", order: "desc" },
+        }),
+      ]);
+
+      if (imagesResult.data) {
+        for (const file of imagesResult.data.filter(f => f.name.match(/\.(jpg|jpeg|png|gif|webp)$/i))) {
+          const storagePath = `images/${file.name}`;
+          const { data: urlData } = supabase.storage.from("media").getPublicUrl(storagePath);
+          const existsInPosts = media.some(m => m.url === urlData.publicUrl);
+          
+          if (!existsInPosts) {
+            media.push({
+              id: file.id || `img-${file.name}`,
+              type: "image",
+              title: file.name,
+              url: urlData.publicUrl,
+              createdAt: new Date(file.created_at || Date.now()),
+              status: "generated",
+              storagePath,
+              aspectRatio: "square",
+            });
+          }
+        }
+      }
+
+      if (productShotsResult.data) {
+        for (const file of productShotsResult.data.filter(f => f.name.match(/\.(jpg|jpeg|png|gif|webp)$/i))) {
+          const storagePath = `product-shots/${file.name}`;
+          const { data: urlData } = supabase.storage.from("media").getPublicUrl(storagePath);
+          
+          media.push({
+            id: file.id || `ps-${file.name}`,
+            type: "image",
+            title: file.name,
+            url: urlData.publicUrl,
+            createdAt: new Date(file.created_at || Date.now()),
+            status: "generated",
+            isProductShot: true,
+            storagePath,
+            aspectRatio: "square",
+          });
+        }
+      }
 
       // Sort by date
       media.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
@@ -420,36 +464,6 @@ const HistoryPage = () => {
     }
   };
 
-  const handleClearAll = async () => {
-    if (!user) return;
-    setIsLoading(true);
-    try {
-      // Delete all generations and scheduled posts owned by current user (RLS enforces ownership)
-      const [{ error: e1 }, { error: e2 }] = await Promise.all([
-        supabase.from("generations").delete().eq("user_id", user.id),
-        supabase.from("scheduled_posts").delete().eq("user_id", user.id),
-      ]);
-      if (e1 || e2) throw e1 || e2;
-
-      // Best-effort: remove user's files from storage bucket folder
-      try {
-        const { data: files } = await supabase.storage.from("media").list(user.id, { limit: 1000 });
-        if (files && files.length > 0) {
-          await supabase.storage.from("media").remove(files.map((f) => `${user.id}/${f.name}`));
-        }
-      } catch {}
-
-      sessionStorage.removeItem(CACHE_KEY);
-      setAllMedia([]);
-      toast({ title: "History cleared" });
-    } catch (error) {
-      console.error("Clear all error:", error);
-      toast({ title: "Failed to clear history", variant: "destructive" });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleItemClick = (item: MediaItem) => {
     if (item.type === "video") {
       setSelectedVideo(item);
@@ -463,10 +477,12 @@ const HistoryPage = () => {
     ? campaigns 
     : campaigns.filter(c => c.project_id === selectedProject);
 
-  const filteredMedia = allMedia.filter((m) => {
-    if (selectedProductFilter === "all") return true;
-    if (selectedProductFilter === "products") return m.isProductShot === true;
-    if (selectedProductFilter === "non-products") return !m.isProductShot;
+  const filteredMedia = allMedia.filter(item => {
+    // Tab filter
+    if (activeTab === "videos" && item.type !== "video") return false;
+    if (activeTab === "images" && item.type !== "image") return false;
+    
+    // Project/campaign filter would need to be enhanced with campaign data on videos
     return true;
   });
 
@@ -476,14 +492,36 @@ const HistoryPage = () => {
       <div className="flex items-center justify-between">
         <h1 className="font-display text-xl font-bold">History</h1>
         <div className="flex items-center gap-2 flex-wrap">
-          <Select value={selectedProductFilter} onValueChange={setSelectedProductFilter}>
-            <SelectTrigger className="h-9 w-[140px] text-sm">
-              <SelectValue placeholder="All Products" />
+          <Select value={selectedProject} onValueChange={setSelectedProject}>
+            <SelectTrigger className="h-9 w-[130px] text-sm">
+              <SelectValue placeholder="All Projects" />
             </SelectTrigger>
             <SelectContent className="bg-card border border-border z-50">
-              <SelectItem value="all">All Products</SelectItem>
-              <SelectItem value="products">Product Shots</SelectItem>
-              <SelectItem value="non-products">Other Media</SelectItem>
+              <SelectItem value="all">All Projects</SelectItem>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: project.theme_color }}
+                    />
+                    <span className="truncate max-w-[80px]">{project.name}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
+            <SelectTrigger className="h-9 w-[130px] text-sm">
+              <SelectValue placeholder="All Campaigns" />
+            </SelectTrigger>
+            <SelectContent className="bg-card border border-border z-50">
+              <SelectItem value="all">All Campaigns</SelectItem>
+              {filteredCampaigns.map((campaign) => (
+                <SelectItem key={campaign.id} value={campaign.id}>
+                  <span className="truncate max-w-[100px]">{campaign.name}</span>
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Button
@@ -495,68 +533,133 @@ const HistoryPage = () => {
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
           </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                disabled={isLoading || allMedia.length === 0}
-                className="h-9 w-9 text-destructive hover:text-destructive"
-                title="Clear all history"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Clear all history?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently delete all your generated images and videos. This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleClearAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                  Delete all
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="w-full mt-2">
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-xs text-muted-foreground">
-            {filteredMedia.length} item{filteredMedia.length !== 1 ? "s" : ""}
-          </span>
-        </div>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full max-w-[400px] grid-cols-3">
+          <TabsTrigger value="all" className="gap-2">
+            <LayoutGrid className="h-4 w-4" />
+            All
+          </TabsTrigger>
+          <TabsTrigger value="videos" className="gap-2">
+            <Video className="h-4 w-4" />
+            Videos
+          </TabsTrigger>
+          <TabsTrigger value="images" className="gap-2">
+            <Image className="h-4 w-4" />
+            Images
+          </TabsTrigger>
+        </TabsList>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <TabsContent value="all" className="mt-4">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-xs text-muted-foreground">
+              {filteredMedia.length} item{filteredMedia.length !== 1 ? "s" : ""}
+            </span>
           </div>
-        ) : (
-          <MasonryGrid
-            items={filteredMedia}
-            generatingTasks={activeTasks.map(task => ({
-              id: task.id,
-              taskId: task.taskId,
-              status: task.status,
-              progress: task.progress,
-              model: task.model,
-              duration: task.duration,
-              script: task.script,
-            }))}
-            onItemClick={handleItemClick}
-            onDelete={handleDelete}
-            onDownload={handleDownload}
-            downloadingId={downloadingId}
-            generatingThumbnails={generatingThumbnails}
-          />
-        )}
-      </div>
+          
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : (
+            <MasonryGrid
+              items={filteredMedia}
+              generatingTasks={activeTasks.map(task => ({
+                id: task.id,
+                taskId: task.taskId,
+                status: task.status,
+                progress: task.progress,
+                model: task.model,
+                duration: task.duration,
+                script: task.script,
+              }))}
+              onItemClick={handleItemClick}
+              onDelete={handleDelete}
+              onDownload={handleDownload}
+              downloadingId={downloadingId}
+              generatingThumbnails={generatingThumbnails}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="videos" className="mt-4">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-xs text-muted-foreground">
+              {filteredMedia.length} video{filteredMedia.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+          
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : filteredMedia.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                <Video className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">No videos yet</p>
+              <Button size="sm" onClick={() => navigate("/videos")}>
+                Create Video
+              </Button>
+            </div>
+          ) : (
+            <MasonryGrid
+              items={filteredMedia}
+              generatingTasks={activeTasks.map(task => ({
+                id: task.id,
+                taskId: task.taskId,
+                status: task.status,
+                progress: task.progress,
+                model: task.model,
+                duration: task.duration,
+                script: task.script,
+              }))}
+              onItemClick={handleItemClick}
+              onDelete={handleDelete}
+              onDownload={handleDownload}
+              downloadingId={downloadingId}
+              generatingThumbnails={generatingThumbnails}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="images" className="mt-4">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-xs text-muted-foreground">
+              {filteredMedia.length} image{filteredMedia.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+          
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : filteredMedia.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-3">
+                <Image className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">No images found</p>
+              <Button size="sm" onClick={() => navigate("/images")}>
+                Create Image
+              </Button>
+            </div>
+          ) : (
+            <MasonryGrid
+              items={filteredMedia}
+              onItemClick={handleItemClick}
+              onDelete={handleDelete}
+              onDownload={handleDownload}
+              downloadingId={downloadingId}
+              generatingThumbnails={generatingThumbnails}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Video Detail Modal */}
       <VideoDetailModal

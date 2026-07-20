@@ -1,9 +1,10 @@
 # ClipMotion.ai Robots.txt
-# AI Product Photography for E-commerce
+# Allow all major search engines and AI crawlers
 
 User-agent: *
 Allow: /
 
+# Specific allow for AI crawlers
 User-agent: GPTBot
 Allow: /
 
@@ -14,9 +15,6 @@ User-agent: Google-Extended
 Allow: /
 
 User-agent: Googlebot
-Allow: /
-
-User-agent: Googlebot-Image
 Allow: /
 
 User-agent: Bingbot
@@ -37,11 +35,13 @@ Allow: /
 # Disallow private app routes
 Disallow: /dashboard
 Disallow: /projects
-Disallow: /product-shots
-Disallow: /images
+Disallow: /calendar
+Disallow: /videos
+Disallow: /posts
 Disallow: /history
 Disallow: /integrations
 Disallow: /settings
 Disallow: /auth
 
+# Sitemap location
 Sitemap: https://clipmotion.ai/sitemap.xml

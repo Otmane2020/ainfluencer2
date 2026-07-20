@@ -8,18 +8,19 @@ const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Stripe price mappings (USD) — all 3 plans paid
+// Stripe price mappings (USD)
 const PLAN_PRICES: Record<string, string> = {
-  starter: "price_1TVHjUEfti9t9nN9i6CyLsqe",  // $19/mo
-  pro: "price_1TVHkoEfti9t9nN9SaJWW3Ex",      // $49/mo
-  business: "price_1TVHn3Efti9t9nN9ufeUcSez", // $149/mo
+  starter: "price_1SuiszEfti9t9nN9qEGnwrdT",
+  pro: "price_1Suit0Efti9t9nN9jKws1R3q",
+  business: "price_1Suit1Efti9t9nN9F5g8iTGq",
 };
 
 const CREDIT_PACK_PRICES: Record<string, { priceId: string; credits: number }> = {
-  "pack-5": { priceId: "price_1TTuBVEfti9t9nN9hzt4y7my", credits: 5 },
-  "pack-20": { priceId: "price_1TTuBXEfti9t9nN983Z27xhq", credits: 20 },
-  "pack-50": { priceId: "price_1TTuBXEfti9t9nN9a6lJ0vRa", credits: 50 },
-  "pack-100": { priceId: "price_1TTuBYEfti9t9nN9ygzXExWW", credits: 100 },
+  "pack-50": { priceId: "price_1Suit2Efti9t9nN9idG07kAf", credits: 50 },
+  "pack-100": { priceId: "price_1Suit3Efti9t9nN9vPGwwfWa", credits: 100 },
+  "pack-250": { priceId: "price_1Suit5Efti9t9nN9cjaee5yZ", credits: 250 },
+  "pack-500": { priceId: "price_1Suit5Efti9t9nN96jaDSp7j", credits: 500 },
+  "pack-1000": { priceId: "price_1Suit6Efti9t9nN9ynTRmA7o", credits: 1000 },
 };
 
 const logStep = (step: string, details?: unknown) => {

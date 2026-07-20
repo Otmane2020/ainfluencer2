@@ -1,12 +1,16 @@
 {
-  "name": "ClipMotion – Product Shot AI",
+  "name": "ClipMotion – AI Video Generator",
   "short_name": "ClipMotion",
-  "description": "AI product photography for e-commerce. Turn one product photo into 10 high-converting visuals in 2 minutes.",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#0B1118",
+  "description": "Create stunning AI-powered videos for TikTok, Instagram, and YouTube. Generate motion design videos, AI influencers, and social content automatically.",
   "theme_color": "#0B1118",
-  "orientation": "portrait",
+  "background_color": "#0B1118",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "start_url": "/",
+  "id": "/",
+  "lang": "en",
+  "dir": "ltr",
   "icons": [
     {
       "src": "/favicon-16x16.png",
@@ -19,9 +23,10 @@
       "type": "image/png"
     },
     {
-      "src": "/apple-touch-icon.png",
-      "sizes": "180x180",
-      "type": "image/png"
+      "src": "/favicon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/logo.png",
@@ -29,5 +34,41 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "categories": ["social", "productivity", "business", "entertainment"],
+  "screenshots": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "ClipMotion AI Video Generator"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Create Video",
+      "short_name": "Video",
+      "url": "/videos",
+      "icons": [{ "src": "/favicon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Create Image",
+      "short_name": "Image",
+      "url": "/images",
+      "icons": [{ "src": "/favicon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Home",
+      "url": "/dashboard",
+      "icons": [{ "src": "/favicon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "handle_links": "preferred",
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  }
 }

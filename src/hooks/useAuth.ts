@@ -1,4 +1,4 @@
-import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useState, useEffect } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -9,23 +9,53 @@ interface Profile {
   avatar_url: string | null;
 }
 
-interface AuthContextValue {
-  user: User | null;
-  session: Session | null;
-  profile: Profile | null;
-  isLoading: boolean;
-  signOut: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null);
-
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
+export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchProfile = useCallback(async (userId: string) => {
+  useEffect(() => {
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        // Defer profile fetch with setTimeout to avoid deadlock
+        if (session?.user) {
+          setTimeout(() => {
+            fetchProfile(session.user.id);
+          }, 0);
+        } else {
+          setProfile(null);
+        }
+      }
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        if (error && (String(error.message).includes("Refresh Token") || String(error.message).includes("Invalid"))) {
+          supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+        } else {
+          setSession(session);
+          setUser(session?.user ?? null);
+          if (session?.user) {
+            fetchProfile(session.user.id);
+          }
+        }
+        setIsLoading(false);
+      })
+      .catch(() => setIsLoading(false));
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
@@ -48,45 +78,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .single();
       if (inserted) setProfile(inserted as Profile);
     }
-  }, []);
-
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        // Defer profile fetch with setTimeout to avoid deadlock
-        if (session?.user) {
-          setTimeout(() => {
-            fetchProfile(session.user.id);
-          }, 0);
-        } else {
-          setProfile(null);
-        }
-      }
-    );
-
-    supabase.auth.getSession()
-      .then(({ data: { session }, error }) => {
-        if (error && (String(error.message).includes("Refresh Token") || String(error.message).includes("Invalid"))) {
-          supabase.auth.signOut();
-          setSession(null);
-          setUser(null);
-          setProfile(null);
-        } else {
-          setSession(session);
-          setUser(session?.user ?? null);
-          if (session?.user) {
-            fetchProfile(session.user.id);
-          }
-        }
-        setIsLoading(false);
-      })
-      .catch(() => setIsLoading(false));
-
-    return () => subscription.unsubscribe();
-  }, [fetchProfile]);
+  };
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -95,23 +87,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setProfile(null);
   };
 
-  const value = useMemo<AuthContextValue>(() => ({
+  return {
     user,
     session,
     profile,
     isLoading,
     signOut,
-  }), [user, session, profile, isLoading]);
-
-  return createElement(AuthContext.Provider, { value }, children);
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-
-  return context;
+  };
 };

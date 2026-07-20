@@ -12,24 +12,57 @@ export const useStoredVideos = () => {
   const fetchStoredVideos = useCallback(async (): Promise<VideoHistoryItem[]> => {
     setIsLoading(true);
 
-    if (!user) {
-      setIsLoading(false);
-      return [];
-    }
-
     try {
-      // Only fetch from DB filtered by user_id (storage bucket is public and not user-scoped)
-      const generationsResult = await supabase
-        .from("generations")
-        .select("id, type, status, media_url, script, duration, model, provider, prompt, created_at, thumbnail_url, campaign_id")
-        .eq("type", "video")
-        .eq("user_id", user.id)
-        .in("status", ["completed", "ready"])
-        .order("created_at", { ascending: false })
-        .limit(100);
+      // Fetch from both sources in parallel
+      const [storageResult, generationsResult] = await Promise.all([
+        // Storage bucket videos
+        supabase.storage
+          .from("media")
+          .list("videos", {
+            sortBy: { column: "created_at", order: "desc" },
+          }),
+        // Database generations table - filter by user_id for security
+        user ? supabase
+          .from("generations")
+          .select("id, type, status, media_url, script, duration, model, provider, prompt, created_at, thumbnail_url, campaign_id")
+          .eq("type", "video")
+          .eq("user_id", user.id)
+          .in("status", ["completed", "ready"])
+          .order("created_at", { ascending: false })
+          .limit(50) : Promise.resolve({ data: [], error: null }),
+      ]);
 
       const allVideos: VideoHistoryItem[] = [];
 
+      // Process storage videos
+      if (!storageResult.error && storageResult.data) {
+        const storageVideos = storageResult.data
+          .filter((file) => file.name.endsWith(".mp4"))
+          .map((file, index) => {
+            const { data: urlData } = supabase.storage
+              .from("media")
+              .getPublicUrl(`videos/${file.name}`);
+
+            const timestampMatch = file.name.match(/^(\d+)-/);
+            const createdAt = timestampMatch
+              ? new Date(parseInt(timestampMatch[1]))
+              : new Date(file.created_at || Date.now());
+
+            return {
+              id: file.id || `stored-${index}`,
+              title: `Video ${index + 1}`,
+              script: "Video retrieved from storage",
+              duration: 0,
+              videoUrl: urlData.publicUrl,
+              createdAt,
+              voice: "Unknown",
+              status: "ready" as const,
+            };
+          });
+        allVideos.push(...storageVideos);
+      }
+
+      // Process generations from database
       if (!generationsResult.error && generationsResult.data) {
         const dbVideos = generationsResult.data
           .filter((gen) => gen.media_url) // Only include videos with media_url

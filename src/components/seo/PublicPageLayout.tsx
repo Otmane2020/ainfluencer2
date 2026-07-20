@@ -29,7 +29,7 @@ export const PublicPageLayout = ({ children }: PublicPageLayoutProps) => {
             <Link to="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Blog</Link>
           </div>
           <div className="flex items-center gap-2 md:gap-3">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/auth?mode=signin")} className="text-xs md:text-sm px-2 md:px-4">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/auth")} className="text-xs md:text-sm px-2 md:px-4">
               Sign In
             </Button>
             <Button size="sm" onClick={() => navigate("/auth")} className="gradient-primary text-xs md:text-sm px-3 md:px-4">
@@ -53,8 +53,8 @@ export const PublicPageLayout = ({ children }: PublicPageLayoutProps) => {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><Link to="/features" className="hover:text-foreground transition-colors">Features</Link></li>
                 <li><Link to="/pricing" className="hover:text-foreground transition-colors">Pricing</Link></li>
-                <li><Link to="/use-cases" className="hover:text-foreground transition-colors">Use Cases</Link></li>
-                <li><Link to="/blog" className="hover:text-foreground transition-colors">Blog</Link></li>
+                <li><Link to="/ai-video-generator" className="hover:text-foreground transition-colors">AI Video Generator</Link></li>
+                <li><Link to="/motion-design-ai" className="hover:text-foreground transition-colors">Motion Design AI</Link></li>
               </ul>
             </div>
             <div>

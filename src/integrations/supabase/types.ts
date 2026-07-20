@@ -14,33 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      admin_audit_log: {
-        Row: {
-          action: string
-          admin_user_id: string
-          created_at: string
-          details: Json | null
-          id: string
-          target_user_id: string | null
-        }
-        Insert: {
-          action: string
-          admin_user_id: string
-          created_at?: string
-          details?: Json | null
-          id?: string
-          target_user_id?: string | null
-        }
-        Update: {
-          action?: string
-          admin_user_id?: string
-          created_at?: string
-          details?: Json | null
-          id?: string
-          target_user_id?: string | null
-        }
-        Relationships: []
-      }
       ai_generation_configs: {
         Row: {
           created_at: string
@@ -381,93 +354,6 @@ export type Database = {
         }
         Relationships: []
       }
-      email_send_log: {
-        Row: {
-          created_at: string
-          error_message: string | null
-          id: string
-          message_id: string | null
-          metadata: Json | null
-          recipient_email: string
-          status: string
-          template_name: string
-        }
-        Insert: {
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          message_id?: string | null
-          metadata?: Json | null
-          recipient_email: string
-          status: string
-          template_name: string
-        }
-        Update: {
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          message_id?: string | null
-          metadata?: Json | null
-          recipient_email?: string
-          status?: string
-          template_name?: string
-        }
-        Relationships: []
-      }
-      email_send_state: {
-        Row: {
-          auth_email_ttl_minutes: number
-          batch_size: number
-          id: number
-          retry_after_until: string | null
-          send_delay_ms: number
-          transactional_email_ttl_minutes: number
-          updated_at: string
-        }
-        Insert: {
-          auth_email_ttl_minutes?: number
-          batch_size?: number
-          id?: number
-          retry_after_until?: string | null
-          send_delay_ms?: number
-          transactional_email_ttl_minutes?: number
-          updated_at?: string
-        }
-        Update: {
-          auth_email_ttl_minutes?: number
-          batch_size?: number
-          id?: number
-          retry_after_until?: string | null
-          send_delay_ms?: number
-          transactional_email_ttl_minutes?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      email_unsubscribe_tokens: {
-        Row: {
-          created_at: string
-          email: string
-          id: string
-          token: string
-          used_at: string | null
-        }
-        Insert: {
-          created_at?: string
-          email: string
-          id?: string
-          token: string
-          used_at?: string | null
-        }
-        Update: {
-          created_at?: string
-          email?: string
-          id?: string
-          token?: string
-          used_at?: string | null
-        }
-        Relationships: []
-      }
       generated_prompts: {
         Row: {
           ai_config_id: string | null
@@ -771,45 +657,6 @@ export type Database = {
         }
         Relationships: []
       }
-      mobileads_trials: {
-        Row: {
-          completed_at: string | null
-          created_at: string
-          error_message: string | null
-          id: string
-          ip_hash: string
-          product_title: string | null
-          product_url: string
-          result_images: Json | null
-          status: string
-          user_agent: string | null
-        }
-        Insert: {
-          completed_at?: string | null
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          ip_hash: string
-          product_title?: string | null
-          product_url: string
-          result_images?: Json | null
-          status?: string
-          user_agent?: string | null
-        }
-        Update: {
-          completed_at?: string | null
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          ip_hash?: string
-          product_title?: string | null
-          product_url?: string
-          result_images?: Json | null
-          status?: string
-          user_agent?: string | null
-        }
-        Relationships: []
-      }
       platform_formats: {
         Row: {
           aspect_ratio: string | null
@@ -1091,119 +938,6 @@ export type Database = {
           },
         ]
       }
-      store_connections: {
-        Row: {
-          access_token: string | null
-          api_key: string | null
-          api_secret: string | null
-          created_at: string
-          id: string
-          last_sync_at: string | null
-          metadata: Json | null
-          platform: string
-          project_id: string | null
-          shop_name: string
-          status: string
-          store_url: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          access_token?: string | null
-          api_key?: string | null
-          api_secret?: string | null
-          created_at?: string
-          id?: string
-          last_sync_at?: string | null
-          metadata?: Json | null
-          platform: string
-          project_id?: string | null
-          shop_name: string
-          status?: string
-          store_url: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          access_token?: string | null
-          api_key?: string | null
-          api_secret?: string | null
-          created_at?: string
-          id?: string
-          last_sync_at?: string | null
-          metadata?: Json | null
-          platform?: string
-          project_id?: string | null
-          shop_name?: string
-          status?: string
-          store_url?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      store_products: {
-        Row: {
-          connection_id: string
-          currency: string | null
-          description: string | null
-          external_id: string
-          id: string
-          image_urls: Json | null
-          imported_at: string
-          price: number | null
-          primary_image_url: string | null
-          product_url: string | null
-          raw: Json | null
-          title: string
-          updated_at: string
-          user_id: string
-          variants: Json | null
-        }
-        Insert: {
-          connection_id: string
-          currency?: string | null
-          description?: string | null
-          external_id: string
-          id?: string
-          image_urls?: Json | null
-          imported_at?: string
-          price?: number | null
-          primary_image_url?: string | null
-          product_url?: string | null
-          raw?: Json | null
-          title: string
-          updated_at?: string
-          user_id: string
-          variants?: Json | null
-        }
-        Update: {
-          connection_id?: string
-          currency?: string | null
-          description?: string | null
-          external_id?: string
-          id?: string
-          image_urls?: Json | null
-          imported_at?: string
-          price?: number | null
-          primary_image_url?: string | null
-          product_url?: string | null
-          raw?: Json | null
-          title?: string
-          updated_at?: string
-          user_id?: string
-          variants?: Json | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "store_products_connection_id_fkey"
-            columns: ["connection_id"]
-            isOneToOne: false
-            referencedRelation: "store_connections"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       subscriptions: {
         Row: {
           created_at: string
@@ -1240,131 +974,6 @@ export type Database = {
           stripe_subscription_id?: string | null
           updated_at?: string
           user_id?: string
-        }
-        Relationships: []
-      }
-      support_messages: {
-        Row: {
-          attachments: Json | null
-          author_user_id: string | null
-          body_html: string | null
-          body_text: string | null
-          cc: string | null
-          created_at: string
-          direction: string
-          external_message_id: string | null
-          from_email: string | null
-          from_name: string | null
-          id: string
-          in_reply_to: string | null
-          ticket_id: string
-          to_email: string | null
-        }
-        Insert: {
-          attachments?: Json | null
-          author_user_id?: string | null
-          body_html?: string | null
-          body_text?: string | null
-          cc?: string | null
-          created_at?: string
-          direction: string
-          external_message_id?: string | null
-          from_email?: string | null
-          from_name?: string | null
-          id?: string
-          in_reply_to?: string | null
-          ticket_id: string
-          to_email?: string | null
-        }
-        Update: {
-          attachments?: Json | null
-          author_user_id?: string | null
-          body_html?: string | null
-          body_text?: string | null
-          cc?: string | null
-          created_at?: string
-          direction?: string
-          external_message_id?: string | null
-          from_email?: string | null
-          from_name?: string | null
-          id?: string
-          in_reply_to?: string | null
-          ticket_id?: string
-          to_email?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "support_messages_ticket_id_fkey"
-            columns: ["ticket_id"]
-            isOneToOne: false
-            referencedRelation: "support_tickets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      support_tickets: {
-        Row: {
-          assigned_to: string | null
-          created_at: string
-          email: string
-          external_thread_id: string | null
-          id: string
-          last_message_at: string
-          priority: string
-          status: string
-          subject: string
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          assigned_to?: string | null
-          created_at?: string
-          email: string
-          external_thread_id?: string | null
-          id?: string
-          last_message_at?: string
-          priority?: string
-          status?: string
-          subject: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          assigned_to?: string | null
-          created_at?: string
-          email?: string
-          external_thread_id?: string | null
-          id?: string
-          last_message_at?: string
-          priority?: string
-          status?: string
-          subject?: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: []
-      }
-      suppressed_emails: {
-        Row: {
-          created_at: string
-          email: string
-          id: string
-          metadata: Json | null
-          reason: string
-        }
-        Insert: {
-          created_at?: string
-          email: string
-          id?: string
-          metadata?: Json | null
-          reason: string
-        }
-        Update: {
-          created_at?: string
-          email?: string
-          id?: string
-          metadata?: Json | null
-          reason?: string
         }
         Relationships: []
       }
@@ -1454,27 +1063,6 @@ export type Database = {
         }
         Relationships: []
       }
-      user_roles: {
-        Row: {
-          created_at: string
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
-        }
-        Relationships: []
-      }
       youtube_connections: {
         Row: {
           access_token: string
@@ -1538,14 +1126,6 @@ export type Database = {
         Args: { p_amount: number; p_user_id: string }
         Returns: boolean
       }
-      delete_email: {
-        Args: { message_id: number; queue_name: string }
-        Returns: boolean
-      }
-      enqueue_email: {
-        Args: { payload: Json; queue_name: string }
-        Returns: number
-      }
       estimate_heygen_cost: {
         Args: {
           p_avatar_type: string
@@ -1566,34 +1146,9 @@ export type Database = {
           variables: Json
         }[]
       }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-      is_admin: { Args: { _user_id: string }; Returns: boolean }
-      move_to_dlq: {
-        Args: {
-          dlq_name: string
-          message_id: number
-          payload: Json
-          source_queue: string
-        }
-        Returns: number
-      }
-      read_email_batch: {
-        Args: { batch_size: number; queue_name: string; vt: number }
-        Returns: {
-          message: Json
-          msg_id: number
-          read_ct: number
-        }[]
-      }
     }
     Enums: {
-      app_role: "admin" | "support" | "user"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1720,8 +1275,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      app_role: ["admin", "support", "user"],
-    },
+    Enums: {},
   },
 } as const

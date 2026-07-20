@@ -363,8 +363,7 @@ serve(async (req) => {
     });
   } catch (err) {
     console.error("[HeyGen] Error:", err);
-    const msg = err instanceof Error ? err.message : String(err);
-    return new Response(JSON.stringify({ error: msg || "Internal error" }), {
+    return new Response(JSON.stringify({ error: err.message || "Internal error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

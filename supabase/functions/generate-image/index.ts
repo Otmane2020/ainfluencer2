@@ -13,57 +13,6 @@ import {
   checkFluxKontextStatus,
   KIE_MODEL_NAMES,
 } from "../_shared/kie-api-client.ts";
-import { Image } from "https://deno.land/x/imagescript@1.2.17/mod.ts";
-
-// Cover-crop/resize an image (data: URL or raw base64) to enforce a target aspect ratio.
-// Returns a data URL with the same mime type. Falls back to the original on any error.
-async function enforceAspectRatioDataUrl(dataUrl: string, aspect: string): Promise<string> {
-  try {
-    const map: Record<string, { w: number; h: number }> = {
-      "1:1":   { w: 1024, h: 1024 },
-      "9:16":  { w: 1080, h: 1920 },
-      "16:9":  { w: 1920, h: 1080 },
-      "4:5":   { w: 1080, h: 1350 },
-      "3:4":   { w: 1080, h: 1440 },
-    };
-    const target = map[aspect];
-    if (!target) return dataUrl;
-    const m = dataUrl.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
-    if (!m) return dataUrl;
-    const b64 = m[2];
-    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-    const img = await Image.decode(bytes);
-    const srcRatio = img.width / img.height;
-    const dstRatio = target.w / target.h;
-    if (Math.abs(srcRatio - dstRatio) < 0.02) {
-      img.resize(target.w, target.h);
-    } else {
-      let newW: number, newH: number;
-      if (srcRatio > dstRatio) {
-        newH = target.h;
-        newW = Math.round(target.h * srcRatio);
-      } else {
-        newW = target.w;
-        newH = Math.round(target.w / srcRatio);
-      }
-      img.resize(newW, newH);
-      const x = Math.max(0, Math.floor((newW - target.w) / 2));
-      const y = Math.max(0, Math.floor((newH - target.h) / 2));
-      img.crop(x, y, target.w, target.h);
-    }
-    const out = await img.encode();
-    let bin = "";
-    const CHUNK = 8192;
-    for (let i = 0; i < out.length; i += CHUNK) {
-      const end = Math.min(i + CHUNK, out.length);
-      for (let j = i; j < end; j++) bin += String.fromCharCode(out[j]);
-    }
-    return `data:image/png;base64,${btoa(bin)}`;
-  } catch (e) {
-    console.warn("[enforceAspectRatioDataUrl] failed:", e);
-    return dataUrl;
-  }
-}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -167,17 +116,12 @@ function selectModelFromPool(qualityId: string): ModelOption {
 // ============================================================
 
 interface ModelRouting {
-  provider: "kie" | "lovable" | "openai" | "replicate" | "pollinations";
+  provider: "kie" | "lovable" | "openai" | "replicate";
   endpoint?: string;
   apiModel?: string;
 }
 
 function getModelRouting(modelId: string): ModelRouting {
-  // Pollinations.ai (free, no key)
-  if (modelId.startsWith("pollinations") || modelId === "flux-free") {
-    return { provider: "pollinations", apiModel: "flux" };
-  }
-
   // Flux Kontext uses a separate API endpoint
   if (modelId === "flux-kontext-pro" || modelId === "flux-kontext-max") {
     return { provider: "kie", endpoint: "flux-kontext", apiModel: modelId };
@@ -806,34 +750,6 @@ RULES:
 // UNIFIED GENERATION WITH ROUTING
 // ============================================================
 
-// ============================================================
-// POLLINATIONS.AI (free, no API key)
-// ============================================================
-async function generateWithPollinations(
-  prompt: string,
-  aspectRatio: string = "1:1"
-): Promise<{ imageData: string | null; error?: string }> {
-  try {
-    const w = aspectRatio === "9:16" ? 720 : aspectRatio === "16:9" ? 1280 : 1024;
-    const h = aspectRatio === "9:16" ? 1280 : aspectRatio === "16:9" ? 720 : 1024;
-    const seed = Math.floor(Math.random() * 1_000_000);
-    const cleanPrompt = (prompt + ". Professional commercial photography, cinematic lighting, no text").slice(0, 1500);
-    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?width=${w}&height=${h}&nologo=true&seed=${seed}&model=flux`;
-    console.log(`[Pollinations] Calling free endpoint (${w}x${h})`);
-    const res = await fetch(url);
-    if (!res.ok) {
-      return { imageData: null, error: `Pollinations HTTP ${res.status}` };
-    }
-    const buf = await res.arrayBuffer();
-    if (buf.byteLength < 1000) {
-      return { imageData: null, error: "Pollinations returned empty image" };
-    }
-    return { imageData: `data:image/jpeg;base64,${arrayBufferToBase64(buf)}` };
-  } catch (e) {
-    return { imageData: null, error: `Pollinations exception: ${String(e)}` };
-  }
-}
-
 async function generateImage(
   prompt: string,
   modelId: string,
@@ -866,10 +782,6 @@ async function generateImage(
 
     case "openai":
       result = await generateWithOpenAI(prompt, aspectRatio);
-      break;
-
-    case "pollinations":
-      result = await generateWithPollinations(prompt, aspectRatio);
       break;
 
     case "lovable":
@@ -1221,126 +1133,7 @@ BANNED: generic stock photo, clipart, blurry background, low quality, stars as l
         }
       }
 
-      // Step 5: OpenRouter FREE models (no Lovable credit cost)
-      if (!imageData) {
-        const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-        if (OPENROUTER_API_KEY) {
-          const freeModels = [
-            "google/gemini-2.5-flash-image-preview:free",
-            "black-forest-labs/flux-1-schnell:free",
-          ];
-          for (const orModel of freeModels) {
-            if (imageData) break;
-            console.log(`[Fallback] Step 5: Trying OpenRouter ${orModel}...`);
-            try {
-              const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-                  "Content-Type": "application/json",
-                  "HTTP-Referer": "https://clipmotion.ai",
-                  "X-Title": "ClipMotion",
-                },
-                body: JSON.stringify({
-                  model: orModel,
-                  messages: [{
-                    role: "user",
-                    content: sourceImage
-                      ? [
-                          { type: "text", text: finalPrompt.slice(0, 2000) },
-                          { type: "image_url", image_url: { url: sourceImage } },
-                        ]
-                      : finalPrompt.slice(0, 2000),
-                  }],
-                  modalities: ["image", "text"],
-                }),
-              });
-              if (orRes.ok) {
-                const orData = await orRes.json();
-                const img =
-                  orData.choices?.[0]?.message?.images?.[0]?.image_url?.url ||
-                  orData.choices?.[0]?.message?.content?.match?.(/data:image[^"\s)]+/)?.[0];
-                if (img) {
-                  imageData = img.startsWith("data:") ? img : `data:image/png;base64,${img}`;
-                  error = undefined;
-                  provider = `openrouter-free:${orModel}`;
-                  console.log(`[Fallback] ✓ OpenRouter ${orModel} succeeded`);
-                }
-              } else {
-                console.error(`[Fallback] ✗ OpenRouter ${orModel} failed: ${orRes.status}`);
-              }
-            } catch (orErr) {
-              console.error(`[Fallback] ✗ OpenRouter ${orModel} exception:`, String(orErr));
-            }
-          }
-        }
-      }
-
-      // Step 6: Pollinations.ai — public, free, no key required
-      if (!imageData) {
-        console.log(`[Fallback] Step 6: Trying Pollinations.ai (free, no key)...`);
-        try {
-          const w = effectiveAspect === "9:16" ? 720 : effectiveAspect === "16:9" ? 1280 : 1024;
-          const h = effectiveAspect === "9:16" ? 1280 : effectiveAspect === "16:9" ? 720 : 1024;
-          const seed = Math.floor(Math.random() * 1_000_000);
-          const polUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(
-            (prompt + ". Professional commercial photography, cinematic lighting, no text").slice(0, 1500)
-          )}?width=${w}&height=${h}&nologo=true&seed=${seed}&model=flux`;
-          const polRes = await fetch(polUrl);
-          if (polRes.ok) {
-            const polBuf = await polRes.arrayBuffer();
-            if (polBuf.byteLength > 1000) {
-              imageData = `data:image/jpeg;base64,${arrayBufferToBase64(polBuf)}`;
-              error = undefined;
-              provider = "pollinations-free";
-              console.log(`[Fallback] ✓ Pollinations.ai succeeded`);
-            }
-          } else {
-            console.error(`[Fallback] ✗ Pollinations failed: ${polRes.status}`);
-          }
-        } catch (polErr) {
-          console.error(`[Fallback] ✗ Pollinations exception:`, String(polErr));
-        }
-      }
-
-      // Step 7: Hugging Face Inference API (optional, requires HF_TOKEN)
-      if (!imageData) {
-        const HF_TOKEN = Deno.env.get("HF_TOKEN");
-        if (HF_TOKEN) {
-          const hfModels = [
-            "black-forest-labs/FLUX.1-schnell",
-            "stabilityai/stable-diffusion-xl-base-1.0",
-          ];
-          for (const hfModel of hfModels) {
-            if (imageData) break;
-            console.log(`[Fallback] Step 7: Trying HuggingFace ${hfModel}...`);
-            try {
-              const hfRes = await fetch(`https://api-inference.huggingface.co/models/${hfModel}`, {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${HF_TOKEN}`,
-                  "Content-Type": "application/json",
-                  Accept: "image/png",
-                },
-                body: JSON.stringify({ inputs: prompt.slice(0, 1500) }),
-              });
-              if (hfRes.ok) {
-                const hfBuf = await hfRes.arrayBuffer();
-                if (hfBuf.byteLength > 1000) {
-                  imageData = `data:image/png;base64,${arrayBufferToBase64(hfBuf)}`;
-                  error = undefined;
-                  provider = `huggingface:${hfModel}`;
-                  console.log(`[Fallback] ✓ HuggingFace ${hfModel} succeeded`);
-                }
-              } else {
-                console.error(`[Fallback] ✗ HF ${hfModel} failed: ${hfRes.status}`);
-              }
-            } catch (hfErr) {
-              console.error(`[Fallback] ✗ HF ${hfModel} exception:`, String(hfErr));
-            }
-          }
-        }
-      }
+      // OpenRouter excluded from image generation pipeline
     }
 
     if (!imageData) {
@@ -1377,11 +1170,8 @@ BANNED: generic stock photo, clipart, blurry background, low quality, stars as l
       );
     }
 
-    // Enforce the requested aspect ratio (some providers ignore the prompt and return square images)
-    let finalImageData = await enforceAspectRatioDataUrl(imageData, effectiveAspect);
-    console.log(`[Main] Enforced aspect ratio ${effectiveAspect} on output image`);
-
     // Apply text overlay if requested (2-step: spell-check → composite)
+    let finalImageData = imageData;
     if (includeText && overlayText) {
       console.log("[Main] Applying 2-step text overlay...");
       const primaryColor = marketingContext?.visual_identity?.primary_color || guardInput.themeColor;

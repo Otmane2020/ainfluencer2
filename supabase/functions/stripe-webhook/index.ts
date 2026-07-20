@@ -9,29 +9,25 @@ const corsHeaders = {
 
 // Product IDs for ClipMotion subscription plans
 const PRODUCT_TO_PLAN: Record<string, string> = {
-  "prod_Tts3Yrv7nyBmxi": "pro",
-  "prod_USk3Zi3Hhs42nn": "business",
+  "prod_TsTqynweuSksG3": "starter",
+  "prod_TsTqUdBfAHdNCi": "pro",
+  "prod_TsTqxdl9cpZNJg": "business",
 };
 
 // Price IDs for ClipMotion subscription plans (must match create-checkout)
 const PRICE_TO_PLAN: Record<string, string> = {
-  "price_1Sw4JNEfti9t9nN9Z88uua20": "pro",
-  "price_1TToZ8Efti9t9nN9kA3w0Myp": "business",
+  "price_1SuiszEfti9t9nN9qEGnwrdT": "starter",
+  "price_1Suit0Efti9t9nN9jKws1R3q": "pro",
+  "price_1Suit1Efti9t9nN9F5g8iTGq": "business",
 };
 
-// Monthly credit allocation per plan
-const PLAN_TO_CREDITS: Record<string, number> = {
-  starter: 5,
-  pro: 50,
-  business: 500,
-};
-
-// Credit pack price IDs ($1 = 1 credit)
+// Credit pack mappings (must match create-checkout)
 const PRICE_TO_CREDITS: Record<string, number> = {
-  "price_1TTtsiEfti9t9nN9G51T8TIS": 5,
-  "price_1TTtsjEfti9t9nN9VhqJ2S7v": 20,
-  "price_1TTtskEfti9t9nN9furDfh1K": 50,
-  "price_1TTtslEfti9t9nN9uFXKcXrx": 100,
+  "price_1Suit2Efti9t9nN9idG07kAf": 50,
+  "price_1Suit3Efti9t9nN9vPGwwfWa": 100,
+  "price_1Suit5Efti9t9nN9cjaee5yZ": 250,
+  "price_1Suit5Efti9t9nN96jaDSp7j": 500,
+  "price_1Suit6Efti9t9nN9ynTRmA7o": 1000,
 };
 
 const logStep = (step: string, details?: unknown) => {
@@ -119,54 +115,6 @@ serve(async (req) => {
 
           if (error) logStep("Error updating subscription", { error: error.message });
           else logStep("Subscription activated", { planId, productId, priceId, subscriptionId, renewsAt });
-
-          // Set monthly credits for the plan (replace balance, not add to it)
-          const planCredits = PLAN_TO_CREDITS[planId] || 0;
-          if (planCredits > 0 && userId) {
-            // Upsert credits row with the plan's monthly allocation as the new balance
-            const { error: credErr } = await supabase
-              .from("credits")
-              .upsert(
-                { user_id: userId, balance: planCredits, updated_at: new Date().toISOString() },
-                { onConflict: "user_id" }
-              );
-            if (credErr) logStep("Error setting plan credits", { error: credErr.message });
-            else {
-              await supabase.from("credit_transactions").insert({
-                user_id: userId,
-                amount: planCredits,
-                type: "subscription",
-                description: `Monthly credits for ${planId} plan`,
-              });
-              logStep("Plan credits set", { planId, planCredits, userId });
-            }
-          }
-
-          // Send branded subscription confirmation email (non-blocking)
-          try {
-            const recipientEmail = session.customer_details?.email || (session.customer_email as string | undefined);
-            if (recipientEmail) {
-              const amountTotal = session.amount_total ?? 0;
-              const currency = (session.currency ?? "usd").toUpperCase();
-              const amount = amountTotal ? `${(amountTotal / 100).toFixed(2)} ${currency}` : undefined;
-              await supabase.functions.invoke("send-transactional-email", {
-                body: {
-                  templateName: "subscription-upgraded",
-                  recipientEmail,
-                  idempotencyKey: `sub-upgraded-${subscriptionId}`,
-                  templateData: {
-                    name: session.customer_details?.name ?? undefined,
-                    planName: planId.charAt(0).toUpperCase() + planId.slice(1),
-                    credits: planCredits,
-                    amount,
-                  },
-                },
-              });
-              logStep("Subscription email queued", { recipientEmail, planId });
-            }
-          } catch (emailErr: any) {
-            logStep("Subscription email error", { error: emailErr?.message });
-          }
 
         } else if (session.mode === "payment") {
           // Handle one-time credit purchase

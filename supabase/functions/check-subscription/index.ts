@@ -14,14 +14,16 @@ const corsHeaders: Record<string, string> = {
 
 // Product IDs for ClipMotion subscription plans
 const PRODUCT_TO_PLAN: Record<string, string> = {
-  "prod_Tts3Yrv7nyBmxi": "pro",
-  "prod_USk3Zi3Hhs42nn": "business",
+  "prod_TsTqynweuSksG3": "starter",
+  "prod_TsTqUdBfAHdNCi": "pro",
+  "prod_TsTqxdl9cpZNJg": "business",
 };
 
 // Price IDs for ClipMotion subscription plans (fallback lookup)
 const PRICE_TO_PLAN: Record<string, string> = {
-  "price_1Sw4JNEfti9t9nN9Z88uua20": "pro",
-  "price_1TToZ8Efti9t9nN9kA3w0Myp": "business",
+  "price_1SuiszEfti9t9nN9qEGnwrdT": "starter",
+  "price_1Suit0Efti9t9nN9jKws1R3q": "pro",
+  "price_1Suit1Efti9t9nN9F5g8iTGq": "business",
 };
 
 const logStep = (step: string, details?: unknown) => {
@@ -116,30 +118,6 @@ serve(async (req) => {
       });
     }
     // ============================================================
-    // CHECK DATABASE for active free Starter plan (no Stripe needed)
-    // ============================================================
-    const { data: freeStarter } = await supabaseClient
-      .from("subscriptions")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("plan_id", "starter")
-      .eq("status", "active")
-      .is("stripe_subscription_id", null)
-      .maybeSingle();
-
-    if (freeStarter) {
-      logStep("Free Starter plan active in DB - skipping Stripe check");
-      return new Response(JSON.stringify({
-        subscribed: true,
-        plan_id: "starter",
-        status: "active",
-        subscription_end: freeStarter.renews_at,
-        requires_checkout: false,
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
-    }
 
     const stripe = new Stripe(stripeKey);
     const customers = await stripe.customers.list({ email: userEmail, limit: 1 });
