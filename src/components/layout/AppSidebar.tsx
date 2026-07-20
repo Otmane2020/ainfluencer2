@@ -17,7 +17,6 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -49,27 +48,6 @@ export function AppSidebar() {
     navigate("/auth");
   };
 
-  type NavItem = { title: string; url: string; icon: any };
-  const renderItems = (items: NavItem[]) => (
-    <SidebarMenu>
-      {items.map((item) => (
-        <SidebarMenuItem key={item.title}>
-          <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
-            <NavLink
-              to={item.url}
-              end
-              className="flex items-center gap-3"
-              activeClassName="bg-primary/10 text-primary font-medium"
-            >
-              <item.icon className="h-5 w-5 shrink-0" />
-              {!collapsed && <span>{item.title}</span>}
-            </NavLink>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      ))}
-    </SidebarMenu>
-  );
-
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
       <SidebarHeader className="p-4">
@@ -89,20 +67,37 @@ export function AppSidebar() {
       <SidebarContent className="px-2">
         <SidebarGroup>
           <SidebarGroupContent>
-            <NavLink
-              to={createNavItem.url}
-              end
-              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 mb-2 gradient-primary text-primary-foreground font-medium shadow-glow transition-opacity hover:opacity-90 ${collapsed ? "justify-center" : ""}`}
-            >
-              <createNavItem.icon className="h-5 w-5 shrink-0" />
-              {!collapsed && <span>{createNavItem.title}</span>}
-            </NavLink>
-          </SidebarGroupContent>
-        </SidebarGroup>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={isActive(createNavItem.url)} tooltip={createNavItem.title}>
+                  <NavLink
+                    to={createNavItem.url}
+                    end
+                    className={`flex items-center gap-3 rounded-xl gradient-primary text-primary-foreground font-medium shadow-glow transition-opacity hover:opacity-90 ${collapsed ? "justify-center" : ""}`}
+                  >
+                    <createNavItem.icon className="h-5 w-5 shrink-0" />
+                    {!collapsed && <span>{createNavItem.title}</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Menu</SidebarGroupLabel>
-          <SidebarGroupContent>{renderItems(navItems)}</SidebarGroupContent>
+              {navItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
+                    <NavLink
+                      to={item.url}
+                      end
+                      className="flex items-center gap-3"
+                      activeClassName="bg-primary/10 text-primary font-medium"
+                    >
+                      <item.icon className="h-5 w-5 shrink-0" />
+                      {!collapsed && <span>{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
 
