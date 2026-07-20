@@ -176,7 +176,7 @@ const HiggsfieldVideoStudio = ({ mode: initialMode = "text" }: Partial<Props>) =
         </motion.div>
       </div>
 
-      <PaywallModal open={showPaywall} onOpenChange={setShowPaywall} feature="videos" requiredPlan="starter" />
+      <PaywallModal open={showPaywall} onOpenChange={setShowPaywall} feature="video" requiredPlan="starter" />
     </>
   );
 };

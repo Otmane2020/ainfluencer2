@@ -61,7 +61,8 @@ export function AppSidebar() {
     navigate("/auth");
   };
 
-  const renderGroup = (label: string, items: typeof contentNavItems) => (
+  type NavItem = { title: string; url: string; icon: any; label?: string };
+  const renderGroup = (label: string, items: NavItem[]) => (
     <SidebarGroup>
       <SidebarGroupLabel>{label}</SidebarGroupLabel>
       <SidebarGroupContent>
@@ -79,9 +80,9 @@ export function AppSidebar() {
                   {!collapsed && (
                     <span className="flex items-center gap-2">
                       {item.title}
-                      {"label" in item && (item as any).label && (
+                      {item.label && (
                         <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-primary/20 text-primary border-0">
-                          {(item as any).label}
+                          {item.label}
                         </Badge>
                       )}
                     </span>
