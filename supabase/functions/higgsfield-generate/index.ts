@@ -114,9 +114,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Higgsfield's v2 API takes the model as part of the endpoint path
-    // (e.g. /v1/text2image/soul, /v1/image2video/dop) and the params flat
-    // (not wrapped) in the POST body.
+    // Higgsfield's API takes the model as part of the endpoint path and
+    // expects the generation params wrapped under a "params" key in the
+    // POST body (confirmed by the API's own 422 "body.params: Field required").
     const r = await fetch(`${HIGGSFIELD_BASE}${endpoint}`, {
       method: "POST",
       headers: {
@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify(payload ?? {}),
+      body: JSON.stringify({ params: payload ?? {} }),
     });
     return relay(r);
   } catch (e) {
