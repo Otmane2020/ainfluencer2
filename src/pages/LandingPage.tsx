@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PricingPacks } from "@/components/PricingPacks";
 import { TrustedByCarousel } from "@/components/TrustedByCarousel";
-import { SocialPlatformIcons } from "@/components/SocialPlatformIcons";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SocialProofToast } from "@/components/nudges/SocialProofToast";
