@@ -526,7 +526,7 @@ const LandingPage = () => {
             className="text-center mb-16"
           >
             <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
-              Loved by <span className="text-gradient">50,000+</span> Creators
+              Loved by <span className="text-gradient">creators worldwide</span>
             </h2>
           </motion.div>
 
