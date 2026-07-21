@@ -165,6 +165,41 @@ async function generateWithElevenLabs(
 }
 
 // ============================================================
+// DEEPGRAM TTS (Aura)
+// ============================================================
+
+async function generateWithDeepgram(
+  text: string,
+  model: string
+): Promise<{ audioBuffer: ArrayBuffer | null; error?: string }> {
+  const key = Deno.env.get("DEEPGRAM_API_KEY");
+  if (!key) {
+    return { audioBuffer: null, error: "Deepgram API key not configured" };
+  }
+
+  try {
+    const response = await fetch(`https://api.deepgram.com/v1/speak?model=${encodeURIComponent(model)}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Token ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ text }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[Deepgram] error: ${response.status} ${errorText}`);
+      return { audioBuffer: null, error: `Deepgram API error (${response.status}): ${errorText.slice(0, 200)}` };
+    }
+
+    return { audioBuffer: await response.arrayBuffer() };
+  } catch (error) {
+    return { audioBuffer: null, error: (error as Error).message };
+  }
+}
+
+// ============================================================
 // MAIN HANDLER
 // ============================================================
 
@@ -174,7 +209,7 @@ serve(async (req) => {
   }
 
   try {
-    const { text, voiceId, quality } = await req.json();
+    const { text, voiceId, quality, provider } = await req.json();
 
     if (!text) {
       return new Response(
@@ -183,14 +218,14 @@ serve(async (req) => {
       );
     }
 
-    const finalVoiceId = voiceId || "JBFqnCBsd6RMkjVDRZzb";
+    const ttsProvider = provider === "deepgram" ? "deepgram" : "elevenlabs";
+    const finalVoiceId = voiceId || (ttsProvider === "deepgram" ? "aura-2-thalia-en" : "JBFqnCBsd6RMkjVDRZzb");
     const qualityLevel = quality || DEFAULT_QUALITY;
-    const selectedModel = selectTTSModel(qualityLevel);
 
-    console.log(`=== TTS Request === voice=${finalVoiceId} quality=${qualityLevel} chars=${text.length}`);
+    console.log(`=== TTS Request === provider=${ttsProvider} voice=${finalVoiceId} quality=${qualityLevel} chars=${text.length}`);
 
     // --- CHECK CACHE FIRST ---
-    const cacheKey = await hashKey(text, finalVoiceId);
+    const cacheKey = await hashKey(text, `${ttsProvider}:${finalVoiceId}`);
     const cached = await getCachedAudio(cacheKey);
     if (cached) {
       return new Response(cached, {
@@ -199,7 +234,9 @@ serve(async (req) => {
     }
 
     // --- GENERATE ---
-    const result = await generateWithElevenLabs(text, finalVoiceId);
+    const result = ttsProvider === "deepgram"
+      ? await generateWithDeepgram(text, finalVoiceId)
+      : await generateWithElevenLabs(text, finalVoiceId);
 
     if (!result.audioBuffer) {
       return new Response(
