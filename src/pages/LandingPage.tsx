@@ -577,10 +577,10 @@ const LandingPage = () => {
             <div className="absolute inset-0 bg-black/20" />
             <div className="relative z-10 py-16 px-8 text-center text-white">
               <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
-                Ready to Transform Your Content?
+                Ready to create with AI?
               </h2>
               <p className="text-xl text-white/80 max-w-2xl mx-auto mb-8">
-                Join 50,000+ creators who are already using ClipMotion to grow their audience and save time.
+                Start generating cinematic images and videos in seconds. Cancel anytime.
               </p>
               <Button
                 size="lg"
@@ -588,9 +588,9 @@ const LandingPage = () => {
                 className="h-14 px-8 text-lg bg-white text-foreground hover:bg-white/90"
               >
                 <Wand2 className="mr-2 h-5 w-5" />
-                Get Started Free
+                Start Creating
               </Button>
-              <p className="text-sm text-white/60 mt-4">No credit card required • Free forever plan available</p>
+              <p className="text-sm text-white/60 mt-4">7-day free trial • No credit card required</p>
             </div>
           </motion.div>
         </div>
