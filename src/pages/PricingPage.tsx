@@ -266,16 +266,11 @@ const PricingPage = () => {
               </h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span>Smart Image</span>
-                  <span className="font-bold">2 credits</span>
+                  <span>Soul / Reve (720p – 1080p)</span>
+                  <span className="font-bold">1 credit</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>High Image</span>
-                  <span className="font-bold">3 credits</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Studio Image</span>
-                  <span className="font-bold">4 credits</span>
+                <div className="text-xs text-muted-foreground pt-2">
+                  Every text-to-image generation costs 1 credit, regardless of aspect ratio or resolution.
                 </div>
               </div>
             </div>
@@ -285,16 +280,11 @@ const PricingPage = () => {
               </h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span>Smart Video</span>
-                  <span className="font-bold">10 credits</span>
+                  <span>DoP / Seedance / Kling</span>
+                  <span className="font-bold">4 credits</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>High Video</span>
-                  <span className="font-bold">13 credits</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Cinema Video</span>
-                  <span className="font-bold">20 credits</span>
+                <div className="text-xs text-muted-foreground pt-2">
+                  Text-to-video and image-to-video (5s clips) cost 4 credits per generation.
                 </div>
               </div>
             </div>
@@ -311,28 +301,32 @@ const PricingPage = () => {
           <div className="space-y-6">
             {[
               {
-                q: "How does the subscription + credits model work?",
-                a: "Your subscription (Starter, Pro, or Business) gives you access to the app features and AutoPost limits. Each AI generation (image or video) consumes credits from your balance. This way, you only pay for what you actually use.",
+                q: "How does the credit system work?",
+                a: "Every plan includes a monthly credit balance. Each AI image costs 1 credit and each AI video costs 4 credits. Credits refresh at the start of each billing cycle.",
               },
               {
                 q: "Can I try ClipMotion for free?",
-                a: "Yes! New users receive 10 free credits to try our AI generation tools. You can upgrade to a paid plan when you're ready.",
+                a: "Yes — every paid plan starts with a 7-day free trial. No credit card is charged during the trial and you can cancel at any time.",
               },
               {
                 q: "What happens if I run out of credits?",
-                a: "AutoPost will automatically pause when your credits are depleted. You can purchase additional credits anytime to resume generation. Your scheduled content remains safe.",
+                a: "You can top up your balance from Settings at any time, or upgrade to a higher plan for more monthly credits. Your generation history is always kept safe.",
               },
               {
-                q: "What's included in AutoPost?",
-                a: "AutoPost automatically generates and schedules content for your projects. Starter plan includes up to 30 images/day. Pro adds 1 video/day, and Business includes 3 videos/day. Each generation consumes credits.",
+                q: "Which AI models do I get access to?",
+                a: "All plans unlock every model available on ClipMotion — Higgsfield Soul, Reve, DoP, Seedance Pro, and Kling v2.1 Pro — for both image and video generation.",
               },
               {
-                q: "Do credits expire?",
-                a: "No, your credits never expire. Use them whenever you need, at your own pace.",
+                q: "Do unused credits roll over?",
+                a: "Monthly plan credits reset each billing cycle. Credits purchased in top-up packs never expire.",
               },
               {
                 q: "Can I upgrade or downgrade my plan?",
-                a: "Absolutely. You can change your plan at any time. If you upgrade, you'll get immediate access to higher limits. If you downgrade, the change takes effect at your next billing cycle.",
+                a: "Absolutely. Upgrades take effect immediately with a prorated charge. Downgrades apply at the next billing cycle.",
+              },
+              {
+                q: "Can I use generations commercially?",
+                a: "Pro and Business plans include full commercial usage rights. The Starter plan is intended for personal and evaluation use.",
               },
             ].map((item) => (
               <div key={item.q} className="bg-card rounded-lg p-6 border">

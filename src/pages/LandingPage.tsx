@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PricingPacks } from "@/components/PricingPacks";
 import { TrustedByCarousel } from "@/components/TrustedByCarousel";
-import { SocialPlatformIcons } from "@/components/SocialPlatformIcons";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SocialProofToast } from "@/components/nudges/SocialProofToast";
@@ -16,104 +16,73 @@ import {
   Play,
   Wand2,
   Video,
-  Calendar,
-  TrendingUp,
   Zap,
   Users,
-  Globe,
   ArrowRight,
-  Check,
   Star,
   Sparkles,
   Image,
-  Camera,
-  Megaphone,
-  Mic,
-  User,
   Layers,
-  Share2,
-  Clock,
   Target,
   Film,
 } from "lucide-react";
 
-// Core product features
+// Core product features — ClipMotion AI Studio (Higgsfield-powered)
 const coreProducts = [
   {
-    icon: Sparkles,
-    title: "ClipMotion Videos",
-    description: "Create viral vertical videos optimized for TikTok, Reels & Shorts with AI voiceovers and dynamic animations.",
-    badge: "FLAGSHIP",
-    link: "/clipmotion",
-  },
-  {
-    icon: Zap,
-    title: "Nano Banana Video",
-    description: "Ultra-fast AI video generation for short-form content. Create TikTok & Reels videos in seconds.",
-    badge: "FAST",
-    link: "/nanobananavideo",
-  },
-  {
     icon: Image,
-    title: "Smart Images",
-    description: "Generate stunning AI images in seconds with our Smart, High, and Studio quality tiers.",
-    badge: "AI SMART",
+    title: "AI Image Studio",
+    description: "Generate stunning cinematic images with Higgsfield Soul & Reve. Choose aspect ratio, resolution, and style — export in seconds.",
+    badge: "IMAGES",
     link: "/images",
   },
   {
-    icon: Camera,
-    title: "Product Shots",
-    description: "Transform a single product photo into multiple professional angles and lifestyle scenes.",
-    badge: "AI SMART",
-    link: "/product-shots",
-  },
-  {
     icon: Video,
-    title: "Cinema Videos",
-    description: "Create cinematic AI videos with Sora 2 quality for professional brand content.",
-    badge: "PREMIUM",
+    title: "AI Video Studio",
+    description: "Create prompt-based videos with DoP, Kling v2.1 Pro, and Seedance. Cinema-grade motion straight from text.",
+    badge: "VIDEOS",
     link: "/videos",
   },
   {
-    icon: Megaphone,
-    title: "AI Campaigns",
-    description: "Automate your content calendar with AI-generated posts, images, and videos published on autopilot.",
-    badge: "NEW",
-    link: "/campaigns",
+    icon: Film,
+    title: "Image → Video",
+    description: "Bring your images to life with cinematic camera moves and controlled motion. Perfect for reels, ads, and product shots.",
+    badge: "MOTION",
+    link: "/image-to-video",
   },
 ];
 
 // Platform features
 const platformFeatures = [
   {
-    icon: Calendar,
-    title: "Smart Scheduling",
-    description: "Plan and automate your content calendar across all social platforms with timezone-aware publishing.",
-  },
-  {
-    icon: Globe,
-    title: "Multi-Platform Publishing",
-    description: "Publish to Instagram, Facebook, TikTok, and LinkedIn simultaneously with one click.",
-  },
-  {
-    icon: Mic,
-    title: "AI Voiceovers",
-    description: "Choose from 50+ natural voices in multiple languages for your video content.",
+    icon: Wand2,
+    title: "State-of-the-Art Models",
+    description: "Higgsfield Soul, Reve, DoP, Kling v2.1 Pro, and Seedance — all the best models under one credit balance.",
   },
   {
     icon: Layers,
-    title: "Scenario System",
-    description: "Select from business sectors, video styles, and emotional tones to guide AI generation.",
-  },
-  {
-    icon: Target,
-    title: "Brand Context",
-    description: "Your brand identity is automatically injected into all generated content.",
+    title: "Full Creative Control",
+    description: "Aspect ratio, resolution, duration, motion strength, and negative prompt — tune every generation.",
   },
   {
     icon: Zap,
-    title: "Instant Generation",
-    description: "Generate content in seconds, not hours. Scale your output 10x faster.",
+    title: "Fast Async Queue",
+    description: "Submit a job, keep working. We poll in the background and surface the result the moment it's ready.",
+  },
+  {
+    icon: Target,
+    title: "Prompt-First Workflow",
+    description: "A single clean interface for text-to-image, text-to-video, and image-to-video. No clutter, just creation.",
+  },
+  {
+    icon: Sparkles,
+    title: "1080p HD Exports",
+    description: "Download production-ready assets at 720p or 1080p, ready to publish anywhere.",
+  },
+  {
+    icon: Users,
+    title: "Commercial Usage",
+    description: "Every generation on Pro and Business plans ships with full commercial usage rights.",
   },
 ];
 
@@ -122,30 +91,30 @@ const testimonials = [
     name: "Sarah Johnson",
     role: "Content Creator",
     avatar: "S",
-    content: "ClipMotion transformed my content workflow. I create 10x more content in half the time!",
+    content: "ClipMotion is my daily driver for reels. The image-to-video quality is unreal.",
     rating: 5,
   },
   {
     name: "Mike Chen",
-    role: "Marketing Agency Owner",
+    role: "Creative Director",
     avatar: "M",
-    content: "Our clients love the AI-generated content. It's indistinguishable from professional productions.",
+    content: "Having Soul, Kling, and DoP in one place — with one credit balance — saved us hours every week.",
     rating: 5,
   },
   {
     name: "Emma Wilson",
     role: "E-commerce Brand",
     avatar: "E",
-    content: "The AI influencer feature is a game-changer. We created a virtual brand ambassador instantly.",
+    content: "Product shots to cinematic motion clips in minutes. It replaced two tools and a freelancer.",
     rating: 5,
   },
 ];
 
 const stats = [
-  { value: "10M+", label: "Videos Generated" },
-  { value: "50K+", label: "Happy Users" },
-  { value: "98%", label: "Satisfaction Rate" },
-  { value: "24/7", label: "AI Availability" },
+  { value: "5+", label: "SOTA AI Models" },
+  { value: "1080p", label: "HD Exports" },
+  { value: "~30s", label: "Avg. Generation" },
+  { value: "24/7", label: "Availability" },
 ];
 
 const LandingPage = () => {
@@ -221,16 +190,16 @@ const LandingPage = () => {
           >
             <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 md:px-4 py-1.5 md:py-2 mb-6 md:mb-8">
               <Wand2 className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
-              <span className="text-xs md:text-sm font-medium">AI-Powered Content Creation</span>
+              <span className="text-xs md:text-sm font-medium">AI Image & Video Studio — powered by Higgsfield</span>
             </div>
             
             <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold leading-tight mb-4 md:mb-6">
-              Create <span className="text-gradient">AI-Powered</span> Videos That Go{" "}
-              <span className="text-gradient">Viral</span>
+              Turn prompts into <span className="text-gradient">cinematic</span> images &{" "}
+              <span className="text-gradient">videos</span>
             </h1>
             
             <p className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 md:mb-10 px-2">
-              Generate stunning AI influencer videos, automate your social media presence, and grow your audience 10x faster with ClipMotion.
+              ClipMotion unifies the best generative AI models — Soul, Reve, DoP, Kling, Seedance — in one clean studio. Text-to-image, text-to-video, and image-to-video with one credit balance.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 mb-8 md:mb-12">
@@ -269,15 +238,21 @@ const LandingPage = () => {
               ))}
             </div>
 
-            {/* Auto-Post Platforms */}
+            {/* Models strip */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.8 }}
               className="mt-12 md:mt-16"
             >
-              <p className="text-sm text-muted-foreground mb-6">Auto-publish to all major platforms</p>
-              <SocialPlatformIcons />
+              <p className="text-sm text-muted-foreground mb-4">Best-in-class models, one credit balance</p>
+              <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3">
+                {["Higgsfield Soul", "Reve", "DoP", "Kling v2.1 Pro", "Seedance Pro"].map((m) => (
+                  <span key={m} className="text-xs md:text-sm px-3 py-1.5 rounded-full border border-border bg-card/50 text-muted-foreground">
+                    {m}
+                  </span>
+                ))}
+              </div>
             </motion.div>
           </motion.div>
         </div>
@@ -373,10 +348,10 @@ const LandingPage = () => {
             className="text-center mb-10 md:mb-16"
           >
             <h2 className="font-display text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
-              AI-Powered <span className="text-gradient">Content Suite</span>
+              One studio, <span className="text-gradient">every model</span>
             </h2>
             <p className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto px-2">
-              Everything you need to create, automate, and publish stunning content at scale.
+              Generate images, generate videos, or animate an image — all from one prompt bar.
             </p>
           </motion.div>
 
@@ -437,10 +412,10 @@ const LandingPage = () => {
             className="text-center mb-10 md:mb-16"
           >
             <h2 className="font-display text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
-              Everything You Need to <span className="text-gradient">Dominate</span> Social Media
+              Built for <span className="text-gradient">serious creators</span>
             </h2>
             <p className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto px-2">
-              Powerful features designed to help creators and brands scale their content effortlessly.
+              The features that make ClipMotion your daily creative tool.
             </p>
           </motion.div>
 
@@ -484,9 +459,9 @@ const LandingPage = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {[
-              { step: "1", title: "Describe Your Vision", desc: "Tell our AI what kind of content you want to create" },
-              { step: "2", title: "AI Generates Content", desc: "Our proprietary AI engine creates stunning visuals and videos" },
-              { step: "3", title: "Publish & Grow", desc: "Schedule and publish across all platforms with one click" },
+              { step: "1", title: "Write your prompt", desc: "Describe the scene, style, and mood you want to create." },
+              { step: "2", title: "Pick a model & format", desc: "Choose Soul, DoP, Kling, or Seedance — aspect ratio and resolution up to you." },
+              { step: "3", title: "Generate & export", desc: "Download 720p or 1080p assets ready to publish anywhere." },
             ].map((item, index) => (
               <motion.div
                 key={item.step}
@@ -541,7 +516,7 @@ const LandingPage = () => {
             className="text-center mb-16"
           >
             <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
-              Loved by <span className="text-gradient">50,000+</span> Creators
+              Loved by <span className="text-gradient">creators worldwide</span>
             </h2>
           </motion.div>
 
@@ -592,10 +567,10 @@ const LandingPage = () => {
             <div className="absolute inset-0 bg-black/20" />
             <div className="relative z-10 py-16 px-8 text-center text-white">
               <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
-                Ready to Transform Your Content?
+                Ready to create with AI?
               </h2>
               <p className="text-xl text-white/80 max-w-2xl mx-auto mb-8">
-                Join 50,000+ creators who are already using ClipMotion to grow their audience and save time.
+                Start generating cinematic images and videos in seconds. Cancel anytime.
               </p>
               <Button
                 size="lg"
@@ -603,9 +578,9 @@ const LandingPage = () => {
                 className="h-14 px-8 text-lg bg-white text-foreground hover:bg-white/90"
               >
                 <Wand2 className="mr-2 h-5 w-5" />
-                Get Started Free
+                Start Creating
               </Button>
-              <p className="text-sm text-white/60 mt-4">No credit card required • Free forever plan available</p>
+              <p className="text-sm text-white/60 mt-4">7-day free trial • No credit card required</p>
             </div>
           </motion.div>
         </div>
