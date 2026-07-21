@@ -4,7 +4,8 @@ import {
   Settings,
   LogOut,
   Clock,
-  Sparkles,
+  Image as ImageIcon,
+  Film,
   FolderKanban,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
@@ -25,11 +26,11 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const createNavItem = { title: "AI Studio", url: "/images", icon: Sparkles };
-
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderKanban },
+  { title: "Text to Image", url: "/images", icon: ImageIcon },
+  { title: "Image to Video", url: "/image-to-video", icon: Film },
   { title: "History", url: "/history", icon: Clock },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
@@ -68,19 +69,6 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive(createNavItem.url)} tooltip={createNavItem.title}>
-                  <NavLink
-                    to={createNavItem.url}
-                    end
-                    className={`flex items-center gap-3 rounded-xl gradient-primary text-primary-foreground font-medium shadow-glow transition-opacity hover:opacity-90 ${collapsed ? "justify-center" : ""}`}
-                  >
-                    <createNavItem.icon className="h-5 w-5 shrink-0" />
-                    {!collapsed && <span>{createNavItem.title}</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>

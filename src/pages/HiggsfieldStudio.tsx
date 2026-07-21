@@ -139,9 +139,14 @@ const HiggsfieldStudio = ({ defaultTab = "text-to-image" }: Props) => {
       <div className="space-y-6">
         <div>
           <h1 className="font-display text-3xl font-bold flex items-center gap-2">
-            <Sparkles className="h-7 w-7 text-primary" /> AI Studio
+            <Sparkles className="h-7 w-7 text-primary" />
+            {tab === "text-to-image" ? "Text to Image" : "Image to Video"}
           </h1>
-          <p className="text-muted-foreground">Powered by Higgsfield — generate images and bring them to life as video</p>
+          <p className="text-muted-foreground">
+            {tab === "text-to-image"
+              ? "Generate stunning images from text prompts, powered by Higgsfield"
+              : "Bring an image to life as a short video, powered by Higgsfield"}
+          </p>
         </div>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
