@@ -55,6 +55,7 @@ import InstagramReelsAIPage from "./pages/blog/InstagramReelsAIPage";
 import AIVideoForEcommercePage from "./pages/blog/AIVideoForEcommercePage";
 import TikTokCallbackPage from "./pages/TikTokCallbackPage";
 import ChoosePlanPage from "./pages/ChoosePlanPage";
+import ClipMotionStudio from "./pages/ClipMotionStudio";
 
 import { SubscriptionProvider } from "./contexts/SubscriptionContext";
 import { OrgProvider } from "./contexts/OrgContext";
@@ -108,6 +109,7 @@ const App = () => (
             <Route path="/calendar" element={<CalendarPage />} />
             {/* ClipMotion route removed - consolidated into AI Studio (Text to Image / Image to Video) */}
             <Route path="/videos" element={<HiggsfieldStudio defaultTab="image-to-video" />} />
+            <Route path="/clipmotion" element={<ClipMotionStudio />} />
             <Route path="/videos-legacy" element={<Videos />} />
             <Route path="/image-to-video" element={<HiggsfieldStudio defaultTab="image-to-video" />} />
             {/* AI Video route removed - consolidated into AI Studio */}

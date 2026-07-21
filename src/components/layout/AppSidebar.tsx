@@ -6,6 +6,7 @@ import {
   Clock,
   Sparkles,
   FolderKanban,
+  Scissors,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ const createNavItem = { title: "AI Studio", url: "/images", icon: Sparkles };
 
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "ClipMotion AI", url: "/clipmotion", icon: Scissors },
   { title: "Projects", url: "/projects", icon: FolderKanban },
   { title: "History", url: "/history", icon: Clock },
   { title: "Settings", url: "/settings", icon: Settings },
