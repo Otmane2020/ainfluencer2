@@ -248,15 +248,21 @@ const LandingPage = () => {
               ))}
             </div>
 
-            {/* Auto-Post Platforms */}
+            {/* Models strip */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.8 }}
               className="mt-12 md:mt-16"
             >
-              <p className="text-sm text-muted-foreground mb-6">Auto-publish to all major platforms</p>
-              <SocialPlatformIcons />
+              <p className="text-sm text-muted-foreground mb-4">Best-in-class models, one credit balance</p>
+              <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3">
+                {["Higgsfield Soul", "Reve", "DoP", "Kling v2.1 Pro", "Seedance Pro"].map((m) => (
+                  <span key={m} className="text-xs md:text-sm px-3 py-1.5 rounded-full border border-border bg-card/50 text-muted-foreground">
+                    {m}
+                  </span>
+                ))}
+              </div>
             </motion.div>
           </motion.div>
         </div>
