@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Download, Loader2, Wand2, Upload, CheckCircle2, X } from "lucide-react";
+import { Sparkles, Download, Loader2, Wand2, Upload, CheckCircle2, X, Share2, Mic, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +14,8 @@ import { PaywallModal } from "@/components/PaywallModal";
 import { useSubscription } from "@/hooks/useSubscription";
 import { supabase } from "@/integrations/supabase/client";
 import { ProjectPromptButton } from "@/components/ProjectPromptButton";
+import { GenerationWaitModal } from "@/components/GenerationWaitModal";
+import { SocialShareModal } from "@/components/SocialShareModal";
 
 const IMAGE_MODELS = [
   { id: "/higgsfield-ai/soul/standard", label: "Soul — Flagship" },
@@ -36,10 +38,12 @@ interface Props { defaultTab?: Tab }
 
 const HiggsfieldStudio = ({ defaultTab = "text-to-image" }: Props) => {
   const [tab, setTab] = useState<Tab>(defaultTab);
-  const { generate, loading, error } = useHiggsfield();
+  const { generate, cancel, loading, error } = useHiggsfield();
   const { toast } = useToast();
   const { subscription } = useSubscription();
   const [showPaywall, setShowPaywall] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareContent, setShareContent] = useState<{ mediaUrl: string; type: "image" | "video"; text: string } | null>(null);
 
   // Text to Image state
   const [imgPrompt, setImgPrompt] = useState("");
@@ -59,6 +63,13 @@ const HiggsfieldStudio = ({ defaultTab = "text-to-image" }: Props) => {
   const [vidStatus, setVidStatus] = useState("");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  // Voiceover state (Deepgram TTS)
+  const [voiceScript, setVoiceScript] = useState("");
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [generatingVoice, setGeneratingVoice] = useState(false);
+
+  const [activeGen, setActiveGen] = useState<Tab | null>(null);
 
   const handleUpload = async (file: File) => {
     setUploading(true);
@@ -82,6 +93,49 @@ const HiggsfieldStudio = ({ defaultTab = "text-to-image" }: Props) => {
     setUploadedFileName(null);
   };
 
+  const handleGenerateVoice = async () => {
+    if (!voiceScript.trim()) {
+      toast({ title: "Voiceover script required", variant: "destructive" });
+      return;
+    }
+    setGeneratingVoice(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ text: voiceScript, provider: "deepgram" }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || `Voice generation failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const path = `higgsfield/audio/${Date.now()}.mp3`;
+      const { data, error: uploadError } = await supabase.storage.from("media").upload(path, blob, {
+        contentType: "audio/mpeg",
+        upsert: true,
+      });
+      if (uploadError) throw uploadError;
+      const { data: pub } = supabase.storage.from("media").getPublicUrl(data.path);
+      setAudioUrl(pub.publicUrl);
+      toast({ title: "Voiceover ready" });
+    } catch (e) {
+      toast({ title: "Voice generation failed", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setGeneratingVoice(false);
+    }
+  };
+
+  const clearVoice = () => {
+    setAudioUrl(null);
+  };
+
   const handleGenerateImage = async () => {
     if (!imgPrompt.trim()) {
       toast({ title: "Prompt required", variant: "destructive" });
@@ -91,6 +145,7 @@ const HiggsfieldStudio = ({ defaultTab = "text-to-image" }: Props) => {
       setShowPaywall(true);
       return;
     }
+    setActiveGen("text-to-image");
     try {
       const r = await generate({
         endpoint: imgModel,
@@ -106,9 +161,12 @@ const HiggsfieldStudio = ({ defaultTab = "text-to-image" }: Props) => {
       if (url) {
         setImgHistory((h) => [{ id: r.request_id!, url, prompt: imgPrompt }, ...h].slice(0, 24));
         toast({ title: "Image ready" });
+        setShareContent({ mediaUrl: url, type: "image", text: imgPrompt });
       }
     } catch (e) {
       toast({ title: "Generation failed", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setActiveGen(null);
     }
   };
 
@@ -117,10 +175,16 @@ const HiggsfieldStudio = ({ defaultTab = "text-to-image" }: Props) => {
     if (!imageUrl) return toast({ title: "Source image required", variant: "destructive" });
     if (!subscription.isSubscribed) return setShowPaywall(true);
 
+    setActiveGen("image-to-video");
     try {
       const r = await generate({
         endpoint: vidModel,
-        payload: { prompt: vidPrompt, duration: Number(duration), image_url: imageUrl },
+        payload: {
+          prompt: vidPrompt,
+          duration: Number(duration),
+          image_url: imageUrl,
+          audio_url: audioUrl || undefined,
+        },
         onProgress: setVidStatus,
         timeoutMs: 600_000,
       });
@@ -128,9 +192,12 @@ const HiggsfieldStudio = ({ defaultTab = "text-to-image" }: Props) => {
       if (url) {
         setVideoUrl(url);
         toast({ title: "Video ready" });
+        setShareContent({ mediaUrl: url, type: "video", text: vidPrompt });
       }
     } catch (e) {
       toast({ title: "Generation failed", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setActiveGen(null);
     }
   };
 
@@ -139,9 +206,14 @@ const HiggsfieldStudio = ({ defaultTab = "text-to-image" }: Props) => {
       <div className="space-y-6">
         <div>
           <h1 className="font-display text-3xl font-bold flex items-center gap-2">
-            <Sparkles className="h-7 w-7 text-primary" /> AI Studio
+            <Sparkles className="h-7 w-7 text-primary" />
+            {tab === "text-to-image" ? "Text to Image" : "Image to Video"}
           </h1>
-          <p className="text-muted-foreground">Powered by Higgsfield — generate images and bring them to life as video</p>
+          <p className="text-muted-foreground">
+            {tab === "text-to-image"
+              ? "Generate stunning images from text prompts, powered by Higgsfield"
+              : "Bring an image to life as a short video, powered by Higgsfield"}
+          </p>
         </div>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
@@ -221,11 +293,24 @@ const HiggsfieldStudio = ({ defaultTab = "text-to-image" }: Props) => {
                   {imgHistory[0] ? (
                     <div className="space-y-2">
                       <img src={imgHistory[0].url} alt={imgHistory[0].prompt} className="rounded-lg w-full" />
-                      <Button asChild variant="outline" size="sm" className="w-full gap-2">
-                        <a href={imgHistory[0].url} target="_blank" rel="noreferrer" download>
-                          <Download className="h-4 w-4" /> Download
-                        </a>
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button asChild variant="outline" size="sm" className="flex-1 gap-2">
+                          <a href={imgHistory[0].url} target="_blank" rel="noreferrer" download>
+                            <Download className="h-4 w-4" /> Download
+                          </a>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 gap-2"
+                          onClick={() => {
+                            setShareContent({ mediaUrl: imgHistory[0].url, type: "image", text: imgHistory[0].prompt });
+                            setShareOpen(true);
+                          }}
+                        >
+                          <Share2 className="h-4 w-4" /> Share
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">Your latest generation will appear here.</p>
@@ -310,6 +395,46 @@ const HiggsfieldStudio = ({ defaultTab = "text-to-image" }: Props) => {
                     </div>
                   </div>
 
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Mic className="h-3.5 w-3.5" /> Voiceover (optional)
+                    </Label>
+                    {audioUrl ? (
+                      <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+                        <Volume2 className="h-4 w-4 text-primary shrink-0" />
+                        <audio src={audioUrl} controls className="h-8 flex-1 min-w-0" />
+                        <button
+                          type="button"
+                          onClick={clearVoice}
+                          className="shrink-0 rounded-full p-0.5 hover:bg-primary/20 transition-colors"
+                          aria-label="Remove voiceover"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Textarea
+                          value={voiceScript}
+                          onChange={(e) => setVoiceScript(e.target.value)}
+                          placeholder="What should the voiceover say?"
+                          rows={2}
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={generatingVoice}
+                          onClick={handleGenerateVoice}
+                          className="shrink-0 gap-2"
+                        >
+                          {generatingVoice ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
+                          Generate voice
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <Label>Model</Label>
@@ -345,11 +470,24 @@ const HiggsfieldStudio = ({ defaultTab = "text-to-image" }: Props) => {
                   {videoUrl ? (
                     <div className="space-y-2">
                       <video src={videoUrl} controls className="rounded-lg w-full" />
-                      <Button asChild variant="outline" size="sm" className="w-full gap-2">
-                        <a href={videoUrl} target="_blank" rel="noreferrer" download>
-                          <Download className="h-4 w-4" /> Download
-                        </a>
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button asChild variant="outline" size="sm" className="flex-1 gap-2">
+                          <a href={videoUrl} target="_blank" rel="noreferrer" download>
+                            <Download className="h-4 w-4" /> Download
+                          </a>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 gap-2"
+                          onClick={() => {
+                            setShareContent({ mediaUrl: videoUrl, type: "video", text: vidPrompt });
+                            setShareOpen(true);
+                          }}
+                        >
+                          <Share2 className="h-4 w-4" /> Share
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">Your video will appear here once ready.</p>
@@ -362,6 +500,18 @@ const HiggsfieldStudio = ({ defaultTab = "text-to-image" }: Props) => {
       </div>
 
       <PaywallModal open={showPaywall} onOpenChange={setShowPaywall} feature={tab === "text-to-image" ? "images" : "video"} requiredPlan="starter" />
+
+      <GenerationWaitModal
+        open={loading && activeGen !== null}
+        status={activeGen === "text-to-image" ? imgStatus : vidStatus}
+        mediaType={activeGen === "image-to-video" ? "video" : "image"}
+        onCancel={() => {
+          cancel();
+          setActiveGen(null);
+        }}
+      />
+
+      <SocialShareModal isOpen={shareOpen} onClose={() => setShareOpen(false)} content={shareContent ?? undefined} />
     </>
   );
 };
