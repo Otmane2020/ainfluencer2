@@ -358,10 +358,10 @@ const LandingPage = () => {
             className="text-center mb-10 md:mb-16"
           >
             <h2 className="font-display text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
-              AI-Powered <span className="text-gradient">Content Suite</span>
+              One studio, <span className="text-gradient">every model</span>
             </h2>
             <p className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto px-2">
-              Everything you need to create, automate, and publish stunning content at scale.
+              Generate images, generate videos, or animate an image — all from one prompt bar.
             </p>
           </motion.div>
 
