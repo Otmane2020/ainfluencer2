@@ -37,83 +37,62 @@ import {
   Film,
 } from "lucide-react";
 
-// Core product features
+// Core product features — ClipMotion AI Studio (Higgsfield-powered)
 const coreProducts = [
   {
-    icon: Sparkles,
-    title: "ClipMotion Videos",
-    description: "Create viral vertical videos optimized for TikTok, Reels & Shorts with AI voiceovers and dynamic animations.",
-    badge: "FLAGSHIP",
-    link: "/clipmotion",
-  },
-  {
-    icon: Zap,
-    title: "Nano Banana Video",
-    description: "Ultra-fast AI video generation for short-form content. Create TikTok & Reels videos in seconds.",
-    badge: "FAST",
-    link: "/nanobananavideo",
-  },
-  {
     icon: Image,
-    title: "Smart Images",
-    description: "Generate stunning AI images in seconds with our Smart, High, and Studio quality tiers.",
-    badge: "AI SMART",
+    title: "AI Image Studio",
+    description: "Generate stunning cinematic images with Higgsfield Soul & Reve. Choose aspect ratio, resolution, and style — export in seconds.",
+    badge: "IMAGES",
     link: "/images",
   },
   {
-    icon: Camera,
-    title: "Product Shots",
-    description: "Transform a single product photo into multiple professional angles and lifestyle scenes.",
-    badge: "AI SMART",
-    link: "/product-shots",
-  },
-  {
     icon: Video,
-    title: "Cinema Videos",
-    description: "Create cinematic AI videos with Sora 2 quality for professional brand content.",
-    badge: "PREMIUM",
+    title: "AI Video Studio",
+    description: "Create prompt-based videos with DoP, Kling v2.1 Pro, and Seedance. Cinema-grade motion straight from text.",
+    badge: "VIDEOS",
     link: "/videos",
   },
   {
-    icon: Megaphone,
-    title: "AI Campaigns",
-    description: "Automate your content calendar with AI-generated posts, images, and videos published on autopilot.",
-    badge: "NEW",
-    link: "/campaigns",
+    icon: Film,
+    title: "Image → Video",
+    description: "Bring your images to life with cinematic camera moves and controlled motion. Perfect for reels, ads, and product shots.",
+    badge: "MOTION",
+    link: "/image-to-video",
   },
 ];
 
 // Platform features
 const platformFeatures = [
   {
-    icon: Calendar,
-    title: "Smart Scheduling",
-    description: "Plan and automate your content calendar across all social platforms with timezone-aware publishing.",
-  },
-  {
-    icon: Globe,
-    title: "Multi-Platform Publishing",
-    description: "Publish to Instagram, Facebook, TikTok, and LinkedIn simultaneously with one click.",
-  },
-  {
-    icon: Mic,
-    title: "AI Voiceovers",
-    description: "Choose from 50+ natural voices in multiple languages for your video content.",
+    icon: Wand2,
+    title: "State-of-the-Art Models",
+    description: "Higgsfield Soul, Reve, DoP, Kling v2.1 Pro, and Seedance — all the best models under one credit balance.",
   },
   {
     icon: Layers,
-    title: "Scenario System",
-    description: "Select from business sectors, video styles, and emotional tones to guide AI generation.",
-  },
-  {
-    icon: Target,
-    title: "Brand Context",
-    description: "Your brand identity is automatically injected into all generated content.",
+    title: "Full Creative Control",
+    description: "Aspect ratio, resolution, duration, motion strength, and negative prompt — tune every generation.",
   },
   {
     icon: Zap,
-    title: "Instant Generation",
-    description: "Generate content in seconds, not hours. Scale your output 10x faster.",
+    title: "Fast Async Queue",
+    description: "Submit a job, keep working. We poll in the background and surface the result the moment it's ready.",
+  },
+  {
+    icon: Target,
+    title: "Prompt-First Workflow",
+    description: "A single clean interface for text-to-image, text-to-video, and image-to-video. No clutter, just creation.",
+  },
+  {
+    icon: Sparkles,
+    title: "1080p HD Exports",
+    description: "Download production-ready assets at 720p or 1080p, ready to publish anywhere.",
+  },
+  {
+    icon: Users,
+    title: "Commercial Usage",
+    description: "Every generation on Pro and Business plans ships with full commercial usage rights.",
   },
 ];
 
@@ -122,30 +101,30 @@ const testimonials = [
     name: "Sarah Johnson",
     role: "Content Creator",
     avatar: "S",
-    content: "ClipMotion transformed my content workflow. I create 10x more content in half the time!",
+    content: "ClipMotion is my daily driver for reels. The image-to-video quality is unreal.",
     rating: 5,
   },
   {
     name: "Mike Chen",
-    role: "Marketing Agency Owner",
+    role: "Creative Director",
     avatar: "M",
-    content: "Our clients love the AI-generated content. It's indistinguishable from professional productions.",
+    content: "Having Soul, Kling, and DoP in one place — with one credit balance — saved us hours every week.",
     rating: 5,
   },
   {
     name: "Emma Wilson",
     role: "E-commerce Brand",
     avatar: "E",
-    content: "The AI influencer feature is a game-changer. We created a virtual brand ambassador instantly.",
+    content: "Product shots to cinematic motion clips in minutes. It replaced two tools and a freelancer.",
     rating: 5,
   },
 ];
 
 const stats = [
-  { value: "10M+", label: "Videos Generated" },
-  { value: "50K+", label: "Happy Users" },
-  { value: "98%", label: "Satisfaction Rate" },
-  { value: "24/7", label: "AI Availability" },
+  { value: "5+", label: "SOTA AI Models" },
+  { value: "1080p", label: "HD Exports" },
+  { value: "~30s", label: "Avg. Generation" },
+  { value: "24/7", label: "Availability" },
 ];
 
 const LandingPage = () => {
