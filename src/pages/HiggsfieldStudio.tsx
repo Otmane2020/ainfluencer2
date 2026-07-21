@@ -16,16 +16,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { ProjectPromptButton } from "@/components/ProjectPromptButton";
 
 const IMAGE_MODELS = [
-  { id: "/v1/text2image/soul", label: "Soul — Flagship" },
-  { id: "/v1/text2image/reve", label: "Reve — Versatile" },
+  { id: "/higgsfield-ai/soul/standard", label: "Soul — Flagship" },
+  { id: "/reve/text-to-image", label: "Reve — Versatile" },
 ];
 const ASPECTS = ["16:9", "9:16", "1:1", "4:3", "3:4"];
 const RESOLUTIONS = ["720p", "1080p"];
 
 const VIDEO_MODELS = [
-  { id: "/v1/image2video/dop", label: "DoP — Cinematic" },
-  { id: "/v1/image2video/seedance", label: "Seedance Pro" },
-  { id: "/v1/image2video/kling", label: "Kling v2.1 Pro" },
+  { id: "/higgsfield-ai/dop/standard", label: "DoP — Cinematic" },
+  { id: "/bytedance/seedance/v1/pro/image-to-video", label: "Seedance Pro" },
+  { id: "/kling-video/v2.1/pro/image-to-video", label: "Kling v2.1 Pro" },
 ];
 
 interface GenImg { id: string; url: string; prompt: string }
