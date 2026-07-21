@@ -422,10 +422,10 @@ const LandingPage = () => {
             className="text-center mb-10 md:mb-16"
           >
             <h2 className="font-display text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
-              Everything You Need to <span className="text-gradient">Dominate</span> Social Media
+              Built for <span className="text-gradient">serious creators</span>
             </h2>
             <p className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto px-2">
-              Powerful features designed to help creators and brands scale their content effortlessly.
+              The features that make ClipMotion your daily creative tool.
             </p>
           </motion.div>
 
