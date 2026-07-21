@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    if (endpoint.startsWith("/v1/image2video") && !p.image_url) {
+    if (/image-to-video|image2video/i.test(endpoint) && !p.image_url) {
       return new Response(JSON.stringify({ error: "image_url is required for image-to-video generation" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
