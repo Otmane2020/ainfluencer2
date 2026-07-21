@@ -469,9 +469,9 @@ const LandingPage = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {[
-              { step: "1", title: "Describe Your Vision", desc: "Tell our AI what kind of content you want to create" },
-              { step: "2", title: "AI Generates Content", desc: "Our proprietary AI engine creates stunning visuals and videos" },
-              { step: "3", title: "Publish & Grow", desc: "Schedule and publish across all platforms with one click" },
+              { step: "1", title: "Write your prompt", desc: "Describe the scene, style, and mood you want to create." },
+              { step: "2", title: "Pick a model & format", desc: "Choose Soul, DoP, Kling, or Seedance — aspect ratio and resolution up to you." },
+              { step: "3", title: "Generate & export", desc: "Download 720p or 1080p assets ready to publish anywhere." },
             ].map((item, index) => (
               <motion.div
                 key={item.step}
