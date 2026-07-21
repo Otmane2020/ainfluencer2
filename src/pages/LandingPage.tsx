@@ -200,16 +200,16 @@ const LandingPage = () => {
           >
             <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 md:px-4 py-1.5 md:py-2 mb-6 md:mb-8">
               <Wand2 className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
-              <span className="text-xs md:text-sm font-medium">AI-Powered Content Creation</span>
+              <span className="text-xs md:text-sm font-medium">AI Image & Video Studio — powered by Higgsfield</span>
             </div>
             
             <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold leading-tight mb-4 md:mb-6">
-              Create <span className="text-gradient">AI-Powered</span> Videos That Go{" "}
-              <span className="text-gradient">Viral</span>
+              Turn prompts into <span className="text-gradient">cinematic</span> images &{" "}
+              <span className="text-gradient">videos</span>
             </h1>
             
             <p className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 md:mb-10 px-2">
-              Generate stunning AI influencer videos, automate your social media presence, and grow your audience 10x faster with ClipMotion.
+              ClipMotion unifies the best generative AI models — Soul, Reve, DoP, Kling, Seedance — in one clean studio. Text-to-image, text-to-video, and image-to-video with one credit balance.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 mb-8 md:mb-12">
