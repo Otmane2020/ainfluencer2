@@ -22,12 +22,8 @@ export function AppLayout() {
     }
   }, [user, isLoading, navigate]);
 
-  // Gate: unsubscribed users must pick a plan first
-  useEffect(() => {
-    if (!isLoading && !subLoading && user && !isSubscribed) {
-      navigate("/choose-plan", { replace: true });
-    }
-  }, [user, isLoading, subLoading, isSubscribed, navigate]);
+  // No hard gate: free users get welcome credits and can try the studio.
+  // The paywall appears only once free credits are exhausted.
 
   if (isLoading || subLoading) {
     return (
