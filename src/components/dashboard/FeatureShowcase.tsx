@@ -1,15 +1,6 @@
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import {
-  Sparkles,
-  Video,
-  Image,
-  Camera,
-  Megaphone,
-  Calendar,
-  Wand2,
-  Film,
-} from "lucide-react";
+import { Wand2 } from "lucide-react";
 
 interface Feature {
   id: string;
@@ -22,47 +13,7 @@ interface Feature {
   badge?: string;
 }
 
-const features: Feature[] = [
-  {
-    id: "videos",
-    title: "AI Video",
-    description: "Sora 2 • Veo 3.1 • Kling",
-    icon: Video,
-    gradient: "from-violet-500 via-purple-500 to-fuchsia-500",
-    shadowColor: "shadow-violet-500/30",
-    route: "/videos",
-    badge: "AI",
-  },
-  {
-    id: "images",
-    title: "AI Image",
-    description: "Flux 2 • Nano Banana • GPT Image",
-    icon: Image,
-    gradient: "from-orange-500 via-amber-500 to-yellow-500",
-    shadowColor: "shadow-orange-500/30",
-    route: "/images",
-    badge: "AI",
-  },
-  {
-    id: "product-shots",
-    title: "Product Shots",
-    description: "Bria • Flux Kontext",
-    icon: Camera,
-    gradient: "from-emerald-500 via-green-500 to-lime-500",
-    shadowColor: "shadow-emerald-500/30",
-    route: "/product-shots",
-    badge: "AI",
-  },
-  {
-    id: "campaigns",
-    title: "Campaigns",
-    description: "Auto-generate content series",
-    icon: Megaphone,
-    gradient: "from-rose-500 via-pink-500 to-fuchsia-500",
-    shadowColor: "shadow-rose-500/30",
-    route: "/campaigns",
-  },
-];
+const features: Feature[] = [];
 
 export function FeatureShowcase() {
   const navigate = useNavigate();

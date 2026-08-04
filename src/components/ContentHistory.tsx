@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { History, Filter, Trash2, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { format, isToday, isYesterday, isThisWeek, isThisMonth, startOfDay } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,7 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
   const [isDeleting, setIsDeleting] = useState(false);
   const [showBulkDelete, setShowBulkDelete] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   // Track if we have generating items for polling
   const [hasGenerating, setHasGenerating] = useState(false);
@@ -137,11 +139,13 @@ export const ContentHistory = ({ projectId, campaignId, onShare, onPreview, limi
   }, [items]);
 
   const fetchHistory = async () => {
+    if (!user) return;
     setIsLoading(true);
     try {
       let query = supabase
         .from("scheduled_posts")
         .select("id, content_type, text_content, media_url, thumbnail_url, ai_prompt, status, created_at, published_at, platforms, campaign_id, error_message, external_post_id, campaigns(name)")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       // IMPORTANT: Post History only shows PUBLISHED posts (completed/archived)
