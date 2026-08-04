@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "api/*.py", "use": "@vercel/python" }
+  ],
+  "routes": [
+    { "src": "/callback", "dest": "/api/callback.py" },
+    { "src": "/webhook", "dest": "/api/webhook.py" },
+    { "src": "/dashboard", "dest": "/api/dashboard.py" },
+    { "src": "/auth", "dest": "/api/index.py" },
+    { "src": "/", "dest": "/api/dashboard.py" }
+  ]
+}
