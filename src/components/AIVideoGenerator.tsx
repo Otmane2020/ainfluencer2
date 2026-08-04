@@ -103,6 +103,8 @@ export const AIVideoGenerator = ({ onBeforeGenerate }: AIVideoGeneratorProps) =>
   const [generatedAudio, setGeneratedAudio] = useState<string | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState("en");
+  const [enableAutoSpeech, setEnableAutoSpeech] = useState(false);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast } = useToast();
@@ -459,6 +461,46 @@ export const AIVideoGenerator = ({ onBeforeGenerate }: AIVideoGeneratorProps) =>
             exit={{ opacity: 0, height: 0 }}
             className="space-y-4"
           >
+            {/* Language Selection */}
+            <div className="space-y-2">
+              <Label htmlFor="language-select" className="text-sm text-muted-foreground">Language</Label>
+              <select
+                id="language-select"
+                value={selectedLanguage}
+                onChange={(e) => setSelectedLanguage(e.target.value)}
+                disabled={isGenerating}
+                className="w-full px-3 py-2 border border-border rounded-lg bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+              >
+                <option value="en">English</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="it">Italian</option>
+                <option value="pt">Portuguese</option>
+                <option value="nl">Dutch</option>
+                <option value="ja">Japanese</option>
+                <option value="zh">Chinese</option>
+                <option value="ko">Korean</option>
+              </select>
+            </div>
+
+            {/* Auto Speech Toggle */}
+            <div className="flex items-center justify-between p-3 border border-border rounded-lg bg-card/50">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <div>
+                  <Label htmlFor="auto-speech-toggle" className="text-sm font-medium">Auto-Generate Speech</Label>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Generate narration from video description</p>
+                </div>
+              </div>
+              <Switch
+                id="auto-speech-toggle"
+                checked={enableAutoSpeech}
+                onCheckedChange={setEnableAutoSpeech}
+                disabled={isGenerating}
+              />
+            </div>
+
             {/* Voice Selection */}
             <div className="space-y-2">
               <Label className="text-sm text-muted-foreground">Select Voice</Label>
