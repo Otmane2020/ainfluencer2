@@ -16,6 +16,10 @@ export const STRIPE_PLAN_PRICES: Record<string, { priceId: string; productId: st
     priceId: "price_1Suit1Efti9t9nN9F5g8iTGq",
     productId: "prod_TsTqxdl9cpZNJg",
   },
+  emo: {
+    priceId: "price_emo_robot_599_eur",
+    productId: "prod_emo_robot_lifetime",
+  },
 };
 
 export const STRIPE_CREDIT_PACKS: Record<string, { priceId: string; productId: string; credits: number }> = {
