@@ -142,10 +142,12 @@ const CampaignsPage = () => {
   };
 
   const handleDelete = async (campaignId: string) => {
+    if (!user) return;
     const { error: detachError } = await supabase
       .from("scheduled_posts")
       .update({ campaign_id: null })
       .eq("campaign_id", campaignId)
+      .eq("user_id", user.id)
       .eq("status", "published");
 
     if (detachError) console.error("Error detaching published posts:", detachError);
@@ -154,6 +156,7 @@ const CampaignsPage = () => {
       .from("scheduled_posts")
       .delete()
       .eq("campaign_id", campaignId)
+      .eq("user_id", user.id)
       .neq("status", "published");
 
     if (deletePostsError) console.error("Error deleting scheduled posts:", deletePostsError);

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -121,6 +122,7 @@ export const CampaignDetailModal = ({
   onUpdate
 }: CampaignDetailModalProps) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const {
     toast
   } = useToast();
@@ -177,12 +179,12 @@ export const CampaignDetailModal = ({
     }
   }, [campaign, isOpen]);
   const fetchCampaignPosts = async () => {
-    if (!campaign) return;
+    if (!campaign || !user) return;
     setIsLoadingPosts(true);
     const {
       data,
       error
-    } = await supabase.from("scheduled_posts").select("id, content_type, text_content, media_url, thumbnail_url, status, scheduled_for").eq("campaign_id", campaign.id).order("scheduled_for", {
+    } = await supabase.from("scheduled_posts").select("id, content_type, text_content, media_url, thumbnail_url, status, scheduled_for").eq("campaign_id", campaign.id).eq("user_id", user.id).order("scheduled_for", {
       ascending: true
     }).limit(50);
     if (!error && data) {
@@ -299,6 +301,7 @@ export const CampaignDetailModal = ({
       .from("scheduled_posts")
       .select("id, scheduled_for")
       .eq("campaign_id", campaign.id)
+      .eq("user_id", user!.id)
       .neq("status", "published");
 
     if (!fetchError && campaignPosts && campaignPosts.length > 0) {
