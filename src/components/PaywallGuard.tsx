@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useCredits } from "@/hooks/useCredits";
 import { PRICING_PLANS, PLAN_QUALITY_ACCESS } from "@/lib/commercialProducts";
 
 export type FeatureType = "video" | "clipmotion" | "campaigns" | "images" | "projects";
