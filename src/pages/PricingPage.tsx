@@ -74,68 +74,8 @@ const PricingPage = () => {
           <p className="text-sm text-muted-foreground mb-12">
             No hidden fees • Cancel anytime • 1 credit = $1
           </p>
-
+          
           <PricingPacks />
-        </div>
-      </section>
-
-      {/* Emo Robot Premium Section */}
-      <section className="py-16 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-t border-b border-primary/20">
-        <div className="container mx-auto px-4 max-w-4xl">
-          <div className="rounded-2xl border-2 border-primary/30 bg-card/50 backdrop-blur-sm p-8 md:p-12">
-            <div className="flex flex-col md:flex-row items-center gap-8">
-              <div className="flex-1">
-                <div className="inline-block px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-bold mb-4">
-                  💎 PREMIUM SOLUTION
-                </div>
-                <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">
-                  Emo Robot — Complete AI Automation
-                </h2>
-                <p className="text-muted-foreground mb-4">
-                  Get unlimited access to all our AI tools with 5000 lifetime credits, advanced features, and dedicated support.
-                </p>
-                <ul className="space-y-2 mb-6 text-sm">
-                  <li className="flex items-center gap-2">
-                    <span className="text-green-500 font-bold">✓</span>
-                    <span><strong>5000 lifetime credits</strong> — never buy again</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-green-500 font-bold">✓</span>
-                    <span><strong>Unlimited projects & campaigns</strong> — no restrictions</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-green-500 font-bold">✓</span>
-                    <span><strong>VIP support</strong> — dedicated account manager</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-green-500 font-bold">✓</span>
-                    <span><strong>Enterprise API access</strong> — webhooks & integrations</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-green-500 font-bold">✓</span>
-                    <span><strong>Team collaboration</strong> — up to 5 users</span>
-                  </li>
-                </ul>
-              </div>
-              <div className="flex-shrink-0">
-                <div className="text-center">
-                  <div className="text-5xl md:text-6xl font-bold text-gradient mb-2">€599</div>
-                  <div className="text-sm text-muted-foreground mb-4">one-time payment</div>
-                  <Button size="lg" className="w-full md:w-auto mb-4">
-                    Get Emo Robot
-                  </Button>
-                  <div className="inline-block px-4 py-2 rounded-lg bg-green-500/20 border border-green-500/30">
-                    <div className="flex items-center gap-2 text-green-600 font-semibold text-sm">
-                      <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M5.5 2a1 1 0 011 1v1h1a1 1 0 110 2h-.5v13.5a1 1 0 11-2 0V5.5H4a1 1 0 110-2h1V3a1 1 0 011-1zM15 2a1 1 0 011 1v1h1a1 1 0 110 2h-.5v13.5a1 1 0 11-2 0V5.5h-.5a1 1 0 110-2h1V3a1 1 0 011-1zM10 3a1 1 0 011 1v1h.5a1 1 0 110 2H11v13.5a1 1 0 11-2 0V6h-.5a1 1 0 110-2H10V4a1 1 0 011-1z" clipRule="evenodd" />
-                      </svg>
-                      🚚 FREE SHIPPING WORLDWIDE
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 

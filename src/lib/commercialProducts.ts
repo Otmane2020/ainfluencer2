@@ -206,35 +206,6 @@ export const PRICING_PLANS: PricingPlan[] = [
     },
     badge: "BEST VALUE",
   },
-  {
-    id: "emo",
-    name: "Emo Robot",
-    price: 599,
-    priceUnit: "/one-time",
-    description: "Complete AI content automation system with free delivery",
-    credits: 5000,
-    creditValue: CREDIT_UNIT_PRICE,
-    features: [
-      "🚚 FREE SHIPPING WORLDWIDE",
-      "5000 lifetime credits",
-      "1 credit per image · 4 per video",
-      "All models unlocked (unlimited access)",
-      "4K exports available",
-      "Unlimited projects & campaigns",
-      "Priority + VIP support",
-      "Commercial + enterprise usage rights",
-      "Custom integrations",
-      "Dedicated account manager",
-      "API access + webhooks",
-      "Team collaboration (up to 5 users)",
-    ],
-    limits: {
-      projects: -1,
-      campaigns: -1,
-    },
-    badge: "PREMIUM",
-    popular: false,
-  },
 ];
 
 // ============================================================
@@ -346,13 +317,6 @@ export const PLAN_ACCESS: Record<string, PlanAccess> = {
     hasPriorityQueue: true,
     hasApiAccess: true,
   },
-  emo: {
-    maxProjects: -1,
-    maxCampaigns: -1,
-    canAutopost: true,
-    hasPriorityQueue: true,
-    hasApiAccess: true,
-  },
 };
 
 export const getPlanAccess = (planId: string): PlanAccess => {
@@ -388,14 +352,6 @@ export const PLAN_QUALITY_ACCESS: Record<string, { image: string[]; video: strin
     autopostVideosPerDay: -1,
   },
   business: {
-    image: ["standard-image", "pro-image", "cinema-image"],
-    video: ["standard-video", "pro-video", "cinema-video"],
-    maxProjects: -1,
-    maxCampaigns: -1,
-    autopostImagesPerDay: -1,
-    autopostVideosPerDay: -1,
-  },
-  emo: {
     image: ["standard-image", "pro-image", "cinema-image"],
     video: ["standard-video", "pro-video", "cinema-video"],
     maxProjects: -1,
