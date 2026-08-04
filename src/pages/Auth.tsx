@@ -43,24 +43,11 @@ const Auth = () => {
   useEffect(() => {
     let isMounted = true;
 
-    const checkAndRedirect = async (userId: string) => {
-      try {
-        const { data } = await supabase
-          .from("subscriptions")
-          .select("status, stripe_customer_id")
-          .eq("user_id", userId)
-          .maybeSingle();
-
-        if (!isMounted) return;
-
-        if (data?.status === "active") {
-          navigate("/dashboard", { replace: true });
-        } else {
-          navigate("/choose-plan", { replace: true });
-        }
-      } catch {
-        if (isMounted) navigate("/choose-plan", { replace: true });
-      }
+    const checkAndRedirect = async (_userId: string) => {
+      if (!isMounted) return;
+      // Send everyone straight into the studio — free welcome credits let them
+      // experience the product before hitting any paywall.
+      navigate("/images", { replace: true });
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(

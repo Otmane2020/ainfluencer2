@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useCredits } from "@/hooks/useCredits";
 import { PRICING_PLANS, PLAN_QUALITY_ACCESS } from "@/lib/commercialProducts";
 
 export type FeatureType = "video" | "clipmotion" | "campaigns" | "images" | "projects";
@@ -55,15 +56,18 @@ const FEATURE_CONFIG: Record<FeatureType, {
 
 export const PaywallGuard = ({ feature, children, requiredPlan }: PaywallGuardProps) => {
   const { subscription, isLoading, startCheckout, currentPlan } = useSubscription();
-  
+  const { credits, isLoading: creditsLoading } = useCredits();
+
   const config = FEATURE_CONFIG[feature];
   const effectiveRequiredPlan = requiredPlan || config.requiredPlan;
-  
+
+  const freeCredits = credits?.balance ?? 0;
+
   // Determine if user has access
   const hasAccess = (): boolean => {
-    // If not subscribed at all, no access to anything
+    // Free users keep access while they still have welcome credits left
     if (!subscription.isSubscribed) {
-      return false;
+      return freeCredits > 0;
     }
     
     // Check plan hierarchy
@@ -75,7 +79,7 @@ export const PaywallGuard = ({ feature, children, requiredPlan }: PaywallGuardPr
     return userPlanIndex >= requiredPlanIndex;
   };
 
-  if (isLoading) {
+  if (isLoading || creditsLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
