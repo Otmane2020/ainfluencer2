@@ -36,7 +36,7 @@ export function AppLayout() {
     );
   }
 
-  if (!user || !isSubscribed) {
+  if (!user) {
     return null;
   }
 
