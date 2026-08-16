@@ -240,7 +240,7 @@ export const SupportWidget = () => {
                       value={emailForm.message}
                       onChange={(e) => setEmailForm((f) => ({ ...f, message: e.target.value }))}
                       placeholder="Describe your issue or question..."
-                      className="w-full h-32 px-3 py-2 text-sm rounded-md border border-input bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                      className="w-full h-32 px-3 py-2 text-sm rounded-md border border-input bg-background resize-none focus:outline-hidden focus:ring-2 focus:ring-ring"
                       required
                     />
                   </div>

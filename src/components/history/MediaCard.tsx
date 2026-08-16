@@ -15,7 +15,7 @@ const PlatformDot = ({ platform }: { platform: string }) => {
   const color = PLATFORM_COLORS[platform.toLowerCase()] || "#888";
   return (
     <div
-      className="h-5 w-5 rounded-full border-2 border-white/80 shadow-sm flex items-center justify-center"
+      className="h-5 w-5 rounded-full border-2 border-white/80 shadow-xs flex items-center justify-center"
       style={{ backgroundColor: color }}
       title={platform}
     >

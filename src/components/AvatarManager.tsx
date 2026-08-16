@@ -177,7 +177,7 @@ export const AvatarManager = ({ currentAvatar, onAvatarChange }: AvatarManagerPr
             value={avatarPrompt}
             onChange={(e) => setAvatarPrompt(e.target.value)}
             placeholder="Ex: Une femme professionnelle, cheveux bruns, sourire confiant, style moderne..."
-            className="w-full rounded-xl border-2 border-border bg-background p-3 text-sm focus:border-primary/50 focus:outline-none"
+            className="w-full rounded-xl border-2 border-border bg-background p-3 text-sm focus:border-primary/50 focus:outline-hidden"
             rows={3}
           />
           <div className="flex gap-2">

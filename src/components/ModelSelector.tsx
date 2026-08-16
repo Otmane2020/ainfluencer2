@@ -510,7 +510,7 @@ export const ModelSelector = ({
                 >
                   {/* Discount badge */}
                   {model.discount && (
-                    <div className="absolute -right-1 -top-1 flex items-center gap-0.5 rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-bold text-destructive-foreground shadow-sm">
+                    <div className="absolute -right-1 -top-1 flex items-center gap-0.5 rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-bold text-destructive-foreground shadow-xs">
                       <TrendingDown className="h-2.5 w-2.5" />
                       -{model.discount}%
                     </div>

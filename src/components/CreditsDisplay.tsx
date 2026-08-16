@@ -134,7 +134,7 @@ export const CreditsDisplay = ({ compact = false }: CreditsDisplayProps) => {
                   className={cn(
                     "p-3 rounded-lg border-2 bg-card hover:border-primary/50 hover:bg-primary/5 transition-all text-center",
                     loadingPackId === pack.id && "opacity-75 pointer-events-none",
-                    pack.id === "pack-50" ? "border-primary/30 shadow-sm" : "border-border"
+                    pack.id === "pack-50" ? "border-primary/30 shadow-xs" : "border-border"
                   )}
                 >
                   {loadingPackId === pack.id ? (
