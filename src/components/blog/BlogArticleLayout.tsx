@@ -5,7 +5,7 @@ import { organizationSchema, SITE_URL } from "@/lib/seo-data";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, Calendar, Clock } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router-compat";
 
 interface RelatedArticle {
   slug: string;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router-compat";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Shield, Plug, Instagram, Facebook, Linkedin, Check, AlertCircle, LogOut, Loader2, Clock, ChevronRight, Building2, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";

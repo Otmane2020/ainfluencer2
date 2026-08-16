@@ -4,7 +4,7 @@ import { organizationSchema, SITE_URL } from "@/lib/seo-data";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, Play, Sparkles, Zap, Video, Users, Target, Clock, CheckCircle2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router-compat";
 
 const BlogClipMotionPage = () => {
   const articleSchema = {

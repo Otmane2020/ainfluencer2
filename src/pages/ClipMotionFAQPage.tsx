@@ -4,7 +4,7 @@ import { organizationSchema, SITE_URL } from "@/lib/seo-data";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ArrowRight, MessageCircleQuestion, HelpCircle } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router-compat";
 
 const ClipMotionFAQPage = () => {
   const faqItems = [

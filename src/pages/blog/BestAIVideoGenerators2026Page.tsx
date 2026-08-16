@@ -1,7 +1,7 @@
 import { BlogArticleLayout } from "@/components/blog/BlogArticleLayout";
 import { Card } from "@/components/ui/card";
 import { Trophy, Star, CheckCircle2, ArrowRight } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router-compat";
 
 const generators = [
   { rank: 1, name: "ClipMotion", desc: "All-in-one AI video platform with 18+ models, social media automation, and campaign management. Best for creators and agencies who need a complete content workflow.", score: "9.5/10", highlight: true },

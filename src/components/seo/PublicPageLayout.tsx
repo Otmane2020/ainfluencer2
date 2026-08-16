@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link } from "@/lib/router-compat";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 
