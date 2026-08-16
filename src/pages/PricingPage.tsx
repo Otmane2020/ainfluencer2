@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/router-compat";
 import { SEOHead } from "@/components/seo/SEOHead";
 import { PublicPageLayout } from "@/components/seo/PublicPageLayout";
 import { PricingPacks } from "@/components/PricingPacks";

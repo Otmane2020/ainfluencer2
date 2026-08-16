@@ -1143,7 +1143,7 @@ export const ScheduledPostModal = ({
                     <textarea
                       value={editedPrompt}
                       onChange={(e) => setEditedPrompt(e.target.value)}
-                      className="w-full min-h-[100px] p-2 text-xs sm:text-sm rounded-lg bg-background border border-border resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                      className="w-full min-h-[100px] p-2 text-xs sm:text-sm rounded-lg bg-background border border-border resize-none focus:outline-hidden focus:ring-2 focus:ring-primary"
                       placeholder="Enter your prompt..."
                     />
                     <div className="flex justify-end gap-2">
@@ -1215,7 +1215,7 @@ export const ScheduledPostModal = ({
                     <textarea
                       value={editedContent}
                       onChange={(e) => setEditedContent(e.target.value)}
-                      className="w-full min-h-[120px] p-2 text-xs sm:text-sm rounded-lg bg-background border border-border resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                      className="w-full min-h-[120px] p-2 text-xs sm:text-sm rounded-lg bg-background border border-border resize-none focus:outline-hidden focus:ring-2 focus:ring-primary"
                       placeholder="Enter your content..."
                     />
                     <div className="flex justify-end gap-2">
@@ -1441,12 +1441,12 @@ export const ScheduledPostModal = ({
                       }`}
                     >
                       {product.popular && (
-                        <div className="absolute -right-1 -top-1 flex items-center gap-0.5 rounded-full bg-primary px-1.5 py-0.5 text-[8px] sm:text-[10px] font-bold text-primary-foreground shadow-sm">
+                        <div className="absolute -right-1 -top-1 flex items-center gap-0.5 rounded-full bg-primary px-1.5 py-0.5 text-[8px] sm:text-[10px] font-bold text-primary-foreground shadow-xs">
                           ⭐ POPULAR
                         </div>
                       )}
                       {product.badge && !product.popular && (
-                        <div className="absolute -right-1 -top-1 flex items-center gap-0.5 rounded-full bg-accent px-1.5 py-0.5 text-[8px] sm:text-[10px] font-bold text-accent-foreground shadow-sm">
+                        <div className="absolute -right-1 -top-1 flex items-center gap-0.5 rounded-full bg-accent px-1.5 py-0.5 text-[8px] sm:text-[10px] font-bold text-accent-foreground shadow-xs">
                           {product.badge}
                         </div>
                       )}

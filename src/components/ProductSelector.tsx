@@ -93,7 +93,7 @@ export const ProductSelector = ({
                 >
                   {/* Popular badge */}
                   {showPopularBadge && product.popular && (
-                    <div className="absolute -right-1 -top-1 flex items-center gap-1 rounded-full bg-gradient-to-r from-primary to-secondary px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+                    <div className="absolute -right-1 -top-1 flex items-center gap-1 rounded-full bg-gradient-to-r from-primary to-secondary px-2 py-0.5 text-[10px] font-bold text-white shadow-xs">
                       <Star className="h-2.5 w-2.5 fill-current" />
                       POPULAR
                     </div>
@@ -101,7 +101,7 @@ export const ProductSelector = ({
 
                   {/* Custom badge */}
                   {!product.popular && product.badge && (
-                    <div className="absolute -right-1 -top-1 flex items-center gap-0.5 rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-accent-foreground shadow-sm">
+                    <div className="absolute -right-1 -top-1 flex items-center gap-0.5 rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-accent-foreground shadow-xs">
                       {product.badge}
                     </div>
                   )}

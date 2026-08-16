@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/router-compat";
 import { SEOHead } from "@/components/seo/SEOHead";
 import { PublicPageLayout } from "@/components/seo/PublicPageLayout";
 import { Button } from "@/components/ui/button";

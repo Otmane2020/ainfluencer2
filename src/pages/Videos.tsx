@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "@/lib/router-compat";
 import { motion } from "framer-motion";
 import { VideoGenerator, GenerationTask } from "@/components/VideoGenerator";
 import { VideoPreview } from "@/components/VideoPreview";

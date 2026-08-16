@@ -1,0 +1,26 @@
+{
+  "customizations": [
+    { "token": "dark-default color palette (background/foreground/card/popover/primary/secondary/muted/accent/destructive/border/input/ring)", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": ".light theme override block", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--radius: 1rem", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--gradient-primary", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--gradient-surface", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--gradient-hero", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--gradient-glow", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--glass-bg / --glass-border", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--shadow-soft / --shadow-glow / --shadow-card / --shadow-primary", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--sidebar-* palette (renamed --sidebar-background -> --sidebar for v4 mapping)", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": ".gradient-primary/.gradient-hero/.gradient-surface/.gradient-glow utilities", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": ".glass utility", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": ".shadow-soft/.shadow-glow/.shadow-card/.shadow-primary utilities", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": ".text-gradient utility", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": ".glow-border utility (+ ::before)", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": ".animate-float/.animate-pulse-soft/.animate-shimmer/.animate-glow utilities", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "@keyframes float/pulse-soft/shimmer/glow", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "Lovable badge hide rule", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "body antialiased + font-feature-settings", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "font-sans (Inter) / font-display (Plus Jakarta Sans)", "source": "tailwind.config.ts", "reappliedIn": "src/styles.css" },
+    { "token": "keyframes/animations accordion-down/up, fade-in, fade-in-up, scale-in, slide-in-right, marquee", "source": "tailwind.config.ts", "reappliedIn": "src/styles.css" },
+    { "token": "container (center, 2rem padding, 1400px cap)", "source": "tailwind.config.ts", "reappliedIn": "src/styles.css" }
+  ]
+}

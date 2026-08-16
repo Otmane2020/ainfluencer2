@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "@/lib/router-compat";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Globe, FileText, Palette, Share2, 

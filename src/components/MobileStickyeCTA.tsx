@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/router-compat";
 import { Sparkles, ArrowRight, Zap, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "@/lib/router-compat";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -496,7 +496,7 @@ const CalendarPage = () => {
       {/* Removed info banner for minimalism - project context shows via filter */}
 
       {/* Calendar - Light Facebook-style theme */}
-      <Card className="overflow-hidden bg-[#F0F2F5] border-0 shadow-sm">
+      <Card className="overflow-hidden bg-[#F0F2F5] border-0 shadow-xs">
         <CardHeader className="pb-2 px-4 pt-4 bg-white border-b">
           <div className="flex items-center justify-between">
             <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-gray-100" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
@@ -670,12 +670,12 @@ const CalendarPage = () => {
                     setSelectedPost(post);
                     setIsModalOpen(true);
                   }}
-                  className="bg-white rounded-lg shadow-sm hover:shadow-md cursor-pointer transition-all overflow-hidden"
+                  className="bg-white rounded-lg shadow-xs hover:shadow-md cursor-pointer transition-all overflow-hidden"
                 >
                   {/* Facebook-style post header */}
                   <div className="flex items-center gap-3 p-3 border-b border-gray-100">
                     <div 
-                      className="h-10 w-10 rounded-full flex items-center justify-center text-white shadow"
+                      className="h-10 w-10 rounded-full flex items-center justify-center text-white shadow-sm"
                       style={{ background: (post.platforms?.[0] && PLATFORM_STYLES[post.platforms[0]]?.bg) || getProjectColor(post.project_id) }}
                     >
                       {post.platforms?.[0] && PLATFORM_STYLES[post.platforms[0]]?.icon ? (
@@ -784,7 +784,7 @@ const CalendarPage = () => {
       </Dialog>
 
       {/* Colorful Legend with Platform Icons */}
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+      <div className="bg-white rounded-xl p-4 shadow-xs border border-gray-100">
         <div className="flex flex-wrap items-center justify-between gap-4">
           {/* Platforms */}
           <div className="flex items-center gap-3">
@@ -793,7 +793,7 @@ const CalendarPage = () => {
               {Object.entries(PLATFORM_STYLES).map(([name, style]) => (
                 <div key={name} className="flex items-center gap-1.5 px-2 py-1 rounded-full" style={{ background: `${style.color}15` }}>
                   <div 
-                    className="h-5 w-5 rounded-full flex items-center justify-center text-white shadow-sm"
+                    className="h-5 w-5 rounded-full flex items-center justify-center text-white shadow-xs"
                     style={{ background: style.bg }}
                   >
                     {style.icon}

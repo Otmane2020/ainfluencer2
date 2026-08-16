@@ -3,7 +3,7 @@ import { AlertTriangle, Zap, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCredits } from "@/hooks/useCredits";
 import { useSubscription } from "@/hooks/useSubscription";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/router-compat";
 
 export const LowCreditsNudge = () => {
   const { balance } = useCredits();

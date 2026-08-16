@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "@/lib/router-compat";
 import { Menu, X, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {

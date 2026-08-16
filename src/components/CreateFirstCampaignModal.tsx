@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/router-compat";
 import { Rocket, Calendar, Sparkles, ArrowRight, X } from "lucide-react";
 import {
   Dialog,

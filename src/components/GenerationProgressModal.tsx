@@ -4,7 +4,7 @@ import { Video, Sparkles, Loader2, X, ExternalLink, Clock, CheckCircle2, Play, T
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/router-compat";
 interface GeneratingTask {
   id: string;
   taskId: string;

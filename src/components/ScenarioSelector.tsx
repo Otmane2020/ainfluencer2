@@ -162,7 +162,7 @@ export function ScenarioSelector({
                 "relative flex flex-col items-center gap-2 rounded-xl border-2 p-3 text-center transition-all duration-200",
                 "hover:bg-accent/50 hover:border-primary/30",
                 isSelected
-                  ? "border-primary bg-primary/10 shadow-sm shadow-primary/20"
+                  ? "border-primary bg-primary/10 shadow-xs shadow-primary/20"
                   : "border-border/50 bg-card/50"
               )}
             >
@@ -233,7 +233,7 @@ export function ScenarioSelector({
             className={cn(
               "flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all",
               activeTab === "presets"
-                ? "bg-background text-foreground shadow-sm"
+                ? "bg-background text-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
@@ -244,7 +244,7 @@ export function ScenarioSelector({
             className={cn(
               "flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all",
               activeTab === "custom"
-                ? "bg-background text-foreground shadow-sm"
+                ? "bg-background text-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
@@ -274,7 +274,7 @@ export function ScenarioSelector({
                       <button
                         key={preset.id}
                         onClick={() => handlePresetSelect(preset)}
-                        className="group flex items-start gap-4 rounded-xl border-2 border-border/50 bg-card/50 p-4 text-left transition-all hover:bg-accent/50 hover:border-primary/30 hover:shadow-sm"
+                        className="group flex items-start gap-4 rounded-xl border-2 border-border/50 bg-card/50 p-4 text-left transition-all hover:bg-accent/50 hover:border-primary/30 hover:shadow-xs"
                       >
                         <div className="flex -space-x-2">
                           <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center border-2 border-background">

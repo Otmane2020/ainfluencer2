@@ -469,7 +469,7 @@ export const AIVideoGenerator = ({ onBeforeGenerate }: AIVideoGeneratorProps) =>
                 value={selectedLanguage}
                 onChange={(e) => setSelectedLanguage(e.target.value)}
                 disabled={isGenerating}
-                className="w-full px-3 py-2 border border-border rounded-lg bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+                className="w-full px-3 py-2 border border-border rounded-lg bg-card text-sm focus:outline-hidden focus:ring-2 focus:ring-primary disabled:opacity-50"
               >
                 <option value="en">English</option>
                 <option value="es">Spanish</option>
