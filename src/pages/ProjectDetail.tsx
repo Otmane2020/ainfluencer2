@@ -362,7 +362,7 @@ const ProjectDetail = () => {
       return;
     }
 
-    setProject(data);
+    setProject(data as never);
     setIsLoading(false);
   };
 

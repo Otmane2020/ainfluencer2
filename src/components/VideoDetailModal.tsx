@@ -143,7 +143,7 @@ export const VideoDetailModal = ({
         .eq("id", id)
         .single();
       if (data) {
-        setProjectContext(data);
+        setProjectContext(data as never);
       }
     } catch (error) {
       console.error("Error fetching project context:", error);

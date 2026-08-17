@@ -180,7 +180,7 @@ const HistoryPage = () => {
       .select("id, name, theme_color")
       .eq("user_id", user.id)
       .order("name");
-    if (data) setProjects(data);
+    if (data) setProjects(data as never);
   };
 
   const fetchCampaigns = async () => {

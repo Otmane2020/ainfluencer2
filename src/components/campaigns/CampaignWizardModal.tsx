@@ -227,7 +227,7 @@ export const CampaignWizardModal = ({
   const fetchProjects = async () => {
     const { data } = await supabase.from("projects").select("id, name, theme_color, url, description").order("name");
     if (data) {
-      setProjects(data);
+      setProjects(data as never);
       if (data.length > 0 && !projectId) setProjectId(data[0].id);
     }
   };
@@ -237,7 +237,7 @@ export const CampaignWizardModal = ({
       .from("platforms")
       .select("*, platform_formats(*)")
       .order("name");
-    if (data) setPlatforms(data);
+    if (data) setPlatforms(data as never);
     if (error) console.error("Error fetching platforms:", error);
   };
 

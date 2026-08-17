@@ -100,7 +100,7 @@ const Integrations = () => {
         .order("name", { ascending: true });
 
       if (data) {
-        setProjects(data);
+        setProjects(data as never);
       }
     } catch (error) {
       console.error("Error fetching projects:", error);

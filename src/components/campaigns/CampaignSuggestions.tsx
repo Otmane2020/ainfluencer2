@@ -68,7 +68,7 @@ export const CampaignSuggestions = ({ projectId, onCampaignCreated }: CampaignSu
         .select("id, name, description, theme_color")
         .eq("id", projectId)
         .maybeSingle();
-      if (data) setProject(data);
+      if (data) setProject(data as never);
     }
 
     // Generate AI-based suggestions (simplified for now - can be enhanced with actual AI)
