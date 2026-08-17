@@ -57,7 +57,7 @@ export function useHiggsfield() {
   const [error, setError] = useState<string | null>(null);
   const cancelRef = useRef<{ requestId?: string; cancelled: boolean }>({ cancelled: false });
 
-  const generate = useCallback(async ({ endpoint, payload, onProgress, timeoutMs = 300_000 }: GenerateOpts) => {
+  const generate = useCallback(async ({ endpoint, payload, onProgress, timeoutMs = 300_000, save }: GenerateOpts) => {
     setLoading(true);
     setError(null);
     setResult(null);
