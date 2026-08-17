@@ -36,6 +36,32 @@ interface SaveOpts {
   duration?: number;
 }
 
+/** Store a finished Higgsfield generation so it appears in the History page. */
+async function persistGeneration(save: SaveOpts, result: HiggsfieldResult) {
+  const mediaUrl = save.type === "video" ? result.video?.url : result.images?.[0]?.url;
+  if (!mediaUrl) return;
+  try {
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) return;
+    await supabase.from("generations").insert({
+      user_id: auth.user.id,
+      type: save.type,
+      status: "completed",
+      progress: 100,
+      provider: "higgsfield",
+      model: save.model,
+      prompt: save.prompt,
+      media_url: mediaUrl,
+      duration: save.duration ?? null,
+      external_task_id: result.request_id ?? null,
+      completed_at: new Date().toISOString(),
+    });
+  } catch {
+    /* history persistence must never break the generation flow */
+  }
+}
+
+
 interface GenerateOpts {
   /** Higgsfield API path for the model, e.g. "/v1/text2image/soul" or "/v1/image2video/dop" */
   endpoint: string;
