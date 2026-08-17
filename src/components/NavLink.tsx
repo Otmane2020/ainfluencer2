@@ -6,13 +6,16 @@ interface NavLinkCompatProps extends Omit<ComponentProps<typeof Link>, "classNam
   className?: string;
   activeClassName?: string;
   pendingClassName?: string;
+  /** react-router-dom compat: match the path exactly. */
+  end?: boolean;
 }
 
 const NavLink = forwardRef<HTMLAnchorElement, NavLinkCompatProps>(
-  ({ className, activeClassName, to, ...props }, ref) => {
+  ({ className, activeClassName, to, end, ...props }, ref) => {
     const { pathname } = useLocation();
     const isActive =
-      pathname === to || (to !== "/" && pathname.startsWith(`${String(to)}/`));
+      pathname === to ||
+      (!end && to !== "/" && pathname.startsWith(`${String(to)}/`));
 
     return (
       <Link
