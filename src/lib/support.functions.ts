@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 const SUPPORT_INBOX = "oben.rockman@gmail.com";
-const SUPPORT_FROM = "ClipMotion Support <support@ranki.ai>";
+const SUPPORT_FROM = "ClipMotion Support <support@clipmotion.ai>";
 
 const schema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
