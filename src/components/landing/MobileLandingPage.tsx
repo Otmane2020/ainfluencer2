@@ -14,6 +14,10 @@ import {
   Check,
   Star,
   ShieldCheck,
+  Mail,
+  Linkedin,
+  Instagram,
+  Twitter,
 } from "lucide-react";
 
 const HERO_VIDEO =
@@ -279,6 +283,63 @@ export const MobileLandingPage = () => {
           </Button>
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="border-t border-border bg-muted/20 px-4 py-8">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl gradient-primary">
+            <Sparkles className="h-4 w-4 text-primary-foreground" />
+          </div>
+          <span className="font-display text-lg font-bold text-gradient">ClipMotion</span>
+        </div>
+        <p className="mt-2 max-w-[260px] text-xs text-muted-foreground">
+          AI image and video studio for creators, brands, and agencies.
+        </p>
+
+        <div className="mt-6 grid grid-cols-2 gap-4">
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wider">Product</h3>
+            <ul className="mt-2 space-y-1.5 text-xs text-muted-foreground">
+              <li><Link to="/images" className="block py-0.5">AI Images</Link></li>
+              <li><Link to="/videos" className="block py-0.5">AI Videos</Link></li>
+              <li><Link to="/image-to-video" className="block py-0.5">Image to Video</Link></li>
+              <li><Link to="/pricing" className="block py-0.5">Pricing</Link></li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wider">Company</h3>
+            <ul className="mt-2 space-y-1.5 text-xs text-muted-foreground">
+              <li><Link to="/faq" className="block py-0.5">FAQ</Link></li>
+              <li><Link to="/contact" className="block py-0.5">Contact</Link></li>
+              <li><Link to="/privacy-policy" className="block py-0.5">Privacy</Link></li>
+              <li><Link to="/terms" className="block py-0.5">Terms</Link></li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="mt-6 flex items-center gap-4">
+          <a href="mailto:hello@clipmotion.ai" className="text-muted-foreground hover:text-primary">
+            <Mail className="h-4 w-4" />
+            <span className="sr-only">Email</span>
+          </a>
+          <a href="https://linkedin.com/company/clipmotion" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">
+            <Linkedin className="h-4 w-4" />
+            <span className="sr-only">LinkedIn</span>
+          </a>
+          <a href="https://instagram.com/clipmotion.ai" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">
+            <Instagram className="h-4 w-4" />
+            <span className="sr-only">Instagram</span>
+          </a>
+          <a href="https://twitter.com/clipmotionai" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">
+            <Twitter className="h-4 w-4" />
+            <span className="sr-only">X / Twitter</span>
+          </a>
+        </div>
+
+        <p className="mt-6 text-[11px] text-muted-foreground">
+          © {new Date().getFullYear()} ClipMotion. All rights reserved.
+        </p>
+      </footer>
 
       {/* Sticky CTA */}
       <div className="fixed inset-x-0 bottom-0 z-50 border-t border-border/50 bg-background/90 p-3 backdrop-blur-xl">
