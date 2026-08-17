@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { seoPages, organizationSchema } from "@/lib/seo-data";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, MessageCircle, MapPin } from "lucide-react";
+import { sendSupportEmail } from "@/lib/support.functions";
 
 const ContactPage = () => {
   const seo = seoPages.contact;
@@ -80,15 +81,15 @@ const ContactPage = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Name</Label>
-                <Input id="name" required />
+                <Input id="name" name="name" required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" required />
+                <Input id="email" name="email" type="email" required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="message">Message</Label>
-                <Textarea id="message" rows={4} required />
+                <Textarea id="message" name="message" rows={4} required />
               </div>
               <Button type="submit" className="w-full gradient-primary" disabled={isSubmitting}>
                 {isSubmitting ? "Sending..." : "Send Message"}
