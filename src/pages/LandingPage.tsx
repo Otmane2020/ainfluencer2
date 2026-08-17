@@ -238,6 +238,34 @@ const LandingPage = () => {
               ))}
             </div>
 
+            {/* Latest generated video */}
+            <motion.figure
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="mt-10 md:mt-14 mx-auto w-full max-w-xs"
+            >
+              <div className="relative rounded-2xl overflow-hidden border border-border bg-card shadow-glow">
+                <video
+                  src="https://cloud-cdn.higgsfield.ai/6a3799cd-f426-48fd-be4c-857325f13a1e/06a2e341-3f3f-40cc-8b20-44239e74af4d.mp4"
+                  className="w-full aspect-[9/16] object-cover"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                  aria-label="Latest AI generated video made with ClipMotion"
+                />
+                <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-sm px-3 py-1 text-xs font-medium text-white">
+                  <Zap className="h-3.5 w-3.5" /> Latest generation
+                </span>
+              </div>
+              <figcaption className="mt-3 text-xs md:text-sm text-muted-foreground">
+                Image-to-video generated in ClipMotion — one prompt, cinematic motion.
+              </figcaption>
+            </motion.figure>
+
+
             {/* Models strip */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
