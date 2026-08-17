@@ -8,19 +8,39 @@ import { Label } from "@/components/ui/label";
 import { seoPages, organizationSchema } from "@/lib/seo-data";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, MessageCircle, MapPin } from "lucide-react";
+import { sendSupportEmail } from "@/lib/support.functions";
 
 const ContactPage = () => {
   const seo = seoPages.contact;
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const form = e.currentTarget;
+    const formData = new FormData(form);
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      await sendSupportEmail({
+        data: {
+          name: String(formData.get("name") || ""),
+          email: String(formData.get("email") || ""),
+          subject: "Contact form message",
+          message: String(formData.get("message") || ""),
+          source: "contact-page",
+        },
+      });
       toast({ title: "Message sent!", description: "We'll get back to you within 24 hours." });
-    }, 1000);
+      form.reset();
+    } catch (error) {
+      toast({
+        title: "Could not send message",
+        description: error instanceof Error ? error.message : "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -61,15 +81,15 @@ const ContactPage = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Name</Label>
-                <Input id="name" required />
+                <Input id="name" name="name" required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" required />
+                <Input id="email" name="email" type="email" required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="message">Message</Label>
-                <Textarea id="message" rows={4} required />
+                <Textarea id="message" name="message" rows={4} required />
               </div>
               <Button type="submit" className="w-full gradient-primary" disabled={isSubmitting}>
                 {isSubmitting ? "Sending..." : "Send Message"}

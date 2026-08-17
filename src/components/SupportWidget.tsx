@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
+import { sendSupportEmail } from "@/lib/support.functions";
 
 interface Message {
   role: "user" | "assistant";
@@ -68,13 +69,25 @@ export const SupportWidget = () => {
     if (!emailForm.subject.trim() || !emailForm.message.trim()) return;
 
     setEmailSending(true);
-    // Simulate email sending - in production, connect to email service
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setEmailSending(false);
-    setEmailForm({ subject: "", message: "" });
-    setView("menu");
-    // Show success feedback
-    alert("Your message has been sent! We'll get back to you soon.");
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      await sendSupportEmail({
+        data: {
+          email: userData?.user?.email || undefined,
+          subject: emailForm.subject.trim(),
+          message: emailForm.message.trim(),
+          source: "support-widget",
+        },
+      });
+      setEmailForm({ subject: "", message: "" });
+      setView("menu");
+      alert("Your message has been sent! We'll get back to you soon.");
+    } catch (error) {
+      console.error("Support email error:", error);
+      alert("Sorry, your message could not be sent. Please try again.");
+    } finally {
+      setEmailSending(false);
+    }
   };
 
   const goBack = () => setView("menu");
