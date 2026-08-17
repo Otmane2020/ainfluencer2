@@ -135,7 +135,7 @@ export const ImageDetailModal = ({
         .eq("id", projectId)
         .single();
       if (data) {
-        setProjectContext(data);
+        setProjectContext(data as never);
       }
     } catch (error) {
       console.error("Error fetching project context:", error);

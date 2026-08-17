@@ -1207,7 +1207,7 @@ ${formattedHashtags}`;
           title: `🎬 ${selectedModel.name} ready!`,
           description: "Your video has been generated successfully."
         });
-        onVideosGenerated(currentSegments);
+        onVideosGenerated?.(currentSegments);
       } else if (!allComplete) {
         // Still processing - CRON will handle it
         toast({

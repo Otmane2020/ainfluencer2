@@ -62,7 +62,7 @@ const Dashboard = () => {
         .limit(4);
 
       if (projectsData) {
-        setProjects(projectsData);
+        setProjects(projectsData as never);
         setStats((prev) => ({ ...prev, totalProjects: projectsData.length }));
       }
 

@@ -103,7 +103,7 @@ const CampaignsPage = () => {
     if (error) {
       console.error("Error fetching campaigns:", error);
     } else {
-      setCampaigns(data || []);
+      setCampaigns((data || []) as never);
     }
     setIsLoading(false);
   };

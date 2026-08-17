@@ -64,7 +64,7 @@ export const useStoredVideos = () => {
 
       // Process generations from database
       if (!generationsResult.error && generationsResult.data) {
-        const dbVideos = generationsResult.data
+        const dbVideos = (generationsResult.data as Record<string, never>[])
           .filter((gen) => gen.media_url) // Only include videos with media_url
           .map((gen) => ({
             id: gen.id,

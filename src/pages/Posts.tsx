@@ -72,7 +72,7 @@ const Posts = () => {
       .from("projects")
       .select("id, name, theme_color")
       .order("name");
-    if (data) setProjects(data);
+    if (data) setProjects(data as never);
   };
 
   const handleContentGenerated = (content: GeneratedContent) => {

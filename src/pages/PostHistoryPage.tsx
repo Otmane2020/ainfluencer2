@@ -78,7 +78,7 @@ const PostHistoryPage = () => {
       .select("id, name, theme_color")
       .eq("user_id", user.id)
       .order("name");
-    if (data) setProjects(data);
+    if (data) setProjects(data as never);
   };
 
   const POST_CACHE_KEY = `post_history_${user?.id}_${selectedProject}`;

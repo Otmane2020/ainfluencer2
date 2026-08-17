@@ -148,7 +148,7 @@ const CalendarPage = () => {
       .order("name");
 
     if (data) {
-      setProjects(data);
+      setProjects(data as never);
     }
   };
 
