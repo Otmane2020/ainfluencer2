@@ -75,24 +75,27 @@ export const SEOHead = ({
     }
     link.setAttribute("href", canonical);
 
-    // Update structured data
+    // Update structured data (only the scripts owned by this component,
+    // so SSR route-level JSON-LD is preserved)
     if (structuredData) {
-      const existingScripts = document.querySelectorAll('script[type="application/ld+json"]');
-      existingScripts.forEach(script => script.remove());
+      document
+        .querySelectorAll('script[type="application/ld+json"][data-seo-head="true"]')
+        .forEach((script) => script.remove());
 
       const dataArray = Array.isArray(structuredData) ? structuredData : [structuredData];
       dataArray.forEach(data => {
         const script = document.createElement("script");
         script.type = "application/ld+json";
+        script.setAttribute("data-seo-head", "true");
         script.text = JSON.stringify(data);
         document.head.appendChild(script);
       });
     }
 
     return () => {
-      // Cleanup structured data on unmount
-      const scripts = document.querySelectorAll('script[type="application/ld+json"]');
-      scripts.forEach(script => script.remove());
+      document
+        .querySelectorAll('script[type="application/ld+json"][data-seo-head="true"]')
+        .forEach((script) => script.remove());
     };
   }, [title, description, canonical, ogImage, ogType, keywords, noindex, structuredData]);
 

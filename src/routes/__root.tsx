@@ -6,20 +6,22 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { OrgProvider } from "@/contexts/OrgContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import appCss from "@/styles.css?url";
+import { organizationSchema } from "@/lib/seo-data";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "ClipMotion — AI Image & Video Generation Studio" },
-      {
-        name: "description",
-        content:
-          "ClipMotion turns prompts into cinematic AI images and videos. Generate, animate and export studio-quality visuals in minutes.",
-      },
+      { property: "og:site_name", content: "ClipMotion" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify(organizationSchema),
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
