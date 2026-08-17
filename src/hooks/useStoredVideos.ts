@@ -64,8 +64,8 @@ export const useStoredVideos = () => {
 
       // Process generations from database
       if (!generationsResult.error && generationsResult.data) {
-        const dbVideos = (generationsResult.data as never[])
-          .filter((gen: never) => (gen as { media_url?: string }).media_url) // Only include videos with media_url
+        const dbVideos = (generationsResult.data as Record<string, never>[])
+          .filter((gen) => gen.media_url) // Only include videos with media_url
           .map((gen) => ({
             id: gen.id,
             title: `AI Video - ${gen.model || "Unknown"}`,
