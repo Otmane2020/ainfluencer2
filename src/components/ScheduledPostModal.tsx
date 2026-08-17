@@ -664,7 +664,7 @@ export const ScheduledPostModal = ({
       
       // Add brand context if available
       if (projectContext) {
-        const brandInfo = [];
+        const brandInfo: string[] = [];
         if (projectContext.name) brandInfo.push(`Brand: ${projectContext.name}`);
         if (projectContext.description) brandInfo.push(`About: ${projectContext.description.substring(0, 200)}`);
         if (projectContext.url) brandInfo.push(`Website: ${projectContext.url}`);
