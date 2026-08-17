@@ -14,13 +14,32 @@ const ContactPage = () => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const form = e.currentTarget;
+    const formData = new FormData(form);
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      await sendSupportEmail({
+        data: {
+          name: String(formData.get("name") || ""),
+          email: String(formData.get("email") || ""),
+          subject: "Contact form message",
+          message: String(formData.get("message") || ""),
+          source: "contact-page",
+        },
+      });
       toast({ title: "Message sent!", description: "We'll get back to you within 24 hours." });
-    }, 1000);
+      form.reset();
+    } catch (error) {
+      toast({
+        title: "Could not send message",
+        description: error instanceof Error ? error.message : "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
