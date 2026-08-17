@@ -6,6 +6,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { OrgProvider } from "@/contexts/OrgContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import appCss from "@/styles.css?url";
+import { organizationSchema } from "@/lib/seo-data";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
