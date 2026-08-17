@@ -14,6 +14,10 @@ import {
   Check,
   Star,
   ShieldCheck,
+  Mail,
+  Linkedin,
+  Instagram,
+  Twitter,
 } from "lucide-react";
 
 const HERO_VIDEO =
