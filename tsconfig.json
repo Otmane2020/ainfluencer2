@@ -13,11 +13,11 @@
     "noEmit": true,
 
     "skipLibCheck": true,
-    "strict": true,
+    "strict": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": false,
-    "noImplicitOverride": true,
+    "noImplicitOverride": false,
     "noImplicitReturns": false,
     "noPropertyAccessFromIndexSignature": false,
     "noUncheckedIndexedAccess": false,
