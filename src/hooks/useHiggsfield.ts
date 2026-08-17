@@ -87,6 +87,7 @@ export function useHiggsfield() {
         onProgress?.(cur.status);
         if (cur.status === "completed") {
           setResult(cur);
+          if (save) await persistGeneration(save, cur);
           return cur;
         }
         if (cur.status === "failed" || cur.status === "nsfw") {
