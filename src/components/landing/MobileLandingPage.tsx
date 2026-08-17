@@ -2,442 +2,296 @@ import { useNavigate, Link } from "@/lib/router-compat";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { SocialPlatformIcons } from "@/components/SocialPlatformIcons";
+import { PricingPacks } from "@/components/PricingPacks";
 import {
   Play,
   Sparkles,
-  Image,
+  Image as ImageIcon,
   Video,
-  Wand2,
+  Film,
   ArrowRight,
-  Home,
-  Compass,
-  Plus,
-  FolderOpen,
-  User,
-  ChevronRight,
   Zap,
-  Camera,
-  Globe,
-  Calendar,
-  Megaphone,
+  Check,
+  Star,
+  ShieldCheck,
 } from "lucide-react";
-import { useState } from "react";
 
-// AI Showcase gallery — stunning examples
-const aiShowcase = [
-  {
-    img: "/showcase/kling-fashion.png",
-    label: "Kling Fashion",
-    type: "video" as const,
-    gradient: "from-pink-400/70",
-    badge: "Kling",
-  },
-  {
-    img: "/showcase/kling-glamour.png",
-    label: "Kling Glamour",
-    type: "video" as const,
-    gradient: "from-rose-400/70",
-    badge: "Kling",
-  },
-  {
-    img: "/showcase/kling-jewelry.png",
-    label: "Kling Jewelry",
-    type: "video" as const,
-    gradient: "from-amber-600/70",
-    badge: "Kling",
-  },
-  {
-    img: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=400&h=500&fit=crop",
-    label: "Motion Video",
-    type: "video" as const,
-    gradient: "from-violet-500/60",
-  },
-  {
-    img: "/showcase/kling-cinematic.png",
-    label: "Kling Cinema",
-    type: "video" as const,
-    gradient: "from-red-600/70",
-    badge: "Kling",
-  },
-  {
-    img: "/showcase/kling-stage.png",
-    label: "Kling Stage",
-    type: "video" as const,
-    gradient: "from-red-500/70",
-    badge: "Kling",
-  },
-  {
-    img: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=500&fit=crop",
-    label: "Cinematic AI",
-    type: "video" as const,
-    gradient: "from-blue-500/60",
-  },
-  {
-    img: "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=400&h=500&fit=crop",
-    label: "Abstract FX",
-    type: "image" as const,
-    gradient: "from-emerald-500/60",
-  },
-];
+const HERO_VIDEO =
+  "https://cloud-cdn.higgsfield.ai/6a3799cd-f426-48fd-be4c-857325f13a1e/06a2e341-3f3f-40cc-8b20-44239e74af4d.mp4";
 
-// Feature cards
-const featureCards = [
+const MODELS = ["Soul", "Reve", "DoP", "Kling v2.1 Pro", "Seedance"];
+
+const STUDIOS = [
   {
-    icon: Sparkles,
-    title: "ClipMotion",
-    description: "Viral Videos",
-    gradient: "from-primary to-secondary",
-    link: "/clipmotion",
-  },
-  {
-    icon: Image,
-    title: "AI Image",
-    description: "Smart Gen",
-    gradient: "from-accent to-primary",
+    icon: ImageIcon,
+    title: "AI Image Studio",
+    description: "Cinematic images from a single prompt. 1 credit each.",
     link: "/images",
   },
   {
     icon: Video,
-    title: "AI Video",
-    description: "Cinema",
-    gradient: "from-secondary to-accent",
+    title: "AI Video Studio",
+    description: "Text-to-video with pro camera motion. 4 credits each.",
     link: "/videos",
-    badge: "Pro",
+  },
+  {
+    icon: Film,
+    title: "Image → Video",
+    description: "Turn any product shot into a scroll-stopping clip.",
+    link: "/image-to-video",
   },
 ];
 
-// Social platforms for auto-publish section
-const socialPlatforms = [
-  { name: "Instagram", color: "#E4405F", emoji: "📸" },
-  { name: "TikTok", color: "#000", emoji: "🎵" },
-  { name: "LinkedIn", color: "#0A66C2", emoji: "💼" },
-  { name: "Facebook", color: "#1877F2", emoji: "👥" },
-  { name: "YouTube", color: "#FF0000", emoji: "🎬" },
+const STEPS = [
+  { n: "1", title: "Write your prompt", text: "Describe the shot in plain English." },
+  { n: "2", title: "Pick a model", text: "Soul, Kling, DoP, Seedance — one balance." },
+  { n: "3", title: "Export in 1080p", text: "Download and publish anywhere." },
 ];
 
-// For You tabs
-const forYouTabs = ["For You", "Shorts", "Motion", "Cinema"];
+const PROOF = [
+  { value: "5+", label: "SOTA models" },
+  { value: "~30s", label: "Avg. render" },
+  { value: "1080p", label: "HD export" },
+];
 
-export function MobileLandingPage() {
+export const MobileLandingPage = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("For You");
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      {/* Top Navigation */}
-      <nav className="sticky top-0 z-50 glass border-b border-border/50">
-        <div className="flex items-center justify-between px-4 py-3">
+    <div className="min-h-screen bg-background pb-28">
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
+        <div className="flex h-14 items-center justify-between px-4">
           <Link to="/" className="flex items-center gap-2">
-            <img src="/logo.png" alt="ClipMotion" className="h-8 w-8 rounded-lg" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl gradient-primary">
+              <Sparkles className="h-4 w-4 text-primary-foreground" />
+            </div>
             <span className="font-display text-lg font-bold text-gradient">ClipMotion</span>
           </Link>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/auth")}
-              className="text-xs"
-            >
-              Sign In
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => navigate("/auth")}
-              className="gradient-primary rounded-full px-4 text-xs"
-            >
-              Get Started
-            </Button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <section className="px-4 pt-6 pb-2 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <Badge className="mb-3 bg-primary/10 text-primary border-primary/20">
-            <Wand2 className="h-3 w-3 mr-1" /> AI-Powered Content
-          </Badge>
-          <h1 className="font-display text-3xl font-bold leading-tight mb-2">
-            Create <span className="text-gradient">Viral</span> Content{" "}
-            <span className="text-gradient">Instantly</span>
-          </h1>
-          <p className="text-sm text-muted-foreground mb-4">
-            AI images, videos & social posts — published to all your platforms automatically.
-          </p>
-          <Button
-            size="lg"
-            onClick={() => navigate("/auth")}
-            className="gradient-primary shadow-glow w-full max-w-xs"
-          >
-            <Play className="mr-2 h-4 w-4" />
-            Start Creating Free
+          <Button size="sm" variant="ghost" className="text-xs" onClick={() => navigate("/auth")}>
+            Sign in
           </Button>
-        </motion.div>
-      </section>
-
-      {/* AI Showcase Scroller */}
-      <section className="pt-5">
-        <div className="flex items-center justify-between px-4 mb-3">
-          <h3 className="font-display text-base font-bold">AI Generations</h3>
-          <Badge variant="outline" className="text-[10px]">
-            <Zap className="h-3 w-3 mr-1 text-primary" /> Live
-          </Badge>
         </div>
-        <div className="flex gap-3 overflow-x-auto px-4 pb-2 scrollbar-hide">
-          {aiShowcase.map((item, index) => (
-            <motion.div
-              key={item.label}
-              initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.08 }}
-              className="flex-shrink-0 w-36 aspect-[3/4] rounded-xl overflow-hidden relative cursor-pointer group"
+      </header>
+
+      {/* Hero */}
+      <section className="relative overflow-hidden px-4 pt-8 pb-10">
+        <div className="absolute -top-16 left-1/4 h-56 w-56 rounded-full bg-primary/20 blur-3xl" />
+        <div className="absolute top-40 right-0 h-56 w-56 rounded-full bg-secondary/20 blur-3xl" />
+
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative text-center"
+        >
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5">
+            <Zap className="h-3.5 w-3.5 text-primary" />
+            <span className="text-[11px] font-medium">AI Image & Video Studio</span>
+          </div>
+
+          <h1 className="font-display mt-5 text-3xl font-bold leading-tight">
+            Turn a prompt into a{" "}
+            <span className="text-gradient">cinematic video</span>
+          </h1>
+          <p className="mt-3 text-sm text-muted-foreground">
+            One studio, the best generative models, one credit balance. Start free — no card
+            required.
+          </p>
+
+          {/* Latest generated video */}
+          <motion.figure
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.15 }}
+            className="mx-auto mt-6 w-full max-w-[260px]"
+          >
+            <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-glow">
+              <video
+                src={HERO_VIDEO}
+                className="aspect-[9/16] w-full object-cover"
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="metadata"
+                aria-label="Latest AI generated video made with ClipMotion"
+              />
+              <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-medium text-white backdrop-blur-sm">
+                <Zap className="h-3 w-3" /> Latest generation
+              </span>
+            </div>
+            <figcaption className="mt-2 text-[11px] text-muted-foreground">
+              Image-to-video made in ClipMotion — one prompt, cinematic motion.
+            </figcaption>
+          </motion.figure>
+
+          <div className="mt-6 space-y-2.5">
+            <Button
+              size="lg"
+              className="h-12 w-full gradient-primary text-base shadow-glow"
               onClick={() => navigate("/auth")}
             >
-              <img
-                src={item.img}
-                alt={item.label}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                loading="lazy"
-              />
-              <div className={`absolute inset-0 bg-gradient-to-t ${item.gradient} to-transparent`} />
-              {"badge" in item && item.badge && (
-                <div className="absolute top-1.5 left-1.5">
-                  <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/90 text-white">
-                    {item.badge}
-                  </span>
-                </div>
-              )}
-              <div className="absolute bottom-0 left-0 right-0 p-2.5">
-                <div className="flex items-center gap-1 mb-0.5">
-                  {item.type === "video" ? (
-                    <Play className="h-3 w-3 text-white/90" />
-                  ) : (
-                    <Image className="h-3 w-3 text-white/90" />
-                  )}
-                  <span className="text-[10px] text-white/70 uppercase tracking-wider font-medium">
-                    {item.type}
-                  </span>
-                </div>
-                <p className="font-semibold text-white text-sm">{item.label}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* Feature Cards */}
-      <section className="px-4 pt-5">
-        <div className="grid grid-cols-3 gap-3">
-          {featureCards.map((feature, index) => (
-            <motion.div
-              key={feature.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 + index * 0.1 }}
-              onClick={() => navigate(feature.link)}
-              className="cursor-pointer"
+              <Play className="mr-2 h-4 w-4" />
+              Start creating free
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-12 w-full text-base"
+              onClick={() => navigate("/pricing")}
             >
-              <Card className="bg-muted/60 hover:bg-muted/80 border-border/50 transition-all relative overflow-hidden">
-                <CardContent className="p-3 flex flex-col items-center text-center">
-                  {feature.badge && (
-                    <Badge className="absolute top-1.5 right-1.5 text-[9px] px-1.5 py-0 bg-primary/20 text-primary border-none">
-                      {feature.badge}
-                    </Badge>
-                  )}
-                  <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-1.5`}>
-                    <feature.icon className="w-5 h-5 text-white" />
-                  </div>
-                  <span className="font-semibold text-xs">{feature.title}</span>
-                  <span className="text-[10px] text-muted-foreground">{feature.description}</span>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* Auto-Publish to Social Platforms */}
-      <section className="px-4 pt-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="rounded-2xl bg-muted/40 border border-border/50 p-4"
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <Globe className="h-5 w-5 text-primary" />
-            <h3 className="font-display text-base font-bold">Auto-Publish Everywhere</h3>
+              See pricing
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
           </div>
-          <p className="text-xs text-muted-foreground mb-4">
-            One click to post AI-generated content across all your social networks simultaneously.
+
+          <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+            <ShieldCheck className="h-3.5 w-3.5 text-primary" /> 10 free credits • Cancel anytime
           </p>
-          <SocialPlatformIcons size="sm" showLabel animated />
-          <div className="mt-4 flex flex-wrap gap-1.5">
-            {["Auto-scheduling", "Smart captions", "Hashtag AI", "Analytics"].map((tag) => (
-              <span key={tag} className="text-[10px] px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
-                {tag}
+
+          <div className="mt-7 grid grid-cols-3 gap-3">
+            {PROOF.map((s) => (
+              <div key={s.label} className="rounded-xl border border-border bg-card/50 py-3">
+                <div className="font-display text-lg font-bold text-gradient">{s.value}</div>
+                <div className="text-[10px] text-muted-foreground">{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+            {MODELS.map((m) => (
+              <span
+                key={m}
+                className="rounded-full border border-border bg-card/50 px-2.5 py-1 text-[10px] text-muted-foreground"
+              >
+                {m}
               </span>
             ))}
           </div>
         </motion.div>
       </section>
 
-      {/* For You Tabs — Content Grid */}
-      <section className="pt-6">
-        <div className="flex gap-4 px-4 overflow-x-auto scrollbar-hide">
-          {forYouTabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`whitespace-nowrap text-sm font-medium pb-2 transition-colors ${
-                activeTab === tab
-                  ? "text-foreground border-b-2 border-primary"
-                  : "text-muted-foreground"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-        <div className="grid grid-cols-2 gap-2 px-4 pt-4">
-          {[
-            { img: "https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?w=300&h=400&fit=crop", label: "Reels Ready" },
-            { img: "https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=300&h=400&fit=crop", label: "AI Art" },
-            { img: "https://images.unsplash.com/photo-1535223289827-42f1e9919769?w=300&h=400&fit=crop", label: "Tech Demo" },
-            { img: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&h=400&fit=crop", label: "Nature FX" },
-          ].map((item, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.08 }}
-              className="aspect-[3/4] rounded-xl overflow-hidden relative cursor-pointer"
+      {/* Studios */}
+      <section className="px-4 py-8">
+        <h2 className="font-display text-xl font-bold">Everything in one studio</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Text-to-image, text-to-video and image-to-video.
+        </p>
+        <div className="mt-4 space-y-3">
+          {STUDIOS.map((s) => (
+            <Card
+              key={s.title}
+              className="border-border/60 bg-card/60 active:scale-[0.99] transition-transform"
               onClick={() => navigate("/auth")}
             >
-              <img
-                src={item.img}
-                alt={item.label}
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-              <div className="absolute bottom-2 left-2">
-                <span className="text-white text-xs font-medium">{item.label}</span>
-              </div>
-              <div className="absolute top-2 right-2">
-                <Play className="w-5 h-5 text-white/80" />
-              </div>
-            </motion.div>
+              <CardContent className="flex items-center gap-3 p-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl gradient-primary">
+                  <s.icon className="h-5 w-5 text-primary-foreground" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold">{s.title}</h3>
+                  <p className="text-xs text-muted-foreground">{s.description}</p>
+                </div>
+                <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
+              </CardContent>
+            </Card>
           ))}
         </div>
       </section>
 
-      {/* What You Can Create — Use Cases */}
-      <section className="px-4 pt-6">
-        <h3 className="font-display text-base font-bold mb-3">What You Can Create</h3>
-        <div className="space-y-2">
-          {[
-            { icon: Camera, title: "Product Shots", desc: "Turn 1 photo into pro ads", gradient: "from-amber-500 to-orange-600" },
-            { icon: Video, title: "TikTok & Reels", desc: "Viral vertical videos in seconds", gradient: "from-pink-500 to-rose-600" },
-            { icon: Megaphone, title: "AI Campaigns", desc: "Auto-post content on autopilot", gradient: "from-blue-500 to-indigo-600" },
-            { icon: Calendar, title: "LinkedIn Stories", desc: "Professional storytelling AI", gradient: "from-sky-500 to-cyan-600" },
-          ].map((item, index) => (
-            <motion.div
-              key={item.title}
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.08 }}
-              onClick={() => navigate("/auth")}
-              className="flex items-center gap-3 p-3 rounded-xl bg-muted/40 border border-border/50 cursor-pointer active:scale-[0.98] transition-transform"
-            >
-              <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${item.gradient} flex items-center justify-center shrink-0`}>
-                <item.icon className="w-5 h-5 text-white" />
+      {/* How it works */}
+      <section className="bg-muted/20 px-4 py-8">
+        <h2 className="font-display text-xl font-bold">3 steps to your first clip</h2>
+        <div className="mt-4 space-y-3">
+          {STEPS.map((s) => (
+            <div key={s.n} className="flex gap-3 rounded-xl border border-border bg-card/60 p-4">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full gradient-primary text-sm font-bold text-primary-foreground">
+                {s.n}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm">{item.title}</p>
-                <p className="text-[11px] text-muted-foreground">{item.desc}</p>
+              <div>
+                <h3 className="text-sm font-semibold">{s.title}</h3>
+                <p className="text-xs text-muted-foreground">{s.text}</p>
               </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* Social Proof */}
-      <section className="px-4 pt-6">
-        <div className="flex items-center justify-center gap-6 text-center">
-          {[
-            { value: "50K+", label: "Creators" },
-            { value: "10M+", label: "Generated" },
-            { value: "98%", label: "Satisfaction" },
-          ].map((stat) => (
-            <div key={stat.label}>
-              <p className="font-display text-xl font-bold text-gradient">{stat.value}</p>
-              <p className="text-[10px] text-muted-foreground">{stat.label}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* CTA Banner */}
-      <section className="px-4 pt-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="rounded-2xl gradient-primary p-5 text-center"
-        >
-          <Wand2 className="w-8 h-8 text-white mx-auto mb-2" />
-          <h3 className="font-display text-lg font-bold text-white mb-1">
-            Start Creating Today
-          </h3>
-          <p className="text-white/80 text-xs mb-4">
-            Join 50,000+ creators making viral content with AI
-          </p>
-          <Button
-            onClick={() => navigate("/auth")}
-            className="bg-white text-foreground hover:bg-white/90 w-full"
-          >
-            Get Started Free
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-        </motion.div>
+      {/* Benefits */}
+      <section className="px-4 py-8">
+        <h2 className="font-display text-xl font-bold">Why creators switch</h2>
+        <ul className="mt-4 space-y-2.5">
+          {[
+            "All top models under one credit balance",
+            "1 credit per image, 4 per video — no surprises",
+            "Full control: ratio, resolution, motion, negative prompt",
+            "Commercial rights on Pro and Business",
+          ].map((b) => (
+            <li key={b} className="flex items-start gap-2.5 text-sm">
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <span className="text-muted-foreground">{b}</span>
+            </li>
+          ))}
+        </ul>
       </section>
 
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-border/50 pb-safe">
-        <div className="flex items-center justify-around py-2">
-          <Link to="/" className="flex flex-col items-center gap-1 px-4 py-2 text-primary">
-            <Home className="w-5 h-5" />
-            <span className="text-[10px] font-medium">Home</span>
-          </Link>
-          <Link to="/features" className="flex flex-col items-center gap-1 px-4 py-2 text-muted-foreground">
-            <Compass className="w-5 h-5" />
-            <span className="text-[10px] font-medium">Explore</span>
-          </Link>
-          <button
-            onClick={() => navigate("/auth")}
-            className="flex items-center justify-center w-14 h-14 -mt-5 rounded-full gradient-primary shadow-glow"
-          >
-            <Plus className="w-7 h-7 text-white" />
-          </button>
-          <Link to="/pricing" className="flex flex-col items-center gap-1 px-4 py-2 text-muted-foreground">
-            <FolderOpen className="w-5 h-5" />
-            <span className="text-[10px] font-medium">Pricing</span>
-          </Link>
-          <Link to="/auth" className="flex flex-col items-center gap-1 px-4 py-2 text-muted-foreground">
-            <User className="w-5 h-5" />
-            <span className="text-[10px] font-medium">Sign In</span>
-          </Link>
+      {/* Social proof */}
+      <section className="px-4 py-8">
+        <div className="rounded-2xl border border-border bg-card/60 p-5">
+          <div className="flex gap-0.5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Star key={i} className="h-4 w-4 fill-primary text-primary" />
+            ))}
+          </div>
+          <p className="mt-3 text-sm">
+            "Product shots to cinematic motion clips in minutes. It replaced two tools and a
+            freelancer."
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">Emma W. — E-commerce brand</p>
         </div>
-      </nav>
+      </section>
+
+      {/* Pricing */}
+      <section id="pricing" className="px-4 py-8">
+        <h2 className="font-display text-xl font-bold">Simple pricing</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Start free, upgrade when you scale.</p>
+        <div className="mt-4">
+          <PricingPacks compact />
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="px-4 pb-10">
+        <div className="rounded-2xl gradient-primary p-6 text-center">
+          <h2 className="font-display text-xl font-bold text-primary-foreground">
+            Your first video is 30 seconds away
+          </h2>
+          <p className="mt-2 text-sm text-primary-foreground/80">
+            10 free credits on signup. No card required.
+          </p>
+          <Button
+            size="lg"
+            variant="secondary"
+            className="mt-4 h-12 w-full text-base"
+            onClick={() => navigate("/auth")}
+          >
+            Start creating free
+          </Button>
+        </div>
+      </section>
+
+      {/* Sticky CTA */}
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-border/50 bg-background/90 p-3 backdrop-blur-xl">
+        <Button
+          size="lg"
+          className="h-12 w-full gradient-primary text-base shadow-glow"
+          onClick={() => navigate("/auth")}
+        >
+          Start free — 10 credits
+        </Button>
+      </div>
     </div>
   );
-}
+};
+
+export default MobileLandingPage;
