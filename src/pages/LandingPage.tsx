@@ -290,7 +290,7 @@ const LandingPage = () => {
       <section className="py-12 md:py-16 overflow-hidden bg-muted/20">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-display text-xl md:text-2xl font-bold">AI Generations</h3>
+            <h2 className="font-display text-xl md:text-2xl font-bold">AI Generations</h2>
             <span className="inline-flex items-center gap-1.5 text-xs font-medium text-primary border border-primary/20 rounded-full px-3 py-1">
               <Zap className="h-3.5 w-3.5" /> Live Examples
             </span>
