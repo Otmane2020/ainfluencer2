@@ -29,13 +29,23 @@ export interface HiggsfieldResult {
   error?: string;
 }
 
+interface SaveOpts {
+  type: "image" | "video";
+  prompt: string;
+  model: string;
+  duration?: number;
+}
+
 interface GenerateOpts {
   /** Higgsfield API path for the model, e.g. "/v1/text2image/soul" or "/v1/image2video/dop" */
   endpoint: string;
   payload: Record<string, unknown>;
   onProgress?: (status: string) => void;
   timeoutMs?: number;
+  /** Persist the finished generation so it shows up in History */
+  save?: SaveOpts;
 }
+
 
 /**
  * Higgsfield generation hook — submits an async request then polls until
