@@ -1,20 +1,28 @@
 import { createFileRoute } from "@tanstack/react-router";
 import PricingPage from "@/pages/PricingPage";
+import { productSchema } from "@/lib/seo-data";
+
+const title = "Pricing — ClipMotion AI Studio";
+const description =
+  "Simple credit-based pricing for AI image and video generation. Starter, Pro and Business plans with a 7-day free trial.";
+const url = "https://clipmotion.ai/pricing";
+const ogImage = "https://clipmotion.ai/og-image.png";
 
 export const Route = createFileRoute("/pricing")({
   head: () => ({
     meta: [
-      { title: "Pricing — ClipMotion AI Studio" },
-      { name: "description", content: "Simple credit-based pricing for AI image and video generation. Starter, Pro and Business plans." },
-      { property: "og:title", content: "Pricing — ClipMotion AI Studio" },
-      { property: "og:description", content: "Simple credit-based pricing for AI image and video generation. Starter, Pro and Business plans." },
+      { title },
+      { name: "description", content: description },
+      { property: "og:title", content: title },
+      { property: "og:description", content: description },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://clipmotion.ai/pricing" },
-      { property: "og:image", content: "https://clipmotion.ai/og-image.png" },
+      { property: "og:url", content: url },
+      { property: "og:image", content: ogImage },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:image", content: "https://clipmotion.ai/og-image.png" },
+      { name: "twitter:image", content: ogImage },
     ],
-    links: [{ rel: "canonical", href: "https://clipmotion.ai/pricing" }],
+    links: [{ rel: "canonical", href: url }],
+    scripts: [{ type: "application/ld+json", children: JSON.stringify(productSchema) }],
   }),
   component: PricingPage,
 });
