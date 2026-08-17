@@ -101,6 +101,7 @@ const HiggsfieldStudio = ({ defaultTab = "text-to-image" }: Props) => {
           resolution,
         },
         onProgress: setImgStatus,
+        save: { type: "image", prompt: imgPrompt, model: imgModel },
       });
       const url = r.images?.[0]?.url;
       if (url) {
@@ -123,6 +124,7 @@ const HiggsfieldStudio = ({ defaultTab = "text-to-image" }: Props) => {
         payload: { prompt: vidPrompt, duration: Number(duration), image_url: imageUrl },
         onProgress: setVidStatus,
         timeoutMs: 600_000,
+        save: { type: "video", prompt: vidPrompt, model: vidModel, duration: Number(duration) },
       });
       const url = r.video?.url;
       if (url) {

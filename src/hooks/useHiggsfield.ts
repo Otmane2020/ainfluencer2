@@ -29,13 +29,49 @@ export interface HiggsfieldResult {
   error?: string;
 }
 
+interface SaveOpts {
+  type: "image" | "video";
+  prompt: string;
+  model: string;
+  duration?: number;
+}
+
+/** Store a finished Higgsfield generation so it appears in the History page. */
+async function persistGeneration(save: SaveOpts, result: HiggsfieldResult) {
+  const mediaUrl = save.type === "video" ? result.video?.url : result.images?.[0]?.url;
+  if (!mediaUrl) return;
+  try {
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) return;
+    await supabase.from("generations").insert({
+      user_id: auth.user.id,
+      type: save.type,
+      status: "completed",
+      progress: 100,
+      provider: "higgsfield",
+      model: save.model,
+      prompt: save.prompt,
+      media_url: mediaUrl,
+      duration: save.duration ?? null,
+      external_task_id: result.request_id ?? null,
+      completed_at: new Date().toISOString(),
+    });
+  } catch {
+    /* history persistence must never break the generation flow */
+  }
+}
+
+
 interface GenerateOpts {
   /** Higgsfield API path for the model, e.g. "/v1/text2image/soul" or "/v1/image2video/dop" */
   endpoint: string;
   payload: Record<string, unknown>;
   onProgress?: (status: string) => void;
   timeoutMs?: number;
+  /** Persist the finished generation so it shows up in History */
+  save?: SaveOpts;
 }
+
 
 /**
  * Higgsfield generation hook — submits an async request then polls until
@@ -47,7 +83,7 @@ export function useHiggsfield() {
   const [error, setError] = useState<string | null>(null);
   const cancelRef = useRef<{ requestId?: string; cancelled: boolean }>({ cancelled: false });
 
-  const generate = useCallback(async ({ endpoint, payload, onProgress, timeoutMs = 300_000 }: GenerateOpts) => {
+  const generate = useCallback(async ({ endpoint, payload, onProgress, timeoutMs = 300_000, save }: GenerateOpts) => {
     setLoading(true);
     setError(null);
     setResult(null);
@@ -77,6 +113,7 @@ export function useHiggsfield() {
         onProgress?.(cur.status);
         if (cur.status === "completed") {
           setResult(cur);
+          if (save) await persistGeneration(save, cur);
           return cur;
         }
         if (cur.status === "failed" || cur.status === "nsfw") {
