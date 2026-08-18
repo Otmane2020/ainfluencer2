@@ -35,6 +35,54 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
+function errorMentionsMissingParams(data: unknown) {
+  const serialized = JSON.stringify(data ?? "").toLowerCase();
+  return (
+    serialized.includes('"params"') &&
+    (serialized.includes("field required") || serialized.includes("missing"))
+  );
+}
+
+/**
+ * Higgsfield endpoints do not all share the same request-body envelope.
+ * Current image-to-video endpoints validate prompt/image_url at body root,
+ * while some older endpoints have required { params: ... }.
+ *
+ * Submit flat first (the format required by current I2V endpoints), then retry
+ * exactly once with { params } only when Higgsfield explicitly reports that
+ * the params field itself is missing. Credits are reserved outside this helper,
+ * so this compatibility retry can never double-charge the user.
+ */
+async function submitToHiggsfield(
+  endpoint: string,
+  payload: Record<string, unknown>,
+  authHeader: string,
+) {
+  const request = async (body: unknown, bodyMode: "flat" | "params") => {
+    const response = await fetch(`${HIGGSFIELD_BASE}${endpoint}`, {
+      method: "POST",
+      headers: {
+        Authorization: authHeader,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    const data = await readJson(response) as Record<string, unknown>;
+    return { response, data, bodyMode };
+  };
+
+  const flat = await request(payload, "flat");
+  if (flat.response.ok) return flat;
+
+  if (flat.response.status === 422 && errorMentionsMissingParams(flat.data)) {
+    console.warn("[higgsfield] endpoint requires params envelope; retrying once", endpoint);
+    return request({ params: payload }, "params");
+  }
+
+  return flat;
+}
+
 function normalizeDuration(value: unknown) {
   const duration = Number(value ?? 5);
   const supported = [3, 5, 8, 10];
@@ -144,7 +192,6 @@ async function markTerminalAndRefundIfNeeded(
 
   if (upstreamStatus !== "failed" && upstreamStatus !== "nsfw") return { refunded: false };
 
-  // Claim the refund transition first so repeated polling cannot refund twice.
   const { data: claimed, error: claimError } = await admin
     .from("generation_billing_reservations")
     .update({ status: "refunded", updated_at: new Date().toISOString() })
@@ -162,7 +209,6 @@ async function markTerminalAndRefundIfNeeded(
     `Refunded ${reservation.credits} credits for failed Higgsfield request ${requestId}`,
   );
 
-  // If adding the credits itself failed, restore the reservation so a later poll can retry.
   if (!refunded) {
     await admin
       .from("generation_billing_reservations")
@@ -252,7 +298,12 @@ Deno.serve(async (req) => {
     }
 
     if (!endpoint || typeof endpoint !== "string") return json({ error: "endpoint required" }, 400);
-    const p = (payload ?? {}) as Record<string, unknown>;
+    const incomingPayload = (payload ?? {}) as Record<string, unknown>;
+    const nestedParams = incomingPayload.params;
+    const p = nestedParams && typeof nestedParams === "object" && !Array.isArray(nestedParams)
+      ? { ...(nestedParams as Record<string, unknown>) }
+      : { ...incomingPayload };
+
     if (!p.prompt || typeof p.prompt !== "string" || !p.prompt.trim()) {
       return json({ error: "prompt is required" }, 400);
     }
@@ -282,16 +333,8 @@ Deno.serve(async (req) => {
       `Reserved ${credits} credits for Higgsfield ${endpoint}`,
     );
 
-    const response = await fetch(`${HIGGSFIELD_BASE}${endpoint}`, {
-      method: "POST",
-      headers: {
-        Authorization: authHeader,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({ params: p }),
-    });
-    const data = await readJson(response) as Record<string, unknown>;
+    const submitted = await submitToHiggsfield(endpoint, p, authHeader);
+    const { response, data, bodyMode } = submitted;
 
     if (!response.ok) {
       await refundCredits(
@@ -301,7 +344,12 @@ Deno.serve(async (req) => {
         `Refunded ${credits} credits because Higgsfield submit failed (${response.status})`,
       );
       return json(
-        { error: pickErrorMessage(data, `Higgsfield API error (${response.status})`), credits_refunded: true },
+        {
+          error: pickErrorMessage(data, `Higgsfield API error (${response.status})`),
+          provider_error: data,
+          request_body_mode: bodyMode,
+          credits_refunded: true,
+        },
         response.status,
       );
     }
@@ -314,7 +362,12 @@ Deno.serve(async (req) => {
         credits,
         `Refunded ${credits} credits because Higgsfield returned no request_id`,
       );
-      return json({ error: "Higgsfield returned no request_id", credits_refunded: true }, 502);
+      return json({
+        error: "Higgsfield returned no request_id",
+        provider_response: data,
+        request_body_mode: bodyMode,
+        credits_refunded: true,
+      }, 502);
     }
 
     const { error: reservationError } = await admin.from("generation_billing_reservations").upsert({
@@ -332,6 +385,7 @@ Deno.serve(async (req) => {
 
     return json({
       ...data,
+      request_body_mode: bodyMode,
       credits_charged: credits,
       estimated_provider_cost_usd: Number((credits * HIGGSFIELD_PROVIDER_CREDIT_USD).toFixed(2)),
     });
