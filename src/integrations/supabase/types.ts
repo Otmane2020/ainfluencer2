@@ -525,6 +525,39 @@ export type Database = {
           },
         ]
       }
+      generation_billing_reservations: {
+        Row: {
+          created_at: string
+          credits: number
+          endpoint: string
+          provider: string
+          request_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credits: number
+          endpoint: string
+          provider?: string
+          request_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credits?: number
+          endpoint?: string
+          provider?: string
+          request_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       generations: {
         Row: {
           actual_cost: number | null

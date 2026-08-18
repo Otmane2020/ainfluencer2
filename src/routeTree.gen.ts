@@ -27,6 +27,7 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as UseCasesRouteImport } from './routes/use-cases'
 import { Route as ShellCalendarRouteImport } from './routes/_shell.calendar'
 import { Route as ShellCampaignsRouteImport } from './routes/_shell.campaigns'
+import { Route as ShellCreateRouteImport } from './routes/_shell.create'
 import { Route as ShellDashboardRouteImport } from './routes/_shell.dashboard'
 import { Route as ShellImageToVideoRouteImport } from './routes/_shell.image-to-video'
 import { Route as ShellImagesRouteImport } from './routes/_shell.images'
@@ -38,6 +39,7 @@ import { Route as ShellSettingsRouteImport } from './routes/_shell.settings'
 import { Route as ShellSmartImageRouteImport } from './routes/_shell.smart-image'
 import { Route as ShellVideosRouteImport } from './routes/_shell.videos'
 import { Route as ShellVideosLegacyRouteImport } from './routes/_shell.videos-legacy'
+import { Route as ShellVoiceoverRouteImport } from './routes/_shell.voiceover'
 import { Route as BlogIndexRouteImport } from './routes/blog.index'
 import { Route as BlogAiVideoAdsGeneratorRouteImport } from './routes/blog.ai-video-ads-generator'
 import { Route as BlogAiVideoForEcommerceRouteImport } from './routes/blog.ai-video-for-ecommerce'
@@ -147,6 +149,11 @@ const ShellCampaignsRoute = ShellCampaignsRouteImport.update({
   path: '/campaigns',
   getParentRoute: () => ShellRoute,
 } as any)
+const ShellCreateRoute = ShellCreateRouteImport.update({
+  id: '/create',
+  path: '/create',
+  getParentRoute: () => ShellRoute,
+} as any)
 const ShellDashboardRoute = ShellDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -200,6 +207,11 @@ const ShellVideosRoute = ShellVideosRouteImport.update({
 const ShellVideosLegacyRoute = ShellVideosLegacyRouteImport.update({
   id: '/videos-legacy',
   path: '/videos-legacy',
+  getParentRoute: () => ShellRoute,
+} as any)
+const ShellVoiceoverRoute = ShellVoiceoverRouteImport.update({
+  id: '/voiceover',
+  path: '/voiceover',
   getParentRoute: () => ShellRoute,
 } as any)
 const BlogIndexRoute = BlogIndexRouteImport.update({
@@ -321,6 +333,7 @@ export interface FileRoutesByFullPath {
   '/use-cases': typeof UseCasesRoute
   '/calendar': typeof ShellCalendarRoute
   '/campaigns': typeof ShellCampaignsRoute
+  '/create': typeof ShellCreateRoute
   '/dashboard': typeof ShellDashboardRoute
   '/image-to-video': typeof ShellImageToVideoRoute
   '/images': typeof ShellImagesRoute
@@ -332,6 +345,7 @@ export interface FileRoutesByFullPath {
   '/smart-image': typeof ShellSmartImageRoute
   '/videos': typeof ShellVideosRoute
   '/videos-legacy': typeof ShellVideosLegacyRoute
+  '/voiceover': typeof ShellVoiceoverRoute
   '/blog/ai-video-ads-generator': typeof BlogAiVideoAdsGeneratorRoute
   '/blog/ai-video-for-ecommerce': typeof BlogAiVideoForEcommerceRoute
   '/blog/best-ai-video-generators-2026': typeof BlogBestAiVideoGenerators2026Route
@@ -370,6 +384,7 @@ export interface FileRoutesByTo {
   '/use-cases': typeof UseCasesRoute
   '/calendar': typeof ShellCalendarRoute
   '/campaigns': typeof ShellCampaignsRoute
+  '/create': typeof ShellCreateRoute
   '/dashboard': typeof ShellDashboardRoute
   '/image-to-video': typeof ShellImageToVideoRoute
   '/images': typeof ShellImagesRoute
@@ -381,6 +396,7 @@ export interface FileRoutesByTo {
   '/smart-image': typeof ShellSmartImageRoute
   '/videos': typeof ShellVideosRoute
   '/videos-legacy': typeof ShellVideosLegacyRoute
+  '/voiceover': typeof ShellVoiceoverRoute
   '/blog/ai-video-ads-generator': typeof BlogAiVideoAdsGeneratorRoute
   '/blog/ai-video-for-ecommerce': typeof BlogAiVideoForEcommerceRoute
   '/blog/best-ai-video-generators-2026': typeof BlogBestAiVideoGenerators2026Route
@@ -421,6 +437,7 @@ export interface FileRoutesById {
   '/use-cases': typeof UseCasesRoute
   '/_shell/calendar': typeof ShellCalendarRoute
   '/_shell/campaigns': typeof ShellCampaignsRoute
+  '/_shell/create': typeof ShellCreateRoute
   '/_shell/dashboard': typeof ShellDashboardRoute
   '/_shell/image-to-video': typeof ShellImageToVideoRoute
   '/_shell/images': typeof ShellImagesRoute
@@ -432,6 +449,7 @@ export interface FileRoutesById {
   '/_shell/smart-image': typeof ShellSmartImageRoute
   '/_shell/videos': typeof ShellVideosRoute
   '/_shell/videos-legacy': typeof ShellVideosLegacyRoute
+  '/_shell/voiceover': typeof ShellVoiceoverRoute
   '/blog/ai-video-ads-generator': typeof BlogAiVideoAdsGeneratorRoute
   '/blog/ai-video-for-ecommerce': typeof BlogAiVideoForEcommerceRoute
   '/blog/best-ai-video-generators-2026': typeof BlogBestAiVideoGenerators2026Route
@@ -472,6 +490,7 @@ export interface FileRouteTypes {
     | '/use-cases'
     | '/calendar'
     | '/campaigns'
+    | '/create'
     | '/dashboard'
     | '/image-to-video'
     | '/images'
@@ -483,6 +502,7 @@ export interface FileRouteTypes {
     | '/smart-image'
     | '/videos'
     | '/videos-legacy'
+    | '/voiceover'
     | '/blog/ai-video-ads-generator'
     | '/blog/ai-video-for-ecommerce'
     | '/blog/best-ai-video-generators-2026'
@@ -521,6 +541,7 @@ export interface FileRouteTypes {
     | '/use-cases'
     | '/calendar'
     | '/campaigns'
+    | '/create'
     | '/dashboard'
     | '/image-to-video'
     | '/images'
@@ -532,6 +553,7 @@ export interface FileRouteTypes {
     | '/smart-image'
     | '/videos'
     | '/videos-legacy'
+    | '/voiceover'
     | '/blog/ai-video-ads-generator'
     | '/blog/ai-video-for-ecommerce'
     | '/blog/best-ai-video-generators-2026'
@@ -571,6 +593,7 @@ export interface FileRouteTypes {
     | '/use-cases'
     | '/_shell/calendar'
     | '/_shell/campaigns'
+    | '/_shell/create'
     | '/_shell/dashboard'
     | '/_shell/image-to-video'
     | '/_shell/images'
@@ -582,6 +605,7 @@ export interface FileRouteTypes {
     | '/_shell/smart-image'
     | '/_shell/videos'
     | '/_shell/videos-legacy'
+    | '/_shell/voiceover'
     | '/blog/ai-video-ads-generator'
     | '/blog/ai-video-for-ecommerce'
     | '/blog/best-ai-video-generators-2026'
@@ -764,6 +788,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShellCampaignsRouteImport
       parentRoute: typeof ShellRoute
     }
+    '/_shell/create': {
+      id: '/_shell/create'
+      path: '/create'
+      fullPath: '/create'
+      preLoaderRoute: typeof ShellCreateRouteImport
+      parentRoute: typeof ShellRoute
+    }
     '/_shell/dashboard': {
       id: '/_shell/dashboard'
       path: '/dashboard'
@@ -839,6 +870,13 @@ declare module '@tanstack/react-router' {
       path: '/videos-legacy'
       fullPath: '/videos-legacy'
       preLoaderRoute: typeof ShellVideosLegacyRouteImport
+      parentRoute: typeof ShellRoute
+    }
+    '/_shell/voiceover': {
+      id: '/_shell/voiceover'
+      path: '/voiceover'
+      fullPath: '/voiceover'
+      preLoaderRoute: typeof ShellVoiceoverRouteImport
       parentRoute: typeof ShellRoute
     }
     '/blog/': {
@@ -980,6 +1018,7 @@ declare module '@tanstack/react-router' {
 interface ShellRouteChildren {
   ShellCalendarRoute: typeof ShellCalendarRoute
   ShellCampaignsRoute: typeof ShellCampaignsRoute
+  ShellCreateRoute: typeof ShellCreateRoute
   ShellDashboardRoute: typeof ShellDashboardRoute
   ShellImageToVideoRoute: typeof ShellImageToVideoRoute
   ShellImagesRoute: typeof ShellImagesRoute
@@ -991,6 +1030,7 @@ interface ShellRouteChildren {
   ShellSmartImageRoute: typeof ShellSmartImageRoute
   ShellVideosRoute: typeof ShellVideosRoute
   ShellVideosLegacyRoute: typeof ShellVideosLegacyRoute
+  ShellVoiceoverRoute: typeof ShellVoiceoverRoute
   ShellHistoryPostsRoute: typeof ShellHistoryPostsRoute
   ShellProjectsIdRoute: typeof ShellProjectsIdRoute
   ShellProjectsNewRoute: typeof ShellProjectsNewRoute
@@ -1001,6 +1041,7 @@ interface ShellRouteChildren {
 const ShellRouteChildren: ShellRouteChildren = {
   ShellCalendarRoute: ShellCalendarRoute,
   ShellCampaignsRoute: ShellCampaignsRoute,
+  ShellCreateRoute: ShellCreateRoute,
   ShellDashboardRoute: ShellDashboardRoute,
   ShellImageToVideoRoute: ShellImageToVideoRoute,
   ShellImagesRoute: ShellImagesRoute,
@@ -1012,6 +1053,7 @@ const ShellRouteChildren: ShellRouteChildren = {
   ShellSmartImageRoute: ShellSmartImageRoute,
   ShellVideosRoute: ShellVideosRoute,
   ShellVideosLegacyRoute: ShellVideosLegacyRoute,
+  ShellVoiceoverRoute: ShellVoiceoverRoute,
   ShellHistoryPostsRoute: ShellHistoryPostsRoute,
   ShellProjectsIdRoute: ShellProjectsIdRoute,
   ShellProjectsNewRoute: ShellProjectsNewRoute,
