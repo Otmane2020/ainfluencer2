@@ -3,7 +3,7 @@ import {
   LayoutDashboard,
   Settings,
   LogOut,
-  Clock,
+  Library,
   Sparkles,
   FolderKanban,
 } from "lucide-react";
@@ -25,12 +25,12 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const createNavItem = { title: "AI Studio", url: "/images", icon: Sparkles };
+const createNavItem = { title: "Create", url: "/create", icon: Sparkles };
 
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderKanban },
-  { title: "History", url: "/history", icon: Clock },
+  { title: "Library", url: "/history", icon: Library },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
@@ -41,7 +41,12 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => {
+    if (path === "/create") {
+      return ["/create", "/images", "/videos", "/image-to-video"].includes(location.pathname);
+    }
+    return location.pathname === path;
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -58,7 +63,7 @@ export function AppSidebar() {
           {!collapsed && (
             <div className="flex flex-col overflow-hidden">
               <span className="font-display text-xl font-bold text-gradient truncate">ClipMotion</span>
-              <span className="text-xs text-muted-foreground truncate">AI Creative Studio</span>
+              <span className="text-xs text-muted-foreground truncate">Product Motion Studio</span>
             </div>
           )}
         </div>
