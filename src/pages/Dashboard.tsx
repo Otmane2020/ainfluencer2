@@ -1,24 +1,20 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { NotificationSettings } from "@/components/NotificationSettings";
+import { Card, CardContent } from "@/components/ui/card";
 import { FeatureShowcase } from "@/components/dashboard/FeatureShowcase";
-import { LowCreditsNudge } from "@/components/nudges/LowCreditsNudge";
 import {
-  Image as ImageIcon,
-  Video,
-  Sparkles,
-  Coins,
   ArrowRight,
-  Plus,
+  Film,
   FolderKanban,
-  TrendingUp,
-  Clock,
-  CheckCircle2,
+  Image as ImageIcon,
+  Library,
+  Mic2,
+  Plus,
+  Sparkles,
 } from "lucide-react";
 
 interface Project {
@@ -27,232 +23,201 @@ interface Project {
   description: string | null;
   logo_url: string | null;
   theme_color: string;
-  posts_per_week: number;
 }
 
 interface Stats {
-  imagesGenerated: number;
-  videosGenerated: number;
-  totalGenerations: number;
-  totalProjects: number;
+  visuals: number;
+  motion: number;
+  voiceovers: number;
+  projects: number;
 }
 
 const Dashboard = () => {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
-  const [stats, setStats] = useState<Stats>({
-    imagesGenerated: 0,
-    videosGenerated: 0,
-    totalGenerations: 0,
-    totalProjects: 0,
-  });
+  const [stats, setStats] = useState<Stats>({ visuals: 0, motion: 0, voiceovers: 0, projects: 0 });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (!user?.id) return;
 
-  const fetchData = async () => {
-    try {
-      const { data: projectsData } = await supabase
-        .from("projects")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(4);
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const [projectsResult, projectCountResult, generationsResult] = await Promise.all([
+          supabase
+            .from("projects")
+            .select("id,name,description,logo_url,theme_color")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(4),
+          supabase
+            .from("projects")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user.id),
+          supabase
+            .from("generations")
+            .select("type")
+            .eq("user_id", user.id)
+            .in("status", ["completed", "success", "ready"]),
+        ]);
 
-      if (projectsData) {
-        setProjects(projectsData as never);
-        setStats((prev) => ({ ...prev, totalProjects: projectsData.length }));
+        setProjects((projectsResult.data || []) as Project[]);
+        const generations = generationsResult.data || [];
+        setStats({
+          visuals: generations.filter((item) => item.type === "image").length,
+          motion: generations.filter((item) => item.type === "video").length,
+          voiceovers: generations.filter((item) => item.type === "audio").length,
+          projects: projectCountResult.count || 0,
+        });
+      } catch (error) {
+        console.error("Dashboard load failed", error);
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      const { data: generationsData } = await supabase
-        .from("generations")
-        .select("type")
-        .in("status", ["completed", "success"]);
-
-      if (generationsData) {
-        const images = generationsData.filter((g: any) => (g.type || "").includes("image")).length;
-        const videos = generationsData.filter((g: any) => (g.type || "").includes("video")).length;
-        setStats((prev) => ({
-          ...prev,
-          imagesGenerated: images,
-          videosGenerated: videos,
-          totalGenerations: generationsData.length,
-        }));
-      }
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    void fetchData();
+  }, [user?.id]);
 
   const statCards = [
-    {
-      title: "Images",
-      value: stats.imagesGenerated,
-      icon: ImageIcon,
-      color: "text-primary",
-      bgColor: "bg-primary/10",
-    },
-    {
-      title: "Videos",
-      value: stats.videosGenerated,
-      icon: Video,
-      color: "text-secondary",
-      bgColor: "bg-secondary/10",
-    },
-    {
-      title: "Total Generations",
-      value: stats.totalGenerations,
-      icon: Sparkles,
-      color: "text-accent",
-      bgColor: "bg-accent/10",
-    },
-    {
-      title: "Projects",
-      value: stats.totalProjects,
-      icon: FolderKanban,
-      color: "text-primary",
-      bgColor: "bg-primary/10",
-    },
+    { title: "Product visuals", value: stats.visuals, icon: ImageIcon },
+    { title: "Motion clips", value: stats.motion, icon: Film },
+    { title: "Voiceovers", value: stats.voiceovers, icon: Mic2 },
+    { title: "Projects", value: stats.projects, icon: FolderKanban },
   ];
 
-
-
   return (
-    <div className="space-y-6 md:space-y-8">
-      {/* Nudge: Low credits warning */}
-      <LowCreditsNudge />
+    <div className="space-y-7 md:space-y-9">
+      <section className="flex flex-col gap-5 rounded-3xl border border-border bg-gradient-to-br from-primary/10 via-background to-secondary/5 p-6 md:flex-row md:items-center md:justify-between md:p-8">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-medium text-primary">
+            <Sparkles className="h-4 w-4" /> ClipMotion workspace
+          </div>
+          <h1 className="mt-2 font-display text-3xl font-bold md:text-4xl">
+            {profile?.display_name ? `Welcome back, ${profile.display_name}` : "Create your next product ad"}
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
+            Start with a product photo, create the visual direction, animate the strongest take and add a voiceover when the ad needs narration.
+          </p>
+        </div>
+        <Button size="lg" className="shrink-0 gap-2 gradient-primary" onClick={() => navigate("/create")}>
+          <Film className="h-4 w-4" /> Create product motion
+        </Button>
+      </section>
 
-      {/* Nudge: Onboarding progress - Hidden */}
-      {/* <OnboardingProgress /> */}
+      <FeatureShowcase />
 
-      {/* AI Creation Studio - Feature Showcase (Top Priority) */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        <FeatureShowcase />
-      </motion.div>
-
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        {statCards.map((stat, index) => (
-          <motion.div
-            key={stat.title}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 + index * 0.1 }}
-          >
-            <Card className="hover:shadow-lg transition-shadow">
-              <CardContent className="p-4 md:p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs md:text-sm text-muted-foreground">{stat.title}</p>
-                    <p className="text-2xl md:text-3xl font-bold mt-1">{stat.value}</p>
-                  </div>
-                  <div className={`h-10 w-10 md:h-12 md:w-12 rounded-xl ${stat.bgColor} flex items-center justify-center shrink-0`}>
-                    <stat.icon className={`h-5 w-5 md:h-6 md:w-6 ${stat.color}`} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Recent Projects */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display text-xl font-semibold">Recent Projects</h2>
-          <Button variant="ghost" onClick={() => navigate("/projects")} className="gap-2">
-            View All
-            <ArrowRight className="h-4 w-4" />
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="font-display text-xl font-semibold">Your creative library</h2>
+            <p className="text-sm text-muted-foreground">Completed outputs across ClipMotion.</p>
+          </div>
+          <Button variant="ghost" className="gap-2" onClick={() => navigate("/history")}>
+            Open library <ArrowRight className="h-4 w-4" />
           </Button>
         </div>
 
-        {projects.length === 0 ? (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {statCards.map((stat, index) => (
+            <motion.div
+              key={stat.title}
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.06 }}
+            >
+              <Card>
+                <CardContent className="p-4 md:p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground md:text-sm">{stat.title}</p>
+                      <p className="mt-1 text-2xl font-bold md:text-3xl">{isLoading ? "—" : stat.value}</p>
+                    </div>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                      <stat.icon className="h-5 w-5 text-primary" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="font-display text-xl font-semibold">Product projects</h2>
+            <p className="text-sm text-muted-foreground">Keep brand context and product work organized.</p>
+          </div>
+          <Button variant="ghost" className="gap-2" onClick={() => navigate("/projects")}>
+            View all <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {projects.length === 0 && !isLoading ? (
           <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                <FolderKanban className="h-8 w-8 text-muted-foreground" />
+            <CardContent className="flex flex-col items-center justify-center py-10 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+                <FolderKanban className="h-7 w-7 text-primary" />
               </div>
-              <h3 className="font-semibold mb-2">No projects yet</h3>
-              <p className="text-muted-foreground text-sm text-center mb-4">
-                Create your first project to automate your publications
+              <h3 className="mt-4 font-semibold">Create your first product project</h3>
+              <p className="mt-1 max-w-md text-sm leading-6 text-muted-foreground">
+                Save product and brand context so prompt assistance can stay consistent across new visuals and motion clips.
               </p>
-              <Button onClick={() => navigate("/projects/new")} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Create Project
+              <Button className="mt-4 gap-2" onClick={() => navigate("/projects/new")}>
+                <Plus className="h-4 w-4" /> New project
               </Button>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {projects.map((project, index) => (
-              <motion.div
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {projects.map((project) => (
+              <Card
                 key={project.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.7 + index * 0.1 }}
+                className="cursor-pointer transition-all hover:border-primary/30 hover:shadow-lg"
+                onClick={() => navigate(`/projects/${project.id}`)}
               >
-                <Card
-                  className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]"
-                  onClick={() => navigate(`/projects/${project.id}`)}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="h-10 w-10 rounded-xl flex items-center justify-center text-white font-bold"
-                        style={{ backgroundColor: project.theme_color }}
-                      >
-                        {project.logo_url ? (
-                          <img
-                            src={project.logo_url}
-                            alt={project.name}
-                            className="h-full w-full rounded-xl object-cover"
-                          />
-                        ) : (
-                          project.name[0].toUpperCase()
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <CardTitle className="text-base truncate">{project.name}</CardTitle>
-                        <p className="text-xs text-muted-foreground">
-                          {project.posts_per_week} posts/week
-                        </p>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  {project.description && (
-                    <CardContent className="pt-0">
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {project.description}
-                      </p>
-                    </CardContent>
-                  )}
-                </Card>
-              </motion.div>
+                <CardContent className="p-5">
+                  <div
+                    className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl font-bold text-white"
+                    style={{ backgroundColor: project.theme_color || "hsl(var(--primary))" }}
+                  >
+                    {project.logo_url ? (
+                      <img src={project.logo_url} alt={project.name} className="h-full w-full object-cover" />
+                    ) : (
+                      project.name.slice(0, 1).toUpperCase()
+                    )}
+                  </div>
+                  <h3 className="mt-4 truncate font-semibold">{project.name}</h3>
+                  <p className="mt-1 line-clamp-2 min-h-10 text-xs leading-5 text-muted-foreground">
+                    {project.description || "Product creative workspace"}
+                  </p>
+                </CardContent>
+              </Card>
             ))}
           </div>
         )}
-      </motion.div>
+      </section>
 
-      {/* Notification Settings */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.8 }}
+      <button
+        type="button"
+        onClick={() => navigate("/history")}
+        className="flex w-full items-center justify-between rounded-2xl border border-border bg-muted/20 p-4 text-left transition-colors hover:bg-muted/40"
       >
-        <NotificationSettings />
-      </motion.div>
+        <span className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+            <Library className="h-5 w-5 text-primary" />
+          </span>
+          <span>
+            <span className="block text-sm font-medium">Generation Library</span>
+            <span className="block text-xs text-muted-foreground">Review, download and reuse your finished assets.</span>
+          </span>
+        </span>
+        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+      </button>
     </div>
   );
 };
