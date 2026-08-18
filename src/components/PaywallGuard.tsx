@@ -61,8 +61,6 @@ export const PaywallGuard = ({ feature, children, requiredPlan }: PaywallGuardPr
   const config = FEATURE_CONFIG[feature];
   const effectiveRequiredPlan = requiredPlan || config.requiredPlan;
 
-  const freeCredits = credits?.balance ?? 0;
-
   // Determine if user has access — no free trial: an active paid plan is required
   const hasAccess = (): boolean => {
     if (!subscription.isSubscribed) return false;

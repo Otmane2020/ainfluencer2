@@ -45,9 +45,8 @@ const Auth = () => {
 
     const checkAndRedirect = async (_userId: string) => {
       if (!isMounted) return;
-      // Send everyone straight into the studio — free welcome credits let them
-      // experience the product before hitting any paywall.
-      navigate("/images", { replace: true });
+      // No free trial: users must pick and pay for a plan first.
+      navigate("/choose-plan", { replace: true });
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
