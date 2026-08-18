@@ -62,6 +62,22 @@ async function getDeepgramKey(admin: ReturnType<typeof getAdminClient>) {
   return typeof data === "string" && data.trim() ? data.trim() : null;
 }
 
+async function validateDeepgramKey(apiKey: string) {
+  try {
+    const response = await fetch("https://api.deepgram.com/v1/projects", {
+      method: "GET",
+      headers: {
+        Authorization: `Token ${apiKey}`,
+        Accept: "application/json",
+      },
+    });
+    return { ok: response.ok, status: response.status };
+  } catch (error) {
+    console.warn("[clipmotion-voice] Deepgram health request failed", error);
+    return { ok: false, status: 0 };
+  }
+}
+
 function voiceCreditCost(characterCount: number) {
   return Math.max(1, Math.ceil(Math.max(0, characterCount) / 1500));
 }
@@ -111,7 +127,17 @@ Deno.serve(async (req) => {
     const deepgramKey = await getDeepgramKey(admin);
 
     if (action === "health") {
-      return json({ ok: Boolean(deepgramKey), configured: Boolean(deepgramKey), provider: "deepgram" });
+      if (!deepgramKey) {
+        return json({ ok: false, configured: false, provider: "deepgram", code: "VOICE_NOT_CONFIGURED" });
+      }
+      const credentialCheck = await validateDeepgramKey(deepgramKey);
+      return json({
+        ok: credentialCheck.ok,
+        configured: true,
+        credentials_valid: credentialCheck.ok,
+        provider_status: credentialCheck.status,
+        provider: "deepgram",
+      });
     }
 
     if (!deepgramKey) return json({ error: "Voice service is not configured", code: "VOICE_NOT_CONFIGURED" }, 503);
