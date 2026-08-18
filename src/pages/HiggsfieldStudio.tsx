@@ -698,7 +698,10 @@ const HiggsfieldStudio = ({ defaultTab = "product-motion" }: Props) => {
                     )}
                   </section>
 
-                  <CreditQuote credits={totalMotionCredits} label={voiceEnabled ? `${duration}s motion + voice` : `${duration}s product motion`} />
+                  <p className="text-[11px] text-muted-foreground">For the most faithful result, use a clean product photo and keep motion subtle.</p>
+
+                  <CreditQuote credits={totalMotionCredits} label={voiceEnabled ? `${effectiveDuration}s motion + voice` : `${effectiveDuration}s product motion`} />
+
 
                   {!subscription.isSubscribed ? (
                     <Button size="lg" className="w-full gap-2" onClick={() => setShowPaywall(true)}>Choose a plan <ArrowRight className="h-4 w-4" /></Button>
