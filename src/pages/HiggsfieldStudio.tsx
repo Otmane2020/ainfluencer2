@@ -269,7 +269,10 @@ const HiggsfieldStudio = ({ defaultTab = "product-motion" }: Props) => {
     [visualRecipe],
   );
 
-  const estimatedMotionCredits = serverMotionCredits ?? getProductMotionCreditCost(duration, "720p");
+  const isDopTurbo = videoEngine === DOP_TURBO_ENDPOINT;
+  const effectiveDuration = isDopTurbo ? DOP_TURBO_DURATION : duration;
+  const estimatedMotionCredits = serverMotionCredits ?? getProductMotionCreditCost(effectiveDuration, "720p");
+
   const visualCredits = getProductVisualCreditCost(resolution);
   const voiceCredits = voiceEnabled ? getVoiceoverCreditCost(voiceText.trim().length) : 0;
   const totalMotionCredits = estimatedMotionCredits + voiceCredits;
