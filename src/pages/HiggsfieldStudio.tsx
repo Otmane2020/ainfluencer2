@@ -694,9 +694,10 @@ const HiggsfieldStudio = ({ defaultTab = "product-motion" }: Props) => {
                   </div>
 
                   <div>
-                    <Label>Product / campaign details</Label>
-                    <div className="relative mt-2"><Textarea value={visualDirection} onChange={(event) => setVisualDirection(event.target.value)} placeholder="Describe the product, material, background and campaign mood…" rows={4} className="pr-12" /><div className="absolute right-1 top-1"><ProjectPromptButton mode="image" onPromptGenerated={setVisualDirection} /></div></div>
+                    <div className="flex flex-wrap items-center justify-between gap-2"><Label>Product / campaign details</Label><ProjectPromptButton mode="image" onPromptGenerated={setVisualDirection} /></div>
+                    <Textarea className="mt-2" value={visualDirection} onChange={(event) => setVisualDirection(event.target.value)} placeholder="Describe the product, material, background and campaign mood…" rows={4} />
                   </div>
+
 
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div><Label>Format</Label><Select value={aspect} onValueChange={setAspect}><SelectTrigger className="mt-2"><SelectValue /></SelectTrigger><SelectContent>{ASPECTS.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></div>
