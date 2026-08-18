@@ -126,7 +126,7 @@ export const BlogArticleLayout = ({
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Button asChild size="lg" className="font-semibold">
                 <Link to="/auth">
-                  Start Creating Free <ArrowRight className="ml-2 h-5 w-5" />
+                  Get Started <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
               <Button asChild variant="outline" size="lg">

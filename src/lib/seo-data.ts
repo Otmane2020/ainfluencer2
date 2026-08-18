@@ -207,7 +207,7 @@ export const seoPages = {
   pricing: {
     title: "Pricing – Affordable AI Video Plans from $49/mo | ClipMotion",
     description:
-      "Simple, transparent pricing for AI video generation. Start free, then upgrade to Starter ($49), Pro ($149), or Agency ($299) plans. No hidden fees.",
+      "Simple, transparent pricing for AI video generation. Plans start at Starter ($49), Pro ($149), or Agency ($299) plans. No hidden fees.",
     keywords:
       "AI video pricing, video generator cost, motion design pricing, AI video subscription",
     canonical: `${SITE_URL}/pricing`,

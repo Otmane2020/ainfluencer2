@@ -119,7 +119,7 @@ const FeaturesPage = () => {
               onClick={() => navigate("/auth")}
               className="gradient-primary shadow-glow"
             >
-              Start Creating Free <ArrowRight className="ml-2 h-5 w-5" />
+              Get Started <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </motion.div>
         </div>

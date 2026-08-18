@@ -380,7 +380,7 @@ const NanoBananaVideoPage = () => {
               Ready to Create Videos <span className="text-gradient">10x Faster</span>?
             </h2>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Join thousands of creators using Nano Banana Video to dominate short-form content. Start free today.
+              Join thousands of creators using Nano Banana Video to dominate short-form content. Pick a plan today.
             </p>
             <Button
               size="lg"

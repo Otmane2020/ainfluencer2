@@ -98,7 +98,7 @@ export const MobileLandingPage = () => {
             <span className="text-gradient">cinematic video</span>
           </h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            One studio, the best generative models, one credit balance. Start free — no card
+            One studio, the best generative models, one credit balance. Plans from $19/mo
             required.
           </p>
 
@@ -258,7 +258,7 @@ export const MobileLandingPage = () => {
       {/* Pricing */}
       <section id="pricing" className="px-4 py-8">
         <h2 className="font-display text-xl font-bold">Simple pricing</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Start free, upgrade when you scale.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Pick a plan, upgrade when you scale.</p>
         <div className="mt-4">
           <PricingPacks compact />
         </div>
