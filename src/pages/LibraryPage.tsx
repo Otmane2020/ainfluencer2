@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@/lib/router-compat";
-import { Download, Film, Image as ImageIcon, Library, Loader2, Mic2, RefreshCw, Sparkles } from "lucide-react";
+import { Download, Film, Image as ImageIcon, Library, Loader2, Mic2, RefreshCw, Sparkles, Volume2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -82,26 +82,23 @@ const LibraryPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <div className="inline-flex items-center gap-2 text-sm font-medium text-primary">
-            <Library className="h-4 w-4" /> Creative Library
+      <div className="relative overflow-hidden rounded-[26px] border border-primary/15 bg-gradient-to-br from-primary/12 via-background to-secondary/8 p-6">
+        <div className="pointer-events-none absolute -right-20 -top-20 h-52 w-52 rounded-full bg-primary/15 blur-3xl" />
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 text-sm font-semibold text-primary"><Library className="h-4 w-4" /> Creative Library</div>
+            <h1 className="mt-2 font-display text-3xl font-black">Your product creative, in one place.</h1>
+            <p className="mt-2 text-sm text-muted-foreground">Visuals, motion clips and attached voice tracks stay together.</p>
           </div>
-          <h1 className="mt-2 font-display text-3xl font-bold">Everything you created in ClipMotion</h1>
-          <p className="mt-2 text-muted-foreground">Product visuals, motion clips and voiceovers in one place.</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
-          </Button>
-          <Button size="sm" className="gradient-primary" onClick={() => navigate("/create")}>
-            <Sparkles className="mr-2 h-4 w-4" /> Create
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}><RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh</Button>
+            <Button size="sm" className="gradient-primary" onClick={() => navigate("/create")}><Sparkles className="mr-2 h-4 w-4" /> Create</Button>
+          </div>
         </div>
       </div>
 
       <Tabs value={filter} onValueChange={(value) => setFilter(value as Filter)}>
-        <TabsList className="grid h-auto w-full grid-cols-4 sm:w-fit">
+        <TabsList className="grid h-auto w-full grid-cols-4 rounded-2xl p-1.5 sm:w-fit">
           <TabsTrigger value="all">All · {counts.all}</TabsTrigger>
           <TabsTrigger value="video">Motion · {counts.video}</TabsTrigger>
           <TabsTrigger value="image">Visuals · {counts.image}</TabsTrigger>
@@ -110,20 +107,9 @@ const LibraryPage = () => {
       </Tabs>
 
       {loading ? (
-        <div className="flex min-h-64 items-center justify-center">
-          <Loader2 className="h-7 w-7 animate-spin text-primary" />
-        </div>
+        <div className="flex min-h-64 items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-primary" /></div>
       ) : visible.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="flex min-h-64 flex-col items-center justify-center text-center">
-            <Library className="h-9 w-9 text-muted-foreground" />
-            <h2 className="mt-4 font-semibold">Nothing here yet</h2>
-            <p className="mt-1 max-w-md text-sm leading-6 text-muted-foreground">
-              Create a product visual, animate a product photo or generate a voiceover and it will appear here.
-            </p>
-            <Button className="mt-4" onClick={() => navigate("/create")}>Start creating</Button>
-          </CardContent>
-        </Card>
+        <Card className="border-dashed"><CardContent className="flex min-h-64 flex-col items-center justify-center text-center"><Library className="h-9 w-9 text-muted-foreground" /><h2 className="mt-4 font-semibold">Nothing here yet</h2><p className="mt-1 max-w-md text-sm leading-6 text-muted-foreground">Create a product visual or motion clip and it will appear here.</p><Button className="mt-4" onClick={() => navigate("/create")}>Start creating</Button></CardContent></Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {visible.map((item) => {
@@ -131,52 +117,39 @@ const LibraryPage = () => {
             const Icon = meta.icon;
             const mediaUrl = item.type === "audio" ? item.audio_url || item.media_url : item.media_url;
             const complete = ["completed", "success", "ready"].includes(item.status);
+            const hasAttachedVoice = item.type === "video" && Boolean(item.audio_url);
 
             return (
-              <Card key={item.id} className="overflow-hidden border-border/70">
+              <Card key={item.id} className="overflow-hidden border-border/70 transition-all hover:-translate-y-0.5 hover:shadow-md">
                 <div className="relative aspect-[4/3] bg-muted/30">
                   {item.type === "image" && mediaUrl ? (
                     <img src={mediaUrl} alt={item.prompt || "ClipMotion visual"} className="h-full w-full object-cover" loading="lazy" />
                   ) : item.type === "video" && mediaUrl ? (
                     <video src={mediaUrl} poster={item.thumbnail_url || undefined} controls playsInline preload="metadata" className="h-full w-full bg-black object-contain" />
                   ) : item.type === "audio" && mediaUrl ? (
-                    <div className="flex h-full flex-col items-center justify-center gap-4 p-5">
-                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
-                        <Mic2 className="h-7 w-7 text-primary" />
-                      </div>
-                      <audio src={mediaUrl} controls className="w-full" />
-                    </div>
+                    <div className="flex h-full flex-col items-center justify-center gap-4 p-5"><div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10"><Mic2 className="h-7 w-7 text-primary" /></div><audio src={mediaUrl} controls className="w-full" /></div>
                   ) : (
-                    <div className="flex h-full flex-col items-center justify-center gap-3 p-5 text-center">
-                      <Icon className="h-8 w-8 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">
-                        {complete ? "Output unavailable" : item.status === "failed" ? "Generation failed" : `${item.progress || 0}% · ${item.status}`}
-                      </p>
-                    </div>
+                    <div className="flex h-full flex-col items-center justify-center gap-3 p-5 text-center"><Icon className="h-8 w-8 text-muted-foreground" /><p className="text-sm text-muted-foreground">{complete ? "Output unavailable" : item.status === "failed" ? "Generation failed" : `${item.progress || 0}% · ${item.status}`}</p></div>
                   )}
-                  <div className="absolute left-3 top-3 flex gap-2">
-                    <Badge variant="outline" className="bg-background/90 backdrop-blur-sm">
-                      <Icon className="mr-1 h-3 w-3" /> {meta.label}
-                    </Badge>
+                  <div className="absolute left-3 top-3 flex flex-wrap gap-2">
+                    <Badge variant="outline" className="bg-background/90 backdrop-blur-sm"><Icon className="mr-1 h-3 w-3" /> {meta.label}</Badge>
+                    {hasAttachedVoice && <Badge variant="outline" className="border-primary/20 bg-background/90 text-primary backdrop-blur-sm"><Volume2 className="mr-1 h-3 w-3" /> Voice attached</Badge>}
                     <Badge variant="outline" className={statusClass(item.status)}>{item.status}</Badge>
                   </div>
                 </div>
 
                 <CardContent className="p-4">
-                  <p className="line-clamp-2 min-h-10 text-sm leading-5">
-                    {item.prompt || (item.type === "audio" ? "AI voiceover" : "ClipMotion generation")}
-                  </p>
-                  <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
-                    <span>{new Date(item.created_at).toLocaleDateString()}</span>
-                    <span className="truncate">{item.provider || "ClipMotion"}</span>
-                  </div>
+                  <p className="line-clamp-2 min-h-10 text-sm leading-5">{item.prompt || (item.type === "audio" ? "AI voiceover" : "ClipMotion generation")}</p>
+                  {hasAttachedVoice && item.audio_url && (
+                    <div className="mt-3 rounded-xl border border-primary/15 bg-primary/5 p-3">
+                      <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-primary"><Volume2 className="h-3.5 w-3.5" /> Attached voice track</div>
+                      <audio src={item.audio_url} controls preload="none" className="h-8 w-full" />
+                    </div>
+                  )}
+                  <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-muted-foreground"><span>{new Date(item.created_at).toLocaleDateString()}</span><span className="truncate">{item.provider || "ClipMotion"}</span></div>
                   {item.error_message && <p className="mt-2 line-clamp-2 text-xs text-destructive">{item.error_message}</p>}
                   {mediaUrl && (
-                    <Button asChild variant="outline" size="sm" className="mt-4 w-full">
-                      <a href={mediaUrl} target="_blank" rel="noreferrer" download>
-                        <Download className="mr-2 h-4 w-4" /> Download
-                      </a>
-                    </Button>
+                    <Button asChild variant="outline" size="sm" className="mt-4 w-full"><a href={mediaUrl} target="_blank" rel="noreferrer" download><Download className="mr-2 h-4 w-4" /> Download {item.type === "video" ? "motion" : item.type === "image" ? "visual" : "voice"}</a></Button>
                   )}
                 </CardContent>
               </Card>
