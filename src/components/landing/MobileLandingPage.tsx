@@ -98,8 +98,7 @@ export const MobileLandingPage = () => {
             <span className="text-gradient">cinematic video</span>
           </h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            One studio, the best generative models, one credit balance. Plans from $19/mo
-            required.
+            One studio, the best generative models, one credit balance. Plans from $19/mo.
           </p>
 
           {/* Latest generated video */}
