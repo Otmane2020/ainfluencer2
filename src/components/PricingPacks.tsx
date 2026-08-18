@@ -288,11 +288,11 @@ export const PricingPacks = ({
                 )}
               </div>
 
-              {/* 7-day free trial badge — boosts conversion */}
+              {/* Billing clarity — no trial, cancel anytime */}
               {!subscription.isSubscribed && (
-                <div className="mb-3 flex items-center justify-center gap-1.5 rounded-lg bg-green-500/10 border border-green-500/20 px-3 py-2 text-xs font-semibold text-green-600 dark:text-green-400">
+                <div className="mb-3 flex items-center justify-center gap-1.5 rounded-lg bg-primary/10 border border-primary/20 px-3 py-2 text-xs font-semibold text-primary">
                   <Sparkles className="h-3.5 w-3.5" />
-                  7-day free trial — cancel anytime
+                  Credits available instantly — cancel anytime
                 </div>
               )}
 
