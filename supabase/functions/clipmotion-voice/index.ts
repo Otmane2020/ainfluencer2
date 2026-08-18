@@ -53,21 +53,13 @@ async function getDeepgramKey(admin: ReturnType<typeof getAdminClient>) {
   const envKey = Deno.env.get("DEEPGRAM_API_KEY");
   if (envKey?.trim()) return envKey.trim();
 
-  const { data, error } = await admin
-    .schema("vault")
-    .from("decrypted_secrets")
-    .select("decrypted_secret")
-    .eq("name", "DEEPGRAM_API_KEY")
-    .maybeSingle();
-
+  const { data, error } = await admin.rpc("get_server_secret", { p_name: "DEEPGRAM_API_KEY" });
   if (error) {
-    console.warn("[clipmotion-voice] Vault lookup failed", error.message);
+    console.warn("[clipmotion-voice] Vault RPC lookup failed", error.message);
     return null;
   }
 
-  return typeof data?.decrypted_secret === "string" && data.decrypted_secret.trim()
-    ? data.decrypted_secret.trim()
-    : null;
+  return typeof data === "string" && data.trim() ? data.trim() : null;
 }
 
 function voiceCreditCost(characterCount: number) {
