@@ -1,104 +1,108 @@
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import { useNavigate } from "@/lib/router-compat";
+import {
+  Check,
+  Coins,
+  CreditCard,
+  LogOut,
+  Mic2,
+  Moon,
+  Save,
+  Sparkles,
+  Sun,
+  User,
+  Video,
+  Image as ImageIcon,
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCredits } from "@/hooks/useCredits";
+import { useSubscription } from "@/hooks/useSubscription";
 import { useTheme } from "@/hooks/useTheme";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { CreditsDisplay } from "@/components/CreditsDisplay";
 import {
-  User,
-  Bell,
-  LogOut,
-  Loader2,
-  Crown,
-  Coins,
-  Image,
-  Video,
-  Sparkles,
-  TrendingUp,
-  TrendingDown,
-  Clock,
-  ChevronRight,
-  Sun,
-  Moon,
-} from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { useSubscription } from "@/hooks/useSubscription";
-import { CreditPacks } from "@/components/CreditPacks";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { format } from "date-fns";
+  CLIPMOTION_CREDIT_PACKS,
+  CLIPMOTION_PLANS,
+  getProductMotionCreditCost,
+  getProductVisualCreditCost,
+  getVoiceoverCreditCost,
+} from "@/lib/clipmotionEconomics";
 
 const Settings = () => {
   const { profile, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
-  const { 
-    currentPlan, 
-    balance, 
-    transactions, 
-    isLoading: creditsLoading,
+  const { balance, transactions, isLoading: creditsLoading } = useCredits();
+  const {
     subscription,
-  } = useCredits();
-  const { isSubscribed, subscription: stripeSubscription } = useSubscription();
+    currentPlan,
+    isSubscribed,
+    openCustomerPortal,
+    startCheckout,
+  } = useSubscription();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [displayName, setDisplayName] = useState(profile?.display_name || "");
-  const [isLoading, setIsLoading] = useState(false);
-  const [showCreditPacks, setShowCreditPacks] = useState(false);
-  const [notifications, setNotifications] = useState({
-    email: true,
-    push: false,
-    weekly: true,
-  });
 
-  // Use Stripe subscription status for accurate plan display
-  const effectivePlanName = isSubscribed ? (currentPlan?.name || "Starter") : "Free";
-  const effectiveStatus = isSubscribed ? "active" : (stripeSubscription.status === "orphan" ? "invalid" : "inactive");
-  const showPrice = isSubscribed;
+  const [displayName, setDisplayName] = useState(profile?.display_name || "");
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [checkoutId, setCheckoutId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (profile?.display_name) {
-      setDisplayName(profile.display_name);
-    }
-  }, [profile]);
+    setDisplayName(profile?.display_name || "");
+  }, [profile?.display_name]);
 
-  const handleUpdateProfile = async () => {
-    if (!profile) return;
-    
-    setIsLoading(true);
+  const updateProfile = async () => {
+    if (!profile?.id) return;
+    setSavingProfile(true);
     try {
       const { error } = await supabase
         .from("profiles")
-        .update({ display_name: displayName })
+        .update({ display_name: displayName.trim() || null })
         .eq("id", profile.id);
-
       if (error) throw error;
-
-      toast({
-        title: "Profile updated",
-        description: "Your information has been saved",
-      });
+      toast({ title: "Profile updated" });
     } catch (error) {
-      console.error("Error updating profile:", error);
       toast({
-        title: "Error",
-        description: "Unable to update profile",
+        title: "Could not update profile",
+        description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setSavingProfile(false);
+    }
+  };
+
+  const manageBilling = async () => {
+    if (!isSubscribed) {
+      navigate("/choose-plan");
+      return;
+    }
+    const result = await openCustomerPortal();
+    if (!result.success) {
+      toast({ title: "Could not open billing", variant: "destructive" });
+    }
+  };
+
+  const buyCredits = async (packId: string) => {
+    setCheckoutId(packId);
+    try {
+      const result = await startCheckout("credits", { packId });
+      if (!result.success) {
+        throw new Error(result.error instanceof Error ? result.error.message : "Checkout failed");
+      }
+    } catch (error) {
+      toast({
+        title: "Credit purchase failed",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+      setCheckoutId(null);
     }
   };
 
@@ -107,251 +111,221 @@ const Settings = () => {
     navigate("/auth");
   };
 
-  const getPlanGradient = (planId: string) => {
-    switch (planId) {
-      case "starter": return "from-blue-500 to-cyan-500";
-      case "pro": return "from-primary to-secondary";
-      case "business": return "from-purple-500 to-pink-500";
-      default: return "from-gray-500 to-gray-600";
-    }
-  };
+  const plan = CLIPMOTION_PLANS.find((item) => item.id === currentPlan.id) || CLIPMOTION_PLANS[0];
+  const monthlyAllowance = isSubscribed ? plan.credits : 0;
+
+  const generationExamples = [
+    {
+      icon: ImageIcon,
+      title: "Product visual",
+      detail: "720p standard visual",
+      credits: getProductVisualCreditCost("720p"),
+    },
+    {
+      icon: Video,
+      title: "Product motion",
+      detail: "5-second 720p motion",
+      credits: getProductMotionCreditCost(5, "720p"),
+    },
+    {
+      icon: Mic2,
+      title: "Voiceover",
+      detail: "Up to 1,500 characters",
+      credits: getVoiceoverCreditCost(1500),
+    },
+  ];
 
   return (
-    <div className="max-w-lg mx-auto space-y-4">
-      <h1 className="font-display text-xl font-bold">Settings</h1>
+    <div className="mx-auto max-w-5xl space-y-6">
+      <div>
+        <div className="inline-flex items-center gap-2 text-sm font-medium text-primary">
+          <Sparkles className="h-4 w-4" /> ClipMotion account
+        </div>
+        <h1 className="mt-2 font-display text-3xl font-bold">Settings</h1>
+        <p className="mt-1 text-muted-foreground">Profile, billing and generation credits.</p>
+      </div>
 
-      {/* Subscription & Credits */}
-      <Card className="border-primary/20 overflow-hidden">
-        <div className={`h-2 bg-gradient-to-r ${getPlanGradient(currentPlan?.id || "starter")}`} />
-        <CardContent className="p-4 space-y-4">
-          {/* Plan Info */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${isSubscribed ? getPlanGradient(currentPlan?.id || "starter") : "from-gray-400 to-gray-500"}`}>
-                <Crown className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold">{effectivePlanName}</p>
-                  <Badge 
-                    variant="outline" 
-                    className={`text-xs ${effectiveStatus === "invalid" ? "border-destructive text-destructive" : ""}`}
-                  >
-                    {effectiveStatus}
-                  </Badge>
-                </div>
-                {showPrice && currentPlan && (
-                  <p className="text-sm text-muted-foreground">
-                    ${currentPlan.price}{currentPlan.priceUnit}
-                  </p>
-                )}
-                {!isSubscribed && (
-                  <p className="text-sm text-muted-foreground">
-                    Subscribe to unlock features
-                  </p>
-                )}
-              </div>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => navigate("/pricing")}>
-              {isSubscribed ? "Manage" : "Subscribe"}
-              <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
-          </div>
-
-          <Separator />
-
-          {/* Credits Balance */}
-          <div className="rounded-xl bg-gradient-to-r from-primary/10 to-secondary/10 p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20">
-                  <Coins className="h-5 w-5 text-primary" />
-                </div>
+      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <CreditCard className="h-5 w-5 text-primary" /> Plan & billing
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="flex flex-col gap-4 rounded-2xl border border-border bg-muted/20 p-5 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Available Credits</p>
-                  <p className="text-2xl font-bold text-gradient">
-                    {creditsLoading ? "..." : balance}
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-display text-2xl font-bold">{isSubscribed ? plan.name : "No active plan"}</h2>
+                    <Badge variant="outline" className={isSubscribed ? "border-primary/20 bg-primary/10 text-primary" : ""}>
+                      {isSubscribed ? "Active" : "Inactive"}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {isSubscribed
+                      ? `$${plan.price}${plan.priceUnit} · ${monthlyAllowance} generation credits per month`
+                      : "Choose a plan to generate product visuals, motion and voiceovers."}
                   </p>
+                  {subscription.subscriptionEnd && isSubscribed && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Next billing date: {new Date(subscription.subscriptionEnd).toLocaleDateString()}
+                    </p>
+                  )}
                 </div>
+                <Button variant="outline" onClick={manageBilling}>
+                  {isSubscribed ? "Manage billing" : "Choose a plan"}
+                </Button>
               </div>
-              <Dialog open={showCreditPacks} onOpenChange={setShowCreditPacks}>
-                <DialogTrigger asChild>
-                  <Button size="sm" className="bg-gradient-to-r from-primary to-secondary">
-                    Buy Credits
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle>Buy Credits</DialogTitle>
-                  </DialogHeader>
-                  <CreditPacks />
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
 
-          {/* AutoPost Info - Credits-based */}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-lg bg-muted/50 p-3 text-center">
-              <div className="flex items-center justify-center gap-1.5">
-                <Image className="h-4 w-4 text-primary" />
-                <span className="text-lg font-bold">
-                  {isSubscribed ? "∞" : 0}
-                </span>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {generationExamples.map((item) => (
+                  <div key={item.title} className="rounded-2xl border border-border p-4">
+                    <item.icon className="h-5 w-5 text-primary" />
+                    <p className="mt-3 text-sm font-semibold">{item.title}</p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">{item.detail}</p>
+                    <p className="mt-2 text-sm font-bold text-primary">{item.credits} credit{item.credits > 1 ? "s" : ""}</p>
+                  </div>
+                ))}
               </div>
-              <p className="text-xs text-muted-foreground">Images (credits)</p>
-            </div>
-            <div className="rounded-lg bg-muted/50 p-3 text-center">
-              <div className="flex items-center justify-center gap-1.5">
-                <Video className="h-4 w-4 text-secondary" />
-                <span className="text-lg font-bold">
-                  {isSubscribed ? "∞" : 0}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">Videos (credits)</p>
-            </div>
-          </div>
 
-          {/* Recent Transactions */}
-          {transactions.length > 0 && (
-            <>
-              <Separator />
+              <p className="text-xs leading-5 text-muted-foreground">
+                The exact credit charge is shown before generation. Duration, resolution and provider compute can change the charge.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Coins className="h-5 w-5 text-primary" /> Credit wallet
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="flex items-center justify-between rounded-2xl border border-primary/15 bg-primary/5 p-5">
+                <div>
+                  <p className="text-sm text-muted-foreground">Available balance</p>
+                  <p className="mt-1 text-3xl font-bold text-gradient">{creditsLoading ? "—" : balance}</p>
+                  <p className="text-xs text-muted-foreground">ClipMotion generation credits</p>
+                </div>
+                <CreditsDisplay compact />
+              </div>
+
               <div>
-                <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Recent Transactions
-                </h4>
-                <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {transactions.slice(0, 5).map((tx) => (
-                    <div 
-                      key={tx.id} 
-                      className="flex items-center justify-between text-sm p-2 rounded-lg bg-muted/30"
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-sm font-semibold">Top up anytime</p>
+                  <span className="text-xs text-muted-foreground">$0.10 / credit</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {CLIPMOTION_CREDIT_PACKS.map((pack) => (
+                    <button
+                      key={pack.id}
+                      type="button"
+                      disabled={checkoutId === pack.id}
+                      onClick={() => void buyCredits(pack.id)}
+                      className="rounded-2xl border border-border p-4 text-center transition-colors hover:border-primary/40 hover:bg-primary/5 disabled:opacity-60"
                     >
-                      <div className="flex items-center gap-2">
-                        {tx.amount > 0 ? (
-                          <TrendingUp className="h-4 w-4 text-accent" />
-                        ) : (
-                          <TrendingDown className="h-4 w-4 text-destructive" />
-                        )}
-                        <span className="text-muted-foreground text-xs">
-                          {tx.description || tx.type}
-                        </span>
-                      </div>
-                      <span className={tx.amount > 0 ? "text-accent font-medium" : "text-destructive font-medium"}>
-                        {tx.amount > 0 ? "+" : ""}{tx.amount}
-                      </span>
-                    </div>
+                      <p className="font-bold">{pack.credits.toLocaleString()}</p>
+                      <p className="text-[11px] text-muted-foreground">credits</p>
+                      <p className="mt-2 font-semibold text-primary">${pack.price}</p>
+                    </button>
                   ))}
                 </div>
               </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Profile */}
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-full gradient-primary p-[2px] shrink-0">
-              <div className="flex h-full w-full items-center justify-center rounded-full bg-card">
-                <span className="text-lg font-bold text-gradient">
-                  {displayName?.[0]?.toUpperCase() || "U"}
-                </span>
+              {transactions.length > 0 && (
+                <>
+                  <Separator />
+                  <div>
+                    <p className="mb-3 text-sm font-semibold">Recent credit activity</p>
+                    <div className="space-y-2">
+                      {transactions.slice(0, 6).map((transaction) => (
+                        <div key={transaction.id} className="flex items-center justify-between gap-3 rounded-xl bg-muted/30 px-3 py-2.5 text-sm">
+                          <div className="min-w-0">
+                            <p className="truncate text-xs text-muted-foreground">
+                              {transaction.description || transaction.type}
+                            </p>
+                            <p className="mt-0.5 text-[10px] text-muted-foreground">
+                              {new Date(transaction.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <span className={`shrink-0 font-semibold ${transaction.amount >= 0 ? "text-primary" : "text-foreground"}`}>
+                            {transaction.amount > 0 ? "+" : ""}{transaction.amount}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <User className="h-5 w-5 text-primary" /> Profile
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="display-name">Display name</Label>
+                <Input
+                  id="display-name"
+                  className="mt-2"
+                  value={displayName}
+                  onChange={(event) => setDisplayName(event.target.value)}
+                />
               </div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <Label htmlFor="displayName" className="text-xs">Name</Label>
-              <Input
-                id="displayName"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Your name"
-                className="h-9"
-              />
-            </div>
-          </div>
-          <Button onClick={handleUpdateProfile} disabled={isLoading} className="w-full h-9">
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+              <Button onClick={updateProfile} disabled={savingProfile} className="w-full">
+                <Save className="mr-2 h-4 w-4" /> {savingProfile ? "Saving…" : "Save profile"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Appearance</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  variant={theme === "light" ? "default" : "outline"}
+                  onClick={() => setTheme("light")}
+                >
+                  <Sun className="mr-2 h-4 w-4" /> Light
+                </Button>
+                <Button
+                  variant={theme === "dark" ? "default" : "outline"}
+                  onClick={() => setTheme("dark")}
+                >
+                  <Moon className="mr-2 h-4 w-4" /> Dark
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">What your plan includes</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {(isSubscribed ? plan.features : CLIPMOTION_PLANS[0].features.slice(0, 4)).map((feature) => (
+                <div key={feature} className="flex items-start gap-2 text-sm">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <span className="text-muted-foreground">{feature}</span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Button variant="outline" className="w-full text-destructive hover:text-destructive" onClick={handleSignOut}>
+            <LogOut className="mr-2 h-4 w-4" /> Sign out
           </Button>
-        </CardContent>
-      </Card>
-
-      {/* Appearance */}
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            {theme === "dark" ? <Moon className="h-4 w-4 text-primary" /> : <Sun className="h-4 w-4 text-primary" />}
-            Appearance
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => setTheme("dark")}
-              className={`flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-all ${
-                theme === "dark"
-                  ? "border-primary bg-primary/10"
-                  : "border-border bg-muted/30 hover:border-primary/50"
-              }`}
-            >
-              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                <Moon className="h-4 w-4 text-primary" />
-              </div>
-              <span className="text-xs font-medium">Dark</span>
-              {theme === "dark" && (
-                <Badge className="text-[10px] px-1.5 py-0 h-4 bg-primary/20 text-primary border-primary/30">Active</Badge>
-              )}
-            </button>
-            <button
-              onClick={() => setTheme("light")}
-              className={`flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-all ${
-                theme === "light"
-                  ? "border-primary bg-primary/10"
-                  : "border-border bg-muted/30 hover:border-primary/50"
-              }`}
-            >
-              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                <Sun className="h-4 w-4 text-secondary" />
-              </div>
-              <span className="text-xs font-medium">Light</span>
-              {theme === "light" && (
-                <Badge className="text-[10px] px-1.5 py-0 h-4 bg-primary/20 text-primary border-primary/30">Active</Badge>
-              )}
-            </button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Notifications */}
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Bell className="h-4 w-4 text-accent" />
-            Notifications
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Email notifications</span>
-              <Switch
-                checked={notifications.email}
-                onCheckedChange={(checked) => setNotifications((prev) => ({ ...prev, email: checked }))}
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Weekly report</span>
-              <Switch
-                checked={notifications.weekly}
-                onCheckedChange={(checked) => setNotifications((prev) => ({ ...prev, weekly: checked }))}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Sign Out */}
-      <Button variant="destructive" onClick={handleSignOut} className="w-full gap-2">
-        <LogOut className="h-4 w-4" />
-        Sign Out
-      </Button>
+        </div>
+      </div>
     </div>
   );
 };
