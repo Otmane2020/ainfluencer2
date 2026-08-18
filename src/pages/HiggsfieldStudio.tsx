@@ -573,10 +573,14 @@ const HiggsfieldStudio = ({ defaultTab = "product-motion" }: Props) => {
                         </button>
                       ))}
                     </div>
-                    <div className="relative mt-4">
-                      <Textarea value={motionDirection} onChange={(event) => setMotionDirection(event.target.value)} placeholder="Optional direction: warm sunset, slower push-in, keep the logo readable…" rows={3} className="pr-12" />
-                      <div className="absolute right-1 top-1"><ProjectPromptButton mode="motion" onPromptGenerated={setMotionDirection} /></div>
+                    <div className="mt-4">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <Label>Creative direction (optional)</Label>
+                        <ProjectPromptButton mode="motion" imageUrl={imageUrl} onPromptGenerated={setMotionDirection} />
+                      </div>
+                      <Textarea value={motionDirection} onChange={(event) => setMotionDirection(event.target.value)} placeholder="Optional direction: warm sunset, slower push-in, keep the logo readable…" rows={3} />
                     </div>
+
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       <div>
                         <Label>Clip duration</Label>
