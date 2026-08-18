@@ -342,13 +342,19 @@ const HiggsfieldStudio = ({ defaultTab = "product-motion" }: Props) => {
       await assertBackendReady("higgsfield-generate");
       if (voiceEnabled) await assertBackendReady("clipmotion-voice");
 
-      const prompt = [selectedMotionRecipe.prompt, motionDirection.trim()].filter(Boolean).join(" ");
+      const prompt = buildMotionPrompt({
+        userDirection: motionDirection,
+        recipePrompt: selectedMotionRecipe.prompt,
+        productLock,
+      });
+      const payload = buildMotionPayload({
+        endpoint: videoEngine,
+        prompt,
+        imageUrl,
+        duration: effectiveDuration,
+      });
       const quote = await supabase.functions.invoke("higgsfield-generate", {
-        body: {
-          action: "quote",
-          endpoint: videoEngine,
-          payload: { prompt, duration, image_url: imageUrl.trim() },
-        },
+        body: { action: "quote", endpoint: videoEngine, payload },
       });
       if (quote.error) throw new Error(await functionErrorMessage(quote.error));
       const exactMotionCredits = Number(quote.data?.credits || estimatedMotionCredits);
@@ -356,7 +362,7 @@ const HiggsfieldStudio = ({ defaultTab = "product-motion" }: Props) => {
       const required = exactMotionCredits + voiceCredits;
       if (balance < required) throw new Error(`You need ${required} credits but your balance is ${balance}.`);
 
-      return { prompt, exactMotionCredits, required };
+      return { prompt, payload, exactMotionCredits, required };
     } catch (caught) {
       showBlocked(caught instanceof Error ? caught.message : "Preflight failed");
       return null;
@@ -374,15 +380,12 @@ const HiggsfieldStudio = ({ defaultTab = "product-motion" }: Props) => {
     try {
       const result = await generate({
         endpoint: videoEngine,
-        payload: {
-          prompt: ready.prompt,
-          duration,
-          image_url: imageUrl.trim(),
-        },
+        payload: ready.payload,
         onProgress: setMotionStatus,
         timeoutMs: 600_000,
-        save: { type: "video", prompt: ready.prompt, model: videoEngine, duration },
+        save: { type: "video", prompt: ready.prompt, model: videoEngine, duration: effectiveDuration },
       });
+
 
       if (!result.video?.url) throw new Error("Motion provider returned no video file.");
       setVideoUrl(result.video.url);
