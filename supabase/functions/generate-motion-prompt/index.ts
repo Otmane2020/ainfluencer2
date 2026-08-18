@@ -21,9 +21,11 @@ serve(async (req) => {
       scrapedContent,
       marketingContext,
       detectedLanguage = "en",
+      imageUrl,
+      task = "motion",
     } = await req.json();
 
-    console.log("[generate-motion-prompt] Project:", projectName, "| Lang:", detectedLanguage);
+    console.log("[generate-motion-prompt] Project:", projectName, "| Lang:", detectedLanguage, "| Task:", task, "| Image:", Boolean(imageUrl));
 
     const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
     if (!OPENROUTER_API_KEY) {
@@ -40,7 +42,7 @@ serve(async (req) => {
     }
     if (scrapedContent) brandContext += `\nWebsite Content:\n${scrapedContent.slice(0, 2000)}\n`;
 
-    const systemPrompt = `You are a motion direction specialist for AI image-to-video generation. You write short prompts describing how an EXISTING still brand photo should animate — camera movement, subject motion, atmosphere — never what the image looks like.
+    const motionSystemPrompt = `You are a motion direction specialist for AI image-to-video generation. You write short prompts describing how an EXISTING still brand photo should animate — camera movement, subject motion, atmosphere — never what the image looks like.
 
 CRITICAL RULES:
 1. Output ONLY the motion prompt text - no titles, no formatting, no quotes around it
@@ -49,14 +51,41 @@ CRITICAL RULES:
 4. Mention pacing and mood (slow and cinematic, energetic, subtle)
 5. Do NOT describe static composition, lighting, or colors — only the movement to apply
 6. Keep it to 1-2 flowing sentences, ready to paste directly into a video generator
-7. Language: ${detectedLanguage.toUpperCase()} ONLY (except brand names)`;
+7. Language: ${detectedLanguage.toUpperCase()} ONLY (except brand names)${imageUrl ? "\n8. An image of the actual product is attached — ground the motion in what is really visible in it" : ""}`;
 
-    const userPrompt = `Generate a motion/camera-direction prompt to animate a brand image for this project into a short image-to-video clip.
+    const negativeSystemPrompt = `You write NEGATIVE PROMPTS (exclusion lists) for AI image generation.
+
+CRITICAL RULES:
+1. Output ONLY a single comma-separated list of things to avoid — no titles, no sentences, no quotes
+2. Between 8 and 16 short items in English
+3. Always include generic quality exclusions (watermark, text artifacts, blurry, distorted proportions, extra limbs, low resolution, jpeg artifacts)
+4. Add brand/product specific exclusions based on the context (and the attached image if present): wrong logo, altered packaging, competitor branding, unrealistic materials, etc.
+5. No explanations, no numbering`;
+
+    const motionUserPrompt = `Generate a motion/camera-direction prompt to animate a brand image for this project into a short image-to-video clip.
 
 BRAND CONTEXT:
 ${brandContext || `Project: ${projectName || "this brand"}`}
 
 Output ONLY the motion prompt text, nothing else.`;
+
+    const negativeUserPrompt = `Generate a negative prompt (exclusion list) for AI product image generation for this brand.
+
+BRAND CONTEXT:
+${brandContext || `Project: ${projectName || "this brand"}`}
+
+Output ONLY the comma-separated exclusion list, nothing else.`;
+
+    const isNegative = task === "negative";
+    const systemPrompt = isNegative ? negativeSystemPrompt : motionSystemPrompt;
+    const textPrompt = isNegative ? negativeUserPrompt : motionUserPrompt;
+
+    const userContent = imageUrl
+      ? [
+          { type: "text", text: textPrompt },
+          { type: "image_url", image_url: { url: imageUrl } },
+        ]
+      : textPrompt;
 
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -68,12 +97,13 @@ Output ONLY the motion prompt text, nothing else.`;
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
+          { role: "user", content: userContent },
         ],
         temperature: 0.7,
-        max_tokens: 200,
+        max_tokens: 250,
       }),
     });
+
 
     if (!response.ok) {
       const status = response.status;
