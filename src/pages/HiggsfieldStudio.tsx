@@ -613,9 +613,10 @@ const HiggsfieldStudio = ({ defaultTab = "product-motion" }: Props) => {
                     {voiceEnabled && (
                       <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-4 grid gap-4">
                         <div>
-                          <div className="flex items-center justify-between"><Label>Voiceover script</Label><span className="text-[11px] text-muted-foreground">{voiceText.length.toLocaleString()} / 12,000</span></div>
+                          <div className="flex flex-wrap items-center justify-between gap-2"><Label>Voiceover script</Label><div className="flex items-center gap-2"><span className="text-[11px] text-muted-foreground">{voiceText.length.toLocaleString()} / 12,000</span><ProjectPromptButton mode="voice" onPromptGenerated={(text) => setVoiceText(text.slice(0, 12000))} /></div></div>
                           <Textarea className="mt-2" value={voiceText} onChange={(event) => setVoiceText(event.target.value.slice(0, 12000))} placeholder="Meet the product designed to turn every scroll into attention…" rows={4} />
                         </div>
+
                         <div>
                           <Label>Voice</Label>
                           <Select value={voice} onValueChange={setVoice}>
