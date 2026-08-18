@@ -381,6 +381,33 @@ export type Database = {
         }
         Relationships: []
       }
+      deployment_events: {
+        Row: {
+          actor: string | null
+          commit_sha: string | null
+          created_at: string
+          id: string
+          run_url: string | null
+          status: string
+        }
+        Insert: {
+          actor?: string | null
+          commit_sha?: string | null
+          created_at?: string
+          id?: string
+          run_url?: string | null
+          status: string
+        }
+        Update: {
+          actor?: string | null
+          commit_sha?: string | null
+          created_at?: string
+          id?: string
+          run_url?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       email_send_log: {
         Row: {
           created_at: string
@@ -1599,6 +1626,7 @@ export type Database = {
           variables: Json
         }[]
       }
+      get_server_secret: { Args: { p_name: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
