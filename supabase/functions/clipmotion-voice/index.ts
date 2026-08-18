@@ -133,7 +133,8 @@ Deno.serve(async (req) => {
       const credentialCheck = await validateDeepgramKey(deepgramKey);
       return json({
         ok: credentialCheck.ok,
-        configured: true,
+        configured: credentialCheck.ok,
+        credentials_present: true,
         credentials_valid: credentialCheck.ok,
         provider_status: credentialCheck.status,
         provider: "deepgram",
