@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import LandingPage from "@/pages/LandingPage";
+import ProductMotionLandingPage from "@/pages/ProductMotionLandingPage";
 import { softwareApplicationSchema } from "@/lib/seo-data";
 
-const title = "ClipMotion — AI Image & Video Generation Studio";
+const title = "ClipMotion — Turn Product Photos into AI Motion Clips";
 const description =
-  "Turn prompts into cinematic AI images and videos. Generate, animate and export studio-quality visuals in minutes.";
+  "Create product visuals and short AI motion clips from a product photo or prompt. Built for Reels, TikTok, ads and e-commerce creative.";
 const url = "https://clipmotion.ai/";
 const ogImage = "https://clipmotion.ai/og-image.png";
 
@@ -19,6 +19,8 @@ export const Route = createFileRoute("/")({
       { property: "og:url", content: url },
       { property: "og:image", content: ogImage },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: title },
+      { name: "twitter:description", content: description },
       { name: "twitter:image", content: ogImage },
     ],
     links: [{ rel: "canonical", href: url }],
@@ -26,5 +28,5 @@ export const Route = createFileRoute("/")({
       { type: "application/ld+json", children: JSON.stringify(softwareApplicationSchema) },
     ],
   }),
-  component: LandingPage,
+  component: ProductMotionLandingPage,
 });
