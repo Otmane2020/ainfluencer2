@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "@/lib/router-compat";
 import { motion } from "framer-motion";
-import { Sparkles, LogOut } from "lucide-react";
+import { LogOut, Sparkles } from "lucide-react";
 import { PricingPacks } from "@/components/PricingPacks";
-import { SocialProofToast } from "@/components/nudges/SocialProofToast";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -15,22 +14,17 @@ const ChoosePlanPage = () => {
   const { user, signOut, isLoading: isAuthLoading } = useAuth();
   const [forceShow, setForceShow] = useState(false);
 
-  // Safety timeout: never show loading for more than 5 seconds
   useEffect(() => {
     const timeout = setTimeout(() => setForceShow(true), 5000);
     return () => clearTimeout(timeout);
   }, []);
 
   useEffect(() => {
-    if (!isLoading && isSubscribed) {
-      navigate("/dashboard", { replace: true });
-    }
+    if (!isLoading && isSubscribed) navigate("/dashboard", { replace: true });
   }, [isLoading, isSubscribed, navigate]);
 
   useEffect(() => {
-    if (!isAuthLoading && !user) {
-      navigate("/auth", { replace: true });
-    }
+    if (!isAuthLoading && !user) navigate("/auth", { replace: true });
   }, [user, isAuthLoading, navigate]);
 
   const handleSignOut = async () => {
@@ -38,64 +32,61 @@ const ChoosePlanPage = () => {
     navigate("/auth");
   };
 
-  const showLoading = !forceShow && (isAuthLoading || !user);
-  
-  if (showLoading) return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="flex flex-col items-center gap-3">
-        <div className="h-10 w-10 rounded-xl overflow-hidden animate-pulse">
-          <img src="/logo.png" alt="ClipMotion" className="h-full w-full object-contain" />
+  if (!forceShow && (isAuthLoading || !user)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 animate-pulse overflow-hidden rounded-xl">
+            <img src="/logo.png" alt="ClipMotion" className="h-full w-full object-contain" />
+          </div>
+          <p className="text-sm text-muted-foreground">Loading your plans…</p>
         </div>
-        <p className="text-sm text-muted-foreground">Loading your plan…</p>
       </div>
-    </div>
-  );
+    );
+  }
 
   return (
     <>
       <SEOHead
         title="Choose Your Plan – ClipMotion"
-        description="Select a subscription plan to unlock AI-powered content creation for your social media."
+        description="Choose monthly ClipMotion generation credits for product visuals, motion clips and AI voiceovers."
         canonical="/choose-plan"
       />
-      <div className="min-h-screen bg-background flex flex-col">
-        <header className="border-b border-border px-6 py-4 flex items-center justify-between">
+      <div className="flex min-h-screen flex-col bg-background">
+        <header className="flex items-center justify-between border-b border-border px-4 py-4 md:px-6">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl overflow-hidden">
+            <div className="h-10 w-10 overflow-hidden rounded-xl">
               <img src="/logo.png" alt="ClipMotion" className="h-full w-full object-contain" />
             </div>
-            <span className="font-display text-xl font-bold text-gradient">ClipMotion</span>
+            <div>
+              <span className="font-display text-xl font-bold text-gradient">ClipMotion</span>
+              <p className="text-[11px] text-muted-foreground">Product Motion Studio</p>
+            </div>
           </div>
           <Button variant="ghost" size="sm" onClick={handleSignOut} className="text-muted-foreground">
-            <LogOut className="h-4 w-4 mr-2" />
-            Sign Out
+            <LogOut className="mr-2 h-4 w-4" /> Sign Out
           </Button>
         </header>
 
-        <main className="flex-1 flex flex-col items-center justify-center px-4 py-12">
+        <main className="flex flex-1 items-center justify-center px-4 py-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="w-full max-w-5xl space-y-8"
+            className="w-full max-w-6xl space-y-9"
           >
-            <div className="text-center space-y-3">
+            <div className="mx-auto max-w-2xl space-y-3 text-center">
               <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
-                <Sparkles className="h-4 w-4" />
-                Welcome to ClipMotion
+                <Sparkles className="h-4 w-4" /> Start creating
               </div>
-              <h1 className="font-display text-4xl md:text-5xl font-bold">
-                Choose Your Plan
-              </h1>
-              <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-                Unlock AI-powered images, videos & social posts with credits included in every plan.
+              <h1 className="font-display text-4xl font-bold md:text-5xl">Choose your monthly creative volume</h1>
+              <p className="text-lg leading-8 text-muted-foreground">
+                Every plan includes credits for product motion, product visuals and Deepgram Aura-2 voiceovers. The exact credit cost is shown before every generation.
               </p>
             </div>
 
-            <PricingPacks showFlashSale={true} />
+            <PricingPacks showFlashSale={false} />
           </motion.div>
         </main>
-
-        <SocialProofToast initialDelay={4000} interval={12000} />
       </div>
     </>
   );
