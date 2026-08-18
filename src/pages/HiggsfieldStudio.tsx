@@ -629,22 +629,36 @@ const HiggsfieldStudio = ({ defaultTab = "product-motion" }: Props) => {
                         </button>
                       ))}
                     </div>
+                    <div className="mt-4 flex items-start justify-between gap-4 rounded-2xl border border-primary/30 bg-primary/5 p-4">
+                      <div>
+                        <p className="text-sm font-semibold">Product Lock</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">Preserve exact shape, colors, materials, logo and packaging.</p>
+                      </div>
+                      <Switch checked={productLock} onCheckedChange={setProductLock} />
+                    </div>
+
                     <div className="mt-4">
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <Label>Creative direction (optional)</Label>
                         <ProjectPromptButton mode="motion" imageUrl={imageUrl} onPromptGenerated={setMotionDirection} />
                       </div>
                       <Textarea value={motionDirection} onChange={(event) => setMotionDirection(event.target.value)} placeholder="Optional direction: warm sunset, slower push-in, keep the logo readable…" rows={3} />
+                      <p className="mt-2 text-[11px] text-muted-foreground">Your instruction is sent first, with the highest priority.</p>
                     </div>
 
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       <div>
                         <Label>Clip duration</Label>
-                        <Select value={String(duration)} onValueChange={(value) => { setDuration(Number(value)); setServerMotionCredits(null); }}>
-                          <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger>
-                          <SelectContent>{DURATIONS.map((seconds) => <SelectItem key={seconds} value={String(seconds)}>{seconds} seconds</SelectItem>)}</SelectContent>
-                        </Select>
+                        {isDopTurbo ? (
+                          <div className="mt-2 flex h-10 items-center rounded-md border border-border bg-muted/30 px-3 text-sm text-muted-foreground">5s · fidelity optimized</div>
+                        ) : (
+                          <Select value={String(duration)} onValueChange={(value) => { setDuration(Number(value)); setServerMotionCredits(null); }}>
+                            <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger>
+                            <SelectContent>{DURATIONS.map((seconds) => <SelectItem key={seconds} value={String(seconds)}>{seconds} seconds</SelectItem>)}</SelectContent>
+                          </Select>
+                        )}
                       </div>
+
                       <details className="rounded-xl border border-border p-3">
                         <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium"><SlidersHorizontal className="h-4 w-4" /> Advanced engine</summary>
                         <div className="mt-3">
