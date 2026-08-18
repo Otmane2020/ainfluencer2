@@ -41,7 +41,7 @@ function errorMentionsMissingParams(data: unknown) {
 }
 
 function isVideoEndpoint(endpoint: string) {
-  return /\/dop\/|kling-video|seedance|image-to-video|image2video|text-to-video|\/video\//i.test(endpoint);
+  return /\/dop(\/|$)|kling-video|seedance|image-to-video|image2video|text-to-video|\/video\//i.test(endpoint);
 }
 
 async function submitToHiggsfield(
