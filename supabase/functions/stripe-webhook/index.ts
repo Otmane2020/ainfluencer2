@@ -7,22 +7,26 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature",
 };
 
-// Product IDs for ClipMotion subscription plans
 const PRODUCT_TO_PLAN: Record<string, string> = {
   "prod_TsTqynweuSksG3": "starter",
   "prod_TsTqUdBfAHdNCi": "pro",
   "prod_TsTqxdl9cpZNJg": "business",
 };
 
-// Price IDs for ClipMotion subscription plans (must match create-checkout)
 const PRICE_TO_PLAN: Record<string, string> = {
   "price_1SuiszEfti9t9nN9qEGnwrdT": "starter",
   "price_1Suit0Efti9t9nN9jKws1R3q": "pro",
   "price_1Suit1Efti9t9nN9F5g8iTGq": "business",
 };
 
-// Credit pack mappings (must match create-checkout)
-const PRICE_TO_CREDITS: Record<string, number> = {
+const PLAN_CREDITS: Record<string, number> = {
+  starter: 190,
+  pro: 490,
+  business: 990,
+};
+
+// Legacy fixed-price packs remain recognized for old completed Checkout sessions.
+const LEGACY_PRICE_TO_CREDITS: Record<string, number> = {
   "price_1Suit2Efti9t9nN9idG07kAf": 50,
   "price_1Suit3Efti9t9nN9vPGwwfWa": 100,
   "price_1Suit5Efti9t9nN9cjaee5yZ": 250,
@@ -31,19 +35,38 @@ const PRICE_TO_CREDITS: Record<string, number> = {
 };
 
 const logStep = (step: string, details?: unknown) => {
-  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
-  console.log(`[STRIPE-WEBHOOK] ${step}${detailsStr}`);
+  console.log(`[STRIPE-WEBHOOK] ${step}${details ? ` - ${JSON.stringify(details)}` : ""}`);
 };
 
+function planFromSubscription(subscription: Stripe.Subscription) {
+  const price = subscription.items.data[0]?.price;
+  const priceId = price?.id;
+  const productId = typeof price?.product === "string" ? price.product : price?.product?.id;
+  return {
+    planId: (productId ? PRODUCT_TO_PLAN[productId] : undefined) || (priceId ? PRICE_TO_PLAN[priceId] : undefined) || null,
+    priceId,
+    productId,
+  };
+}
+
+function subscriptionIdFromInvoice(invoice: Stripe.Invoice) {
+  const raw = invoice as unknown as Record<string, any>;
+  const direct = raw.subscription;
+  if (typeof direct === "string") return direct;
+  if (direct?.id) return String(direct.id);
+  const nested = raw.parent?.subscription_details?.subscription;
+  if (typeof nested === "string") return nested;
+  if (nested?.id) return String(nested.id);
+  return null;
+}
+
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    { auth: { persistSession: false } }
+    { auth: { persistSession: false } },
   );
 
   try {
@@ -52,19 +75,61 @@ serve(async (req) => {
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
 
     const stripe = new Stripe(stripeKey);
-    const body = await req.text();
+    const rawBody = await req.text();
     const signature = req.headers.get("stripe-signature");
 
     let event: Stripe.Event;
-
-    // Verify webhook signature if secret is set - MUST use async version in Deno
     if (webhookSecret && signature) {
-      event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
-      logStep("Webhook signature verified");
+      event = await stripe.webhooks.constructEventAsync(rawBody, signature, webhookSecret);
     } else {
-      event = JSON.parse(body);
-      logStep("No webhook secret, parsing body directly");
+      event = JSON.parse(rawBody);
+      logStep("WARNING: webhook secret missing; body was not signature-verified");
     }
+
+    const ensureCreditWallet = async (userId: string) => {
+      const { data } = await supabase.from("credits").select("id").eq("user_id", userId).maybeSingle();
+      if (!data) {
+        const { error } = await supabase.from("credits").insert({ user_id: userId, balance: 0 });
+        if (error && !error.message.toLowerCase().includes("duplicate")) throw error;
+      }
+    };
+
+    const grantCreditsOnce = async (
+      userId: string,
+      credits: number,
+      transactionType: string,
+      description: string,
+      idempotencyKey: string,
+    ) => {
+      const marker = `${description} · ${idempotencyKey}`;
+      const { data: existing } = await supabase
+        .from("credit_transactions")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("description", marker)
+        .limit(1)
+        .maybeSingle();
+      if (existing) {
+        logStep("Credit grant already processed", { userId, idempotencyKey });
+        return;
+      }
+
+      await ensureCreditWallet(userId);
+      const { error: addError } = await supabase.rpc("add_credits", {
+        p_user_id: userId,
+        p_amount: credits,
+      });
+      if (addError) throw addError;
+
+      const { error: txError } = await supabase.from("credit_transactions").insert({
+        user_id: userId,
+        amount: credits,
+        type: transactionType,
+        description: marker,
+      });
+      if (txError) throw txError;
+      logStep("Credits granted", { userId, credits, idempotencyKey });
+    };
 
     logStep("Processing event", { type: event.type, id: event.id });
 
@@ -73,135 +138,140 @@ serve(async (req) => {
         const session = event.data.object as Stripe.Checkout.Session;
         const metadata = session.metadata || {};
         const userId = metadata.user_id;
-        const customerId = session.customer as string;
-
-        logStep("Checkout completed", { userId, customerId, mode: session.mode });
+        const customerId = typeof session.customer === "string" ? session.customer : session.customer?.id;
 
         if (session.mode === "subscription") {
-          // Handle subscription
-          const subscriptionId = session.subscription as string;
+          const subscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
+          if (!subscriptionId || !userId) break;
+
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-          const priceId = subscription.items.data[0].price.id;
-          const productId = subscription.items.data[0].price.product as string;
-          
-          // Try product ID first, then price ID, fallback to starter
-          const planId = PRODUCT_TO_PLAN[productId] || PRICE_TO_PLAN[priceId] || "starter";
-          
-          // Safely handle period end date
-          let renewsAt: string | null = null;
-          try {
-            const periodEnd = subscription.current_period_end;
-            if (periodEnd && typeof periodEnd === 'number') {
-              renewsAt = new Date(periodEnd * 1000).toISOString();
-            } else if (periodEnd) {
-              renewsAt = String(periodEnd);
-            }
-          } catch (dateErr) {
-            logStep("Warning: could not parse period end date", { error: String(dateErr) });
+          const { planId } = planFromSubscription(subscription);
+          if (!planId) throw new Error("Checkout completed for an unknown ClipMotion plan");
+
+          const periodEnd = (subscription as unknown as Record<string, any>).current_period_end;
+          const renewsAt = typeof periodEnd === "number" ? new Date(periodEnd * 1000).toISOString() : null;
+
+          const { error } = await supabase.from("subscriptions").upsert({
+            user_id: userId,
+            plan_id: planId,
+            status: "active",
+            stripe_customer_id: customerId || null,
+            stripe_subscription_id: subscriptionId,
+            started_at: new Date().toISOString(),
+            renews_at: renewsAt,
+          }, { onConflict: "user_id" });
+          if (error) throw error;
+          // Monthly plan credits are granted only from invoice.paid below.
+        } else if (session.mode === "payment" && userId) {
+          const metadataCredits = metadata.credits ? Number(metadata.credits) : 0;
+          let credits = Number.isFinite(metadataCredits) ? metadataCredits : 0;
+
+          // Backwards compatibility for older Checkout sessions without metadata credits.
+          if (!credits) {
+            const fullSession = await stripe.checkout.sessions.retrieve(session.id, { expand: ["line_items.data.price"] });
+            const priceId = fullSession.line_items?.data?.[0]?.price?.id;
+            credits = priceId ? LEGACY_PRICE_TO_CREDITS[priceId] ?? 0 : 0;
           }
 
-          // Update or insert subscription
-          const { error } = await supabase
-            .from("subscriptions")
-            .upsert({
-              user_id: userId,
-              plan_id: planId,
-              status: "active",
-              stripe_customer_id: customerId,
-              stripe_subscription_id: subscriptionId,
-              started_at: new Date().toISOString(),
-              renews_at: renewsAt,
-            }, { onConflict: "user_id" });
-
-          if (error) logStep("Error updating subscription", { error: error.message });
-          else logStep("Subscription activated", { planId, productId, priceId, subscriptionId, renewsAt });
-
-        } else if (session.mode === "payment") {
-          // Handle one-time credit purchase
-          const priceId = session.line_items?.data[0]?.price?.id;
-          const credits = metadata.credits ? parseInt(metadata.credits) : (priceId ? PRICE_TO_CREDITS[priceId] : 0);
-
-          if (credits > 0 && userId) {
-            // Add credits using RPC function
-            const { error } = await supabase.rpc("add_credits", {
-              p_user_id: userId,
-              p_amount: credits,
-            });
-
-            if (error) logStep("Error adding credits", { error: error.message });
-            else {
-              // Log transaction
-              await supabase.from("credit_transactions").insert({
-                user_id: userId,
-                amount: credits,
-                type: "purchase",
-                description: `Purchased ${credits} credits via Stripe`,
-              });
-              logStep("Credits added", { credits, userId });
-            }
+          if (credits > 0) {
+            await grantCreditsOnce(
+              userId,
+              credits,
+              "purchase",
+              `Purchased ${credits} ClipMotion credits`,
+              event.id,
+            );
           }
         }
+        break;
+      }
+
+      case "invoice.paid": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const billingReason = (invoice as unknown as Record<string, any>).billing_reason;
+        if (billingReason !== "subscription_create" && billingReason !== "subscription_cycle") {
+          logStep("Invoice paid without monthly credit refill", { billingReason });
+          break;
+        }
+
+        const subscriptionId = subscriptionIdFromInvoice(invoice);
+        if (!subscriptionId) break;
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        const { planId } = planFromSubscription(subscription);
+        if (!planId) break;
+
+        let userId = subscription.metadata?.user_id || null;
+        if (!userId) {
+          const { data: dbSubscription } = await supabase
+            .from("subscriptions")
+            .select("user_id")
+            .eq("stripe_subscription_id", subscriptionId)
+            .maybeSingle();
+          userId = dbSubscription?.user_id || null;
+        }
+        if (!userId) throw new Error(`Could not resolve user for subscription ${subscriptionId}`);
+
+        const credits = PLAN_CREDITS[planId];
+        if (!credits) break;
+        await grantCreditsOnce(
+          userId,
+          credits,
+          "subscription_credit",
+          `${planId} monthly allowance: ${credits} credits`,
+          event.id,
+        );
         break;
       }
 
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription;
-        const customerId = subscription.customer as string;
-        const priceId = subscription.items.data[0].price.id;
-        const planId = PRICE_TO_PLAN[priceId] || "starter";
-
-        const status = subscription.status === "active" ? "active" : 
-                       subscription.status === "past_due" ? "past_due" : 
-                       subscription.status === "canceled" ? "canceled" : subscription.status;
+        const { planId } = planFromSubscription(subscription);
+        const status = subscription.status === "active"
+          ? "active"
+          : subscription.status === "past_due"
+            ? "past_due"
+            : subscription.status === "canceled"
+              ? "canceled"
+              : subscription.status;
+        const periodEnd = (subscription as unknown as Record<string, any>).current_period_end;
 
         const { error } = await supabase
           .from("subscriptions")
           .update({
-            plan_id: planId,
-            status: status,
-            renews_at: new Date(subscription.current_period_end * 1000).toISOString(),
+            plan_id: planId || "starter",
+            status,
+            renews_at: typeof periodEnd === "number" ? new Date(periodEnd * 1000).toISOString() : null,
           })
           .eq("stripe_subscription_id", subscription.id);
-
-        if (error) logStep("Error updating subscription", { error: error.message });
-        else logStep("Subscription updated", { subscriptionId: subscription.id, planId, status });
+        if (error) throw error;
         break;
       }
 
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-
         const { error } = await supabase
           .from("subscriptions")
-          .update({
-            status: "canceled",
-            plan_id: "starter", // Downgrade to starter
-          })
+          .update({ status: "canceled" })
           .eq("stripe_subscription_id", subscription.id);
-
-        if (error) logStep("Error canceling subscription", { error: error.message });
-        else logStep("Subscription canceled", { subscriptionId: subscription.id });
+        if (error) throw error;
         break;
       }
 
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice;
-        const subscriptionId = invoice.subscription as string;
-
+        const subscriptionId = subscriptionIdFromInvoice(invoice);
         if (subscriptionId) {
           const { error } = await supabase
             .from("subscriptions")
             .update({ status: "past_due" })
             .eq("stripe_subscription_id", subscriptionId);
-
-          if (error) logStep("Error updating subscription to past_due", { error: error.message });
-          else logStep("Subscription marked as past_due", { subscriptionId });
+          if (error) throw error;
         }
         break;
       }
 
       default:
-        logStep("Unhandled event type", { type: event.type });
+        break;
     }
 
     return new Response(JSON.stringify({ received: true }), {
@@ -209,9 +279,9 @@ serve(async (req) => {
       status: 200,
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logStep("ERROR", { message: errorMessage });
-    return new Response(JSON.stringify({ error: errorMessage }), {
+    const message = error instanceof Error ? error.message : String(error);
+    logStep("ERROR", { message });
+    return new Response(JSON.stringify({ error: message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 400,
     });
