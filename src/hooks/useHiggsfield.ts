@@ -1,24 +1,21 @@
 import { useCallback, useRef, useState } from "react";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { HIGGSFIELD_PROVIDER_CREDIT_USD } from "@/lib/clipmotionEconomics";
 
-/**
- * supabase-js's FunctionsHttpError.message is always the generic
- * "Edge Function returned a non-2xx status code" — the actual error we
- * return from the edge function body (e.g. "prompt is required",
- * "Higgsfield credentials not configured") is only reachable via
- * error.context, the raw Response object.
- */
 async function extractFunctionErrorMessage(error: unknown): Promise<string> {
   if (error instanceof FunctionsHttpError) {
     try {
       const body = await error.context.clone().json();
-      if (body?.error) return body.error;
+      if (body?.error) {
+        if (body.required_credits) return `${body.error} — ${body.required_credits} credits required`;
+        return body.error;
+      }
     } catch {
-      /* body wasn't JSON — fall through to the generic message */
+      // fall through
     }
   }
-  return (error as Error).message;
+  return error instanceof Error ? error.message : "Generation failed";
 }
 
 export interface HiggsfieldResult {
@@ -27,6 +24,9 @@ export interface HiggsfieldResult {
   images?: { url: string }[];
   video?: { url: string };
   error?: string;
+  credits_charged?: number;
+  credits_refunded?: boolean;
+  estimated_provider_cost_usd?: number;
 }
 
 interface SaveOpts {
@@ -36,13 +36,19 @@ interface SaveOpts {
   duration?: number;
 }
 
-/** Store a finished Higgsfield generation so it appears in the History page. */
-async function persistGeneration(save: SaveOpts, result: HiggsfieldResult) {
+async function persistGeneration(
+  save: SaveOpts,
+  result: HiggsfieldResult,
+  chargedCredits?: number,
+) {
   const mediaUrl = save.type === "video" ? result.video?.url : result.images?.[0]?.url;
   if (!mediaUrl) return;
+
   try {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) return;
+    const credits = result.credits_charged ?? chargedCredits ?? 0;
+
     await supabase.from("generations").insert({
       user_id: auth.user.id,
       type: save.type,
@@ -54,29 +60,29 @@ async function persistGeneration(save: SaveOpts, result: HiggsfieldResult) {
       media_url: mediaUrl,
       duration: save.duration ?? null,
       external_task_id: result.request_id ?? null,
+      estimated_cost: credits ? Number((credits * HIGGSFIELD_PROVIDER_CREDIT_USD).toFixed(4)) : 0,
+      actual_cost: result.estimated_provider_cost_usd ?? null,
       completed_at: new Date().toISOString(),
     });
   } catch {
-    /* history persistence must never break the generation flow */
+    // History persistence must never break generation.
   }
 }
 
-
 interface GenerateOpts {
-  /** Higgsfield API path for the model, e.g. "/v1/text2image/soul" or "/v1/image2video/dop" */
   endpoint: string;
   payload: Record<string, unknown>;
   onProgress?: (status: string) => void;
   timeoutMs?: number;
-  /** Persist the finished generation so it shows up in History */
   save?: SaveOpts;
 }
 
+function announceCreditChange() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("clipmotion:credits-changed"));
+  }
+}
 
-/**
- * Higgsfield generation hook — submits an async request then polls until
- * completed/failed. Works for both images and image-to-video models.
- */
 export function useHiggsfield() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<HiggsfieldResult | null>(null);
@@ -88,43 +94,53 @@ export function useHiggsfield() {
     setError(null);
     setResult(null);
     cancelRef.current = { cancelled: false };
+    let chargedCredits: number | undefined;
 
     try {
       const submit = await supabase.functions.invoke("higgsfield-generate", {
         body: { action: "submit", endpoint, payload },
       });
       if (submit.error) throw new Error(await extractFunctionErrorMessage(submit.error));
+
       const initial = submit.data as HiggsfieldResult;
-      if (!initial?.request_id) {
-        throw new Error(initial?.error || "Higgsfield: no request_id returned");
-      }
+      if (!initial?.request_id) throw new Error(initial?.error || "Higgsfield: no request_id returned");
+
+      chargedCredits = initial.credits_charged;
+      if (chargedCredits) announceCreditChange();
       cancelRef.current.requestId = initial.request_id;
       onProgress?.(initial.status);
 
       const started = Date.now();
       while (!cancelRef.current.cancelled) {
         if (Date.now() - started > timeoutMs) throw new Error("Generation timed out");
-        await new Promise((r) => setTimeout(r, 3000));
-        const s = await supabase.functions.invoke("higgsfield-generate", {
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+
+        const statusResponse = await supabase.functions.invoke("higgsfield-generate", {
           body: { action: "status", request_id: initial.request_id },
         });
-        if (s.error) throw new Error(await extractFunctionErrorMessage(s.error));
-        const cur = s.data as HiggsfieldResult;
-        onProgress?.(cur.status);
-        if (cur.status === "completed") {
-          setResult(cur);
-          if (save) await persistGeneration(save, cur);
-          return cur;
+        if (statusResponse.error) throw new Error(await extractFunctionErrorMessage(statusResponse.error));
+
+        const current = statusResponse.data as HiggsfieldResult;
+        if (current.credits_refunded) announceCreditChange();
+        onProgress?.(current.status);
+
+        if (current.status === "completed") {
+          const merged = { ...current, credits_charged: current.credits_charged ?? chargedCredits };
+          setResult(merged);
+          if (save) await persistGeneration(save, merged, chargedCredits);
+          return merged;
         }
-        if (cur.status === "failed" || cur.status === "nsfw") {
-          throw new Error(cur.error || `Generation ${cur.status}`);
+
+        if (current.status === "failed" || current.status === "nsfw") {
+          throw new Error(current.error || `Generation ${current.status}`);
         }
       }
+
       throw new Error("Cancelled");
-    } catch (e) {
-      const msg = (e as Error).message;
-      setError(msg);
-      throw e;
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Generation failed";
+      setError(message);
+      throw caught;
     } finally {
       setLoading(false);
     }
@@ -132,15 +148,15 @@ export function useHiggsfield() {
 
   const cancel = useCallback(async () => {
     cancelRef.current.cancelled = true;
-    const rid = cancelRef.current.requestId;
-    if (rid) {
-      try {
-        await supabase.functions.invoke("higgsfield-generate", {
-          body: { action: "cancel", request_id: rid },
-        });
-      } catch {
-        /* ignore */
-      }
+    const requestId = cancelRef.current.requestId;
+    if (!requestId) return;
+
+    try {
+      await supabase.functions.invoke("higgsfield-generate", {
+        body: { action: "cancel", request_id: requestId },
+      });
+    } catch {
+      // Cancellation is best-effort.
     }
   }, []);
 
