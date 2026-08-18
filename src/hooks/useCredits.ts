@@ -1,15 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { 
-  PRICING_PLANS, 
-  PricingPlan, 
-  QualityTier,
-  ContentType,
-  getCreditCost,
-  calculateCampaignCost,
-  CampaignCostConfig,
-} from "@/lib/commercialProducts";
+import type { CampaignCostConfig, ContentType, QualityTier } from "@/lib/commercialProducts";
+import { CLIPMOTION_PLANS, type ClipMotionPlan } from "@/lib/clipmotionEconomics";
 
 interface Subscription {
   id: string;
@@ -43,214 +36,89 @@ export const useCredits = () => {
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const currentPlan: PricingPlan | undefined = subscription
-    ? PRICING_PLANS.find(p => p.id === subscription.plan_id)
-    : PRICING_PLANS.find(p => p.id === "starter");
+  const currentPlan: ClipMotionPlan =
+    CLIPMOTION_PLANS.find((plan) => plan.id === subscription?.plan_id) ?? CLIPMOTION_PLANS[0];
 
   const fetchData = useCallback(async () => {
     if (!user) {
+      setSubscription(null);
+      setCredits(null);
+      setTransactions([]);
       setIsLoading(false);
       return;
     }
 
+    setIsLoading(true);
     try {
-      // Fetch subscription
-      const { data: subData } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (!subData) {
-        const { data: newSub } = await supabase
+      const [subscriptionResult, creditsResult, transactionsResult] = await Promise.all([
+        supabase
           .from("subscriptions")
-          .insert({
-            user_id: user.id,
-            plan_id: "starter",
-            status: "active",
-          })
-          .select()
-          .single();
-        setSubscription(newSub);
-      } else {
-        setSubscription(subData);
-      }
-
-      // Fetch credits
-      const { data: creditsData } = await supabase
-        .from("credits")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (!creditsData) {
-        const { data: existingBonus } = await supabase
-          .from("credit_transactions")
-          .select("id")
+          .select("id,user_id,plan_id,status,started_at,renews_at")
           .eq("user_id", user.id)
-          .eq("type", "bonus")
-          .eq("description", "Welcome bonus credits")
-          .limit(1)
-          .maybeSingle();
+          .maybeSingle(),
+        supabase
+          .from("credits")
+          .select("id,user_id,balance,updated_at")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("credit_transactions")
+          .select("id,user_id,amount,type,description,created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(10),
+      ]);
 
-        if (!existingBonus) {
-          const { data: newCredits, error: insertError } = await supabase
-            .from("credits")
-            .insert({ user_id: user.id, balance: 10 })
-            .select()
-            .single();
-
-          if (!insertError && newCredits) {
-            setCredits(newCredits);
-            await supabase.from("credit_transactions").insert({
-              user_id: user.id,
-              amount: 10,
-              type: "bonus",
-              description: "Welcome bonus credits",
-            });
-          } else {
-            const { data: retryCredits } = await supabase
-              .from("credits")
-              .select("*")
-              .eq("user_id", user.id)
-              .maybeSingle();
-            setCredits(retryCredits);
-          }
-        } else {
-          const { data: retryCredits } = await supabase
-            .from("credits")
-            .select("*")
-            .eq("user_id", user.id)
-            .maybeSingle();
-          setCredits(retryCredits);
-        }
-      } else {
-        setCredits(creditsData);
-      }
-
-      // Fetch recent transactions
-      const { data: txData } = await supabase
-        .from("credit_transactions")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(10);
-
-      setTransactions(txData || []);
+      setSubscription((subscriptionResult.data as Subscription | null) ?? null);
+      setCredits((creditsResult.data as Credits | null) ?? null);
+      setTransactions((transactionsResult.data as CreditTransaction[] | null) ?? []);
     } catch (error) {
-      console.error("Error fetching credits:", error);
+      console.error("Error fetching ClipMotion credits", error);
     } finally {
       setIsLoading(false);
     }
   }, [user]);
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
   }, [fetchData]);
 
-  // Deduct credits for a generation
+  // Legacy compatibility only. Paid ClipMotion generation credits are mutated by
+  // authenticated Edge Functions, never directly from the browser.
   const deductCredits = async (
-    contentType: ContentType, 
-    quality: QualityTier, 
-    description: string
+    _contentType: ContentType,
+    _quality: QualityTier,
+    _description: string,
   ): Promise<boolean> => {
-    if (!user || !credits) return false;
-
-    const cost = getCreditCost(contentType, quality);
-    
-    if (credits.balance < cost) {
-      return false;
-    }
-
-    const { data: success } = await supabase.rpc("deduct_credits", {
-      p_user_id: user.id,
-      p_amount: cost,
-    });
-
-    if (success) {
-      await supabase.from("credit_transactions").insert({
-        user_id: user.id,
-        amount: -cost,
-        type: "consumption",
-        description,
-      });
-
-      await fetchData();
-      return true;
-    }
-
+    console.warn("Client-side credit deduction is disabled. Use a billed generation Edge Function.");
     return false;
   };
 
-  // Deduct by raw amount (for campaigns)
-  const deductCreditsRaw = async (amount: number, description: string): Promise<boolean> => {
-    if (!user || !credits || credits.balance < amount) return false;
-
-    const { data: success } = await supabase.rpc("deduct_credits", {
-      p_user_id: user.id,
-      p_amount: amount,
-    });
-
-    if (success) {
-      await supabase.from("credit_transactions").insert({
-        user_id: user.id,
-        amount: -amount,
-        type: "consumption",
-        description,
-      });
-
-      await fetchData();
-      return true;
-    }
-
+  const deductCreditsRaw = async (_amount: number, _description: string): Promise<boolean> => {
+    console.warn("Client-side credit deduction is disabled. Use a billed generation Edge Function.");
     return false;
   };
 
-  // Add credits
-  const addCredits = async (amount: number, description: string): Promise<boolean> => {
-    if (!user) return false;
-
-    try {
-      await supabase.rpc("add_credits", {
-        p_user_id: user.id,
-        p_amount: amount,
-      });
-
-      await supabase.from("credit_transactions").insert({
-        user_id: user.id,
-        amount: amount,
-        type: "purchase",
-        description,
-      });
-
-      await fetchData();
-      return true;
-    } catch (error) {
-      console.error("Error adding credits:", error);
-      return false;
-    }
+  const addCredits = async (_amount: number, _description: string): Promise<boolean> => {
+    console.warn("Client-side credit minting is disabled. Credits are granted by Stripe/webhooks only.");
+    return false;
   };
 
-  // Check if user can afford a specific generation
-  const canAfford = (contentType: ContentType, quality: QualityTier): boolean => {
-    const cost = getCreditCost(contentType, quality);
-    return credits ? credits.balance >= cost : false;
+  const getGenerationCost = (contentType: ContentType, _quality?: QualityTier) => {
+    return contentType === "video" ? 24 : 5;
   };
 
-  // Check if user can afford a campaign
-  const canAffordCampaign = (config: CampaignCostConfig): boolean => {
-    const totalCost = calculateCampaignCost(config);
-    return credits ? credits.balance >= totalCost : false;
+  const canAfford = (contentType: ContentType, quality: QualityTier) => {
+    return (credits?.balance ?? 0) >= getGenerationCost(contentType, quality);
   };
 
-  // Get cost for a generation
-  const getGenerationCost = (contentType: ContentType, quality: QualityTier): number => {
-    return getCreditCost(contentType, quality);
+  const getCampaignCost = (config: CampaignCostConfig) => {
+    const daily = (config.imagesPerDay * 5) + (config.videosPerDay * 24);
+    return daily * config.campaignDays;
   };
 
-  // Get campaign cost
-  const getCampaignCost = (config: CampaignCostConfig): number => {
-    return calculateCampaignCost(config);
+  const canAffordCampaign = (config: CampaignCostConfig) => {
+    return (credits?.balance ?? 0) >= getCampaignCost(config);
   };
 
   return {
@@ -259,13 +127,11 @@ export const useCredits = () => {
     transactions,
     currentPlan,
     isLoading,
-    balance: credits?.balance || 0,
-    // Actions
+    balance: credits?.balance ?? 0,
     deductCredits,
     deductCreditsRaw,
     addCredits,
     refresh: fetchData,
-    // Checks
     canAfford,
     canAffordCampaign,
     getGenerationCost,
