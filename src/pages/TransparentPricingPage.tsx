@@ -39,14 +39,14 @@ const TransparentPricingPage = () => {
               Pay for the creative volume you <span className="text-gradient">actually need</span>
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
-              Choose a monthly plan, see the generation cost before you create, and use one credit balance across ClipMotion's supported image and video workflows.
+              Choose a monthly plan, see the generation cost before you create, and use one credit balance across ClipMotion&apos;s supported image and video workflows.
             </p>
           </div>
 
           <div className="mx-auto mt-9 grid max-w-3xl gap-3 text-left sm:grid-cols-3">
             {[
-              "No fake live-viewer counters",
-              "No fake limited-time countdown",
+              "Straightforward monthly plans",
+              "Cancel anytime",
               "Generation cost shown upfront",
             ].map((item) => (
               <div key={item} className="flex items-center gap-2 rounded-xl border border-border bg-card/60 p-3 text-sm">
@@ -103,7 +103,7 @@ const TransparentPricingPage = () => {
           <div className="mt-5 flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-5 text-left">
             <Coins className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
             <p className="text-sm leading-6 text-muted-foreground">
-              Model providers and compute costs can change. ClipMotion should show the current credit cost in-product rather than relying on an old marketing claim.
+              Model availability and compute costs can evolve. ClipMotion shows the current credit cost in-product before a generation is submitted.
             </p>
           </div>
         </div>
