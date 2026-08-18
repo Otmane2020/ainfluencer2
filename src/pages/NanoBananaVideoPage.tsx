@@ -59,7 +59,7 @@ const nanoBananaProductSchema = {
     "@type": "Offer",
     price: "0",
     priceCurrency: "USD",
-    description: "Free trial available",
+    description: "Plans from $19/mo",
   },
   aggregateRating: {
     "@type": "AggregateRating",

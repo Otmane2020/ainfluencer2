@@ -608,7 +608,7 @@ const LandingPage = () => {
                 <Wand2 className="mr-2 h-5 w-5" />
                 Start Creating
               </Button>
-              <p className="text-sm text-white/60 mt-4">7-day free trial • No credit card required</p>
+              <p className="text-sm text-white/60 mt-4">Paid plans from $19/mo • Cancel anytime</p>
             </div>
           </motion.div>
         </div>

@@ -4,7 +4,7 @@ import { productSchema } from "@/lib/seo-data";
 
 const title = "Pricing — ClipMotion AI Studio";
 const description =
-  "Simple credit-based pricing for AI image and video generation. Starter, Pro and Business plans with a 7-day free trial.";
+  "Simple credit-based pricing for AI image and video generation. Starter, Pro and Business plans. Pay as you create, cancel anytime.";
 const url = "https://clipmotion.ai/pricing";
 const ogImage = "https://clipmotion.ai/og-image.png";
 
