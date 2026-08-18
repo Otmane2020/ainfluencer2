@@ -708,7 +708,7 @@ const HiggsfieldStudio = ({ defaultTab = "product-motion" }: Props) => {
                     <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium"><SlidersHorizontal className="h-4 w-4" /> Advanced controls</summary>
                     <div className="mt-4 grid gap-4 sm:grid-cols-2">
                       <div><Label>Engine</Label><Select value={imageEngine} onValueChange={setImageEngine}><SelectTrigger className="mt-2"><SelectValue /></SelectTrigger><SelectContent>{IMAGE_ENGINES.map((engine) => <SelectItem key={engine.id} value={engine.id}>{engine.label}</SelectItem>)}</SelectContent></Select></div>
-                      <div><Label>Negative prompt</Label><Input className="mt-2" value={negativePrompt} onChange={(event) => setNegativePrompt(event.target.value)} placeholder="watermark, blurry…" /></div>
+                      <div><div className="flex flex-wrap items-center justify-between gap-2"><Label>Negative prompt</Label><ProjectPromptButton mode="negative" imageUrl={imageUrl} onPromptGenerated={setNegativePrompt} /></div><Input className="mt-2" value={negativePrompt} onChange={(event) => setNegativePrompt(event.target.value)} placeholder="watermark, blurry…" /></div>
                     </div>
                   </details>
 
