@@ -119,16 +119,13 @@ Deno.serve(async (req) => {
     const deepgramKey = await getDeepgramKey(admin);
 
     if (action === "health") {
-      return json({
-        ok: Boolean(deepgramKey),
-        configured: Boolean(deepgramKey),
-        provider: "deepgram",
-      });
+      return json({ ok: Boolean(deepgramKey), configured: Boolean(deepgramKey), provider: "deepgram" });
     }
 
     if (!deepgramKey) return json({ error: "Voice service is not configured", code: "VOICE_NOT_CONFIGURED" }, 503);
 
     const text = typeof body?.text === "string" ? body.text.trim() : "";
+    const attachToRequestId = typeof body?.attach_to_request_id === "string" ? body.attach_to_request_id.trim() : "";
     const requestedVoice = typeof body?.voice === "string" ? body.voice : DEFAULT_VOICE;
     const voice = ALLOWED_VOICES.has(requestedVoice) ? requestedVoice : DEFAULT_VOICE;
 
@@ -144,13 +141,7 @@ Deno.serve(async (req) => {
     if (debitError) return json({ error: "Unable to reserve voiceover credits" }, 500);
     if (!debited) return json({ error: "Insufficient credits", required_credits: credits }, 402);
 
-    await logTransaction(
-      admin,
-      user.id,
-      -credits,
-      "consumption",
-      `Reserved ${credits} credits for Deepgram Aura-2 voiceover`,
-    );
+    await logTransaction(admin, user.id, -credits, "consumption", `Reserved ${credits} credits for Deepgram Aura-2 voiceover`);
 
     const response = await fetch(
       `https://api.deepgram.com/v1/speak?model=${encodeURIComponent(voice)}&encoding=mp3`,
@@ -189,22 +180,39 @@ Deno.serve(async (req) => {
     const { data: publicUrlData } = admin.storage.from("media").getPublicUrl(filePath);
     const audioUrl = publicUrlData.publicUrl;
     const providerCost = Number(((text.length / 1000) * AURA2_USD_PER_1K_CHARS).toFixed(6));
+    let attached = false;
 
-    const { error: historyError } = await admin.from("generations").insert({
-      user_id: user.id,
-      type: "audio",
-      status: "completed",
-      progress: 100,
-      provider: "deepgram",
-      model: voice,
-      prompt: text,
-      media_url: audioUrl,
-      audio_url: audioUrl,
-      estimated_cost: providerCost,
-      actual_cost: providerCost,
-      completed_at: new Date().toISOString(),
-    });
-    if (historyError) console.warn("[clipmotion-voice] history insert failed", historyError.message);
+    if (attachToRequestId) {
+      const { data: updatedVideo, error: attachError } = await admin
+        .from("generations")
+        .update({ audio_url: audioUrl, updated_at: new Date().toISOString() })
+        .eq("user_id", user.id)
+        .eq("type", "video")
+        .eq("external_task_id", attachToRequestId)
+        .select("id")
+        .maybeSingle();
+
+      if (attachError) console.warn("[clipmotion-voice] video attachment failed", attachError.message);
+      attached = Boolean(updatedVideo?.id);
+    }
+
+    if (!attached) {
+      const { error: historyError } = await admin.from("generations").insert({
+        user_id: user.id,
+        type: "audio",
+        status: "completed",
+        progress: 100,
+        provider: "deepgram",
+        model: voice,
+        prompt: text,
+        media_url: audioUrl,
+        audio_url: audioUrl,
+        estimated_cost: providerCost,
+        actual_cost: providerCost,
+        completed_at: new Date().toISOString(),
+      });
+      if (historyError) console.warn("[clipmotion-voice] history insert failed", historyError.message);
+    }
 
     return json({
       audio_url: audioUrl,
@@ -212,6 +220,8 @@ Deno.serve(async (req) => {
       provider_cost_usd: providerCost,
       model: voice,
       characters: text.length,
+      attached_to_video: attached,
+      attached_to_request_id: attached ? attachToRequestId : null,
     });
   } catch (error) {
     console.error("[clipmotion-voice] unhandled error", error);
