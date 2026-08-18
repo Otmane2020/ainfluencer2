@@ -307,8 +307,14 @@ Deno.serve(async (req) => {
     if (!p.prompt || typeof p.prompt !== "string" || !p.prompt.trim()) {
       return json({ error: "prompt is required" }, 400);
     }
-    if (isVideoEndpoint(endpoint) && !p.image_url) {
-      return json({ error: "image_url is required for image-to-video generation" }, 400);
+    const inputImages = Array.isArray(p.input_images) ? p.input_images : [];
+    const hasInputImage = inputImages.some((item) => {
+      if (!item || typeof item !== "object") return false;
+      const url = (item as Record<string, unknown>).image_url;
+      return typeof url === "string" && url.trim().length > 0;
+    });
+    if (isVideoEndpoint(endpoint) && !p.image_url && !hasInputImage) {
+      return json({ error: "A source image is required for image-to-video generation" }, 400);
     }
 
     const credits = generationCreditCost(endpoint, p);
