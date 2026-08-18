@@ -17,7 +17,9 @@ const features = [
     description: "Create studio, lifestyle, luxury and social campaign concepts.",
     icon: ImageIcon,
     route: "/images",
+    badge: "",
   },
+
   {
     id: "voice",
     title: "AI Voiceover",
