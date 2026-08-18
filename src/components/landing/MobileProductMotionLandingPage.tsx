@@ -210,7 +210,7 @@ export const MobileProductMotionLandingPage = () => {
         <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5">
           <h2 className="font-display text-xl font-bold">What to expect from AI generation</h2>
           <p className="mt-2 text-xs leading-5 text-muted-foreground">
-            ClipMotion is a generative creative tool. We would rather set the right expectation than promise a perfect render every time.
+            ClipMotion is a generative creative tool. Results can vary, so some ideas may need more than one generation.
           </p>
           <ul className="mt-4 space-y-3">
             {EXPECTATIONS.map((item) => (
@@ -237,7 +237,7 @@ export const MobileProductMotionLandingPage = () => {
       <section id="pricing" className="bg-muted/20 px-4 py-9">
         <h2 className="font-display text-2xl font-bold">Simple credit pricing</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          No fake countdowns. Pick the plan that matches how much you generate.
+          Pick the plan that matches how much image and video generation you need.
         </p>
         <div className="mt-5">
           <PricingPacks compact showFlashSale={false} />
