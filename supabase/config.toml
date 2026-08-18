@@ -181,3 +181,9 @@ verify_jwt = false
 
 [functions.search-linkedin-topics]
 verify_jwt = false
+
+[functions.higgsfield-generate]
+verify_jwt = true
+
+[functions.clipmotion-voice]
+verify_jwt = true
