@@ -49,6 +49,27 @@ async function authenticate(req: Request) {
   return error ? null : data.user;
 }
 
+async function getDeepgramKey(admin: ReturnType<typeof getAdminClient>) {
+  const envKey = Deno.env.get("DEEPGRAM_API_KEY");
+  if (envKey?.trim()) return envKey.trim();
+
+  const { data, error } = await admin
+    .schema("vault")
+    .from("decrypted_secrets")
+    .select("decrypted_secret")
+    .eq("name", "DEEPGRAM_API_KEY")
+    .maybeSingle();
+
+  if (error) {
+    console.warn("[clipmotion-voice] Vault lookup failed", error.message);
+    return null;
+  }
+
+  return typeof data?.decrypted_secret === "string" && data.decrypted_secret.trim()
+    ? data.decrypted_secret.trim()
+    : null;
+}
+
 function voiceCreditCost(characterCount: number) {
   return Math.max(1, Math.ceil(Math.max(0, characterCount) / 1500));
 }
@@ -92,10 +113,21 @@ Deno.serve(async (req) => {
     const user = await authenticate(req);
     if (!user) return json({ error: "Authentication required" }, 401);
 
-    const deepgramKey = Deno.env.get("DEEPGRAM_API_KEY");
-    if (!deepgramKey) return json({ error: "Deepgram API key not configured" }, 500);
-
+    const admin = getAdminClient();
     const body = await req.json();
+    const action = typeof body?.action === "string" ? body.action : "generate";
+    const deepgramKey = await getDeepgramKey(admin);
+
+    if (action === "health") {
+      return json({
+        ok: Boolean(deepgramKey),
+        configured: Boolean(deepgramKey),
+        provider: "deepgram",
+      });
+    }
+
+    if (!deepgramKey) return json({ error: "Voice service is not configured", code: "VOICE_NOT_CONFIGURED" }, 503);
+
     const text = typeof body?.text === "string" ? body.text.trim() : "";
     const requestedVoice = typeof body?.voice === "string" ? body.voice : DEFAULT_VOICE;
     const voice = ALLOWED_VOICES.has(requestedVoice) ? requestedVoice : DEFAULT_VOICE;
@@ -104,7 +136,6 @@ Deno.serve(async (req) => {
     if (text.length > 12000) return json({ error: "Voiceover script is too long (12,000 characters maximum)" }, 400);
 
     const credits = voiceCreditCost(text.length);
-    const admin = getAdminClient();
 
     const { data: debited, error: debitError } = await admin.rpc("deduct_credits", {
       p_user_id: user.id,
