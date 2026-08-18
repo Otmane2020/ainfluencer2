@@ -47,8 +47,12 @@ const IMAGE_ENGINES = [
   { id: "/reve/text-to-image", label: "Reve", description: "Versatile creative exploration" },
 ];
 
+const DOP_TURBO_ENDPOINT = "/v1/image2video/dop";
+const DOP_TURBO_MODEL = "dop-turbo";
+const DOP_TURBO_DURATION = 5;
+
 const VIDEO_ENGINES = [
-  { id: "/higgsfield-ai/dop/standard", label: "DoP", description: "Cinematic product motion" },
+  { id: DOP_TURBO_ENDPOINT, label: "DoP Turbo", description: "Official product motion — highest product fidelity" },
   { id: "/bytedance/seedance/v1/pro/image-to-video", label: "Seedance Pro", description: "Expressive image animation" },
   { id: "/kling-video/v2.1/pro/image-to-video", label: "Kling v2.1 Pro", description: "Alternative motion engine" },
 ];
@@ -59,30 +63,74 @@ const MOTION_RECIPES = [
     title: "Product Reveal",
     eyebrow: "Best seller",
     description: "Premium controlled reveal for an ad or product page.",
-    prompt: "Premium product reveal. Preserve the exact product identity and geometry. Smooth controlled camera push-in, subtle parallax, realistic lighting, restrained motion, no text overlays, no object morphing.",
+    prompt: "Camera move only: smooth, controlled slow push-in toward the product with subtle parallax. Keep the existing set, lighting and styling exactly as in the source image. No scene change, no new objects, no text overlays.",
   },
   {
     id: "luxury-orbit",
     title: "Luxury Orbit",
     eyebrow: "Premium",
     description: "Slow high-end camera movement around the product.",
-    prompt: "Luxury commercial product shot. Preserve product identity. Slow elegant orbital camera movement, premium studio lighting, subtle reflections, polished advertising aesthetic, stable geometry, no text.",
+    prompt: "Camera move only: slow, elegant partial orbit around the product with a steady horizon. Keep the existing set, lighting and styling exactly as in the source image. No scene change, no new objects, no text overlays.",
   },
   {
     id: "social-hook",
     title: "Social Hook",
     eyebrow: "Reels / TikTok",
     description: "Faster movement with a stronger opening beat.",
-    prompt: "Short-form social product ad. Preserve the product. Strong visual hook in the opening moment, energetic but controlled camera movement, crisp commercial lighting, modern Reels and TikTok pacing, no generated text.",
+    prompt: "Camera move only: snappy opening beat then a controlled push-in with a slight lateral drift, modern short-form pacing. Keep the existing set, lighting and styling exactly as in the source image. No scene change, no new objects, no text overlays.",
   },
   {
     id: "macro-detail",
     title: "Macro Detail",
     eyebrow: "Beauty / jewelry",
     description: "Close-up movement for materials and product details.",
-    prompt: "Macro commercial product detail. Preserve materials, logo placement and geometry. Slow macro camera slide, shallow depth of field, realistic highlights, premium detail photography, subtle motion only.",
+    prompt: "Camera move only: slow macro slide across the product surface with shallow depth of field. Keep the existing set, lighting and styling exactly as in the source image. No scene change, no new objects, no text overlays.",
   },
 ];
+
+const PRODUCT_LOCK_BLOCK = [
+  "PRODUCT FIDELITY — STRICT:",
+  "The uploaded source image is the absolute ground truth.",
+  "Keep the exact product identity, silhouette, dimensions and proportions, geometry, colors, textures and materials, seams, buttons, hardware, labels, printed text, logo placement, packaging and the exact number of parts.",
+  "Do not redesign, morph, warp, melt, stretch, recolor, retexture, replace, add or remove parts, invent details, change branding, or change any readable text.",
+  "Only camera motion, subtle parallax, reflection and lighting changes, and physically plausible micro-motion around the product are allowed unless the user instruction explicitly asks otherwise.",
+  "The FIRST FRAME must visually match the uploaded source image.",
+].join(" ");
+
+export function buildMotionPrompt(options: {
+  userDirection: string;
+  recipePrompt: string;
+  productLock: boolean;
+}) {
+  const parts: string[] = [];
+  const direction = options.userDirection.trim();
+  if (direction) parts.push(`USER INSTRUCTION — HIGHEST PRIORITY: ${direction}`);
+  if (options.productLock) parts.push(PRODUCT_LOCK_BLOCK);
+  if (options.recipePrompt) parts.push(`SECONDARY MOTION AND STYLE GUIDANCE: ${options.recipePrompt}`);
+  return parts.join("\n\n");
+}
+
+export function buildMotionPayload(options: {
+  endpoint: string;
+  prompt: string;
+  imageUrl: string;
+  duration: number;
+}) {
+  const image = options.imageUrl.trim();
+  if (options.endpoint === DOP_TURBO_ENDPOINT) {
+    return {
+      model: DOP_TURBO_MODEL,
+      prompt: options.prompt,
+      input_images: [{ type: "image_url", image_url: image }],
+    } as Record<string, unknown>;
+  }
+  return {
+    prompt: options.prompt,
+    duration: options.duration,
+    image_url: image,
+  } as Record<string, unknown>;
+}
+
 
 const VISUAL_RECIPES = [
   {
