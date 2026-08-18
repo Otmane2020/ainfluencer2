@@ -1,12 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
-import PricingPage from "@/pages/PricingPage";
-import { productSchema } from "@/lib/seo-data";
+import TransparentPricingPage from "@/pages/TransparentPricingPage";
 
-const title = "Pricing — ClipMotion AI Studio";
+const title = "Pricing — ClipMotion AI Product Motion Studio";
 const description =
-  "Simple credit-based pricing for AI image and video generation. Starter, Pro and Business plans. Pay as you create, cancel anytime.";
+  "Transparent credit-based pricing for ClipMotion AI image, video and image-to-video generation. See generation costs before you create and cancel anytime.";
 const url = "https://clipmotion.ai/pricing";
 const ogImage = "https://clipmotion.ai/og-image.png";
+
+const pricingSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  name: title,
+  url,
+  description,
+  isPartOf: {
+    "@type": "WebSite",
+    name: "ClipMotion",
+    url: "https://clipmotion.ai/",
+  },
+};
 
 export const Route = createFileRoute("/pricing")({
   head: () => ({
@@ -19,10 +31,12 @@ export const Route = createFileRoute("/pricing")({
       { property: "og:url", content: url },
       { property: "og:image", content: ogImage },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: title },
+      { name: "twitter:description", content: description },
       { name: "twitter:image", content: ogImage },
     ],
     links: [{ rel: "canonical", href: url }],
-    scripts: [{ type: "application/ld+json", children: JSON.stringify(productSchema) }],
+    scripts: [{ type: "application/ld+json", children: JSON.stringify(pricingSchema) }],
   }),
-  component: PricingPage,
+  component: TransparentPricingPage,
 });
