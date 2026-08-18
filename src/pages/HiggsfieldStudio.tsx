@@ -232,7 +232,9 @@ const HiggsfieldStudio = ({ defaultTab = "product-motion" }: Props) => {
   const [motionRecipe, setMotionRecipe] = useState(MOTION_RECIPES[0].id);
   const [motionDirection, setMotionDirection] = useState("");
   const [videoEngine, setVideoEngine] = useState(VIDEO_ENGINES[0].id);
-  const [duration, setDuration] = useState(5);
+  const [duration, setDuration] = useState(DOP_TURBO_DURATION);
+  const [productLock, setProductLock] = useState(true);
+
   const [motionStatus, setMotionStatus] = useState("");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [serverMotionCredits, setServerMotionCredits] = useState<number | null>(null);
