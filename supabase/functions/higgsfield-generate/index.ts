@@ -37,22 +37,13 @@ async function readJson(response: Response): Promise<unknown> {
 
 function errorMentionsMissingParams(data: unknown) {
   const serialized = JSON.stringify(data ?? "").toLowerCase();
-  return (
-    serialized.includes('"params"') &&
-    (serialized.includes("field required") || serialized.includes("missing"))
-  );
+  return serialized.includes('"params"') && (serialized.includes("field required") || serialized.includes("missing"));
 }
 
-/**
- * Higgsfield endpoints do not all share the same request-body envelope.
- * Current image-to-video endpoints validate prompt/image_url at body root,
- * while some older endpoints have required { params: ... }.
- *
- * Submit flat first (the format required by current I2V endpoints), then retry
- * exactly once with { params } only when Higgsfield explicitly reports that
- * the params field itself is missing. Credits are reserved outside this helper,
- * so this compatibility retry can never double-charge the user.
- */
+function isVideoEndpoint(endpoint: string) {
+  return /\/dop\/|kling-video|seedance|image-to-video|image2video|text-to-video|\/video\//i.test(endpoint);
+}
+
 async function submitToHiggsfield(
   endpoint: string,
   payload: Record<string, unknown>,
@@ -94,9 +85,8 @@ function normalizeDuration(value: unknown) {
 function generationCreditCost(endpoint: string, payload: Record<string, unknown>) {
   const resolution = String(payload.resolution ?? "720p").toLowerCase();
   const is1080 = resolution.includes("1080");
-  const isVideo = /video|image-to-video|image2video/i.test(endpoint);
 
-  if (!isVideo) return is1080 ? 8 : 5;
+  if (!isVideoEndpoint(endpoint)) return is1080 ? 8 : 5;
 
   const duration = normalizeDuration(payload.duration);
   const baseByDuration: Record<number, number> = {
@@ -230,16 +220,29 @@ Deno.serve(async (req) => {
 
     const key = Deno.env.get("HIGGSFIELD_API_KEY");
     const secret = Deno.env.get("HIGGSFIELD_API_SECRET");
-    if (!key || !secret) return json({ error: "Higgsfield credentials not configured" }, 500);
-
-    const admin = getAdminClient();
-    const authHeader = `Key ${key}:${secret}`;
     const body = await req.json();
     const { action = "submit", endpoint, payload, request_id } = body ?? {};
 
+    if (action === "health") {
+      return json({
+        ok: Boolean(key && secret),
+        configured: Boolean(key && secret),
+        provider: "higgsfield",
+      });
+    }
+
+    if (!key || !secret) return json({ error: "Motion service is not configured", code: "HIGGSFIELD_NOT_CONFIGURED" }, 503);
+
+    const admin = getAdminClient();
+    const authHeader = `Key ${key}:${secret}`;
+
     if (action === "quote") {
       if (!endpoint) return json({ error: "endpoint required" }, 400);
-      const p = (payload ?? {}) as Record<string, unknown>;
+      const incoming = (payload ?? {}) as Record<string, unknown>;
+      const nested = incoming.params;
+      const p = nested && typeof nested === "object" && !Array.isArray(nested)
+        ? { ...(nested as Record<string, unknown>) }
+        : { ...incoming };
       const credits = generationCreditCost(endpoint, p);
       return json({
         credits,
@@ -265,10 +268,7 @@ Deno.serve(async (req) => {
       });
       const data = await readJson(response) as Record<string, unknown>;
       if (!response.ok) {
-        return json(
-          { error: pickErrorMessage(data, `Higgsfield API error (${response.status})`) },
-          response.status,
-        );
+        return json({ error: pickErrorMessage(data, `Higgsfield API error (${response.status})`) }, response.status);
       }
 
       const status = String(data.status ?? "");
@@ -307,7 +307,7 @@ Deno.serve(async (req) => {
     if (!p.prompt || typeof p.prompt !== "string" || !p.prompt.trim()) {
       return json({ error: "prompt is required" }, 400);
     }
-    if (/image-to-video|image2video/i.test(endpoint) && !p.image_url) {
+    if (isVideoEndpoint(endpoint) && !p.image_url) {
       return json({ error: "image_url is required for image-to-video generation" }, 400);
     }
 
