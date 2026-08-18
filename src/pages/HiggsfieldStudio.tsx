@@ -666,7 +666,7 @@ const HiggsfieldStudio = ({ defaultTab = "product-motion" }: Props) => {
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>{VIDEO_ENGINES.map((engine) => <SelectItem key={engine.id} value={engine.id}>{engine.label}</SelectItem>)}</SelectContent>
                           </Select>
-                          <p className="mt-2 text-[11px] text-muted-foreground">DoP is the default product-motion route.</p>
+                          <p className="mt-2 text-[11px] text-muted-foreground">DoP Turbo is the default product-motion route. Seedance and Kling are alternatives.</p>
                         </div>
                       </details>
                     </div>
