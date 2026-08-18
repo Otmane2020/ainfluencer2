@@ -119,7 +119,7 @@ const FeaturesPage = () => {
               onClick={() => navigate("/auth")}
               className="gradient-primary shadow-glow"
             >
-              Start Creating Free <ArrowRight className="ml-2 h-5 w-5" />
+              Get Started <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </motion.div>
         </div>
@@ -170,7 +170,7 @@ const FeaturesPage = () => {
             Ready to Experience These Features?
           </h2>
           <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-            Start your free trial today and see how ClipMotion can transform your content creation workflow.
+            Choose a plan today and see how ClipMotion can transform your content creation workflow.
           </p>
           <Button size="lg" onClick={() => navigate("/auth")} className="gradient-primary">
             <Wand2 className="mr-2 h-5 w-5" /> Get Started Free

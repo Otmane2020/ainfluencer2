@@ -22,8 +22,12 @@ export function AppLayout() {
     }
   }, [user, isLoading, navigate]);
 
-  // No hard gate: free users get welcome credits and can try the studio.
-  // The paywall appears only once free credits are exhausted.
+  // Hard gate: no free trial — an active paid plan is required to use the studio.
+  useEffect(() => {
+    if (!isLoading && !subLoading && user && !isSubscribed) {
+      navigate("/choose-plan");
+    }
+  }, [user, isLoading, subLoading, isSubscribed, navigate]);
 
   if (isLoading || subLoading) {
     return (

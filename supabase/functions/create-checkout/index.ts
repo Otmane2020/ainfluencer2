@@ -110,18 +110,6 @@ serve(async (req) => {
       const priceId = PLAN_PRICES[planId];
       if (!priceId) throw new Error(`Invalid plan: ${planId}`);
 
-      // Check if user has already had a trial (any past subscription on this customer)
-      let eligibleForTrial = true;
-      if (customerId) {
-        const allSubs = await stripe.subscriptions.list({
-          customer: customerId,
-          status: "all",
-          limit: 100,
-        });
-        eligibleForTrial = allSubs.data.length === 0;
-        logStep("Trial eligibility checked", { customerId, eligibleForTrial, pastSubs: allSubs.data.length });
-      }
-
       session = await stripe.checkout.sessions.create({
         customer: customerId,
         customer_email: customerId ? undefined : userEmail,
@@ -136,24 +124,13 @@ serve(async (req) => {
         },
         // Allow promotion codes for marketing
         allow_promotion_codes: true,
-        // 7-day free trial for first-time subscribers (boosts conversion)
-        subscription_data: eligibleForTrial
-          ? {
-              trial_period_days: 7,
-              trial_settings: {
-                end_behavior: { missing_payment_method: "cancel" },
-              },
-              metadata: {
-                user_id: userId,
-                plan_id: planId,
-              },
-            }
-          : {
-              metadata: {
-                user_id: userId,
-                plan_id: planId,
-              },
-            },
+        // No free trial — the customer is charged immediately
+        subscription_data: {
+          metadata: {
+            user_id: userId,
+            plan_id: planId,
+          },
+        },
       });
       logStep("Subscription checkout session created", { sessionId: session.id });
 

@@ -74,7 +74,7 @@ export function MobileStickyCta({ showFlashSale = true }: MobileStickyCtaProps) 
             <div className="flex items-center gap-3">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold truncate">Start creating viral content</p>
-                <p className="text-xs text-muted-foreground">Free trial • No credit card</p>
+                <p className="text-xs text-muted-foreground">Plans from $19/mo • Cancel anytime</p>
               </div>
               <Button
                 onClick={() => navigate("/auth")}

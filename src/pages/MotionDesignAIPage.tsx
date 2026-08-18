@@ -172,7 +172,7 @@ const MotionDesignAIPage = () => {
             Professional motion design is now accessible to everyone. Start creating stunning animations today.
           </p>
           <Button size="lg" onClick={() => navigate("/auth")} className="gradient-primary">
-            <Palette className="mr-2 h-5 w-5" /> Start Creating Free
+            <Palette className="mr-2 h-5 w-5" /> Get Started
           </Button>
         </div>
       </section>

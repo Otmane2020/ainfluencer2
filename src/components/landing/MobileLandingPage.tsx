@@ -98,8 +98,7 @@ export const MobileLandingPage = () => {
             <span className="text-gradient">cinematic video</span>
           </h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            One studio, the best generative models, one credit balance. Start free — no card
-            required.
+            One studio, the best generative models, one credit balance. Plans from $19/mo.
           </p>
 
           {/* Latest generated video */}
@@ -136,7 +135,7 @@ export const MobileLandingPage = () => {
               onClick={() => navigate("/auth")}
             >
               <Play className="mr-2 h-4 w-4" />
-              Start creating free
+              Choose your plan
             </Button>
             <Button
               size="lg"
@@ -150,7 +149,7 @@ export const MobileLandingPage = () => {
           </div>
 
           <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-            <ShieldCheck className="h-3.5 w-3.5 text-primary" /> 10 free credits • Cancel anytime
+            <ShieldCheck className="h-3.5 w-3.5 text-primary" /> Plans from $19/mo • Cancel anytime
           </p>
 
           <div className="mt-7 grid grid-cols-3 gap-3">
@@ -258,7 +257,7 @@ export const MobileLandingPage = () => {
       {/* Pricing */}
       <section id="pricing" className="px-4 py-8">
         <h2 className="font-display text-xl font-bold">Simple pricing</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Start free, upgrade when you scale.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Pick a plan, upgrade when you scale.</p>
         <div className="mt-4">
           <PricingPacks compact />
         </div>
@@ -271,7 +270,7 @@ export const MobileLandingPage = () => {
             Your first video is 30 seconds away
           </h2>
           <p className="mt-2 text-sm text-primary-foreground/80">
-            10 free credits on signup. No card required.
+            Pick a plan and start generating instantly.
           </p>
           <Button
             size="lg"
@@ -279,7 +278,7 @@ export const MobileLandingPage = () => {
             className="mt-4 h-12 w-full text-base"
             onClick={() => navigate("/auth")}
           >
-            Start creating free
+            Choose your plan
           </Button>
         </div>
       </section>
@@ -348,7 +347,7 @@ export const MobileLandingPage = () => {
           className="h-12 w-full gradient-primary text-base shadow-glow"
           onClick={() => navigate("/auth")}
         >
-          Start free — 10 credits
+          Get started — from $19/mo
         </Button>
       </div>
     </div>

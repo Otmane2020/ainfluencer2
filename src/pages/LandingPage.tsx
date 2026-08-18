@@ -209,7 +209,7 @@ const LandingPage = () => {
                 className="w-full sm:w-auto h-12 md:h-14 px-6 md:px-8 text-base md:text-lg gradient-primary shadow-glow hover:opacity-90 transition-opacity"
               >
                 <Play className="mr-2 h-4 w-4 md:h-5 md:w-5" />
-                Start Creating Free
+                Get Started
               </Button>
               <Button
                 size="lg"
@@ -526,7 +526,7 @@ const LandingPage = () => {
               Simple, <span className="text-gradient">Transparent</span> Pricing
             </h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Choose the plan that fits your needs. Start free, upgrade anytime.
+              Choose the plan that fits your needs. Upgrade or cancel anytime.
             </p>
           </motion.div>
 
@@ -608,7 +608,7 @@ const LandingPage = () => {
                 <Wand2 className="mr-2 h-5 w-5" />
                 Start Creating
               </Button>
-              <p className="text-sm text-white/60 mt-4">7-day free trial • No credit card required</p>
+              <p className="text-sm text-white/60 mt-4">Paid plans from $19/mo • Cancel anytime</p>
             </div>
           </motion.div>
         </div>

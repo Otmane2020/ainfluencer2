@@ -306,7 +306,7 @@ const PricingPage = () => {
               },
               {
                 q: "Can I try ClipMotion for free?",
-                a: "Yes — every paid plan starts with a 7-day free trial. No credit card is charged during the trial and you can cancel at any time.",
+                a: "No — there is no free trial. Every plan is billed upfront and includes your monthly credits immediately. You can cancel at any time.",
               },
               {
                 q: "What happens if I run out of credits?",

@@ -51,7 +51,7 @@ const faqs = [
     questions: [
       {
         q: "Is there a free plan?",
-        a: "Yes, ClipMotion offers a free trial that lets you try the platform with limited generations. Check our pricing page for plan details.",
+        a: "No — ClipMotion is a paid platform. Pick a plan (Starter, Pro or Business) to get your monthly credits and start generating. You can cancel at any time.",
       },
       {
         q: "Can I cancel my subscription anytime?",

@@ -61,20 +61,15 @@ export const PaywallGuard = ({ feature, children, requiredPlan }: PaywallGuardPr
   const config = FEATURE_CONFIG[feature];
   const effectiveRequiredPlan = requiredPlan || config.requiredPlan;
 
-  const freeCredits = credits?.balance ?? 0;
-
-  // Determine if user has access
+  // Determine if user has access — no free trial: an active paid plan is required
   const hasAccess = (): boolean => {
-    // Free users keep access while they still have welcome credits left
-    if (!subscription.isSubscribed) {
-      return freeCredits > 0;
-    }
-    
+    if (!subscription.isSubscribed) return false;
+
     // Check plan hierarchy
     const planHierarchy = ["starter", "pro", "business"];
     const userPlanIndex = planHierarchy.indexOf(subscription.planId);
     const requiredPlanIndex = planHierarchy.indexOf(effectiveRequiredPlan);
-    
+
     // User's plan must be >= required plan
     return userPlanIndex >= requiredPlanIndex;
   };
