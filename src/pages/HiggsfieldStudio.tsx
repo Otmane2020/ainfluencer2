@@ -225,23 +225,28 @@ const HiggsfieldStudio = ({ defaultTab = "product-motion" }: Props) => {
   const totalMotionCredits = estimatedMotionCredits + voiceCredits;
 
   const motionBlocker = useMemo(() => {
-    if (!subscription.isSubscribed) return "Choose an active plan before generating.";
-    if (!imageUrl.trim()) return "Upload or paste a product image before generating motion.";
-    if (!isValidPublicUrl(imageUrl.trim())) return "The product image URL is not valid.";
+    if (!subscription.isSubscribed) return "Choose an active plan to continue.";
+    if (!imageUrl.trim()) return "Add a product image to continue.";
+    if (!isValidPublicUrl(imageUrl.trim())) return "Check the image URL to continue.";
     if (voiceEnabled && !voiceText.trim()) return "Add a voiceover script or switch voiceover off.";
     if (!creditsLoading && balance < totalMotionCredits) return `You need ${totalMotionCredits} credits but your balance is ${balance}.`;
     return null;
   }, [subscription.isSubscribed, imageUrl, voiceEnabled, voiceText, creditsLoading, balance, totalMotionCredits]);
 
   const visualBlocker = useMemo(() => {
-    if (!subscription.isSubscribed) return "Choose an active plan before generating.";
+    if (!subscription.isSubscribed) return "Choose an active plan to continue.";
     if (!creditsLoading && balance < visualCredits) return `You need ${visualCredits} credits but your balance is ${balance}.`;
     return null;
   }, [subscription.isSubscribed, creditsLoading, balance, visualCredits]);
 
   const showBlocked = (message: string) => {
     setPreflightMessage(message);
-    toast({ title: "Generation not started", description: message, variant: "destructive" });
+    toast({ title: "Generation unavailable", description: message, variant: "destructive" });
+  };
+
+  const showRequirement = (message: string) => {
+    setPreflightMessage(null);
+    toast({ title: "Almost ready", description: message });
   };
 
   const assertBackendReady = async (functionName: "higgsfield-generate" | "clipmotion-voice") => {
@@ -279,7 +284,7 @@ const HiggsfieldStudio = ({ defaultTab = "product-motion" }: Props) => {
 
   const preflightMotion = async () => {
     if (motionBlocker) {
-      showBlocked(motionBlocker);
+      showRequirement(motionBlocker);
       return null;
     }
 
@@ -370,7 +375,7 @@ const HiggsfieldStudio = ({ defaultTab = "product-motion" }: Props) => {
 
   const handleGenerateVisual = async () => {
     if (visualBlocker) {
-      showBlocked(visualBlocker);
+      showRequirement(visualBlocker);
       return;
     }
 
@@ -436,25 +441,34 @@ const HiggsfieldStudio = ({ defaultTab = "product-motion" }: Props) => {
     if (audioRef.current) audioRef.current.pause();
   };
 
-  const StatusStrip = ({ blocker }: { blocker: string | null }) => (
-    <div className={`flex items-start gap-3 rounded-2xl border px-4 py-3 ${
-      blocker || preflightMessage
-        ? "border-destructive/30 bg-destructive/5"
-        : "border-primary/20 bg-primary/5"
-    }`}>
-      {blocker || preflightMessage ? (
-        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
-      ) : (
-        <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-      )}
-      <div className="min-w-0">
-        <p className="text-sm font-semibold">{blocker || preflightMessage ? "Generation blocked" : "Ready for preflight"}</p>
-        <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-          {preflightMessage || blocker || "ClipMotion will verify backend availability and exact credits before any generation starts."}
-        </p>
+  const StatusStrip = ({ blocker }: { blocker: string | null }) => {
+    const hasTechnicalIssue = Boolean(preflightMessage);
+    const needsInput = Boolean(blocker) && !hasTechnicalIssue;
+
+    return (
+      <div className={`flex items-start gap-3 rounded-2xl border px-4 py-3 ${
+        hasTechnicalIssue
+          ? "border-destructive/30 bg-destructive/5"
+          : "border-primary/20 bg-primary/5"
+      }`}>
+        {hasTechnicalIssue ? (
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+        ) : needsInput ? (
+          <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+        ) : (
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+        )}
+        <div className="min-w-0">
+          <p className="text-sm font-semibold">
+            {hasTechnicalIssue ? "Generation unavailable" : needsInput ? "Almost ready" : "Ready for preflight"}
+          </p>
+          <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+            {preflightMessage || blocker || "ClipMotion will verify backend availability and exact credits before any generation starts."}
+          </p>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const CreditQuote = ({ credits, label }: { credits: number; label: string }) => (
     <div className="flex items-center justify-between rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-4 py-3">
